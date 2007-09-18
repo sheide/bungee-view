@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path=""/>
+	<classpathentry kind="src" path="/javaExtensions"/>
+	<classpathentry kind="lib" path="/bungeeServlet/WEB-INF/lib/mysql-connector-java-5.0.3-bin.jar"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="lib" path="C:/Program Files/Java/jdk1.5.0_06/jre/lib/ext/jai_imageio.jar">
+		<attributes>
+			<attribute value="http://java.sun.com/products/java-media/jai/forDevelopers/jai-apidocs" name="javadoc_location"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Program Files/Java/jdk1.5.0_06/jre/lib/ext/jai_core.jar">
+		<attributes>
+			<attribute value="http://java.sun.com/products/java-media/jai/forDevelopers/jai-apidocs" name="javadoc_location"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Program Files/Java/jdk1.5.0_06/jre/lib/ext/jai_codec.jar">
+		<attributes>
+			<attribute value="http://java.sun.com/products/java-media/jai/forDevelopers/jai-apidocs" name="javadoc_location"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Sun/AppServer/lib/javaee.jar"/>
+	<classpathentry kind="lib" path="C:/Program Files/Java/jdk1.5.0_06/jre/lib/ext/clibwrapper_jiio.jar">
+		<attributes>
+			<attribute value="http://java.sun.com/products/java-media/jai/forDevelopers/jai-apidocs" name="javadoc_location"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Program Files/Java/jdk1.5.0_06/jre/lib/ext/mlibwrapper_jai.jar"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/statistics"/>
+	<classpathentry kind="output" path=""/>
+</classpath>
