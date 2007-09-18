@@ -1,0 +1,48 @@
+Our mission is to make Bungee View the leading interface for museums and other digital libraries with 1,000 to 500,000 items to allow their users to quickly get a
+sense of their holdings, to search and browse individual objects, and to find
+patterns that hold over many objects.  It should be easy and fun to learn and
+use for casual non-technical users, and powerful enough to serve expert
+researchers.
+
+Bungee View is an open-source (GPL) Java Applet that uses MySQL as a back end.
+
+Features: 
+1. Designed for collections with 5 - 20 meta-data attributes, optionally with hierarchical structure.  (For instance, Date, Author, Medium, Price, Classification.)
+
+Requirements:
+MySQL 4.1
+ Data is stored in 3 main tables
+  1. Items.  Lists unstructured properties like name, description, image, etc.
+  2. Meta-data features.  
+  3. Mapping between items and features.  E.g.  item001 has the feature Date=>20thCentury=>1920.
+There are no plans to automate the conversion or updates of the MySQL database from whatever form the digital library currently uses, or to support meta-data creation.
+Browser with Java 1.4 or later enabled.
+800x600 display or larger.
+56Kbps connection to server or better.
+
+Status:
+Try it at http:...
+The biggest hassle seems to be getting Java 1.4 or later enabled on your browser.  The applet should be considered an alpha release.  It hasn't had much real use, but it should work well enough to be fun and useful.  Bug reports will be addressed promptly.
+
+Seeking digital libraries that want to make their content available.  Must provide help converting data.  If the collection is large or usage is heavy, must provide database and web server.
+Anyone who wants to address the unplanned features, or anything else, is also welcome to help.
+So far, it's all implemented by me.
+
+Documentation:
+Getting MySQL
+Creating the database
+Populating the database
+Setting up the applet to talk to the database.
+Getting the code to compile.
+Quick things to customize in the code
+Code structure.
+
+If you want to compile Bungee View:
+Get Piccolo (which points you to Eclipse and Java)
+
+free hosting site comparison:
+http://www.ibiblio.org/fosphost/exhost.htm
+
+
+
+
