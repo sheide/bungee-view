@@ -1,0 +1,5 @@
+Create a facet for every combination of base facets with a common parent that occurs for any item.  Then no item will have more than one facet with the same parent, and counts will never add up to more than the parent count.
+
+Each bar has a primary base facet, which determines the layout order.  Mouse gestures operate on the primary base facet.  All bars for a facet get highlighted and selected.
+
+Bar labels have multiple gray levels.  highlight only is applied to the appropriate subtext.  Normally, primary facet of multi-facet labels is lowlighted.  Multi-facet lebels never drawn unless primary facet is labeled.
