@@ -19,7 +19,6 @@ import javax.servlet.http.HttpServletResponse;
 
 import edu.cmu.cs.bungee.javaExtensions.Util;
 
-
 enum Command {
 	CONNECT, CLOSE, getCountsIgnoringFacet, ABOUT_COLLECTION, getFilteredCounts, updateOnItems, prefetch, offsetItems, getThumbs, cluster, getDescAndImage, getItemInfo, ITEM_URL, itemIndex, itemIndexFromURL, printUserAction, restrict, baseFacets, getFilteredCountTypes, addItemsFacet, addChildFacet, removeItemFacet, reparent, addItemFacet, writeback, rotate, rename, removeItemsFacet, getNames, reorderItems, setItemDescription, opsSpec
 }
