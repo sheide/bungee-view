@@ -77,7 +77,7 @@ public class ChiSqr {
 //			Util.print("chiSqr (" + (chiSqr) + ") => "
 //					+ getDist(degFreedom).cumulative(chiSqr));
 		}
-//		Util.print(PrintArray.printArrayString(table) + " " + p);
+//		Util.print(Util.valueOfDeep(table) + " " + p);
 		assert p >= 0 && p <= 1 : p;
 		return p;
 	}
@@ -92,7 +92,7 @@ public class ChiSqr {
 //			int rowSum = 0;
 			for (int col = 0; col < nCols; col++) {
 				int n = table[row][col];
-				assert n >= 0 : PrintArray.printArrayString(table);
+				assert n >= 0 : Util.valueOfDeep(table);
 				rowSums[row] += n;
 				colSums[col] += n;
 			}
@@ -105,8 +105,8 @@ public class ChiSqr {
 //			}
 //			colSums[col] = colSum;
 //		}
-		// Util.print(grandSum + " " + PrintArray.printArrayString(colSums));
-		// Util.print(PrintArray.printArrayString(rowSums));
+		// Util.print(grandSum + " " + Util.valueOfDeep(colSums));
+		// Util.print(Util.valueOfDeep(rowSums));
 		// double minExpected = grandSum;
 		double grandDiff = 0;
 		for (int row = 0; row < nRows; row++) {
@@ -153,7 +153,7 @@ public class ChiSqr {
 	// assert a < b, c, d
 	//
 	// static double FisherExact(int[][] table) {
-	// // PrintArray.printArray(table);
+	// // Util.printDeep(table);
 	// int a = Math.min(Math.min(table[0][0], table[0][1]), Math.min(
 	// table[1][0], table[1][1]));
 	// int b, c, d;
