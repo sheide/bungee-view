@@ -1,10 +1,10 @@
--injars 'C:\Documents and Settings\mad\workspace\bungeeServlet\WEB-INF\lib\bungeeServlet.jar'
+-injars 'C:\Documents and Settings\mad\workspace\bungeeServlet\bungeeServlet.jar'
 #-injars 'C:\Documents and Settings\mad\workspace\mysql-connector-java-3.0.16-ga-bin.jar'
--outjars 'C:\Documents and Settings\mad\workspace\bungeeServlet\WEB-INF\lib\bungeeServlet_shrunk.jar'
+-outjars 'C:\Program Files\Apache Software Foundation\Tomcat 5.5\webapps\bungee\WEB-INF\lib\bungeeServlet.jar'
 
 #-libraryjars 'C:\Program Files\Java\j2re1.4.2_11\lib\rt.jar'
 -libraryjars 'C:\Program Files\Java\jre1.5.0_06\lib\rt.jar'
--libraryjars 'C:\Documents and Settings\mad\workspace\bungeeServlet\WEB-INF\lib\mysql-connector-java-5.0.3-bin.jar'
+-libraryjars 'C:\Documents and Settings\mad\workspace\bungeeServlet\mysql-connector-java-5.0.3-bin.jar'
 -libraryjars 'C:\Program Files\Apache Software Foundation\Tomcat 5.5\common\lib\servlet-api.jar'
 
 -printusage shrink.log
@@ -16,7 +16,7 @@
 #-dontoptimize
 -allowaccessmodification
 
--keep class bungee.Bungee {
+-keep class edu.cmu.cs.bungee.servlet.Servlet {
     void doPost(javax.servlet.http.HttpServletRequest, javax.servlet.http.HttpServletResponse);
 }
 
