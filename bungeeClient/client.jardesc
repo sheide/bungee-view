@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="WINDOWS-1252"?>
+<jardesc>
+<jar path="C:/Documents and Settings/mad/workspace/bungeeClient/bungeeClient-non-shrunk.jar"/>
+<options buildIfNeeded="true" compress="true" descriptionLocation="/bungeeClient/client.jardesc" exportErrors="false" exportWarnings="true" includeDirectoryEntries="false" overwrite="false" saveDescription="true" storeRefactorings="false" useSourceFolders="false"/>
+<storedRefactorings deprecationInfo="true" structuralOnly="false"/>
+<selectedProjects/>
+<manifest generateManifest="true" mainClassHandleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.viz{Bungee.java[Bungee" manifestLocation="/bungeeClient/bungeeClient.mf" manifestVersion="1.0" reuseManifest="false" saveManifest="true" usesManifest="true">
+<sealing sealJar="false">
+<packagesToSeal/>
+<packagesToUnSeal/>
+</sealing>
+</manifest>
+<selectedElements exportClassFiles="true" exportJavaFiles="false" exportOutputFolder="false">
+<javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.viz{QueryViz.java"/>
+<javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.viz{Rank.java"/>
+<javaElement handleIdentifier="=javaExtensions/&lt;edu.cmu.cs.bungee.javaExtensions{AccumulatingQueueThread.java"/>
+<javaElement handleIdentifier="=piccolo/src&lt;edu.umd.cs.piccolo{PRoot.java"/>
+<javaElement handleIdentifier="=statistics/&lt;JSci.maths"/>
+<javaElement handleIdentifier="=piccolo/src&lt;edu.umd.cs.piccolo.event{PBasicInputEventHandler.java"/>
+<javaElement handleIdentifier="=javaExtensions/&lt;edu.cmu.cs.bungee.javaExtensions{MyResultSet.java"/>
+<javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.query{ServletInterface.java"/>
+<javaElement handleIdentifier="=javaExtensions/&lt;edu.cmu.cs.bungee.javaExtensions{Util.java"/>
+<javaElement handleIdentifier="=piccolo/extras&lt;edu.umd.cs.piccolox.event{PStyledTextEventHandler.java"/>
+<javaElement handleIdentifier="=piccolo/src&lt;edu.umd.cs.piccolo{PComponent.java"/>
+<javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.piccoloUtils.gui{MyInputEventHandler.java"/>
+<javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.piccoloUtils.gui{MouseDoc.java"/>
+<javaElement handleIdentifier="=piccolo/src&lt;edu.umd.cs.piccolo{PLayer.java"/>
+<javaElement handleIdentifier="=piccolo/src&lt;edu.umd.cs.piccolo.event{PInputEventFilter.java"/>
+<javaElement handleIdentifier="=javaExtensions/&lt;edu.cmu.cs.bungee.javaExtensions{IntHashtable.java"/>
+<javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.query{FacetTree.java"/>
+<javaElement handleIdentifier="=piccolo/src&lt;edu.umd.cs.piccolo.util{PDimension.java"/>
+<javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.query{Query.java"/>
+<javaElement handleIdentifier="=javaExtensions/&lt;edu.cmu.cs.bungee.javaExtensions{UpdateNoArgsThread.java"/>
+<javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.viz{GridImage.java"/>
+<javaElement handleIdentifier="=statistics/&lt;JSci.maths.statistics{GammaDistribution.java"/>
+<javaElement handleIdentifier="=statistics/&lt;JSci.maths.statistics{ChiSq2x2.java"/>
+<javaElement handleIdentifier="=piccolo/src&lt;edu.umd.cs.piccolo.util{PDebug.java"/>
+<javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.viz{PerspectiveList.java"/>
+<javaElement handleIdentifier="=piccolo/src&lt;edu.umd.cs.piccolo.util{PPaintContext.java"/>
+<javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.viz{MouseDocLine.java"/>
+<javaElement handleIdentifier="=javaExtensions/&lt;edu.cmu.cs.bungee.javaExtensions{UpdateThread.java"/>
+<javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.piccoloUtils.gui{VScrollbar.java"/>
+<javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.piccoloUtils.gui{APText.java"/>
+<javaElement handleIdentifier="=piccolo/src&lt;edu.umd.cs.piccolo.event{PInputEventListener.java"/>
+<javaElement handleIdentifier="=piccolo/src&lt;edu.umd.cs.piccolo.event{PInputEvent.java"/>
+<javaElement handleIdentifier="=piccolo/src&lt;edu.umd.cs.piccolo.util{PStack.java"/>
+<javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.piccoloUtils.gui{TextButton.java"/>
+<javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.piccoloUtils.gui{MenuButton.java"/>
+<javaElement handleIdentifier="=piccolo/src&lt;edu.umd.cs.piccolo.event{PPanEventHandler.java"/>
+<javaElement handleIdentifier="=piccolo/src&lt;edu.umd.cs.piccolo.activities{PActivity.java"/>
+<javaElement handleIdentifier="=piccolo/extras&lt;edu.umd.cs.piccolox.nodes{PStyledText.java"/>
+<javaElement handleIdentifier="=piccolo/src&lt;edu.umd.cs.piccolo.util{PBounds.java"/>
+<javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.viz{Bar.java"/>
+<javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.viz{FacetText.java"/>
+<javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.piccoloUtils.gui{LazyPPath.java"/>
+<javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.query{Perspective.java"/>
+<javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.viz{BungeeTextButton.java"/>
+<javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.viz{Header.java"/>
+<javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.piccoloUtils.gui{Button.java"/>
+<javaElement handleIdentifier="=piccolo/src&lt;edu.umd.cs.piccolo.event{PDragSequenceEventHandler.java"/>
+<javaElement handleIdentifier="=piccolo/extras&lt;edu.umd.cs.piccolox.event{PSelectionEventHandler.java"/>
+<javaElement handleIdentifier="=piccolo/src&lt;edu.umd.cs.piccolo.activities{PColorActivity.java"/>
+<javaElement handleIdentifier="=piccolo/src&lt;edu.umd.cs.piccolo{PNode.java"/>
+<javaElement handleIdentifier="=piccolo/src&lt;edu.umd.cs.piccolo.nodes{PPath.java"/>
+<javaElement handleIdentifier="=statistics/&lt;JSci.maths.statistics{ChiSqr.java"/>
+<javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.piccoloUtils.gui{Util.java"/>
+<javaElement handleIdentifier="=piccolo/src&lt;edu.umd.cs.piccolo{PInputManager.java"/>
+<javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.viz{PerspectiveViz.java"/>
+<javaElement handleIdentifier="=javaExtensions/&lt;edu.cmu.cs.bungee.javaExtensions{QueueThread.java"/>
+<javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.query{Markup.java"/>
+<javaElement handleIdentifier="=statistics/&lt;JSci.maths.statistics{ProbabilityDistribution.java"/>
+<javaElement handleIdentifier="=piccolo/src&lt;edu.umd.cs.piccolo.event{PDragEventHandler.java"/>
+<javaElement handleIdentifier="=piccolo/extras&lt;edu.umd.cs.piccolox{PFrame.java"/>
+<javaElement handleIdentifier="=piccolo/src&lt;edu.umd.cs.piccolo.event{PZoomEventHandler.java"/>
+<javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.viz{ItemImage.java"/>
+<javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.viz{ResultsGrid.java"/>
+<javaElement handleIdentifier="=piccolo/src&lt;edu.umd.cs.piccolo.activities{PInterpolatingActivity.java"/>
+<javaElement handleIdentifier="=piccolo/src&lt;edu.umd.cs.piccolo.util{PNodeFilter.java"/>
+<javaElement handleIdentifier="=piccolo/src&lt;edu.umd.cs.piccolo.util{PUtil.java"/>
+<javaElement handleIdentifier="=statistics/&lt;JSci.maths.statistics{OutOfRangeException.java"/>
+<javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.viz{PickFacetTextNotifier.java"/>
+<javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.query{ItemPredicate.java"/>
+<javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.piccoloUtils.gui{TextBox.java"/>
+<javaElement handleIdentifier="=statistics/&lt;JSci.maths.statistics{ChiSqrDistribution.java"/>
+<javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.viz{Bungee.java"/>
+<javaElement handleIdentifier="=piccolo/src&lt;edu.umd.cs.piccolo.util{PPickPath.java"/>
+<javaElement handleIdentifier="=piccolo/src&lt;edu.umd.cs.piccolo.util{PAffineTransform.java"/>
+<javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.query{Cluster.java"/>
+<javaElement handleIdentifier="=piccolo/src&lt;edu.umd.cs.piccolo.activities{PTransformActivity.java"/>
+<javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.viz{FacetTreeViz.java"/>
+<javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.viz{FacetClickHandler.java"/>
+<javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.viz{SelectedItem.java"/>
+<javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.viz{URLQuery.java"/>
+<javaElement handleIdentifier="=piccolo/src&lt;edu.umd.cs.piccolo.nodes{PText.java"/>
+<javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.viz{TextNfacets.java"/>
+<javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.piccoloUtils.gui{LazyPNode.java"/>
+<javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.piccoloUtils.gui{Arrow.java"/>
+<javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.viz{ClusterViz.java"/>
+<javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.piccoloUtils.gui{Boundary.java"/>
+<javaElement handleIdentifier="=piccolo/src&lt;edu.umd.cs.piccolo.nodes{PImage.java"/>
+<javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.viz{FacetNode.java"/>
+<javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.viz{Summary.java"/>
+<javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.query{PerspectiveObserver.java"/>
+<javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.viz{PopupSummary.java"/>
+<javaElement handleIdentifier="=piccolo/src&lt;edu.umd.cs.piccolo{PCanvas.java"/>
+<javaElement handleIdentifier="=piccolo/src&lt;edu.umd.cs.piccolo{PCamera.java"/>
+<javaElement handleIdentifier="=piccolo/src&lt;edu.umd.cs.piccolo.activities{PActivityScheduler.java"/>
+<javaElement handleIdentifier="=statistics/&lt;JSci.maths.statistics{FisherExactTest.java"/>
+<javaElement handleIdentifier="=javaExtensions/&lt;edu.cmu.cs.bungee.javaExtensions{JDBCSample.java"/>
+<javaElement handleIdentifier="=javaExtensions/&lt;edu.cmu.cs.bungee.javaExtensions{ValueComparator.java"/>
+<javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.query{DisplayTree.java"/>
+<javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.piccoloUtils.gui{Menu.java"/>
+</selectedElements>
+</jardesc>
