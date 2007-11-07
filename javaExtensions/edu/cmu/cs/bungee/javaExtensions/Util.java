@@ -62,8 +62,10 @@ import java.awt.image.ColorModel;
 import java.awt.image.RenderedImage;
 import java.awt.image.WritableRaster;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.Hashtable;
+import java.util.Iterator;
 import java.util.regex.Pattern;
 
 import javax.imageio.ImageIO;
@@ -90,10 +92,10 @@ public final class Util {
 	 * @return true
 	 */
 	public static boolean ignore(Object ignore) {
-		return ignore == null || ignore != null;
+		return ignore == null || true;
 	}
 	public static boolean ignore(boolean ignore) {
-		return ignore  || !ignore;
+		return ignore  || true;
 	}
 	public static boolean ignore(int ignore) {
 		return ignore == 0 || ignore != 0;
@@ -280,12 +282,16 @@ public final class Util {
 		// Util.print("pluraize " + s);
 		if (s.charAt(s.length() - 1) != 's')
 			s += "s";
+		else
+			s += "es";
 		return s;
 	}
 
 	public static void pluralize(StringBuffer s) {
 		if (s.charAt(s.length() - 1) != 's')
 			s.append("s");
+		else
+			s.append("es");
 	}
 
 	public static final char[] vowels = { 'a', 'e', 'i', 'o', 'u', 'A', 'E', 'I', 'O',
@@ -353,6 +359,7 @@ public final class Util {
 	static final Pattern commaPattern = Pattern.compile(",");
 
 	public static String[] splitComma(String s) {
+		assert s != null;
 		return commaPattern.split(s);
 	}
 
@@ -687,10 +694,7 @@ public final class Util {
 		int result = 0;
 		if (a1 != null) {
 			for (int i = 0; i < a1.length; i++)
-				if (a1[i] == null) {
-					if (p == null)
-						result++;
-				} else if (a1[i].equals(p))
+				if (equalsNullOK(a1[i], p))
 					result++;
 		}
 		return result;
@@ -750,8 +754,7 @@ public final class Util {
 				a1.length - n);
 		int j = 0;
 		for (int i = 0; i < a1.length; i++) {
-			boolean match = (a1[i] == null) ? p == null : a1[i].equals(p);
-			if (!match)
+			if (!equalsNullOK(a1[i], p))
 				Array.set(a, j++, a1[i]);
 		}
 		return a;
@@ -897,14 +900,20 @@ public final class Util {
 	public static int member(Object[] a, Object elt, int start) {
 		if (a != null) {
 			for (int i = start; i < a.length; i++) {
-				if (a[i] == null) {
-					if (elt == null)
-						return i;
-				} else if (a[i].equals(elt))
+				if (equalsNullOK(a[i], elt))
 					return i;
 			}
 		}
 		return -1;
+	}
+	
+	/**
+	 * @param arg1
+	 * @param arg2
+	 * @return Whether both args are null, or the args are equal
+	 */
+	public static boolean equalsNullOK(Object arg1, Object arg2) {
+		return arg1 == null ? arg2 == null : arg1.equals(arg2);
 	}
 
 	/**
@@ -994,10 +1003,88 @@ public final class Util {
 				(int) (alpha * 255 + 0.5));
 	}
 
+	public static void printDeep(Object a) {
+		System.out.println(valueOfDeep(a));
+	}
+
+	public static String valueOfDeep(Object a) {
+		return valueOfDeep(a, ", ");
+	}
+
+	public static String valueOfDeep(Object a, String separator) {
+		StringBuffer buf = new StringBuffer();
+		valueOfDeepInternal(a, buf, separator);
+		return buf.toString();
+	}
+
+	static void valueOfDeepInternal(Object a, StringBuffer buf, String separator) {
+		if (a == null)
+			buf.append("<null>");
+		else if (isArray(a)) {
+			buf.append("[");
+			if (a instanceof Object[]) {
+				Object[] ar = (Object[]) a;
+				for (int i = 0; i < ar.length; i++) {
+					valueOfDeepInternal(ar[i], buf, separator);
+					if (i < (ar.length - 1))
+						buf.append(separator);
+				}
+			} else if (a instanceof float[]) {
+				float[] ar = (float[]) a;
+				for (int i = 0; i < ar.length; i++) {
+					buf.append(ar[i]);
+					if (i < (ar.length - 1))
+						buf.append(separator);
+				}
+			} else if (a instanceof double[]) {
+				double[] ar = (double[]) a;
+				for (int i = 0; i < ar.length; i++) {
+					buf.append(ar[i]);
+					if (i < (ar.length - 1))
+						buf.append(separator);
+				}
+			} else if (a instanceof char[]) {
+				char[] ar = (char[]) a;
+				for (int i = 0; i < ar.length; i++) {
+					buf.append(ar[i]);
+					if (i < (ar.length - 1))
+						buf.append(separator);
+				}
+			} else if (a instanceof int[]) {
+				int[] ar = (int[]) a;
+				for (int i = 0; i < ar.length; i++) {
+					buf.append(ar[i]);
+					if (i < (ar.length - 1))
+						buf.append(separator);
+				}
+			} else {
+				System.err.println("Can't find match for " + a.getClass());
+				buf.append(a);
+			}
+			buf.append("]");
+		} else if (a instanceof Collection) {
+			buf.append("<");
+			for (Iterator iterator = ((Collection) a).iterator(); iterator.hasNext();) {
+				valueOfDeepInternal(iterator.next(), buf, separator);
+				if (iterator.hasNext())
+					buf.append(separator);
+			}
+			buf.append(">");
+		} else {
+			buf.append(a);
+		}
+	}
+
+	static boolean isArray(Object target) {
+		Class targetClass = target.getClass();
+		return targetClass.isArray();
+	}
+
 	/**
 	 * Save a few keystrokes.
 	 */
 	public static void print(Object o) {
+//		printStackTrace();
 		if (o == null)
 			System.out.println("<null>");
 		else
@@ -1359,5 +1446,37 @@ public final class Util {
 
 	public static boolean isAltDown(int modifiers) {
 		return (modifiers & InputEvent.ALT_DOWN_MASK) != 0;
+	}
+
+	public static Iterator arrayIterator(Object[] array,
+			int start, int nElements) {
+		return new ArrayIterator(array, start, nElements);
+	}
+
+	private static class ArrayIterator implements Iterator {
+
+		private final Object[] array;
+		private int index;
+		private final int lastIndexPlusOne;
+
+		ArrayIterator(Object[] _array,
+				int start, int nElements) {
+			array = _array;
+			index = start;
+			lastIndexPlusOne = start + nElements;
+		}
+
+		public boolean hasNext() {
+			return index < lastIndexPlusOne;
+		}
+
+		public Object next() {
+			return array[index++];
+		}
+
+		public void remove() {
+			throw new UnsupportedOperationException();
+		}
+
 	}
 }

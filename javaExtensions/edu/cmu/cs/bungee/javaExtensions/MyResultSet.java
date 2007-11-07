@@ -20,6 +20,7 @@ import java.sql.SQLWarning;
 import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.List;
@@ -38,17 +39,17 @@ public class MyResultSet implements ResultSet, Serializable {
 	static List makeColumnTypeList(Object col1, Object col2, Object col3,
 			Object col4, Object col5, Object col6, Object col7, Object col8,
 			Object col9, Object col10) {
-		List temp = new Vector(9);
+		List temp = new ArrayList();
 		addCol(col1, temp);
-		addCol(col2, temp);
-		addCol(col3, temp);
-		addCol(col4, temp);
-		addCol(col5, temp);
-		addCol(col6, temp);
-		addCol(col7, temp);
-		addCol(col8, temp);
-		addCol(col9, temp);
-		addCol(col10, temp);
+		if (col2 != null) addCol(col2, temp);
+		if (col3 != null) addCol(col3, temp);
+		if (col4 != null) addCol(col4, temp);
+		if (col5 != null) addCol(col5, temp);
+		if (col6 != null) addCol(col6, temp);
+		if (col7 != null) addCol(col7, temp);
+		if (col8 != null) addCol(col8, temp);
+		if (col9 != null) addCol(col9, temp);
+		if (col10 != null) addCol(col10, temp);
 		return Collections.unmodifiableList(temp);
 	}
 
@@ -109,7 +110,8 @@ public class MyResultSet implements ResultSet, Serializable {
 
 	public static final List SINT_INT_INT_INT_INT = makeColumnTypeList(
 			Column.SortedIntegerType, Column.IntegerType, Column.IntegerType,
-			Column.IntegerType, Column.IntegerType, null, null, null, null, null);
+			Column.IntegerType, Column.IntegerType, null, null, null, null,
+			null);
 
 	public static final List STRING_IMAGE_INT_INT = makeColumnTypeList(
 			Column.StringType, Column.ImageType, Column.IntegerType,
@@ -203,7 +205,7 @@ public class MyResultSet implements ResultSet, Serializable {
 	public void close() {
 		// Only the garbage collector needs to know
 	}
-	
+
 	public Object[] getValues(int columnIndex) {
 		return columns[columnIndex - 1].getValues();
 	}
@@ -1019,20 +1021,17 @@ public class MyResultSet implements ResultSet, Serializable {
 
 	}
 
-	public void updateBinaryStream(int arg0, InputStream arg1, int arg2)
-			{
+	public void updateBinaryStream(int arg0, InputStream arg1, int arg2) {
 		// TODO Auto-generated method stub
 
 	}
 
-	public void updateCharacterStream(int arg0, Reader arg1, int arg2)
-			{
+	public void updateCharacterStream(int arg0, Reader arg1, int arg2) {
 		// TODO Auto-generated method stub
 
 	}
 
-	public void updateObject(int arg0, Object arg1, int arg2)
-			{
+	public void updateObject(int arg0, Object arg1, int arg2) {
 		// TODO Auto-generated method stub
 
 	}
@@ -1082,8 +1081,7 @@ public class MyResultSet implements ResultSet, Serializable {
 
 	}
 
-	public void updateBigDecimal(String arg0, BigDecimal arg1)
-			{
+	public void updateBigDecimal(String arg0, BigDecimal arg1) {
 		// TODO Auto-generated method stub
 
 	}
@@ -1108,32 +1106,27 @@ public class MyResultSet implements ResultSet, Serializable {
 
 	}
 
-	public void updateTimestamp(String arg0, Timestamp arg1)
-			 {
+	public void updateTimestamp(String arg0, Timestamp arg1) {
 		// TODO Auto-generated method stub
 
 	}
 
-	public void updateAsciiStream(String arg0, InputStream arg1, int arg2)
-			 {
+	public void updateAsciiStream(String arg0, InputStream arg1, int arg2) {
 		// TODO Auto-generated method stub
 
 	}
 
-	public void updateBinaryStream(String arg0, InputStream arg1, int arg2)
-			 {
+	public void updateBinaryStream(String arg0, InputStream arg1, int arg2) {
 		// TODO Auto-generated method stub
 
 	}
 
-	public void updateCharacterStream(String arg0, Reader arg1, int arg2)
-			 {
+	public void updateCharacterStream(String arg0, Reader arg1, int arg2) {
 		// TODO Auto-generated method stub
 
 	}
 
-	public void updateObject(String arg0, Object arg1, int arg2)
-			 {
+	public void updateObject(String arg0, Object arg1, int arg2) {
 		// TODO Auto-generated method stub
 
 	}
@@ -1274,8 +1267,7 @@ public class MyResultSet implements ResultSet, Serializable {
 		return null;
 	}
 
-	public Timestamp getTimestamp(String arg0, Calendar arg1)
-			 {
+	public Timestamp getTimestamp(String arg0, Calendar arg1) {
 		// TODO Auto-generated method stub
 		assert false;
 		return null;
@@ -1331,5 +1323,17 @@ public class MyResultSet implements ResultSet, Serializable {
 	public void updateArray(String arg0, Array arg1) {
 		// TODO Auto-generated method stub
 
+	}
+
+	public static int nRows(ResultSet rs) throws SQLException {
+		int row = rs.getRow();
+		rs.last();
+		int result = rs.getRow();
+		if (row == 0)
+			// absolute(0) may barf
+			rs.beforeFirst();
+		else
+			rs.absolute(row);
+		return result;
 	}
 }

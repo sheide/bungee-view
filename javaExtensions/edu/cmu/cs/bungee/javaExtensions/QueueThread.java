@@ -4,20 +4,36 @@ import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 
+/**
+ * A thread that maintains a FIFO queue of objects on which it calls process.
+ * 
+ * @author mad
+ *
+ */
 public class QueueThread extends Thread {
 
 	// private Object object;
 
-	protected List queue;
+	 List queue;
 
-	protected final boolean unique;
-	
-	protected boolean processing = false;
+	private final boolean unique;
 
+	private boolean processing = false;
+
+	/**
+	 * @param name useful for debugging
+	 * @param deltaPriority this thread's priority relative to the caller's priority
+	 */
 	public QueueThread(String name, int deltaPriority) {
 		this(name, null, true, deltaPriority);
 	}
 
+	/**
+	 * @param name useful for debugging
+	 * @param init_queue initial queue
+	 * @param _unique if true, don't add duplicates to queue
+	 * @param deltaPriority this thread's priority relative to the caller's priority
+	 */
 	public QueueThread(String name, Object[] init_queue, boolean _unique,
 			int deltaPriority) {
 		unique = _unique;
@@ -30,7 +46,12 @@ public class QueueThread extends Thread {
 		// object = o;
 	}
 
-	public synchronized boolean add(Object o) {
+	/**
+	 *  put o on the queue, unless unique and it's already there.
+	 * @param o
+	 * @return whether anything was added to the queue.
+	 */
+	final public synchronized boolean add(Object o) {
 		boolean result = !unique || !queue.contains(o);
 		if (result) {
 			queue.add(o);
@@ -39,7 +60,7 @@ public class QueueThread extends Thread {
 		return result;
 	}
 
-	protected synchronized Object get() {
+	 synchronized Object get() {
 		Object result = null;
 		while (isUpToDate()) {
 			try {
@@ -56,25 +77,43 @@ public class QueueThread extends Thread {
 		return result;
 	}
 
-	public boolean isUpToDate() {
+	/**
+	 * @return true iff our queue is empty (and we haven't exit'ed). Might or
+	 *         might not be processing the last queue entry.
+	 */
+	final public boolean isUpToDate() {
 		boolean result = queue != null && queue.isEmpty();
 		// Util.print("isUpToDate return " + result);
 		return result;
 	}
-	
-	public boolean isIdle() {
+
+	/**
+	 * @return true if nowhere to go and nothing to do.
+	 */
+	final public boolean isIdle() {
 		return !processing && queue != null && queue.isEmpty();
 	}
 
-	public synchronized void exit() {
+	/**
+	 * Clear the queue and stop accepting add's to it. Any current process call will complete.
+	 */
+	 public synchronized void exit() {
 		if (queue != null) {
-			Util.print("...exiting " + getName());
+			Util.print("...exiting " + getName() + " priority=" + getPriority());
 			queue = null;
 			notify();
 		}
 	}
+	
+	/**
+	 * Called when this Thread starts.
+	 */
+	public void init() {
+		// Override this
+	}
 
-	public void run() {
+	final public void run() {
+		init();
 		Object o;
 		while ((o = get()) != null) {
 			try {
@@ -94,7 +133,11 @@ public class QueueThread extends Thread {
 		exit();
 	}
 
-	// oVERRIDE THIS
+	/**
+	 * This is the whole point of QueueThread. Override this to process each queue addition.
+	 * 
+	 * @param o arbitrary argument from the queue.
+	 */
 	public void process(Object o) {
 		assert Util.ignore(o);
 		Util.err("Should override QueueThread.process");

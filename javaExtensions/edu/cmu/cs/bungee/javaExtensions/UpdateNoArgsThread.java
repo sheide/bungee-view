@@ -1,12 +1,26 @@
 package edu.cmu.cs.bungee.javaExtensions;
 
+/**
+ * An UpdateThread where process takes no arguments. update just means "make sure to call process when you get a chance".
+ * 
+ * @author mad
+ *
+ */
 public class UpdateNoArgsThread extends UpdateThread {
 
+	/**
+	 * @param name useful for debugging
+	 * @param deltaPriority this thread's priority relative to the caller's priority
+	 */
 	public UpdateNoArgsThread(String name, int deltaPriority) {
 		super(name, deltaPriority);
 	}
 
-	public synchronized boolean update() {
+	/**
+	 * Request that process be called.
+	 * @return whether the queue was updated (won't be if there's already a request queued).
+	 */
+	final public synchronized boolean update() {
 		return add(this);
 	}
 
@@ -15,7 +29,9 @@ public class UpdateNoArgsThread extends UpdateThread {
 		process();
 	}
 
-	// oVERRIDE THIS
+	/**
+	 * Override this to carry out the queued request.
+	 */
 	public void process() {
 		Util.err("Should override UpdateNoArgsThread.process");
 
