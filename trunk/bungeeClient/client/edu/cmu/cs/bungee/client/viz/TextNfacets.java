@@ -37,26 +37,27 @@ import java.awt.Font;
 import java.awt.Paint;
 import java.util.Iterator;
 
-
-
 import edu.cmu.cs.bungee.client.query.Cluster;
 import edu.cmu.cs.bungee.client.query.ItemPredicate;
 import edu.cmu.cs.bungee.client.query.Markup;
-import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.cmu.cs.bungee.client.query.PerspectiveObserver;
 import edu.cmu.cs.bungee.client.query.Query;
-import edu.cmu.cs.bungee.javaExtensions.PrintArray;
 import edu.cmu.cs.bungee.javaExtensions.Util;
 import edu.cmu.cs.bungee.piccoloUtils.gui.APText;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
 import edu.umd.cs.piccolo.PNode;
 
-public class TextNfacets extends LazyPNode implements PerspectiveObserver {
-
-	private static final long serialVersionUID = 2128482444596441148L;
+/**
+ * Used by Summary.summaryText, facet labels, mouse doc & popups
+ * 
+ */
+final class TextNfacets extends LazyPNode implements PerspectiveObserver {
 
 	private final Bungee art;
 
+	/**
+	 * Default text paint for Strings. Ignored for ItemPredicates.
+	 */
 	private final Paint defaultTextPaint;
 
 	private Markup content = Query.emptyMarkup();
@@ -93,20 +94,27 @@ public class TextNfacets extends LazyPNode implements PerspectiveObserver {
 
 	private float justification = Component.LEFT_ALIGNMENT;
 
-	private final boolean showCheckBox;
+	/**
+	 * Only rank labels set this true
+	 */
+	private final boolean showCheckBoxAndChildIndicator;
 
-	Paint facetTextPaint;
+	/**
+	 * Overrides Art.facetTextColor();
+	 */
+	Paint facetPermanentTextPaint;
 
-	private boolean isPickable;
-
-	int unpickableAction = -1;
+	// private boolean isPickable;
+	//
+	// int unpickableAction = -1;
 
 	private PerspectiveObserver redraw;
 
-	TextNfacets(Bungee _art, Paint _defaultTextPaint, boolean _showCheckBox) {
+	TextNfacets(Bungee _art, Paint _defaultTextPaint,
+			boolean _showCheckBoxAndChildIndicator) {
 		defaultTextPaint = _defaultTextPaint;
 		art = _art;
-		showCheckBox = _showCheckBox;
+		showCheckBoxAndChildIndicator = _showCheckBoxAndChildIndicator;
 	}
 
 	// public void add(Object stringOrFacet) {
@@ -119,46 +127,56 @@ public class TextNfacets extends LazyPNode implements PerspectiveObserver {
 	// content.clear();
 	// }
 
-	 void setContent(Markup v) {
+	void setContent(Markup v) {
 		// Util.print("TNF.setContent input: " + v);
-		content = v.compile(art.query.genericObjectLabel);
+		assert v != null;
+		assert art != null;
+		if (query() != null) {
+			assert query().genericObjectLabel != null;
+			content = v.compile(query().genericObjectLabel);
+		}
 	}
 
-	 boolean isIncomplete() {
+	boolean isIncomplete() {
 		return incomplete;
 	}
 
-	 void setWrapText(boolean isWrap) {
+	/**
+	 * If set to false, will ignore newlines in content
+	 * 
+	 * @param isWrap
+	 */
+	void setWrapText(boolean isWrap) {
 		wrapText = isWrap;
 	}
 
-	 void setWrapOnWordBoundaries(boolean isWrap) {
+	void setWrapOnWordBoundaries(boolean isWrap) {
 		wrapOnWordBoundaries = isWrap;
 	}
 
-	 void setJustification(float _justification) {
+	void setJustification(float _justification) {
 		justification = _justification;
 	}
 
-	 void setUnderline(boolean isUnderline) {
+	void setUnderline(boolean isUnderline) {
 		underline = isUnderline;
 		for (int i = 0; i < getChildrenCount(); i++) {
 			((APText) getChild(i)).setUnderline(underline);
 		}
 	}
 
-	public void setPickable(boolean _isPickable) {
-		super.setPickable(_isPickable);
-		isPickable = _isPickable;
-	}
+	// public void setPickable(boolean _isPickable) {
+	// super.setPickable(_isPickable);
+	// isPickable = _isPickable;
+	// }
 
-	 void setAnchor(int anchorType, double x, double y) {
+	void setAnchor(int anchorType, double x, double y) {
 		anchor = anchorType;
 		anchorX = x;
 		anchorY = y;
 	}
 
-	 void setRedrawer(PerspectiveObserver _redraw) {
+	void setRedrawer(PerspectiveObserver _redraw) {
 		redraw = _redraw;
 	}
 
@@ -166,7 +184,7 @@ public class TextNfacets extends LazyPNode implements PerspectiveObserver {
 		return redraw == null ? this : redraw;
 	}
 
-	 double layoutBestFit() {
+	double layoutBestFit() {
 		// System.out.println("layoutBestFit " + content);
 		double result;
 		if (getHeight() < 2 * art.lineH) {
@@ -184,7 +202,7 @@ public class TextNfacets extends LazyPNode implements PerspectiveObserver {
 		return result;
 	}
 
-	 double layout() {
+	double layout() {
 		return layout(getWidth(), getHeight());
 	}
 
@@ -193,45 +211,21 @@ public class TextNfacets extends LazyPNode implements PerspectiveObserver {
 		layout(untrimmedW, untrimmedH);
 	}
 
-	 String toText() {
-		return toText(content);
+	// String toText() {
+	// return content.toText();
+	// }
+
+	public String toString() {
+		return "<TextNfacets " + content + ">";
 	}
 
-	 static String toText(Markup content) {
-		return toText(content, null);
+	boolean isEmpty() {
+		return content.toText().trim().length() == 0;
 	}
 
-	 static String toText(Markup content, PerspectiveObserver _redraw) {
-		Iterator it = content.iterator();
-		boolean plural = false;
-		StringBuffer result = new StringBuffer();
-		while (it.hasNext()) {
-			Object o = it.next();
-			if (o == Markup.PLURAL_TAG) {
-				assert !plural;
-				plural = true;
-			} else if (o == Markup.NEWLINE_TAG) {
-				result.append("\n");
-			} else if (o instanceof String) {
-				assert !plural;
-				result.append(o);
-			} else if (o instanceof Perspective) {
-				Perspective facet = (Perspective) o;
-				String name = _redraw == null ? facet.getNameIfPossible()
-						: facet.getName(_redraw);
-				result.append(name);
-				if (plural) {
-					Util.pluralize(result);
-					plural = false;
-				}
-			}
-		}
-		return result.toString();
-	}
-
-	 double layout(double w, double h) {
-		// Util.print("TNF.layout " + w + " " + h + " " + wrapText + " " +
-		// art.lineH);
+	double layout(double w, double h) {
+		// Util.print("TNF.layout " + w + " " + h + " " + wrapText + " "
+		// + art.lineH + " " + wrapOnWordBoundaries);
 		// Util.print(content);
 		untrimmedW = w;
 		untrimmedH = h;
@@ -243,11 +237,10 @@ public class TextNfacets extends LazyPNode implements PerspectiveObserver {
 			incomplete = false;
 			double x = 0;
 			double y = 0;
-			Iterator it = content.iterator();
 			boolean plural = false;
 			Paint color = defaultTextPaint;
 			int style = Font.BOLD;
-			while (it.hasNext() && !incomplete) {
+			for (Iterator it = content.iterator(); it.hasNext() && !incomplete;) {
 				Object o = it.next();
 				if (o == Markup.PLURAL_TAG) {
 					assert !plural;
@@ -267,9 +260,9 @@ public class TextNfacets extends LazyPNode implements PerspectiveObserver {
 				} else if (o instanceof Color) {
 					color = (Color) o;
 				} else {
-					Paint paint;
+					Paint paint = null;
 					String s;
-					Perspective facet = null;
+					ItemPredicate facet = null;
 					if (o instanceof String) {
 						assert !plural;
 						paint = color;
@@ -278,19 +271,24 @@ public class TextNfacets extends LazyPNode implements PerspectiveObserver {
 						s = o.toString();
 						paint = art.clusterTextColor((Cluster) o);
 					} else {
-						assert o instanceof Perspective : o
-								+ PrintArray.printArrayString(content);
-						facet = (Perspective) o;
-						s = art.facetLabel(facet, -1, -1, false, showCheckBox,
-								showCheckBox, false, getRedrawer());
-						paint = art.facetTextColor(facet);
+						assert o instanceof ItemPredicate : o
+								+ Util.valueOfDeep(content);
+						facet = (ItemPredicate) o;
+						s = art.facetLabel(facet, -1, -1, false,
+								showCheckBoxAndChildIndicator,
+								showCheckBoxAndChildIndicator, false,
+								getRedrawer());
+
+						// paint is ignored for Perspectives. getFacetText will
+						// compute color.
+						// paint = art.facetTextColor(facet);
 					}
 					if (plural) {
 						s = Util.pluralize(s);
 						plural = false;
 					}
 					APText last = myWrap(s, facet, x, y, w, h, paint, style,
-							null);
+							null, true);
 					if (last != null) {
 						y = last.getYOffset();
 						x = last.getXOffset() + Math.ceil(last.getWidth());
@@ -306,14 +304,15 @@ public class TextNfacets extends LazyPNode implements PerspectiveObserver {
 		}
 	}
 
-	APText myWrap(String s, Perspective facet, double x, double y, double w,
-			double h, Paint paint, int style, ItemPredicate[] restrictions) {
+	APText myWrap(String s, ItemPredicate facet, double x, double y, double w,
+			double h, Paint paint, int style, ItemPredicate[] restrictions,
+			boolean isFirstLine) {
 		// Util.print("myWrap '" + s + "' " + x + " " + y + " " + w + " "
-		// + wrapText);
+		// + wrapOnWordBoundaries + " " + isFirstLine);
 		APText result = null;
 		if (s.length() > 0) {
 			if (y + art.lineH <= h) {
-				String prefix = s;
+				// String prefix = s;
 				// int index = 9999;
 				// if (wrapText)
 				// while (index > 0 && x + art.getStringWidth(prefix) > w) {
@@ -334,45 +333,76 @@ public class TextNfacets extends LazyPNode implements PerspectiveObserver {
 				// style,
 				// restrictions);
 				// } else {
-				APText text;
-				if (facet != null) {
-					boolean reallyShowCheckBox = showCheckBox
-							&& prefix.charAt(0) == Bungee.checkBoxPrefix.charAt(0);
-					text = FacetText.getFacetText(facet, art, -1, -1,
-							showCheckBox, reallyShowCheckBox, false, null, 0,
-							facetTextPaint, unpickableAction, getRedrawer(),
-							underline);
-					((FacetText) text).isPickable = isPickable
+				FacetText text;
+				// on recursive calls, s is just the tail end of the facet name,
+				// possibly with checkbox prefix and childindicator suffix
+				if (facet != null && isFirstLine
+						&& strip(s).equals(strip(facet.getNameIfPossible()))) {
+
+					// // if we break the text, second part shouldn't show check
+					// // box
+					// boolean reallyShowCheckBox =
+					// showCheckBoxAndChildIndicator
+					// && s.startsWith(Bungee.checkBoxPrefix);
+					text = FacetText.getFacetText(facet, art, -1, w - x,
+							showCheckBoxAndChildIndicator,
+							showCheckBoxAndChildIndicator,
+							facet.guessOnCount(), getRedrawer(), underline);
+					text.setPermanentTextPaint(facetPermanentTextPaint);
+					// ((FacetText) text).isPickable = isPickable
 					// && facet.parent != null
-					;
-					if (!prefix.equals(text.getText())) {
-						text.setText(prefix);
-					}
+					// if (!prefix.equals(text.getText())) {
+					// text.setText(s);
+					// }
+				} else if (facet != null) {
+					text = FacetText.getFacetText(s, art, -1, w - x,
+							showCheckBoxAndChildIndicator, false, 0,
+							getRedrawer(), underline);
+					text.setObject(facet, s);
+					text.setPermanentTextPaint(facetPermanentTextPaint);
+					text.setColor();
 				} else {
 					// text = art.oneLineLabel();
 					// text.setTextPaint(paint);
 					// text.setText(prefix);
-					text = FacetText.getFacetText(prefix, art, -1, w - x
-							+ art.lineH, false, false, false, null, 0, paint,
-							-1, getRedrawer(), underline);
+					text = FacetText.getFacetText(s, art, -1, w - x, false,
+							false, 0, getRedrawer(), underline);
+					text.setPermanentTextPaint(paint);
 					// text.setPaint(Art.summaryBG);
 				}
 				addChild(text);
+
 				// if (style == Font.ITALIC)
 				// text.setFont(art.italicFont);
 				text.setOffset(x, y);
-				if (x + text.getWidth() > w) {
-					text.setConstrainWidthToTextWidth(false);
-					// assert w > x : "'" + prefix + "' " + x + " " + w;
-					text.setWidth(w - x);
-					prefix = text.getBrokenText();
+				String textString = text.getText();
+				// Util.print("___" + textString + " " + x + ", " + y);
+				if (!textString.equals(s)) {
+					assert textString.length() < s.length() : textString + " "
+							+ s + " " + facet;
+					// if (x + text.getWidth() > w) {
+					// text.setConstrainWidthToTextWidth(false);
+					// // assert w > x : "'" + prefix + "' " + x + " " + w;
+					// text.setWidth(w - x);
+					// prefix = text.getBrokenText();
 					if (wrapOnWordBoundaries
-							&& text.getText().charAt(prefix.length()) != ' ') {
-						int index = prefix.lastIndexOf(' ');
+							&& s.charAt(textString.length()) != ' '
+							&& !s.startsWith(Bungee.childIndicatorSuffix)) {
+						int index = textString.lastIndexOf(' ');
 						if (index > 0) {
-							prefix = prefix.substring(0, index);
-							text.setConstrainWidthToTextWidth(true);
-							text.setText(prefix);
+							if (x > 0
+									&& s
+											.startsWith(Bungee.childIndicatorSuffix)) {
+								// Don't break on childPrefix spaces
+								textString = "";
+							} else {
+								textString = s.substring(0, index);
+								// Util.print("FT.st " + textString);
+								assert textString.trim().length() > 0;
+								// text.setConstrainWidthToTextWidth(true);
+								text.setTextAndDecache(textString,
+										facet != null ? facet : (Object) s);
+							}
 							// text.setPaint(Color.red);
 							// Util.print("... " + prefix);
 							// Util.print(">>> " + text.getWidth() + " "
@@ -383,21 +413,24 @@ public class TextNfacets extends LazyPNode implements PerspectiveObserver {
 					}
 					// if (x > 0)
 					// incomplete = true;
-				}
-				// addChild(text);
+					// }
+					// addChild(text);
 
-				if (prefix != s) {
-					if (prefix.length() == 0) {
+					// if (prefix != s) {
+					if (textString.length() == 0) {
 						removeChild(text);
 						text = null;
 					}
 					justifyLine(w);
-					int i = prefix.length();
-					if (s.charAt(i) == ' ')
-						i++;
-					String suffix = s.substring(i);
+					// int i = textString.length();
+					// if (s.charAt(i) == ' ')
+					// i++;
+					// Util.print("cc '" + textString + "'");
+					String suffix = s.substring(textString.length());
+					if (!s.startsWith(Bungee.checkBoxPrefix))
+						suffix = suffix.trim();
 					result = myWrap(suffix, facet, 0, y + art.lineH, w, h,
-							paint, style, restrictions);
+							paint, style, restrictions, false);
 				}
 				if (result == null)
 					result = text;
@@ -406,6 +439,14 @@ public class TextNfacets extends LazyPNode implements PerspectiveObserver {
 				incomplete = true;
 		}
 		// Util.print("myWrap return ");
+		return result;
+	}
+
+	private String strip(String embroderedName) {
+		if (embroderedName == null)
+			return null;
+		String result = embroderedName.trim();
+		result = result.split(Bungee.childIndicatorSuffix)[0];
 		return result;
 	}
 
@@ -428,7 +469,7 @@ public class TextNfacets extends LazyPNode implements PerspectiveObserver {
 		}
 	}
 
-	 void setTrim(int Xmargin, int Ymargin) {
+	void setTrim(int Xmargin, int Ymargin) {
 		trimW = Xmargin;
 		trimH = Ymargin;
 	}
@@ -468,7 +509,7 @@ public class TextNfacets extends LazyPNode implements PerspectiveObserver {
 		}
 	}
 
-	 void updateSelections(ItemPredicate facet) {
+	void updateSelections(ItemPredicate facet) {
 		for (int i = 0; i < getChildrenCount(); i++) {
 			if (getChild(i) instanceof FacetText) {
 				FacetText child = (FacetText) getChild(i);
@@ -483,7 +524,7 @@ public class TextNfacets extends LazyPNode implements PerspectiveObserver {
 		}
 	}
 
-	 void updateSelections(Cluster facet) {
+	void updateSelections(Cluster facet) {
 		for (int i = 0; i < getChildrenCount(); i++) {
 			if (getChild(i) instanceof FacetText) {
 				FacetText child = (FacetText) getChild(i);
@@ -496,5 +537,9 @@ public class TextNfacets extends LazyPNode implements PerspectiveObserver {
 				}
 			}
 		}
+	}
+
+	Query query() {
+		return art.query;
 	}
 }

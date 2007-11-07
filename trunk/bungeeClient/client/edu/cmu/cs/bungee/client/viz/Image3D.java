@@ -25,13 +25,11 @@ package edu.cmu.cs.bungee.client.viz;
 //
 //import query.Perspective;
 //
-//import madUtilPackage.PrintArray;
+//import madUtilPackage.printDeep;
 //import madUtilPackage.Util;
 //import madUtilPackage.ValueComparator;
 //
 //class MyTile extends GridImage {
-//
-//	private static final long serialVersionUID = 1L;
 //
 //	// BufferedImage scaledImage;
 //
@@ -131,7 +129,7 @@ package edu.cmu.cs.bungee.client.viz;
 //	}
 //
 //	RenderedOp translate() {
-//		// PrintArray.printArray(offset);
+//		// Util.printDeep(offset);
 //		Image im = getRawImage();
 //		assert im != null;
 //		assert isPlaced();
@@ -503,8 +501,8 @@ package edu.cmu.cs.bungee.client.viz;
 //						// + " "
 //						// + bottomTile.maxCeilingInterval
 //						// + " "
-//						// + PrintArray
-//						// .printArrayString(bottomTile.ceilingIntervals));
+//						// + Util
+//						// .valueOfDeep(bottomTile.ceilingIntervals));
 //						TreeSet possibleLefts = new TreeSet();
 //						ArrayList legalIntervals = new ArrayList();
 //						legalIntervals.add(new Integer(minLeft));
@@ -577,7 +575,7 @@ package edu.cmu.cs.bungee.client.viz;
 //
 //	static boolean intersectInterval(List interval, int left, int right) {
 //		// Util.print("intersectInterval " + left + " " + right + " "
-//		// + PrintArray.printArrayString(interval));
+//		// + Util.valueOfDeep(interval));
 //		boolean result = false;
 //		for (ListIterator i = interval.listIterator(); i.hasNext();) {
 //			Integer intLeft = (Integer) i.next();
@@ -605,7 +603,7 @@ package edu.cmu.cs.bungee.client.viz;
 //			}
 //		}
 //		// Util.print("intersectInterval return "
-//		// + PrintArray.printArrayString(interval));
+//		// + Util.valueOfDeep(interval));
 //		return result;
 //	}
 //
@@ -773,16 +771,16 @@ package edu.cmu.cs.bungee.client.viz;
 //		int n = parameters.size();
 //		for (int i = 0; i < n; i++) {
 //			if (parameters.get(i) instanceof WarpPerspective)
-//				PrintArray.printArray(((WarpPerspective) parameters.get(i))
+//				Util.printDeep(((WarpPerspective) parameters.get(i))
 //						.getTransform().getMatrix(new double[3][3]));
 //		}
-//		return PrintArray.printArrayString(parameters);
+//		return Util.valueOfDeep(parameters);
 //	}
 //
 ////	static RenderedOp toGrayscale(BufferedImage srcImage, ColorModel srcCM,
 ////			ColorSpace dstCS) {
 ////		// Util.print("");
-////		// PrintArray.printArray(srcImage.getData().getPixel(3, 3, (int[])
+////		// Util.printDeep(srcImage.getData().getPixel(3, 3, (int[])
 ////		// null));
 ////		// RenderedImage result = new ColorConvertOp(srcCM.getColorSpace(),
 ////		// dstCS,
@@ -795,15 +793,15 @@ package edu.cmu.cs.bungee.client.viz;
 ////		for (int b = 0; b < dstNColorBands; b++)
 ////			for (int i = 0; i < nColorBands; i++)
 ////				matrix1[b][i] = 1. / nColorBands;
-////		// PrintArray.printArray(matrix1);
+////		// Util.printDeep(matrix1);
 ////		ParameterBlock pb1 = new ParameterBlock();
 ////		pb1.addSource(srcImage);
 ////		pb1.add(matrix1);
 ////		RenderedOp result2 = JAI.create("bandcombine", pb1, null);
-////		// PrintArray.printArray(srcImage.getData().getPixel(3, 3, (int[])
+////		// Util.printDeep(srcImage.getData().getPixel(3, 3, (int[])
 ////		// null));
-////		// PrintArray.printArray(result.getData().getPixel(3, 3, (int[]) null));
-////		// PrintArray.printArray(result2.getData().getPixel(3, 3, (int[])
+////		// Util.printDeep(result.getData().getPixel(3, 3, (int[]) null));
+////		// Util.printDeep(result2.getData().getPixel(3, 3, (int[])
 ////		// null));
 ////		// for (int i = 0; i < result.getWidth(); i++)
 ////		// for (int j = 0; j < result.getHeight(); j++) {

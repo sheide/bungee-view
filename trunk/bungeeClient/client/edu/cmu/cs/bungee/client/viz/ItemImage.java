@@ -160,7 +160,7 @@ import edu.cmu.cs.bungee.client.query.Query.Item;
 //
 //}
 
-public class ItemImage {
+ final class ItemImage {
 
 	Bungee art;
 
@@ -195,7 +195,7 @@ public class ItemImage {
 	// init(_art, _item, 0, 0, null);
 	// }
 
-	public ItemImage(Bungee art1, Item item1, int rawW1, int rawH1, int quality1,
+	 ItemImage(Bungee art1, Item item1, int rawW1, int rawH1, int quality1,
 			Image bi) {
 		init(art1, item1, rawW1, rawH1, quality1, bi);
 	}
@@ -231,11 +231,11 @@ public class ItemImage {
 		table.put(item, this);
 	}
 
-	public boolean bigEnough(Image bi, int _quality) {
+	 boolean bigEnough(Image bi, int _quality) {
 		return bigEnough(bi.getWidth(null), bi.getHeight(null), _quality);
 	}
 
-	public boolean bigEnough(int w, int h, int _quality) {
+	 boolean bigEnough(int w, int h, int _quality) {
 		int actualW = rawImage.getWidth(null);
 		int actualH = rawImage.getHeight(null);
 		boolean result = (actualW >= w || rawW == actualW || actualH >= h || rawH == actualH)
@@ -272,15 +272,15 @@ public class ItemImage {
 	// return rawH;
 	// }
 
-	public int currentW() {
+	 int currentW() {
 		return getRawImage().getWidth(null);
 	}
 
-	public int currentH() {
+	 int currentH() {
 		return getRawImage().getHeight(null);
 	}
 
-	public void setRawImage(Image bi, int _quality) {
+	 void setRawImage(Image bi, int _quality) {
 		// System.out.println("setRawImage " + bi.getWidth(null) + "x" +
 		// bi.getHeight(null));
 		rawImage = bi;

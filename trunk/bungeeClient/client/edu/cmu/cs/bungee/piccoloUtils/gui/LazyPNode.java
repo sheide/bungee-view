@@ -34,20 +34,29 @@ package edu.cmu.cs.bungee.piccoloUtils.gui;
 import java.awt.Color;
 
 import edu.umd.cs.piccolo.PNode;
+import edu.umd.cs.piccolo.activities.PColorActivity.Target;
 
-public class LazyPNode extends PNode {
+public class LazyPNode extends PNode implements Target {
 
 	public void setOffset(double x, double y) {
-		assert x == Math.round(x) : x;
-		assert y == Math.round(y) : y;
+//		assert x == Math.round(x) : x;
+//		assert y == Math.round(y) : y;
 		if (x != getXOffset() || y != getYOffset())
 			super.setOffset(x, y);
 	}
 
+	/**
+	 * set x offset
+	 * @param x
+	 */
 	public void setXoffset(double x) {
 		setOffset(x, getYOffset());
 	}
 
+	/**
+	 * Set y offset
+	 * @param y
+	 */
 	public void setYoffset(double y) {
 		setOffset(getXOffset(), y);
 	}
@@ -65,22 +74,37 @@ public class LazyPNode extends PNode {
 			scale(scale / getScale());
 	}
 	
+	/**
+	 * @return x-coordinate of center in parents coordinate system
+	 */
 	public double getCenterX() {
-		return getXOffset() + getWidth() / 2.0;
+		return getXOffset() + getWidth() * getScale() / 2.0;
 	}
 	
+	/**
+	 * @return y-coordinate of center in parents coordinate system
+	 */
 	public double getCenterY() {
-		return getYOffset() + getHeight() / 2.0;
+		return getYOffset() + getHeight() * getScale() / 2.0;
 	}
 
+	/**
+	 * @return x-coordinate of right edge in parents coordinate system
+	 */
 	public double getMaxX() {
 		return getXOffset() + getWidth() * getScale();
 	}
 
+	/**
+	 * @return y-coordinate of bottom edge in parents coordinate system
+	 */
 	public double getMaxY() {
 		return getYOffset() + getHeight() * getScale();
 	}
 
+	/**
+	 * Don't wait for normal damage control
+	 */
 	public void repaintNow() {
 		validateFullBounds();
 		validateFullPaint();
@@ -114,21 +138,33 @@ public class LazyPNode extends PNode {
 		return maxHeight();
 	}
 
+	/**
+	 * @return the minimum width this node requires
+	 */
 	public double minWidth() {
 		System.err.println("Should override LazyPNode.minWidth");
 		return getWidth();
 	}
 
+	/**
+	 * @return the maximum width this node can handle
+	 */
 	public double maxWidth() {
 		System.err.println("Should override LazyPNode.maxWidth");
 		return getWidth();
 	}
 
+	/**
+	 * @return the minimum height this node requires
+	 */
 	public double minHeight() {
 		System.err.println("Should override LazyPNode.minHeight");
 		return getWidth();
 	}
 
+	/**
+	 * @return the maximum height this node can handle
+	 */
 	public double maxHeight() {
 		System.err.println("Should override LazyPNode.maxHeight");
 		return getWidth();
@@ -164,5 +200,13 @@ public class LazyPNode extends PNode {
 		node.setPaint(Color.getHSBColor((float) Math.random(), 1, 1));
 		for (int i=0; i<node.getChildrenCount(); i++)
 			colorChildrenRandomly(node.getChild(i));
+	}
+
+	public Color getColor() {
+		return (Color) getPaint();
+	}
+
+	public void setColor(Color color) {
+		setPaint(color);
 	}
 }

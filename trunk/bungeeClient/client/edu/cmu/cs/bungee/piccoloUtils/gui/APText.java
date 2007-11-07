@@ -14,6 +14,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 
+import edu.cmu.cs.bungee.javaExtensions.Util;
 import edu.umd.cs.piccolo.util.PBounds;
 import edu.umd.cs.piccolo.util.PPaintContext;
 import edu.umd.cs.piccolo.util.PUtil;
@@ -26,22 +27,11 @@ import edu.umd.cs.piccolo.nodes.PText;
  */
 public class APText extends PText {
 
-	/**
-	 * 
-	 */
-	private static final long serialVersionUID = 1793287185927819841L;
-
-	/**
-	 * Normally, if constrainWidthToTextWidth = false, text will be wrapped at
-	 * word boundaries at the width. Sometimes we only have one line, and want
-	 * as many characters as possible on it, even if we have to break words.
-	 * Setting this to false will break words.
-	 */
-	boolean wrapText = true;
+	private boolean wrapOnWordBoundaries = true;
 
 	protected boolean underline = false;
 
-	List txtAttributes = new LinkedList();
+	private List txtAttributes = new LinkedList();
 
 	private boolean dontRecompute;
 
@@ -54,8 +44,14 @@ public class APText extends PText {
 		setFont(f);
 	}
 
-	public void setWrapText(boolean _wrapText) {
-		wrapText = _wrapText;
+	/**
+	 * Normally, if constrainWidthToTextWidth = false, text will be wrapped at
+	 * word boundaries at the width. Sometimes we only have one line, and want
+	 * as many characters as possible on it, even if we have to break words.
+	 * Setting this to false will break words.
+	 */
+	public void setWrapOnWordBoundaries(boolean _wrapText) {
+		wrapOnWordBoundaries = _wrapText;
 	}
 
 	// public boolean setX(double x) {
@@ -130,17 +126,12 @@ public class APText extends PText {
 	}
 
 	public void setTextPaint(Paint aPaint) {
-		if (aPaint == null) {
-			if (getTextPaint() != null)
-				super.setTextPaint(null);
-		} else if (!aPaint.equals(getTextPaint()))
+		if (!Util.equalsNullOK(aPaint, getTextPaint())) 
 			super.setTextPaint(aPaint);
 	}
 
 	public void setText(String _text) {
-		boolean change = _text == null ? getText() != null : !_text
-				.equals(getText());
-		if (change) {
+		if (!Util.equalsNullOK(_text, getText())) {
 			decacheCharIter();
 			if (_text != null && _text.indexOf("\n\n") >= 0)
 				_text = _text.replaceAll("\n\n", "\n \n");
@@ -152,7 +143,17 @@ public class APText extends PText {
 	public void setFont(Font aFont) {
 		if (aFont != getFont()) {
 			decacheCharIter();
+			
+			// for one-line labels, update height to match font size
+			boolean resize = !wrapOnWordBoundaries && !isConstrainHeightToTextHeight();
+			if (resize) {
+				dontRecompute = true;
+				super.setConstrainHeightToTextHeight(true);
+				dontRecompute = false;
+			}
 			super.setFont(aFont);
+			if (resize)
+				setConstrainHeightToTextHeight(false);
 		}
 	}
 
@@ -197,12 +198,10 @@ public class APText extends PText {
 			}
 
 			public void setRelativeTargetValue(float zeroToOne) {
-				APText.this.setBounds(Math.round(src.x
-						+ (zeroToOne * (dst.x - src.x))), Math.round(src.y
-						+ (zeroToOne * (dst.y - src.y))), Math.round(src.width
-						+ (zeroToOne * (dst.width - src.width))), Math
-						.round(src.height
-								+ (zeroToOne * (dst.height - src.height))));
+				APText.this.setBounds(Math.ceil(lerp(zeroToOne, src.x, dst.x)),
+						Math.ceil(lerp(zeroToOne, src.y, dst.y)), Math
+								.ceil(lerp(zeroToOne, src.width, dst.width)),
+						Math.ceil(lerp(zeroToOne, src.height, dst.height)));
 			}
 		};
 
@@ -245,7 +244,7 @@ public class APText extends PText {
 		spec[2] = new Integer(beginIndex);
 		spec[3] = new Integer(endIndex);
 		// Util.print("\n" + getText());
-		// PrintArray.printArray(spec);
+		// Util.printDeep(spec);
 		txtAttributes.add(spec);
 		rerender();
 	}
@@ -349,6 +348,8 @@ public class APText extends PText {
 		if (tMeasurer == null) {
 			AttributedCharacterIterator it = getCharIter();
 			if (it != null) {
+//				edu.cmu.cs.bungee.javaExtensions.Util.print(" new tm for "
+//						+ getText() + " " + getFont());
 				tMeasurer = new TextMeasurer(it,
 						PPaintContext.RENDER_QUALITY_HIGH_FRC);
 			}
@@ -367,20 +368,22 @@ public class APText extends PText {
 	 * wrapped based on the bounds of this node.
 	 */
 	public void recomputeLayout() {
-		assert !insideRL;
-		insideRL = true;
-		double textWidth = 0;
-		double textHeight = 0;
 		if (!dontRecompute && getCharIter() != null) {
-			// Util.print("\nenter APText.recomputelayout " + text + " "
-			// + wrapText + " " + constrainWidthToTextWidth);
+			assert !insideRL;
+			insideRL = true;
+			double textWidth = 0;
+			double textHeight = 0;
+			// System.out.println("\nenter APText.recomputelayout " + getText()
+			// + " "
+			// + wrapText + " " + isConstrainWidthToTextWidth());
+			// edu.cmu.cs.bungee.javaExtensions.Util.printStackTrace();
 			float availableWidth = isConstrainWidthToTextWidth() ? Float.MAX_VALUE
 					: (float) getWidth();
 			String _text = getText();
 			int nextLineBreakOffset = _text.indexOf('\n');
 			if (nextLineBreakOffset == -1)
 				nextLineBreakOffset = Integer.MAX_VALUE;
-			if (wrapText) {
+			if (wrapOnWordBoundaries) {
 				ArrayList linesList = new ArrayList();
 				LineBreakMeasurer measurer = getLBmeasurer();
 				while (measurer.getPosition() < charIter.getEndIndex()) {
@@ -427,25 +430,30 @@ public class APText extends PText {
 				} else
 					_lines = EMPTY_TEXT_LAYOUT_ARRAY;
 			}
-			// Util.print("exit recomputelayout " + text + " " + lines.length);
-		} else
-			_lines = EMPTY_TEXT_LAYOUT_ARRAY;
+//			edu.cmu.cs.bungee.javaExtensions.Util.print("exit recomputelayout "
+//					+ _text + " " + _lines.length + " " + textHeight);
 
-		if (isConstrainWidthToTextWidth() || isConstrainHeightToTextHeight()) {
-			double newWidth = getWidth();
-			double newHeight = getHeight();
+			if (isConstrainWidthToTextWidth()
+					|| isConstrainHeightToTextHeight()) {
+				double newWidth = getWidth();
+				double newHeight = getHeight();
 
-			if (isConstrainWidthToTextWidth()) {
-				newWidth = textWidth;
+				if (isConstrainWidthToTextWidth()) {
+					// System.out.println(getText() + " " + newWidth + " => "
+					// + Math.ceil(textWidth));
+					newWidth = Math.ceil(textWidth);
+				}
+
+				if (isConstrainHeightToTextHeight()) {
+					// System.out.println(getText() + " " + newHeight + " => "
+					// + Math.ceil(textHeight));
+					newHeight = Math.ceil(textHeight);
+				}
+
+				super.setBounds(getX(), getY(), newWidth, newHeight);
 			}
-
-			if (isConstrainHeightToTextHeight()) {
-				newHeight = textHeight;
-			}
-
-			super.setBounds(getX(), getY(), newWidth, newHeight);
+			insideRL = false;
 		}
-		insideRL = false;
 	}
 
 	protected void internalUpdateBounds(double ignore1, double ignore2,
@@ -458,6 +466,9 @@ public class APText extends PText {
 			recomputeLayout();
 	}
 
+	/**
+	 * @return _lines joined by "\n"
+	 */
 	public String getBrokenText() {
 		String _text = getText();
 		StringBuffer buf = new StringBuffer(_text.length() + _lines.length);
@@ -480,13 +491,14 @@ public class APText extends PText {
 	protected void paint(PPaintContext paintContext) {
 		// super.paint(paintContext);
 		// we want to call super.super = PNode
-		// Since this is illegal, copy PNode.paint code:
+		// Since this is hidden by PText, copy PNode.paint code:
 		if (getPaint() != null) {
 			Graphics2D g2 = paintContext.getGraphics();
 			g2.setPaint(getPaint());
 			g2.fill(getBoundsReference());
 		}
 
+		// copied from PText, substituting _lines for lines
 		float screenFontSize = getFont().getSize()
 				* (float) paintContext.getScale();
 		if (getTextPaint() != null && screenFontSize > greekThreshold) {

@@ -52,7 +52,7 @@ import edu.umd.cs.piccolox.PFrame;
  * @author mad
  * 
  */
-public class Util {
+public final class Util {
 
 	private Util() {
 		// Disallow instantiation
@@ -66,7 +66,7 @@ public class Util {
 			s.setText("Location of Origin " + fonts[i]);
 			s.setOffset(5, textH * i);
 			Font f = new Font(fonts[i], Font.PLAIN, textH);
-			// PrintArray.printArray(f.getAvailableAttributes());
+			// Util.printDeep(f.getAvailableAttributes());
 			s.setFont(f);
 
 			frame.getCanvas().getLayer().addChild(s);
@@ -145,9 +145,8 @@ public class Util {
 		String name = nodeDesc(node);
 		System.out.println(indent + name + " " + node.getScale() + " "
 				+ node.getBounds());
-		Iterator i = node.getChildrenIterator();
 		int index = 0;
-		while (i.hasNext() && index < maxChildren) {
+		for (Iterator i = node.getChildrenIterator(); i.hasNext() && index < maxChildren;) {
 			PNode each = (PNode) i.next();
 			if (!invalidOnly || each.getPaintInvalid()) {
 				printDescendentsInternal(each, indent + "  ", maxChildren,
@@ -175,6 +174,13 @@ public class Util {
 	// }
 	// }
 
+	/**
+	 * Does not pay attention to word breaks.
+	 * @param text
+	 * @param availableWidth
+	 * @param font
+	 * @return 
+	 */
 	public static String truncateText(String text, float availableWidth,
 			Font font) {
 		String result = null;
@@ -265,12 +271,12 @@ public class Util {
 
 	// This offers more parameters than PNode.animateToTransparency
 	public static PInterpolatingActivity animateToTransparency(PNode node,
-			float zeroToOne, long delay, long duration) {
+			float transparency, long delay, long duration) {
 		if (duration == 0 && delay == 0) {
-			node.setTransparency(zeroToOne);
+			node.setTransparency(transparency);
 			return null;
 		} else {
-			final float dest = zeroToOne;
+			final float dest = transparency;
 			final PNode _node = node;
 
 			PInterpolatingActivity ta = new PInterpolatingActivity(duration,

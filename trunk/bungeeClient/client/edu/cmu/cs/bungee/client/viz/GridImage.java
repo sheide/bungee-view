@@ -9,9 +9,7 @@ import edu.umd.cs.piccolo.PNode;
 import edu.umd.cs.piccolo.event.PInputEvent;
 import edu.umd.cs.piccolo.nodes.PImage;
 
-class GridImage extends PImage /* implements FacetNode */{
-
-	private static final long serialVersionUID = -5007854488837615044L;
+final class GridImage extends PImage /* implements FacetNode */{
 
 	int offset;
 
@@ -41,10 +39,10 @@ class GridImage extends PImage /* implements FacetNode */{
 		Image result = super.getImage();
 		Image rawImage = itemImage.getRawImage();
 		if (result == null) { // || rawImage.getWidth(null) >
-								// result.getWidth(null)) {
+			// result.getWidth(null)) {
 			result = rawImage;
-//			Util.print("getImage is setting image");
-//			Util.printStackTrace();
+			// Util.print("getImage is setting image");
+			// Util.printStackTrace();
 			setImage(result);
 		}
 		return result;
@@ -71,13 +69,13 @@ class GridImage extends PImage /* implements FacetNode */{
 			// }
 		}
 		assert getWidth() <= w : w + " " + getWidth();
-//		Util.print(itemImage.currentW() + "*" + itemImage.currentH() + " "
-//				+ itemImage.getRawImage().getWidth(null) + "*"
-//				+ itemImage.getRawImage().getHeight(null));
+		// Util.print(itemImage.currentW() + "*" + itemImage.currentH() + " "
+		// + itemImage.getRawImage().getWidth(null) + "*"
+		// + itemImage.getRawImage().getHeight(null));
 		// Util.print(" Exit scale");
 	}
 
-	public boolean correctSize(int w, int h) {
+	boolean correctSize(int w, int h) {
 		int actualW = (int) Math.round(getWidth());
 		int actualH = (int) Math.round(getHeight());
 		int itemImageW = itemImage.currentW();
@@ -137,11 +135,10 @@ class GridImage extends PImage /* implements FacetNode */{
 	// return pick(e.getModifiersEx());
 	// }
 
-	public boolean pick(boolean middleButton, boolean rightButton) {
+	 boolean pick(boolean middleButton, boolean rightButton) {
 		// parentGrid.art.printUserAction("GridImage pick");
-		if (middleButton || rightButton)
-			grid().art.itemMiddleMenu(itemImage.item, rightButton);
-		else {
+		if (!((middleButton || rightButton) &&
+			grid().art.itemMiddleMenu(itemImage.item, rightButton))) {
 			assert offset >= 0;
 			assert offset < grid().onCount;
 			grid().computeSelectedItemFromSelectedOffset(offset, -1);
@@ -159,42 +156,49 @@ class GridImage extends PImage /* implements FacetNode */{
 		return mouseDoc;
 	}
 
-	public boolean highlight(boolean state) {
-		if (state && itemImage.item != grid().selectedItem)
-			grid().art.setClickDesc(getMouseDoc());
-		else
+	 boolean highlight(boolean state) {
+		if (!state) {
 			grid().art.setClickDesc((String) null);
+			
+			// buttons don't make sense for highlight
+//		} else if (Query.isEditable && (middleButton || rightButton)) {
+//				grid().art.setClickDesc("Open edit menu");	
+			
+		} else if (itemImage.item != grid().selectedItem) {
+			grid().art.setClickDesc(getMouseDoc());
+		} else
+			return false;
 		return true;
 	}
 
-	public void mayHideTransients(PNode ignore) {
+	 void mayHideTransients(PNode ignore) {
 		assert Util.ignore(ignore);
 		grid().mayHideTransients();
 	}
 
 }
 
-class GridImageHandler extends MyInputEventHandler {
+final class GridImageHandler extends MyInputEventHandler {
 
 	GridImageHandler() {
 		super(GridImage.class);
 	}
 
-	public boolean enter(PNode node) {
+	protected boolean enter(PNode node, PInputEvent e) {
 		// Util.print("FacetClickHandler.enter");
 		return ((GridImage) node).highlight(true);
 	}
 
-	public boolean exit(PNode node) {
+	protected boolean exit(PNode node) {
 		return ((GridImage) node).highlight(false);
 	}
 
-	public boolean click(PNode node, PInputEvent e) {
+	protected boolean click(PNode node, PInputEvent e) {
 		return ((GridImage) node).pick(e.isMiddleMouseButton(), e
 				.isRightMouseButton());
 	}
 
-	public void mayHideTransients(PNode node) {
+	protected void mayHideTransients(PNode node) {
 		((GridImage) node).mayHideTransients(node);
 	}
 }

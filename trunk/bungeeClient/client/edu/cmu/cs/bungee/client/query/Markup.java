@@ -1,53 +1,119 @@
 package edu.cmu.cs.bungee.client.query;
 
 import java.awt.Color;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
+import java.util.SortedSet;
+import java.util.TreeSet;
 import java.util.Vector;
 
-import edu.cmu.cs.bungee.javaExtensions.PrintArray;
 import edu.cmu.cs.bungee.javaExtensions.Util;
 
-
+/**
+ * @author mad A little language for tagged sequences of query components, for
+ *         generating natural language descriptions
+ */
 public interface Markup extends List {
 
+	/**
+	 * Add an 's' to the next token
+	 */
 	public static final Object PLURAL_TAG = new Character('s');
 
+	/**
+	 * insert a newline
+	 */
 	public static final Object NEWLINE_TAG = new Character('\n');
 
+	/**
+	 * render subsequent tokens in the default color
+	 */
 	public static final Object DEFAULT_COLOR_TAG = new Character('c');
 
+	/**
+	 * render subsequent tokens in the default text style
+	 */
 	public static final Object DEFAULT_STYLE_TAG = new Character('b');
 
+	/**
+	 * render subsequent tokens in italics
+	 */
 	public static final Object ITALIC_STRING_TAG = new Character('i');
 
+	/**
+	 * insert 'image' or 'work' or whatever, as specified in
+	 * globals.genericObjectLabel
+	 */
 	public static final Object GENERIC_OBJECT_LABEL = "Generic Object Label";
+	/**
+	 * The '->' symbol that goes in front of rank labels
+	 */
+	public static final String parentIndicatorPrefix = "\u2192"; // '\u2023'
 
-	public static final Color[] blues = { new Color(0x003320),
+	/**
+	 * Colors used for facets significantly positively associated with the
+	 * current filters
+	 */
+	public static final Color[] POSITIVE_ASSOCIATION_COLORS = { new Color(0x003320),
 			new Color(0x006640), new Color(0x00BB70), new Color(0x00FF90) };
 
-	public static final Color[] oranges = { new Color(0x662000),
+	/**
+	 * Colors used for facets significantly negatively associated with the
+	 * current filters
+	 */
+	public static final Color[] NEGATIVE_ASSOCIATION_COLORS = { new Color(0x662000),
 			new Color(0x662000), new Color(0xBB5000), new Color(0xFF6000) };
 
-	public static final Color[] greens = { new Color(0x003300),
+	/**
+	 * Colors used for facets in positive filters
+	 */
+	public static final Color[] INCLUDED_COLORS = { new Color(0x003300),
 			new Color(0x006600), new Color(0x00BB00), new Color(0x00FF00) };
 
-	public static final Color[] reds = { new Color(0x330000),
+	/**
+	 * Colors used for facets in negative filters
+	 */
+	public static final Color[] EXCLUDED_COLORS = { new Color(0x330000),
 			new Color(0x660000), new Color(0xBB0000), new Color(0xFF0000) };
 
-	public static final Color[] whites = { new Color(0x555555),
+	/**
+	 * Colors used for facets not significantly associated with the current
+	 * filters
+	 */
+	public static final Color[] UNASSOCIATED_COLORS = { new Color(0x555555),
 			new Color(0x999999), new Color(0xFFFFFF) };
 
+	/**
+	 * @param genericObjectLabel
+	 *            what you call items, e.g. 'image' or 'work'
+	 * @return a Markup ready to render
+	 */
 	public Markup compile(String genericObjectLabel);
 
+	/**
+	 * @return a copy of this markup.
+	 */
 	public Markup copy();
+
+	/**
+	 * @return this Markup rendered as a String
+	 */
+	public String toText();
+
+	/**
+	 * @param _redraw
+	 *            callback object when any unknown facet names are read in
+	 * @return this Markup rendered as a String
+	 */
+	public String toText(PerspectiveObserver _redraw);
 }
 
-class MarkupImplementation extends Vector implements Markup {
+final class MarkupImplementation extends ArrayList implements Markup {
 
 	public Markup compile(String genericObjectLabel) {
 		Markup v = new MarkupImplementation();
@@ -56,7 +122,7 @@ class MarkupImplementation extends Vector implements Markup {
 			Object o = it.next();
 			if (o == GENERIC_OBJECT_LABEL)
 				o = genericObjectLabel;
-			assert o != null : PrintArray.printArrayString(this);
+			assert o != null : Util.valueOfDeep(this);
 			boolean thisIsString = o instanceof String;
 			if (thisIsString && prev == PLURAL_TAG) {
 				int prevIndex = v.size() - 1;
@@ -78,93 +144,97 @@ class MarkupImplementation extends Vector implements Markup {
 	static Markup tagDescription(List[] restrictions, boolean doTag,
 			String[] patterns, String tag) {
 		// Util.print("tagDescription " + restrictions + " " +
-		// PrintArray.printArrayString(patterns));
-		int nRestrictions = 0;
+		// Util.valueOfDeep(patterns));
+		int nPolaritiesUsed = 0;
 		Markup result = new MarkupImplementation();
-		for (int j = 0; j < restrictions.length; j++) {
-			List restriction = restrictions[j];
-			if (restriction != null && restriction.size() > 0) {
-				nRestrictions++;
-				String pattern = patterns[j];
-				int i = pattern.indexOf('~');
-				restriction.add(0, Markup.DEFAULT_COLOR_TAG);
-				if (i >= 0) {
-					restriction.add(0, pattern.substring(0, i));
-					restriction.add(pattern.substring(i + 1));
-				} else {
-					restriction.add(0, pattern);
-				}
-				if (doTag && result.size() == 0) {
-					result.add(tag);
-					if (nRestrictions == 1 && j == 1 && tag.equals("object")) {
-						result.add(PLURAL_TAG);
-						result.add(GENERIC_OBJECT_LABEL);
-						nRestrictions++;
+		for (int polarity = 0; polarity < restrictions.length; polarity++) {
+			if (restrictions[polarity] != null) {
+				List polarityDesc = new LinkedList(restrictions[polarity]);
+				if (polarityDesc.size() > 0) {
+					nPolaritiesUsed++;
+					String pattern = patterns[polarity];
+					int i = pattern.indexOf('~');
+					polarityDesc.add(0, Markup.DEFAULT_COLOR_TAG);
+					if (i >= 0) {
+						polarityDesc.add(0, pattern.substring(0, i));
+						polarityDesc.add(pattern.substring(i + 1));
+					} else {
+						polarityDesc.add(0, pattern);
 					}
+					if (doTag && result.size() == 0) {
+						result.add(tag);
+						if (nPolaritiesUsed == 1 && polarity == 1
+								&& tag.equals("object")) {
+							// negative restrictions only
+							result.add(PLURAL_TAG);
+							result.add(GENERIC_OBJECT_LABEL);
+							nPolaritiesUsed++;
+						}
+					}
+					if (nPolaritiesUsed == 2) {
+						polarityDesc.add(0, "but");
+						polarityDesc.add(")");
+					}
+					if (polarity > 0)
+						// There's too much green. Only color-emphasize the
+						// non-default case.
+						// There's still too much red - better to put the color
+						// commands in the pattern (e.g. only around "don't"
+						polarityDesc.add(0, Perspective.filterColors[polarity]);
+					if (nPolaritiesUsed == 2) {
+						polarityDesc.add(0, " (");
+					}
+					result.addAll(polarityDesc);
 				}
-				if (nRestrictions == 2) {
-					restriction.add(0, "but");
-					restriction.add(")");
-				}
-				if (j > 0)
-					// There's too much green. Only color-emphasize the
-					// non-default case.
-					// There's still too much red - better to put the color
-					// commands in the pattern (e.g. only around "don't"
-					restriction.add(0, Perspective.filterColors[j]);
-				if (nRestrictions == 2) {
-					restriction.add(0, " (");
-				}
-				result.addAll(restriction);
 			}
 		}
-		// PrintArray.printArray(patterns);
-		// PrintArray.printArray(result);
+		// Util.printDeep(patterns);
+		// Util.printDeep(result);
 		// Util.print("");
 		return result;
 	}
 
-//	public static Markup description(Perspective[] restrictions) {
-//		SortedMap parentalGroups = new TreeMap();
-//		for (int i = 0; i < restrictions.length; i++) {
-//			Perspective child = restrictions[i];
-//			Perspective parent = child.getFacetType();
-//			SortedSet children = (SortedSet) parentalGroups.get(parent);
-//			if (children == null) {
-//				children = new TreeSet();
-//				parentalGroups.put(parent, children);
-//			}
-//			children.add(child);
-//		}
-//		Markup[] phrases = new Markup[0];
-//		Iterator it = parentalGroups.entrySet().iterator();
-//
-//		while (it.hasNext()) {
-//			Map.Entry entry = (Entry) it.next();
-//			Perspective parent = (Perspective) entry.getKey();
-//			SortedSet children = (SortedSet) entry.getValue();
-//			Perspective[] info = (Perspective[]) (children)
-//					.toArray(new Perspective[0]);
-//			Markup[] descriptions = new Markup[1];
-//			Markup description = new MarkupImplementation();
-//			toEnglish(info, " and ", description);
-//			Markup result = parent.tagDescription(descriptions, true, null);
-//			if (result.size() > 0)
-//				phrases = (Markup[]) Util.push(phrases, result, Markup.class);
-//		}
-//		// Util.print("q.getPhrases return "
-//		// + PrintArray.printArrayString(phrases));
-//
-//		Markup summary = new MarkupImplementation();
-//		descriptionNounPhrase(phrases, summary);
-//		descriptionClauses(phrases, summary, null, null);
-//
-//		return summary;
-//	}
+	// public static Markup description(Perspective[] restrictions) {
+	// SortedMap parentalGroups = new TreeMap();
+	// for (int i = 0; i < restrictions.length; i++) {
+	// Perspective child = restrictions[i];
+	// Perspective parent = child.getFacetType();
+	// SortedSet children = (SortedSet) parentalGroups.get(parent);
+	// if (children == null) {
+	// children = new TreeSet();
+	// parentalGroups.put(parent, children);
+	// }
+	// children.add(child);
+	// }
+	// Markup[] phrases = new Markup[0];
+	// Iterator it = parentalGroups.entrySet().iterator();
+	//
+	// while (it.hasNext()) {
+	// Map.Entry entry = (Entry) it.next();
+	// Perspective parent = (Perspective) entry.getKey();
+	// SortedSet children = (SortedSet) entry.getValue();
+	// Perspective[] info = (Perspective[]) (children)
+	// .toArray(new Perspective[0]);
+	// Markup[] descriptions = new Markup[1];
+	// Markup description = new MarkupImplementation();
+	// toEnglish(info, " and ", description);
+	// Markup result = parent.tagDescription(descriptions, true, null);
+	// if (result.size() > 0)
+	// phrases = (Markup[]) Util.push(phrases, result, Markup.class);
+	// }
+	// // Util.print("q.getPhrases return "
+	// // + Util.valueOfDeep(phrases));
+	//
+	// Markup summary = new MarkupImplementation();
+	// descriptionNounPhrase(phrases, summary);
+	// descriptionClauses(phrases, summary, null, null);
+	//
+	// return summary;
+	// }
 
-	static void descriptionNounPhrase(Markup[] phrases, Markup result) {
-		for (int i = 0; i < phrases.length; i++) {
-			Markup phrase = phrases[i];
+	static void descriptionNounPhrase(List phrases, Markup result) {
+		for (Iterator it = phrases.iterator(); it.hasNext();) {
+			Markup phrase = (Markup) it.next();
 			if (phrase.get(0).equals("object")) {
 				for (int j = 1; j < phrase.size(); j++) {
 					if (phrase.get(j) instanceof Perspective)
@@ -173,10 +243,10 @@ class MarkupImplementation extends Vector implements Markup {
 				}
 			}
 		}
-		if (result.size() == 1)
-			// 1 is for "Summary:"
+		if (result.size() == 0) {
 			result.add(Markup.PLURAL_TAG);
-		result.add(Markup.GENERIC_OBJECT_LABEL);
+			result.add(Markup.GENERIC_OBJECT_LABEL);
+		}
 		// if (onCount != 1)
 		// for (int i = 0; i < objects.size(); i++)
 		// objects[i] = Util.pluralize(objects[i]);
@@ -184,14 +254,13 @@ class MarkupImplementation extends Vector implements Markup {
 		// Util.print("descriptionNounPhrase: " + result);
 	}
 
-	static void descriptionClauses(Markup[] phrases, Markup result,
+	static void descriptionClauses(List phrases, Markup result,
 			Set searches, Set clusters) {
 		// Util.print("\nq.descriptionClauses "
-		// + PrintArray.printArrayString(phrases));
-		// PrintArray.printArray(result);
-		int len = phrases.length;
-		for (int i = 0; i < len; i++) {
-			Markup phrase = phrases[i];
+		// + Util.valueOfDeep(phrases));
+		// Util.printDeep(result);
+		for (Iterator it = phrases.iterator(); it.hasNext();) {
+			Markup phrase = (Markup) it.next();
 			if (phrase.get(0).equals("meta")
 					&& !topLevelFacetClause(phrase, result)) {
 				// result.add(" ");
@@ -203,8 +272,8 @@ class MarkupImplementation extends Vector implements Markup {
 			}
 		}
 		boolean first = true;
-		for (int i = 0; i < len; i++) {
-			Markup phrase = phrases[i];
+		for (Iterator it = phrases.iterator(); it.hasNext();) {
+			Markup phrase = (Markup) it.next();
 			if (phrase.get(0).equals("content")
 					&& !topLevelFacetClause(phrase, result)) {
 				if (first) {
@@ -219,62 +288,110 @@ class MarkupImplementation extends Vector implements Markup {
 				}
 			}
 		}
-			for (Iterator it = searches.iterator(); it.hasNext();) {
-				String search = (String) it.next();
-				String s;
-				if (Util.nOccurrences(search, ' ') > 0)
-					s = "whose description mentions one of the words '";
-				else
-					s = "whose description mentions '";
-				if (first) {
-					result.add(" ");
-					first = false;
-				} else
-					result.add(" and ");
-				result.add(s);
-				result.add(Markup.greens[2]);
-				result.add(search);
-				result.add(Markup.DEFAULT_COLOR_TAG);
-				result.add("'");
+		for (Iterator it = searches.iterator(); it.hasNext();) {
+			String search = (String) it.next();
+			String s;
+			if (Util.nOccurrences(search, ' ') > 0)
+				s = "whose description mentions one of the words '";
+			else
+				s = "whose description mentions '";
+			if (first) {
+				result.add(" ");
+				first = false;
+			} else
+				result.add(" and ");
+			result.add(s);
+			result.add(Markup.INCLUDED_COLORS[2]);
+			result.add(search);
+			result.add(Markup.DEFAULT_COLOR_TAG);
+			result.add("'");
 		}
 		for (Iterator it = clusters.iterator(); it.hasNext();) {
 			Cluster cluster = (Cluster) it.next();
-				String search = cluster.toString();
-				String s = " that has most of the features ";
-				if (first) {
-					result.add(" ");
-					first = false;
-				} else
-					result.add(" and ");
-				result.add(s);
-				result.add(Markup.greens[2]);
-				result.add(search);
-				result.add(Markup.DEFAULT_COLOR_TAG);
+			String s;
+			switch (cluster.nRestrictions()) {
+			case 1:
+				s = "that has the tag {";
+				break;
+			case 2:
+				s = "that has both of the tags {";
+				break;
+			default:
+				s = " that have at least " + cluster.quorumSize() + " of the "
+						+ cluster.nRestrictions() + " tags {";
+				break;
 			}
+			if (first) {
+				result.add(" ");
+				first = false;
+			} else
+				result.add(" and ");
+			result.add(s);
+			// result.add(Markup.greens[2]);
+			toEnglish(cluster.allRestrictions(), ", ", result);
+			// result.add(Markup.DEFAULT_COLOR_TAG);
+			result.add("}");
+		}
 		// Util.print(phrases);
 	}
-	
-	private static final Set emptySet = Collections.unmodifiableSet(new HashSet());
+
+	private static final Set emptySet = Collections
+			.unmodifiableSet(new HashSet());
 
 	static Markup facetDescription(Perspective facet) {
 		Markup[] descriptions = { new MarkupImplementation(), null };
-		Markup[] phrases = new Markup[0];
+		List phrases = new LinkedList();
 		if (facet != null) {
 			descriptions[0].add(facet);
-			phrases = new Markup[1];
-			phrases[0] = facet.tagDescription(descriptions, true, null);
+			phrases.add(facet.tagDescription(descriptions, true, null));
 		}
 		Markup summary = new MarkupImplementation();
-		summary.add(" "); // descriptionNounPhrase assumes there is exactly
+		// summary.add(" "); // descriptionNounPhrase assumes there is exactly
 		// one canned prefix
 		descriptionNounPhrase(phrases, summary);
 		descriptionClauses(phrases, summary, emptySet, emptySet);
 		return summary;
 	}
 
-//	static Markup clusterDescription(Cluster facet) {
-//		return description(facet.allRestrictions());
-//	}
+	// static Markup clusterDescription(Cluster facet) {
+	// return description(facet.allRestrictions());
+	// }
+
+	static Markup restrictionsDescription(SortedSet restrictions) {
+		Perspective aRestriction = (Perspective) restrictions.first();
+		Perspective parent = aRestriction.getParent();
+		Markup content = Query.emptyMarkup();
+		String prefix = parent != null ? parent.namePrefix() : "";
+		if (prefix.length() > 0)
+			content.add(prefix);
+		Query.toEnglish(restrictions, " and ", content);
+
+		Markup[] descriptions = new Markup[2];
+		boolean[] reqtTypes = { true, false };
+		for (int type = 0; type < 2; type++) {
+			boolean reqtType = reqtTypes[type];
+
+			SortedSet info = new TreeSet();
+			for (Iterator it = restrictions.iterator(); it.hasNext();) {
+				Perspective p = (Perspective) it.next();
+				info.addAll(p.getRestrictionFacetInfos(true, reqtType));
+			}
+
+			if (info != null && !info.isEmpty()) {
+				descriptions[type] = Query.emptyMarkup();
+				Query.toEnglish(info, " or ", descriptions[type]);
+			}
+		}
+		Markup result = aRestriction.tagDescription(descriptions, false, Util
+				.splitSemicolon(" ; NOT "));
+
+		if (result.size() > 0) {
+			content.add(Markup.NEWLINE_TAG);
+			content.add(aRestriction.namePrefix());
+			content.addAll(result);
+		}
+		return content;
+	}
 
 	private static boolean topLevelFacetClause(Markup phrase, Markup result) {
 		for (int j = 1; j < phrase.size(); j++) {
@@ -282,8 +399,10 @@ class MarkupImplementation extends Vector implements Markup {
 			if (o instanceof Perspective) {
 				Perspective facet = (Perspective) o;
 				if (facet.getParent() == null) {
-					result.add(" having"
-							+ Util.indefiniteArticle(facet.getNameIfPossible()));
+					result
+							.add(" having"
+									+ Util.indefiniteArticle(facet
+											.getNameIfPossible()));
 					result.add(facet);
 					return true;
 				}
@@ -292,20 +411,57 @@ class MarkupImplementation extends Vector implements Markup {
 		return false;
 	}
 
-	static void toEnglish(Perspective[] facets, String connector,
-			Markup descriptions) {
-		int len = facets.length;
-		if (len > 0) {
-			if (len > 1)
-				Arrays.sort(facets); // , Perspective.indexComparator);
-			descriptions.add(facets[0]);
-			if (len > 1) {
-				for (int i = 1; i < facets.length - 1; i++) {
-					descriptions.add(", ");
-					descriptions.add(facets[i]);
+	public String toText() {
+		return toText(null);
+	}
+
+	public String toText(PerspectiveObserver _redraw) {
+		boolean plural = false;
+		StringBuffer result = new StringBuffer();
+		for (Iterator iterator = iterator(); iterator.hasNext();) {
+			Object o = iterator.next();
+			if (o == Markup.PLURAL_TAG) {
+				assert !plural;
+				plural = true;
+			} else if (o == Markup.NEWLINE_TAG) {
+				result.append("\n");
+			} else if (o instanceof String) {
+				assert !plural : this;
+				result.append(o);
+			} else if (o instanceof ItemPredicate) {
+				ItemPredicate facet = (ItemPredicate) o;
+				String name = _redraw == null ? facet.getNameIfPossible()
+						: facet.getName(_redraw);
+				result.append(name);
+				if (plural) {
+					Util.pluralize(result);
+					plural = false;
 				}
-				descriptions.add(connector);
-				descriptions.add(facets[facets.length - 1]);
+			} else {
+				assert o == Markup.DEFAULT_COLOR_TAG
+						|| o == Markup.DEFAULT_STYLE_TAG
+						|| o == Markup.ITALIC_STRING_TAG || o instanceof Color : o;
+			}
+		}
+		return result.toString();
+	}
+
+	static void toEnglish(SortedSet info, String connector, Markup descriptions) {
+		int len = info.size();
+		if (len > 0) {
+			// if (len > 1)
+			// Arrays.sort(info); // , Perspective.indexComparator);
+			boolean first = true;
+			for (Iterator it = info.iterator(); it.hasNext();) {
+				Object o = it.next();
+				if (first) {
+					first = false;
+				} else if (o == info.last()) {
+					descriptions.add(connector);
+				} else {
+					descriptions.add(", ");
+				}
+				descriptions.add(o);
 			}
 		}
 	}

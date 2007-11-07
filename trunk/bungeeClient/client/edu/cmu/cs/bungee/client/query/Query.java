@@ -1,6 +1,5 @@
 package edu.cmu.cs.bungee.client.query;
 
-import java.io.Serializable;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -9,9 +8,13 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Set;
+import java.util.SortedSet;
+import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -21,11 +24,16 @@ import edu.cmu.cs.bungee.javaExtensions.JDBCSample;
 import edu.cmu.cs.bungee.javaExtensions.QueueThread;
 import edu.cmu.cs.bungee.javaExtensions.Util;
 
+/**
+ * @author mad Holds a set of filters that has been applied to a database, and
+ *         all the associated facet and item information
+ */
+public final class Query implements ItemPredicate {
 
-public class Query implements Serializable {
-
-	private static final long serialVersionUID = 8017632565997166607L;
-
+	/**
+	 * Allow adding, deleting, reparenting, renaming facets and changing the
+	 * items they apply to?
+	 */
 	public static final boolean isEditable = false;
 
 	private final ServletInterface db;
@@ -34,31 +42,64 @@ public class Query implements Serializable {
 
 	// private String itemURLgetter;
 
+	/**
+	 * Mouse documentation for what happens if you click on the Selected Item
+	 * thumbnail. The empty string disables clicking.
+	 */
 	public final String itemURLdoc;
 
 	// private final String[] itemDescFields;
 
 	private final String matchFieldsPrefix;
 
+	/**
+	 * What you call an item, e.g. 'image', 'work', etc
+	 */
 	public final String genericObjectLabel;
 
-	private final ArrayList displayedPerspectives = new ArrayList();
+	private final List displayedPerspectives = new ArrayList();
 
+	/**
+	 * Number of top-level facets
+	 */
 	public final int nAttributes;
 
-	public int onCount;
+	/**
+	 * the number of items that satisfy the current filters
+	 */
+	int onCount;
 
-	public int totalCount;
+	/**
+	 * the number of items in the [restricted] collection
+	 */
+	int totalCount;
 
-	private final Set searches = new HashSet();
+	private final Set searches = new LinkedHashSet();
 
-	private final Set clusters = new HashSet();
+	private final Set clusters = new LinkedHashSet();
 
 	private Perspective[] allPerspectives;
 
+	/**
+	 * Called in thread Bungee.dataUpdater
+	 * 
+	 * @param server
+	 *            the Bungee View server to connect to, e.g.
+	 *            http://localhost/bungeeOLD/Bungee
+	 * @param dbName
+	 *            the database to connect to, e.g. movie
+	 */
 	public Query(String server, String dbName) {
 		db = new ServletInterface(server, dbName);
-		setQueryInvalid();
+		String[][] dbs = db.getDatabases();
+		for (int i = 0; i < dbs.length; i++) {
+			if (dbs[i][0].equalsIgnoreCase(dbName)) {
+				name = dbs[i][1];
+				break;
+			}
+		}
+		assert name != null : dbName;
+		// setQueryInvalid();
 		int nFacets = db.facetCount + 1;
 		totalCount = db.itemCount;
 		onCount = totalCount;
@@ -68,6 +109,7 @@ public class Query implements Serializable {
 		itemURLdoc = db.doc;
 		allPerspectives = new Perspective[nFacets];
 		nAttributes = initPerspectives();
+		// Util.print("Query return");
 	}
 
 	private static String getMatchFieldsPrefix(String[] itemDescFields) {
@@ -80,26 +122,43 @@ public class Query implements Serializable {
 		return " AND" + s;
 	}
 
+	/**
+	 * @return status of most recent servlet response
+	 */
 	public String errorMessage() {
 		return db.errorMessage();
 	}
 
+	/**
+	 * @return the number of filters on clusters
+	 */
 	public int nClusters() {
 		return clusters.size();
 	}
 
+	/**
+	 * @return the clusters being filtered on
+	 */
 	public Set clusters() {
 		return new HashSet(clusters);
 	}
 
+	/**
+	 * @param cluster
+	 * @return is cluster being filtered on?
+	 */
 	public boolean usesCluster(Cluster cluster) {
 		return clusters.contains(cluster);
 	}
 
-	public Cluster findCluster(String name) {
+	/**
+	 * @param name1
+	 * @return a cluster being filtered on with this name, or null
+	 */
+	public Cluster findCluster(String name1) {
 		for (Iterator it = clusters.iterator(); it.hasNext();) {
 			Cluster cluster = (Cluster) it.next();
-			if (cluster.toString().equals(name)) {
+			if (cluster.toString().equals(name1)) {
 				return cluster;
 			}
 		}
@@ -108,79 +167,138 @@ public class Query implements Serializable {
 
 	Prefetcher prefetcher;
 
+	/**
+	 * clean up when this query is no longer needed
+	 */
 	public void exit() {
-		Util.print("Query.exit");
+		Util.print("Query.exit priority="
+				+ Thread.currentThread().getPriority());
 		if (prefetcher != null) {
 			prefetcher.exit();
 			prefetcher = null;
+		}
+		if (nameGetter != null) {
+			nameGetter.exit();
+			nameGetter = null;
 		}
 		db.close();
 		setQueryValid(); // Don't have things hanging around waiting; let
 		// them get an error.
 	}
 
-	private Perspective[] perspectivesToAdd;
+	private List perspectivesToAdd = new LinkedList();
 
-	private Perspective[] perspectivesToRemove;
+	private List perspectivesToRemove = new LinkedList();
 
 	private ItemPredicate[] orderedFacetTypes;
 
 	NameGetter nameGetter;
 
+	/**
+	 * @return a Markup with no elements
+	 */
 	public static Markup emptyMarkup() {
 		return new MarkupImplementation();
 	}
 
-	public static void toEnglish(Perspective[] facets, String connector,
-			Markup descriptions) {
-		MarkupImplementation.toEnglish(facets, connector, descriptions);
+	public String markupToText(Markup markup, PerspectiveObserver _redraw) {
+		return markup.compile(genericObjectLabel).toText(_redraw);
 	}
 
-	private void descriptionClauses(Markup[] phrases, Markup result) {
+	public Markup parentDescription() {
+		Markup result = Query.emptyMarkup();
+		MarkupImplementation.descriptionNounPhrase(new LinkedList(), result);
+		// return result.compile(getQuery().genericObjectLabel);
+		return result;
+	}
+
+	/**
+	 * @param restrictions
+	 * @param connector
+	 *            e.g. 'and' or 'or'
+	 * @param descriptions
+	 *            append f1, f2, ..., fn-1 connector fn to description
+	 */
+	public static void toEnglish(SortedSet restrictions, String connector,
+			Markup descriptions) {
+		MarkupImplementation.toEnglish(restrictions, connector, descriptions);
+	}
+
+	private void descriptionClauses(List phrases, Markup result) {
 		MarkupImplementation.descriptionClauses(phrases, result, searches,
 				clusters);
 	}
 
-	public Markup description() {
-		Markup summary = emptyMarkup();
+	/**
+	 * @return e.g. '... for works from 20th century.'
+	 */
+	public Markup descriptionVerbPhrase() {
+		Markup summary;
 		if (isRestricted()) {
-			// Util.print("query.description");
-			Markup[] phrases = getPhrases();
-			// StringBuffer result = new StringBuffer(phrases.length * 20);
-			summary.add("... for ");
-			MarkupImplementation.descriptionNounPhrase(phrases, summary);
-			descriptionClauses(phrases, summary);
+			summary = description();
+			summary.add(0, "... for ");
 			summary.add(".");
 		} else {
+			summary = emptyMarkup();
 			summary.add("(No filters applied.)");
 		}
 		// Util.print("description: " + summary);
 		return summary;
 	}
 
-	public Markup[] getPhrases() {
-		Markup[] phrases = new Markup[0];
-		Iterator it = perspectivesIterator();
-		while (it.hasNext()) {
-			Perspective p = (Perspective) it.next();
+	public String toString() {
+		return "<Query " + description().toText() + ">";
+	}
+
+	/**
+	 * @return e.g. 'works from 20th century.'
+	 */
+	public Markup description() {
+		Markup summary;
+		// if (isRestricted()) {
+		// Util.print("query.description");
+		List phrases = getPhrases();
+		summary = emptyMarkup();
+		MarkupImplementation.descriptionNounPhrase(phrases, summary);
+		descriptionClauses(phrases, summary);
+		// } else {
+		// summary = parentDescription();
+		// }
+		// Util.print("description: " + summary);
+		return summary;
+	}
+
+	public List getPhrases() {
+		List phrases = new LinkedList();
+		for (Iterator iterator = displayedPerspectives.iterator(); iterator
+				.hasNext();) {
+			Perspective p = (Perspective) iterator.next();
 			if (p.getParent() == null) {
 				Markup description = p.getDescription(true, null);
-				if (description.size() > 0)
-					phrases = (Markup[]) Util.push(phrases, description,
-							Markup.class);
+				if (!description.isEmpty())
+					phrases.add(description);
 			}
 		}
 		// Util.print("q.getPhrases return "
-		// + PrintArray.printArrayString(phrases));
+		// + Util.valueOfDeep(phrases));
 		return phrases;
 	}
 
-	public int nFilters(boolean text, boolean facet) {
+	/**
+	 * @param text
+	 *            include text search filters?
+	 * @param facet
+	 *            include filters on facets?
+	 * @return this query's number of filters
+	 */
+	public int nFilters(boolean text, boolean facet, boolean cluster) {
 		int result = text ? searches.size() : 0;
+		if (cluster)
+			result += nClusters();
 		if (facet) {
-			Iterator it = perspectivesIterator();
-			while (it.hasNext()) {
-				Perspective p = (Perspective) it.next();
+			for (Iterator iterator = displayedPerspectives.iterator(); iterator
+					.hasNext();) {
+				Perspective p = (Perspective) iterator.next();
 				if (p.getParent() == null && p.isAnyRestrictions())
 					result++;
 			}
@@ -188,9 +306,12 @@ public class Query implements Serializable {
 		return result;
 	}
 
+	/**
+	 * @return description of this query's number and types of filters
+	 */
 	public String describeNfilters() {
-		int nText = nFilters(true, false);
-		int nFacet = nFilters(false, true);
+		int nText = nFilters(true, false, false);
+		int nFacet = nFilters(false, true, false);
 		StringBuffer buf = new StringBuffer();
 		int nClusters = nClusters();
 		buf.append("filters on ");
@@ -211,38 +332,61 @@ public class Query implements Serializable {
 		return buf.toString();
 	}
 
-	public boolean isTopLevel(int facetID) {
-		Perspective p = findPerspectiveIfPossible(facetID);
-		if (p != null)
-			return p.topLevel();
-		else
-			return false;
+	/**
+	 * @param restrictions
+	 *            the restrictions on a facet, like {2006, 2007}
+	 * @return a rank label, like ' ->21st century\n ->2006 and 2007'
+	 */
+	public static Markup facetSetDescription(SortedSet restrictions) {
+		return MarkupImplementation.restrictionsDescription(restrictions);
 	}
 
-	public Perspective findUsedPerspective(String name, boolean isTopLevel) {
+	boolean isTopLevel(int facetID) {
+		return facetID <= nAttributes;
+	}
+
+	/**
+	 * @param name1
+	 *            name of facet to find
+	 * @param isTopLevelOnly
+	 *            does facet have to have no parent?
+	 * @return the facet with this name Called only when replaying or editing
+	 */
+	public Perspective findUsedPerspective(String name1, boolean isTopLevelOnly) {
 		int nPerspectives = displayedPerspectives.size();
 		for (int i = nPerspectives - 1; i >= 0; i--) {
 			Perspective p = (Perspective) displayedPerspectives.get(i);
-			if (p.getName().equals(name) && (!isTopLevel || p.topLevel()))
+			if (p.getName().equals(name1)
+					&& (!isTopLevelOnly || p.depth() == 0))
 				return p;
 		}
 		return null;
 	}
 
-	public Perspective findPerspective(String name, Perspective parent) {
+	/**
+	 * @param name1
+	 *            name of facet to find
+	 * @param parent
+	 *            parent of facet to find
+	 * @return the facet with this name and parent Called only when replaying or
+	 *         editing
+	 */
+	public Perspective findPerspective(String name1, Perspective parent) {
 		if (parent != null) {
-			int nChildren = parent.nChildren();
-			for (int i = 0; i < nChildren; i++) {
-				Perspective p = parent.getNthChild(i);
-				if (p.getName().equals(name))
+			for (Iterator it = parent.getChildIterator(); it.hasNext();) {
+				Perspective p = (Perspective) it.next();
+				if (p.getName().equals(name1))
 					return p;
 			}
 		} else {
-			return findUsedPerspective(name, true);
+			return findUsedPerspective(name1, true);
 		}
 		return null;
 	}
 
+	/**
+	 * @return a ListIterator over the displayed perspectives
+	 */
 	public ListIterator perspectivesIterator() {
 		return displayedPerspectives.listIterator();
 	}
@@ -271,18 +415,26 @@ public class Query implements Serializable {
 
 	/**
 	 * @return Ensure there's a [displayed] Perspective for facet and all its
-	 *         ancestors.
+	 *         ancestors, and then tell parent to toggle us.
 	 */
-	// This is weird, because we're recursing UP the tree.
 	public boolean toggleFacet(Perspective facet, int modifiers) {
 		Perspective parent = facet.getParent();
-		if (!usesPerspective(parent)) {
-			if (Perspective.isExcludeAction(modifiers))
-				insertAncestors(parent);
-			else
+		if (parent != null) {
+			parent.displayAncestors();
+			if (!Perspective.isExcludeAction(modifiers)
+					&& !parent.isRestriction(true) && !parent.isTopLevel()) {
 				toggleFacet(parent, modifiers);
+			}
 		}
-		return parent.toggleFacet(facet, modifiers);
+		// if (!displaysPerspective(parent)) {
+		// if (Perspective.isExcludeAction(modifiers))
+		// displayAncestors(parent);
+		// else
+		// toggleFacet(parent, modifiers);
+		// }
+		boolean result = parent.toggleFacet(facet, modifiers);
+		isRestricted = computeIsRestricted();
+		return result;
 	}
 
 	// Return lowest level restrictions only, including
@@ -307,83 +459,107 @@ public class Query implements Serializable {
 	// return result;
 	// }
 
-	public Perspective[] restrictions() {
-		Perspective[] result = {};
-		Iterator it = perspectivesIterator();
-		while (it.hasNext()) {
-			ItemPredicate p = (ItemPredicate) it.next();
-			result = (Perspective[]) Util.append(result, p.allRestrictions(),
-					Perspective.class);
+	public SortedSet allRestrictions() {
+		SortedSet result = new TreeSet();
+		for (Iterator iterator = displayedPerspectives.iterator(); iterator
+				.hasNext();) {
+			Perspective p = (Perspective) iterator.next();
+			result.addAll(p.allRestrictions());
 		}
 		return result;
 	}
 
-	public Perspective[] restrictions(boolean required) {
-		Perspective[] result = {};
-		Iterator it = perspectivesIterator();
-		while (it.hasNext()) {
-			Perspective p = (Perspective) it.next();
-			result = (Perspective[]) Util.append(result, p
-					.restrictions(required), Perspective.class);
+	/**
+	 * @param required
+	 *            polarity of filters we're interested in
+	 * @return all facets filtered on with required polarity
+	 */
+	public SortedSet allRestrictions(boolean required) {
+		SortedSet result = new TreeSet();
+		for (Iterator iterator = displayedPerspectives.iterator(); iterator
+				.hasNext();) {
+			Perspective p = (Perspective) iterator.next();
+			result.addAll(p.restrictions(required));
 		}
 		return result;
 	}
 
-	// public boolean isRestriction(Perspective facet) {
-	// boolean result = false;
-	// Iterator it = perspectivesIterator();
-	// while (it.hasNext() && !result) {
-	// Perspective p = (Perspective) it.next();
-	// result = p.isRestriction(facet);
-	// }
-	// return result;
-	// }
+	public boolean isRestriction(ItemPredicate facet, boolean required) {
+		boolean result = false;
+		for (Iterator iterator = displayedPerspectives.iterator(); iterator
+				.hasNext();) {
+			Perspective p = (Perspective) iterator.next();
+			result = p.isRestriction(facet, required);
+		}
+		return result;
+	}
 
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see query.ItemPredicate#isRestriction()
+	 */
+	public boolean isRestriction() {
+		return false;
+	}
+
+	private boolean isRestricted;
+
+	/**
+	 * @return allRestrictions() > 0
+	 */
 	public boolean isRestricted() {
+		return isRestricted;
+	}
+
+	/**
+	 * @return allRestrictions() > 0 (i.e. ignores restrictData)
+	 */
+	private boolean computeIsRestricted() {
 		// Wrong - we want to know if there are restrictions before querying the
 		// database.
 		// return onCount < totalCount;
 		boolean result = (searches.size() > 0) || (nClusters() > 0);
-		if (!result) {
-			int n = displayedPerspectives.size();
-			for (int i = 0; i < n && !result; i++) {
-				Perspective p = (Perspective) displayedPerspectives.get(i);
-				result = p.isRestricted();
-			}
+		for (Iterator it = displayedPerspectives.iterator(); it.hasNext()
+				&& !result;) {
+			Perspective p = (Perspective) it.next();
+			result = p.isRestricted();
 		}
 		return result;
 	}
 
 	void addPerspective(ItemPredicate p) {
-		if (perspectivesToRemove != null
-				&& Util.isMember(perspectivesToRemove, p))
-			perspectivesToRemove = (Perspective[]) Util.delete(
-					perspectivesToRemove, p, Perspective.class);
+		if (perspectivesToRemove.contains(p))
+			perspectivesToRemove.remove(p);
 		else
-			perspectivesToAdd = (Perspective[]) Util.push(perspectivesToAdd, p,
-					Perspective.class);
+			perspectivesToAdd.add(p);
 	}
 
 	void removePerspective(ItemPredicate p) {
-		if (perspectivesToAdd != null && Util.isMember(perspectivesToAdd, p))
-			perspectivesToAdd = (Perspective[]) Util.delete(perspectivesToAdd,
-					p, Perspective.class);
+		if (perspectivesToAdd.contains(p))
+			perspectivesToAdd.remove(p);
 		else
-			perspectivesToRemove = (Perspective[]) Util.push(
-					perspectivesToRemove, p, Perspective.class);
+			perspectivesToRemove.add(p);
 	}
 
 	private int initPerspectives() {
-		int facet_type_id = 0;
+		int facetTypeID = 0;
 		ResultSet rs = null;
+
+		prefetcher = new Prefetcher(this);
+		prefetcher.start();
+
+		nameGetter = new NameGetter(this);
+		nameGetter.start();
+
 		try {
 			rs = db.initPerspectives();
 			while (rs.next()) {
 
-				Perspective p = new Perspective(++facet_type_id, null, rs
+				Perspective p = new Perspective(++facetTypeID, null, rs
 						.getString(1), rs.getInt(5), rs.getInt(4), rs
 						.getString(2), rs.getString(3), this);
-				cachePerspective(facet_type_id, p);
+				cachePerspective(facetTypeID, p);
 				// Perspective p = ensurePerspective(++facet_type_id, null, rs
 				// .getString(1), rs.getInt(5), rs.getInt(4));
 				// p.instantiate(rs.getString(2), rs.getString(3), this);
@@ -392,29 +568,21 @@ public class Query implements Serializable {
 				if (rs.getInt(7) != 0)
 					orderedFacetTypes = (ItemPredicate[]) Util.push(
 							orderedFacetTypes, p, Perspective.class);
+				prefetcher.add(p);
 			}
-			// nAttributes = facet_type_id;
-			Perspective[] persps = (Perspective[]) displayedPerspectives
-					.toArray(new Perspective[0]);
 
-			initFacetTypes(persps);
+			initFacetTypes(displayedPerspectives);
 
-			prefetcher = new Prefetcher(this, persps);
-			prefetcher.start();
-
-			nameGetter = new NameGetter(this);
-			nameGetter.start();
-
-		} catch (SQLException se) {
+		} catch (Throwable se) {
 			Util.err("SQL Exception in initPerspectives: " + se.getMessage());
 			se.printStackTrace();
 		} finally {
 			close(rs);
 		}
-		return facet_type_id;
+		return facetTypeID;
 	}
 
-	public boolean isOrdered(Perspective p) {
+	boolean isOrdered(Perspective p) {
 		return Util.isMember(orderedFacetTypes, p.getFacetType());
 	}
 
@@ -469,19 +637,36 @@ public class Query implements Serializable {
 	//
 	// True iff we need to update facet counts (i.e. unless onCount == 0 or
 	// totalCount)
+
+	/**
+	 * Called in thread Bungee.dataUpdater
+	 * 
+	 * @param selectedItem
+	 *            tell database what item we want to keep track of
+	 * @param nNeighbors
+	 *            tell database how many neighbors of selectedItem we want to
+	 *            keep track of
+	 * @return does Bungee View need to update facet counts (i.e. 0 < onCount <
+	 *         totalCount)
+	 */
 	public boolean updateOnItems(Item selectedItem, int nNeighbors) {
 		// Util.print("Query updateOnItems " + selectedItem);
+		isRestricted = computeIsRestricted();
 		String onSQL = onItemsQuery(null);
-		if (onSQL != null) {
-			// Util.print(onSQL);
-			onCount = db.updateOnItems(onSQL, selectedItem != null ? selectedItem.getId() : 0, onItemsTable(),
-					nNeighbors);
+		// Util.print("onSQL: " + onSQL);
+		onCount = db.updateOnItems(onSQL, selectedItem != null ? selectedItem
+				.getId() : 0, onItemsTable(), nNeighbors);
+		if (onCount >= 0)
 			return (onCount > 0);
-		} else {
-			db.decacheOffsets();
+		else {
 			onCount = totalCount;
+			return false;
 		}
-		return false;
+		// } else {
+		// db.decacheOffsets();
+		// onCount = totalCount;
+		// return false;
+		// }
 	}
 
 	// 0 item_order; 1 restricted; 2 onItems
@@ -489,23 +674,34 @@ public class Query implements Serializable {
 		return isRestricted() ? 2 : isRestrictedData() ? 1 : 0;
 	}
 
-	void adjoin(StringBuffer qJOIN, Perspective[] restrictions,
-			boolean reqtType, int joinIndex) {
+	void adjoin(StringBuffer qJOIN, SortedSet exclude, boolean reqtType,
+			int joinIndex) {
 		qJOIN.append(getJoinString(joinIndex, reqtType));
-		if (restrictions.length > 1) {
+		if (exclude.size() > 1) {
 			qJOIN.append("IN (");
-			for (int i = 0; i < restrictions.length; i++) {
-				if (i > 0)
+			boolean first = true;
+			for (Iterator it = exclude.iterator(); it.hasNext();) {
+				Perspective p = (Perspective) it.next();
+				if (first)
+					first = false;
+				else
 					qJOIN.append(",");
-				qJOIN.append(restrictions[i].getID());
+				qJOIN.append(p.getID());
 			}
 			qJOIN.append(")");
 		} else {
 			qJOIN.append("= ");
-			qJOIN.append(restrictions[0].getID());
+			qJOIN.append(((Perspective) exclude.first()).getID());
 		}
 	}
 
+	/**
+	 * @param toIgnore
+	 *            ignore restrictions on this ItemPredicate. Used by
+	 *            PerspectiveList.
+	 * @return SQL rendering of the current query, or null if there are no
+	 *         restrictions.
+	 */
 	String onItemsQuery(ItemPredicate toIgnore) {
 		boolean needDistinct = false;
 		StringBuffer qJOIN = new StringBuffer(
@@ -527,18 +723,19 @@ public class Query implements Serializable {
 		for (Iterator it = perspectivesIterator(); it.hasNext();) {
 			Perspective p = (Perspective) it.next();
 			if (p.getParent() == null) {
-				Perspective[] restrictions = p.getRestrictionFacetInfos(false,
-						true);
+				SortedSet restrictions = p
+						.getRestrictionFacetInfos(false, true);
 				if (toIgnore != null) {
-					for (int i = restrictions.length - 1; i >= 0; i--) {
-						if (restrictions[i].hasAncestor(toIgnore))
-							restrictions = (Perspective[]) Util.delete(
-									restrictions, restrictions[i],
-									Perspective.class);
+					Set toRemove = new TreeSet();
+					for (Iterator rit = restrictions.iterator(); rit.hasNext();) {
+						Perspective r = (Perspective) rit.next();
+						if (r.hasAncestor(toIgnore))
+							toRemove.add(r);
 					}
+					restrictions.removeAll(toRemove);
 				}
-				if (restrictions.length > 0) {
-					if (restrictions.length > 1)
+				if (!restrictions.isEmpty()) {
+					if (restrictions.size() > 1)
 						needDistinct = true;
 					adjoin(qJOIN, restrictions, true, joinIndex++);
 				}
@@ -549,36 +746,36 @@ public class Query implements Serializable {
 			for (Iterator it = clusters.iterator(); it.hasNext();) {
 				Cluster cluster = (Cluster) it.next();
 				adjoin(qJOIN, cluster.allRestrictions(), true, joinIndex++);
-				minClusterSize *= Math.ceil((cluster.size() + 1) / 2.0);
+				minClusterSize *= cluster.quorumSize();
 				needDistinct = false;
 			}
-		Perspective[] exclude = restrictions(false);
-		if (exclude.length > 0) {
+		SortedSet exclude = allRestrictions(false);
+		if (exclude.size() > 0) {
 			adjoin(qJOIN, exclude, false, joinIndex);
 			qJOIN.append(" WHERE i").append(joinIndex).append(
 					".record_num IS NULL");
 		}
+		String result = null;
 		if (qJOIN.length() > 0) {
 			if (minClusterSize > 1)
 				qJOIN.append(" GROUP BY rnd.record_num HAVING COUNT(*) >= ")
 						.append(minClusterSize);
 			// isRestricted = true;
 
-			return (needDistinct ? "SELECT DISTINCT" : "SELECT")
+			result = (needDistinct ? "SELECT DISTINCT" : "SELECT")
 					+ " rnd.record_num" + " FROM " + baseTable + " rnd" + qJOIN; // + "
 			// ORDER
 			// BY
 			// random_ID";
 		}
-		return null;
+		// Util.print("query: " + result);
+		return result;
 	}
 
 	private ResultSet getFilteredCounts() {
 		ResultSet rs = db.getFilteredCounts(
 				getFilteredCountsInternal(perspectivesToAdd),
 				getFilteredCountsInternal(perspectivesToRemove));
-		perspectivesToAdd = null;
-		perspectivesToRemove = null;
 		return rs;
 	}
 
@@ -586,31 +783,47 @@ public class Query implements Serializable {
 		return db.getFilteredCountTypes();
 	}
 
-	String getFilteredCountsInternal(Perspective[] persps) {
-		if (persps == null || persps.length == 0)
+	String getFilteredCountsInternal(List persps) {
+		if (persps.size() == 0)
 			return null;
-		StringBuffer buf = new StringBuffer(persps.length * 7);
-		for (int i = 0; i < persps.length; i++) {
-			if (i > 0)
+		boolean isFirst = true;
+		StringBuffer buf = new StringBuffer(persps.size() * 7);
+		for (Iterator it = persps.iterator(); it.hasNext();) {
+			Perspective p = (Perspective) it.next();
+			if (isFirst)
+				isFirst = false;
+			else
 				buf.append(", ");
-			buf.append(persps[i].getID());
+			buf.append(p.getID());
 		}
+		persps.clear();
 		return buf.toString();
 	}
 
+	/**
+	 * @param p
+	 * @return what would p's children's onCounts be if there were no filters on
+	 *         p? rows are [Perspective, onCount] If returned value is null, no
+	 *         other Perspective is restricted; use totalCounts
+	 */
 	public ResultSet getCountsIgnoringFacet(Perspective p) {
 		String subQuery = onItemsQuery(p);
-		// Util.print(" toIgnoreQuery=" + p + " " + subQuery);
+		// Util.print(" getCountsIgnoringFacet Query=" + p + " " + subQuery);
 		if (subQuery != null) {
-			return db.getCountsIgnoringFacet(subQuery, p.getID());
+			ResultSet result = db.getCountsIgnoringFacet(subQuery, p.getID());
+			assert result != null;
+			return result;
 		}
 		return null;
 	}
 
-	ResultSet init() {
-		return db.init();
-	}
+	// ResultSet init() {
+	// return db.init();
+	// }
 
+	/**
+	 * remove all filters
+	 */
 	public void clear() {
 		int nPerspectives = displayedPerspectives.size();
 		for (int i = nPerspectives - 1; i >= 0; i--) {
@@ -620,6 +833,7 @@ public class Query implements Serializable {
 		}
 		searches.clear();
 		clusters.clear();
+		isRestricted = computeIsRestricted();
 	}
 
 	void clearPerspective(Perspective p) {
@@ -638,17 +852,21 @@ public class Query implements Serializable {
 		p.clearRestrictions();
 		// Don't want stale numbers in mouse doc from SelectedItem deeply
 		// nested facets.
-		if (p.isPrefetched())
-			// prefetching can call this if restrictedData and all child counts
-			// = 0
-			// in which case resetData will barf cause not prefetched yet
-			p.resetData(-1);
+		if (p.isPrefetched()) {
+			synchronized (childIndexesBusy) {
+				// prefetching can call this if restrictedData and all child
+				// counts
+				// = 0
+				// in which case resetData will barf cause not prefetched yet
+				p.resetData(-1);
+			}
+		}
 	}
 
 	// Perspective has already removed the restriction.
 	void removeRestriction(Perspective p) {
 		// Util.print("removeRestriction " + p + " " + usesPerspective(p));
-		if (usesPerspective(p)) {
+		if (displaysPerspective(p)) {
 			displayedPerspectives.remove(p);
 			removePerspective(p);
 			clearPerspective(p);
@@ -663,64 +881,80 @@ public class Query implements Serializable {
 		}
 	}
 
+	/**
+	 * @param s
+	 *            add a filter on s
+	 */
 	public void addTextSearch(String s) {
 		// Util.print("Query.addTextSearch");
 		searches.add(s);
+		isRestricted = computeIsRestricted();
 	}
 
+	/**
+	 * @param s
+	 *            filter to remove
+	 * @return was anything removed?
+	 */
 	public boolean removeTextSearch(String s) {
-		return searches.remove(s);
+		boolean result = searches.remove(s);
+		isRestricted = computeIsRestricted();
+		return result;
 	}
 
+	/**
+	 * @return the set of Strings being filtered on
+	 */
 	public Set getSearches() {
 		return searches;
 	}
 
-	void initFacetTypes(Perspective[] facetTypes) {
+	/**
+	 * @return the number of text search filters
+	 */
+	public int nSearches() {
+		return searches.size();
+	}
+
+	void initFacetTypes(List facetTypes) {
 		ResultSet rs = null;
 		try {
-			rs = init();
+			rs = db.init();
 			// Util.print("Query.updateData " + isTotal + " " +
 			// (newPerspective != null ? newPerspective.facet_type_name : "")
 			// + " " + isHighlight);
-			for (int i = 0; i < facetTypes.length; i++) {
-				initPerspective(rs, facetTypes[i], 0);
+			for (Iterator it = facetTypes.iterator(); it.hasNext();) {
+				Perspective facetType = (Perspective) it.next();
+				initPerspective(rs, facetType, 0);
 			}
+		} catch (Throwable e) {
+			e.printStackTrace();
 		} finally {
 			close(rs);
 		}
-		perspectivesToAdd = facetTypes;
+		perspectivesToAdd = new LinkedList(facetTypes);
 	}
 
+	/**
+	 * @param facet
+	 *            refresh facet counts after an edit operation
+	 */
 	public void refetch(Perspective facet) {
+		assert isEditable;
 		extendAllPerspectives(facet.children_offset() + facet.nChildren());
 		facet.resetData(0);
-		initPerspective(db.prefetch(facet.getID(), 1), facet, 1);
+		initPerspective(facet, 1);
 	}
 
-	public void prefetchData(Perspective facet) {
-		if (!facet.isPrefetched()) {
-			synchronized (facet) {
-				if (!facet.isPrefetched()) {
-					facet.ensureInstantiatedPerspective();
-
-					int fetchType = 1;
-					if (facet.getTotalChildTotalCount() > 0)
-						fetchType = 3;
-					else if (isRestrictedData())
-						fetchType = 5;
-					if (facet.nChildren() > 100)
-						fetchType += 1;
-					initPerspective(db.prefetch(facet.getID(), fetchType),
-							facet, fetchType > 4 ? fetchType - 4 : fetchType);
-					facet.setPrefetched();
-					facet.notifyAll();
-				}
-			}
-		}
+	/**
+	 * Can be called from thread prefetcher
+	 */
+	void initPerspective(Perspective p, int fetchType) {
+		initPerspective(db.prefetch(p.getID(), fetchType), p,
+				fetchType > 4 ? fetchType - 4 : fetchType);
 	}
 
-	public void waitForPrefetch(Perspective facet) {
+	void waitForPrefetch(Perspective facet) {
 		// Util.print("waitForPrefetch");
 		synchronized (facet) {
 			while (!facet.isPrefetched()) {
@@ -735,11 +969,12 @@ public class Query implements Serializable {
 	}
 
 	// cases:
-	// 0: initFacetTypes - count .
-	// 1: prefetch a new facet. count, nChildren, offset, name
-	// 2: prefetch a new facet. count, nChildren, offset
-	// 3: prefetch a top-level facet. nChildren, offset, name
-	// 4: prefetch a top-level facet. nChildren, offset
+	// 0: initFacetTypes: count
+	// 1: prefetch a new facet: count, nChildren, offset, name
+	// 2: prefetch a new facet: count, nChildren, offset
+	// 3: prefetch a top-level facet (count is already set): nChildren, offset,
+	// name
+	// 4: prefetch a top-level facet (count is already set): nChildren, offset
 	void initPerspective(ResultSet rs, Perspective p, int fetchType) {
 		assert p.isInstantiated();
 		try {
@@ -759,7 +994,7 @@ public class Query implements Serializable {
 			int cumCount = 0;
 			int maxCount = -1;
 			int count = -1;
-			String name = null;
+			String name1 = null;
 			while (--nRemainingChildren >= 0) {
 				rs.next();
 				Perspective v;
@@ -768,8 +1003,8 @@ public class Query implements Serializable {
 					int childrenOffset = rs.getInt(fieldOffset + 2);
 					int nChildren = rs.getInt(fieldOffset + 1);
 					if (isName)
-						name = rs.getString(fieldOffset + 3);
-					v = ensurePerspective(++facet_id, p, name, childrenOffset,
+						name1 = rs.getString(fieldOffset + 3);
+					v = ensurePerspective(++facet_id, p, name1, childrenOffset,
 							nChildren);
 
 					// incf(offHist, childrenOffset);
@@ -826,34 +1061,53 @@ public class Query implements Serializable {
 		}
 	}
 
-	final public Object childIndexesBusy = "childIndexesBusy";
+	final Object childIndexesBusy = "childIndexesBusy";
 
+	/**
+	 * Called in thread Bungee.dataUpdater
+	 * 
+	 * @param resetOnly
+	 *            onCOunt == 0 or totalCount; no need to query database update
+	 *            all facet onCounts
+	 */
 	public void updateData(boolean resetOnly) {
-		// Util.print("Query.updateData " + resetOnly);
+//		 Util.print("Query.updateData " + resetOnly);
 		ResultSet counts = null;
 		ResultSet typeCounts = null;
-		if (!resetOnly) {
-			counts = getFilteredCounts();
-			typeCounts = getFilteredCountTypes();
-		}
-		synchronized (childIndexesBusy) {
-			for (int i = 0; i < displayedPerspectives.size(); i++) {
-				Perspective p = ((Perspective) displayedPerspectives.get(i));
-				if (!p.isPrefetched())
-					waitForPrefetch(p);
-				p.resetData(0);
-			}
+		try {
 			if (!resetOnly) {
-				// long start = new Date().getTime();
-				updateDataInternal(counts);
-				updateDataInternal(typeCounts);
-				// try {
-				close(counts);
-				close(typeCounts);
-				// } catch (SQLException e) {
-				// e.printStackTrace();
-				// }
+				counts = getFilteredCounts();
+				typeCounts = getFilteredCountTypes();
 			}
+			synchronized (childIndexesBusy) {
+//				Util.print("updateData " + resetOnly + " "
+//						+ displayedPerspectives.size());
+				// Don't use Iterator here. If query is being modified it will
+				// barf, and we know we'll be called again, so it doesn't matter
+				// if we skip anything.
+				for (int i = 0; i < displayedPerspectives.size(); i++) {
+					Perspective p = (Perspective) displayedPerspectives.get(i);
+//					Util.print("  " + p + " " + p.isPrefetched());
+					if (!p.isPrefetched())
+						waitForPrefetch(p);
+					p.resetData(0);
+				}
+				if (!resetOnly) {
+					// long start = new Date().getTime();
+					updateDataInternal(counts);
+					updateDataInternal(typeCounts);
+				}
+//				Util.print(" updateData done");
+			}
+		}catch(Throwable e) {
+			e.printStackTrace();
+		} finally {
+			if (counts != null)
+				close(counts);
+			if (typeCounts != null)
+				close(typeCounts);
+			setQueryValid();
+			updateBigDeal();
 		}
 		// Util.print("...updateData return");
 	}
@@ -908,6 +1162,24 @@ public class Query implements Serializable {
 		}
 	}
 
+	private double positiveBigDeal;
+	private double negativeBigDeal;
+
+	void updateBigDeal() {
+		double expectedPercent = percentOn();
+		positiveBigDeal = Perspective.unwarp(0.6, expectedPercent);
+		negativeBigDeal = Perspective.unwarp(0.4, expectedPercent);
+		for (Iterator it = displayedPerspectives.iterator(); it.hasNext();) {
+			Perspective facetType = (Perspective) it.next();
+			facetType.computeBigDeals();
+		}
+	}
+
+	boolean isBigDeal(double obervedPercent) {
+		return obervedPercent > positiveBigDeal
+				|| obervedPercent < negativeBigDeal;
+	}
+
 	// void showHist(Map map, String label) {
 	// Util.print("\n" + label);
 	// int total = 0;
@@ -934,16 +1206,10 @@ public class Query implements Serializable {
 	// return incf(map, key, 1);
 	// }
 
-	void insertAncestors(Perspective facet) {
-		if (!usesPerspective(facet.getParent()))
-			insertAncestors(facet.getParent());
-		insertPerspective(facet);
-	}
-
 	void insertPerspective(Perspective p) {
 		boolean added = false;
-		ListIterator it = perspectivesIterator();
-		while (it.hasNext()) {
+		for (ListIterator it = displayedPerspectives.listIterator(); it
+				.hasNext();) {
 			Perspective inList = (Perspective) it.next();
 			if (inList.children_offset() > p.children_offset()) {
 				it.previous();
@@ -967,7 +1233,7 @@ public class Query implements Serializable {
 		return displayedPerspectives;
 	}
 
-	public boolean usesPerspective(Perspective p) {
+	public boolean displaysPerspective(Perspective p) {
 		return displayedPerspectives.contains(p);
 	}
 
@@ -1012,16 +1278,24 @@ public class Query implements Serializable {
 		return db.itemIndex(item.getId(), onItemsTable(), nNeighbors);
 	}
 
-	public int[] itemIndexFromURL(String URL, int nNeighbors) {
-		return db.itemIndexFromURL(URL, onItemsTable(), nNeighbors);
+	public int[] itemIndexFromURL(String URL) {
+		return db.itemIndexFromURL(URL, onItemsTable());
 	}
 
+	/**
+	 * @param item
+	 * @return rows are [parent_facet_id, f.facet_id, name, n_child_facets,
+	 *         first_child_offset, n_items]
+	 */
 	ResultSet getItemInfo(Item item) {
 		return db.getItemInfo(item.getId());
 	}
 
 	public String getItemURL(Item item) {
-		return db.getItemURL(item.getId());
+		if (itemURLdoc != null && itemURLdoc.length() > 0)
+			return db.getItemURL(item.getId());
+		else
+			return null;
 	}
 
 	public boolean isShortSearch() {
@@ -1073,25 +1347,25 @@ public class Query implements Serializable {
 		return null;
 	}
 
-	public Perspective ensurePerspective(int facet, Perspective _parent,
-			String name, int children_offset, int n_children) {
+	Perspective ensurePerspective(int facet, Perspective _parent, String name1,
+			int children_offset, int n_children) {
 		Perspective result = findPerspectiveIfPossible(facet);
-		// if (_parent.facet_id > 4) {
-		// Util.print(_parent + " " + name + " " + result + " " + n_children);
+		// Util.print("ensurePerspective " + _parent + " " + name + " " + result
+		// + " " + n_children);
 		// if (result != null)
 		// Util.print(" " + result.getNameIfPossible());
-		// }
 		if (result == null) {
-			result = new Perspective(facet, _parent, name, children_offset,
+			result = new Perspective(facet, _parent, name1, children_offset,
 					n_children);
 			cachePerspective(facet, result);
 			// Util.print("ensurePerspective " + result);
 			if (_parent != null) {
 				_parent.addFacet(facet - _parent.children_offset() - 1, result);
 			}
-		} else if (/* name != null && */result.getNameIfPossible() == null) {
+		} else { // if (/* name != null && */result.getNameIfPossible() ==
+			// null) {
 			// prefetch hasn't happened yet
-			result.setName(name);
+			result.setName(name1);
 			result.setNchildren(n_children, children_offset);
 		}
 		assert result.getParent() == _parent : result + " "
@@ -1100,13 +1374,24 @@ public class Query implements Serializable {
 		return result;
 	}
 
-	private boolean queryInvalid = true;
+	/**
+	 * Do our counts match our restictions? They are initially, by the time our
+	 * constructor returns,
+	 */
+	private boolean queryInvalid = false;
 
 	/**
 	 * Used to determine whether perspective chiSq tables are up to date
 	 */
 	int updateIndex = 1;
 
+	private String name;
+
+	/**
+	 * @return whether restrictions, searches, and clusters are consistent with
+	 *         onCounts. set to invalid by Bungee.updateAllData and to valid by
+	 *         Query.updateData
+	 */
 	public boolean isQueryValid() {
 		return !queryInvalid;
 	}
@@ -1117,6 +1402,7 @@ public class Query implements Serializable {
 		// boolean result = false;
 		// if (!queryInvalid) {
 		queryInvalid = true;
+		updateIndex++;
 		// result = true;
 		// }
 		// Util.print("....setQueryValid return " + result);
@@ -1127,9 +1413,23 @@ public class Query implements Serializable {
 	public synchronized void setQueryValid() {
 		// Util.print("setQueryValid");
 		// Util.printStackTrace();
-		updateIndex++;
 		queryInvalid = false;
+		redraw();
 		notifyAll();
+	}
+
+	private Set badOnCounts = new HashSet();
+
+	void addBadOnCount(PerspectiveObserver redraw) {
+		badOnCounts.add(redraw);
+	}
+
+	private void redraw() {
+		for (Iterator it = badOnCounts.iterator(); it.hasNext();) {
+			PerspectiveObserver redraw = (PerspectiveObserver) it.next();
+			redraw.redraw();
+		}
+		badOnCounts.clear();
 	}
 
 	public void queuePrefetch(Object p) {
@@ -1156,6 +1456,10 @@ public class Query implements Serializable {
 		// Util.print("....waitForValidQuery return");
 	}
 
+	public Iterator getFacetIterator(int facet_id, int nFacets) {
+		return Util.arrayIterator(allPerspectives, facet_id, nFacets);
+	}
+
 	public Perspective findPerspective(int facet) {
 		// Perspective result = null;
 		// while ((result = allPerspectives[facet]) == null) {
@@ -1177,7 +1481,8 @@ public class Query implements Serializable {
 		allPerspectives[facet_id] = perspective;
 	}
 
-	public void restrict() {
+	public boolean restrictData() {
+		name += " / " + markupToText(description(), null);
 		// Util.print("Query.restrict " + displayedPerspectives);
 		for (int i = 0; i < allPerspectives.length; i++) {
 			Perspective p = allPerspectives[i];
@@ -1194,8 +1499,12 @@ public class Query implements Serializable {
 		baseTable = "restricted";
 		totalCount = onCount;
 		clear();
+		return totalCount > 0;
 	}
 
+	/**
+	 * Can be called from thread prefetcher
+	 */
 	public boolean isRestrictedData() {
 		return baseTable.equals("restricted");
 	}
@@ -1204,6 +1513,7 @@ public class Query implements Serializable {
 		boolean found = clusters.remove(cluster);
 		if (!found)
 			clusters.add(cluster);
+		isRestricted = computeIsRestricted();
 		// boolean found = false;
 		// if (clusters != null) {
 		// for (int i = clusters.length - 1; i >= 0 && !found; i--) {
@@ -1223,9 +1533,32 @@ public class Query implements Serializable {
 		// }
 	}
 
-	public ResultSet[] clusterRS(int maxClusters, String facetRestriction,
-			double p) {
-		return db.cluster(maxClusters, 4, facetRestriction, p);
+	/**
+	 * @param maxClusters
+	 *            find the maxClusters'th most significant clusters
+	 * @param facetRestriction
+	 *            is the empty string or a where clause restricting facet_id, or
+	 *            even joins, e.g. INNER JOIN facet f ON f.facet_id = i.facet_id
+	 *            WHERE f.lft BETWEEN 56 AND 87
+	 * @param p
+	 *            only return clusters whose p-value <= p
+	 * @param parent
+	 *            add all the clusters as children of parent
+	 */
+	public void clusterTree(int maxClusters, String facetRestriction, double p,
+			DisplayTree parent) {
+		ResultSet[] rs = db.cluster(maxClusters, 4, facetRestriction, p);
+		double pValue = 0;
+		try {
+			for (int i = 0; i < rs.length; i++) {
+				FacetTree tree = new FacetTree(parent, rs[i], this);
+				assert pValue <= (pValue = ((Cluster) tree.treeObject())
+						.pValue());
+				// Util.print(i + " " + pValue + " " + tree.treeObject());
+			}
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
 	}
 
 	// public ResultSet clusterRS(Perspective perspective) {
@@ -1281,7 +1614,7 @@ public class Query implements Serializable {
 	// && Art.chiColorFamily(facet) == 1) {
 	// double p = ChiSqr.pValue(Art.chiSqTable(facet, null));
 	// Object[] x = { new Double(p), facet };
-	// // PrintArray.printArray(Art.chiSqTable(allPerspectives[i],
+	// // Util.printDeep(Art.chiSqTable(allPerspectives[i],
 	// // null));
 	// // Util.print(facet.totalCount + " " + facet.onCount + " " +
 	// // facet);
@@ -1297,7 +1630,8 @@ public class Query implements Serializable {
 	// }
 
 	public Collection addItemFacet(Perspective facet, Item item) {
-		return updateIDnCount(db.addItemFacet(facet.getID(), item.getId()), null, null);
+		return updateIDnCount(db.addItemFacet(facet.getID(), item.getId()),
+				null, null);
 	}
 
 	public Collection addItemsFacet(Perspective facet) {
@@ -1319,8 +1653,8 @@ public class Query implements Serializable {
 	}
 
 	public Collection removeItemFacet(Perspective facet, Item item) {
-		return updateIDnCount(db.removeItemFacet(facet.getID(), item.getId()), null,
-				null);
+		return updateIDnCount(db.removeItemFacet(facet.getID(), item.getId()),
+				null, null);
 	}
 
 	public Collection reparent(Perspective parent, Perspective child) {
@@ -1353,8 +1687,10 @@ public class Query implements Serializable {
 						: findPerspectiveIfPossible(parent_facet_id);
 				extendAllPerspectives(Math.max(oldID, newID));
 				Perspective p = findPerspectiveIfPossible(oldID);
-				if (existingParent != null && usesPerspective(existingParent)
-				// if it's not used, maxTotalCount == -1 and this will blow
+				if (existingParent != null
+						&& displaysPerspective(existingParent)
+						// if it's not used, maxTotalCount == -1 and this will
+						// blow
 						&& cnt > existingParent.maxChildTotalCount()) {
 					Util.print("updateIDnCount setting max child count to "
 							+ cnt + " (" + p + ")");
@@ -1384,7 +1720,7 @@ public class Query implements Serializable {
 					p.setID(newID);
 					p.setChildrenOffset(offset);
 					p.totalCount = cnt;
-					if (usesPerspective(p)) {
+					if (displaysPerspective(p)) {
 						result.add(p);
 					}
 					if (p.getParent() != null) {
@@ -1458,8 +1794,8 @@ public class Query implements Serializable {
 		return db.getSession();
 	}
 
-	public void printUserAction(int location, String object, int modifiers) {
-		db.printUserAction(location, object, modifiers);
+	public void printUserAction(String[] args) {
+		db.printUserAction(args);
 	}
 
 	public String aboutCollection() {
@@ -1495,21 +1831,166 @@ public class Query implements Serializable {
 		public int getId() {
 			return id;
 		}
-		
+
 		public String toString() {
 			return "<Item " + id + ">";
 		}
 
 		public int compareTo(Object arg0) {
 			assert arg0 instanceof Item : arg0;
-			return ((Item) arg0).getId() - getId();
+			return getId() - ((Item) arg0).getId();
 		}
+	}
+
+	public int chiColorFamily(double significanceThreshold) {
+		return 0;
+	}
+
+	public Markup describeFilter() {
+		return descriptionVerbPhrase();
+	}
+
+	public Markup facetDoc(int modifiers) {
+		Markup result = emptyMarkup();
+		result.add("Explore within the Result List");
+		return result;
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public Query query() {
+		return this;
+	}
+
+	public int getTotalCount() {
+		return totalCount;
+	}
+
+	public int nRestrictions() {
+		return nFilters(false, true, false);
+	}
+
+	public double pValue() {
+		return 1;
+	}
+
+	public double percentOn() {
+		return onCount / (double) totalCount;
+	}
+
+	/*
+	 * This will return the previous onCount while query is invalid
+	 * 
+	 * @see edu.cmu.cs.bungee.client.query.ItemPredicate#guessOnCount()
+	 */
+	public int guessOnCount() {
+		return onCount;
+	}
+
+	public int getOnCount() {
+		return onCount;
+	}
+
+	public String getName(PerspectiveObserver _redraw) {
+		return name;
+	}
+
+	public String getNameIfPossible() {
+		return name;
+	}
+
+	public ItemPredicate getParent() {
+		return null;
+	}
+
+	public boolean isEffectiveChildren() {
+		return false;
+	}
+
+	public boolean zeroHits(Perspective facet, int modifiers) {
+		return !facet.getParent().isRestricted()
+				&& facet.getOnCount() == (Perspective
+						.isExcludeAction(modifiers) ? getOnCount() : 0);
+	}
+
+	private boolean maybeInsertSemicolon(StringBuffer buf, boolean firstTime) {
+		if (!firstTime) {
+			buf.append(";");
+		}
+		return false;
+	}
+
+	private boolean insertFacets(StringBuffer buf, boolean firstTime,
+			SortedSet restrictions, boolean required) {
+		if (restrictions.size() > 0) {
+			String[] descs = new String[restrictions.size()];
+			int i = 0;
+			for (Iterator rit = restrictions.iterator(); rit.hasNext();) {
+				Perspective r = (Perspective) rit.next();
+				descs[i++] = r.fullName();
+			}
+			// descs[0] = p.getName()
+			// + () + descs[0];
+			firstTime = maybeInsertSemicolon(buf, firstTime);
+			buf.append(required ? "+:" : "-:");
+			buf.append(Util.join(descs, "|"));
+		}
+		return firstTime;
+	}
+
+	/**
+	 * Ignores restrictData
+	 * @return a representation of the current filters from which
+	 *         Bungee.setInitialState can recreate them.
+	 */
+	public String bookmark() {
+		boolean emptyQuery = true;
+		StringBuffer buf = new StringBuffer();
+		for (Iterator it = searches.iterator(); it.hasNext();) {
+			String search = (String) it.next();
+			emptyQuery = maybeInsertSemicolon(buf, emptyQuery);
+			buf.append("TextSearch:").append(search);
+		}
+		for (Iterator it = perspectivesIterator(); it.hasNext();) {
+			Perspective p = (Perspective) it.next();
+			if (p.getParent() == null) {
+				boolean[] reqtTypes = { true, false };
+				for (int type = 0; type < 2; type++) {
+					SortedSet restrictions = p.getRestrictionFacetInfos(false,
+							reqtTypes[type]);
+					emptyQuery = insertFacets(buf, emptyQuery, restrictions,
+							reqtTypes[type]);
+				}
+			}
+		}
+		// Do clusters last, so cluster.query will reflect other filters in
+		// setInitialState
+		for (Iterator it = clusters.iterator(); it.hasNext();) {
+			Cluster cluster = (Cluster) it.next();
+			emptyQuery = maybeInsertSemicolon(buf, emptyQuery);
+			buf.append("Cluster:").append(emptyQuery);
+			emptyQuery = insertFacets(buf, emptyQuery, cluster
+					.allRestrictions(), true);
+		}
+		return buf.toString();
+	}
+
+	/**
+	 * @return the number of rows in raw_facet_type whose ordered column is
+	 *         true.
+	 */
+	public double nOrderedAttributes() {
+		int n = 0;
+		for (int i = 1; i <= nAttributes; i++)
+			if (findPerspective(i).isOrdered())
+				n++;
+		return n;
 	}
 }
 
-class FirstDoubleComparator implements Comparator, Serializable {
-
-	private static final long serialVersionUID = -2594094099399551219L;
+final class FirstDoubleComparator implements Comparator {
 
 	public int compare(Object data1, Object data2) {
 		return Util.sgn(value(data1) - value(data2));
@@ -1520,20 +2001,12 @@ class FirstDoubleComparator implements Comparator, Serializable {
 	}
 }
 
-class Prefetcher extends QueueThread {
+final class Prefetcher extends QueueThread {
 
 	Query q;
 
-	public synchronized void exit() {
-		if (q != null) {
-			q.prefetcher = null;
-			q = null;
-		}
-		super.exit();
-	}
-
-	public Prefetcher(Query _q, ItemPredicate[] facets) {
-		super("GetPerspectiveNames", facets, true, -2);
+	Prefetcher(Query _q) {
+		super("Prefetcher", null, true, -2);
 		q = _q;
 	}
 
@@ -1554,7 +2027,13 @@ class Prefetcher extends QueueThread {
 		// q.waitForValidQuery(); // This can cause deadlock, because updateData
 		// waits for prefetching.
 		if (q != null) {
-			q.prefetchData((Perspective) facet);
+			// try {
+			// sleep(3000);
+			// } catch (InterruptedException e) {
+			// // TODO Auto-generated catch block
+			// e.printStackTrace();
+			// }
+			((Perspective) facet).prefetchData();
 			if (runnable != null) {
 				javax.swing.SwingUtilities.invokeLater(runnable);
 			}
@@ -1562,20 +2041,12 @@ class Prefetcher extends QueueThread {
 	}
 }
 
-class NameGetter extends AccumulatingQueueThread {
+final class NameGetter extends AccumulatingQueueThread {
 
 	Query q;
 
-	public synchronized void exit() {
-		if (q != null) {
-			q.nameGetter = null;
-			q = null;
-		}
-		super.exit();
-	}
-
-	public NameGetter(Query _q) {
-		super("GetPerspectiveNames", -2);
+	NameGetter(Query _q) {
+		super("NameGetter", 0);
 		q = _q;
 	}
 
@@ -1606,6 +2077,7 @@ class NameGetter extends AccumulatingQueueThread {
 					while (rs.next()) {
 						Perspective p = q.findPerspective(facets[facetIndex++]);
 						p.setName(rs.getString(1));
+						// Util.print("nameGetter " + p);
 					}
 				} catch (SQLException e) {
 					e.printStackTrace();
@@ -1615,7 +2087,7 @@ class NameGetter extends AccumulatingQueueThread {
 		}
 	}
 
-	class Redraw implements Runnable {
+	final class Redraw implements Runnable {
 		final Object[] nodes;
 
 		Redraw(Object[] _nodes) {
@@ -1624,8 +2096,10 @@ class NameGetter extends AccumulatingQueueThread {
 
 		public void run() {
 			for (int i = 0; i < nodes.length; i++) {
-				if (nodes[i] != null && nodes[i] instanceof PerspectiveObserver)
+				if (nodes[i] != null && nodes[i] instanceof PerspectiveObserver) {
 					((PerspectiveObserver) nodes[i]).redraw();
+					// Util.print("Redrawer " + nodes[i]);
+				}
 			}
 		}
 	}

@@ -36,8 +36,6 @@ import edu.umd.cs.piccolo.event.PInputEvent;
 
 public class HScrollbar extends VScrollbar {
 
-    private static final long serialVersionUID = -6506348717364552940L;
-
 	public HScrollbar(double sw, double sh, Color _BG,
             Color _FG, Runnable _action) {
         super(- sw, sw, sh, _BG, _FG, _action);

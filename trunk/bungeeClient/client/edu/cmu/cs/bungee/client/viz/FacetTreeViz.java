@@ -7,17 +7,17 @@ import java.util.LinkedList;
 import java.util.List;
 
 import edu.cmu.cs.bungee.client.query.DisplayTree;
+import edu.cmu.cs.bungee.client.query.Markup;
 import edu.cmu.cs.bungee.client.query.Perspective;
+import edu.cmu.cs.bungee.client.query.Query.Item;
+import edu.cmu.cs.bungee.javaExtensions.Util;
 import edu.cmu.cs.bungee.piccoloUtils.gui.APText;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
 import edu.cmu.cs.bungee.piccoloUtils.gui.TextButton;
 import edu.cmu.cs.bungee.piccoloUtils.gui.VScrollbar;
 import edu.umd.cs.piccolo.PNode;
 
-
-public class FacetTreeViz extends LazyPNode {
-
-	private static final long serialVersionUID = -7356793210035555023L;
+final class FacetTreeViz extends LazyPNode {
 
 	Bungee art;
 
@@ -41,7 +41,7 @@ public class FacetTreeViz extends LazyPNode {
 
 	VScrollbar selectionTreeScrollBar;
 
-	private List contracted;
+	private List contracted = new LinkedList();
 
 	int nInvisibleLines;
 
@@ -91,10 +91,9 @@ public class FacetTreeViz extends LazyPNode {
 		facetTreeWidths.clear();
 		// initSeparators();
 
-//		Util.print("FTV.validate " + availableLines());
+		// Util.print("FTV.validate " + availableLines());
 		selectionTreeScrollBar.setH(availableLines() * art.lineH);
-		selectionTreeScrollBar
-				.setOffset(getWidth() - art.scrollBarWidth, 0);
+		selectionTreeScrollBar.setOffset(getWidth() - art.scrollBarWidth, 0);
 	}
 
 	APText getSeparator() {
@@ -104,33 +103,33 @@ public class FacetTreeViz extends LazyPNode {
 			// separator.setTextPaint(Art.unselectedLabelColor);
 			result.setConstrainWidthToTextWidth(false);
 			result.setWidth(art.parentIndicatorWidth);
-			result.setText(Bungee.parentIndicatorPrefix); // " > ");
+			result.setText(Markup.parentIndicatorPrefix); // " > ");
 			separators[separatorIndex - 1] = result;
 		}
 		return result;
 	}
 
-	OpenButton getOpenButton(Object treeObject, int state) {
+	OpenButton getOpenButton(Object treeObject, boolean state) {
 		OpenButton result = openButtons[openButtonIndex++];
 		if (result == null) {
 			result = new OpenButton(treeObject, state);
 			openButtons[openButtonIndex - 1] = result;
 		} else {
 			result.p = treeObject;
-			result.setStatex(state);
+			result.setLabel(state);
 		}
 		return result;
 	}
 
 	void setTree(DisplayTree _tree) {
 		tree = _tree;
-		contracted = null;
+		contracted.clear();
 	}
 
 	int redraw() {
 		return redraw(drawTree());
 	}
-	
+
 	int availableLines() {
 		return (int) (getHeight() / art.lineH);
 	}
@@ -144,7 +143,7 @@ public class FacetTreeViz extends LazyPNode {
 		removeTree();
 		nInvisibleLines = 0;
 		int availableLines = availableLines();
-//		 Util.print("FTV.redraw " + availableLines);
+		// Util.print("FTV.redraw " + availableLines);
 		if (availableLines >= nSelectedItemTreeMinLines) {
 			visibleLines = nSelectedItemTreeMinLines;
 			// facetTree.setHeight(visibleLines * art.lineH);
@@ -177,8 +176,10 @@ public class FacetTreeViz extends LazyPNode {
 	// The return value also includes offset plus visible lines.
 	int drawTree(double treeW, int offsetLines, int lastLine) {
 		if (tree != null) {
-			double margin = (nInvisibleLines > 0 || contracted != null) ? openButtonW
+			addChild(selectionTreeScrollBar);
+			double margin = (nInvisibleLines > 0 || contracted.size() > 0) ? openButtonW
 					: 0;
+			// System.out.println(tree);
 			int nLines = drawTreeInternal(tree, margin, treeW, offsetLines,
 					lastLine);
 			// Util.print("drawTree: offsetLines=" + offsetLines + "; lastLine="
@@ -191,7 +192,7 @@ public class FacetTreeViz extends LazyPNode {
 
 	void removeTree() {
 		removeAllChildren();
-		addChild(selectionTreeScrollBar);
+		// addChild(selectionTreeScrollBar);
 		// separatorTexts.clear();
 		separatorIndex = 0;
 		openButtonIndex = 0;
@@ -206,7 +207,10 @@ public class FacetTreeViz extends LazyPNode {
 				&& !isContracted(treeObject);
 		// Util.print("drawTreeInternal " + treeObject + " " + offsetLines + " "
 		// + lastLine + " " + x + " " + treeW + " " + showChildren);
-		if (treeObject != null) { // not top level
+		if (treeObject != null && !(treeObject instanceof Item)) { // don't
+			// display
+			// null's or
+			// Item's
 			FacetText facetLabel = null;
 			double y = -offsetLines * art.lineH;
 			if (y > getHeight() - art.lineH)
@@ -214,9 +218,12 @@ public class FacetTreeViz extends LazyPNode {
 				// Check here to see if we're off the page yet.
 				offsetLines = 999999;
 			if (offsetLines <= 0) {
-				facetLabel = FacetText.getFacetText(treeObject, art, -1, -1,
-						false, showCheckBox, dontHideTransients,
-						pickFacetTextNotifier, 0, null, -1, null);
+
+				// if the facet is being displayed in a tree, its count has to
+				// be > 0
+				facetLabel = FacetText.getFacetText(treeObject, art,
+						showCheckBox, pickFacetTextNotifier);
+				facetLabel.dontHideTransients = dontHideTransients;
 				// Util.print("adding label " + treeObject + " at (" + x + ", "
 				// + y + ")");
 				addChild(facetLabel);
@@ -224,11 +231,11 @@ public class FacetTreeViz extends LazyPNode {
 			}
 			boolean overflow = drawWidth(subtree) + x > treeW;
 			if (offsetLines <= 0
-					&& ((nInvisibleLines > 0 && ((overflow && showChildren)
-							|| !(subtree.getParent().treeObject() instanceof Perspective)
-//							|| tree.p == null || tree.p.parent == null
-							)) || isContracted(treeObject))) {
-				int state = isContracted(treeObject) ? 1 : -1;
+					&& ((nInvisibleLines > 0 && ((overflow && showChildren) || !(subtree
+							.getParent().treeObject() instanceof Perspective)
+					// || tree.p == null || tree.p.parent == null
+					)) || isContracted(treeObject))) {
+				boolean state = isContracted(treeObject);
 				OpenButton open = getOpenButton(treeObject, state);
 				// Util.print(treeObject + " " + x + " " + overflow);
 				addChild(open);
@@ -263,7 +270,8 @@ public class FacetTreeViz extends LazyPNode {
 			}
 		}
 		if (showChildren) {
-			for (Iterator it = subtree.childIterator(); it.hasNext() && nLines < lastLine;) {
+			for (Iterator it = subtree.childIterator(); it.hasNext()
+					&& nLines < lastLine;) {
 				DisplayTree child = (DisplayTree) it.next();
 				nLines += drawTreeInternal(child, x, treeW, offsetLines
 						- nLines, lastLine - nLines);
@@ -283,33 +291,28 @@ public class FacetTreeViz extends LazyPNode {
 	boolean checkFacetLabel(FacetText facetLabel, Object treeObject) {
 		double actualW = Math.ceil(facetLabel.getWidth());
 		double fsw = art.getFacetStringWidth(treeObject, false, showCheckBox);
-		assert facetLabel.getText().equals("?") || actualW == fsw
-				|| actualW + 1 == fsw : "'" + facetLabel.getText() + "' has w="
-				+ facetLabel.getWidth()
-				+ ",\n and should be a little less than "
-				+ art.getStringWidth(facetLabel.getText())
-				+ ", but the cached value is " + fsw
-		// + " " + tree.p
-		;
+		if (!(facetLabel.getText().equals("?") || actualW == fsw || actualW + 1 == fsw))
+			Util.err(treeObject + " '" + facetLabel.getText() + "' has w="
+					+ facetLabel.getWidth()
+					+ ",\n and should be a little less than "
+					+ art.getStringWidth(facetLabel.getText())
+					+ ", but the cached value is " + fsw);
 		return true;
 	}
 
-	public void contract(Object p, boolean state) {
+	void contract(Object p, boolean isContract) {
 		// Util.print("contract " + p + " " + state);
-		if (state) {
-			if (contracted == null)
-				contracted = new LinkedList();
+		assert contracted.contains(p) == !isContract : p + " " + contracted;
+		if (isContract) {
 			contracted.add(p);
 		} else {
 			contracted.remove(p);
-			if (contracted.size() == 0)
-				contracted = null;
 		}
 		redraw();
 	}
 
 	private boolean isContracted(Object p) {
-		return contracted != null && contracted.contains(p);
+		return contracted.contains(p);
 	}
 
 	private Hashtable facetTreeWidths = new Hashtable();
@@ -336,7 +339,7 @@ public class FacetTreeViz extends LazyPNode {
 
 	// private Perspective[] allRestrictions;
 
-	void showFacet(Object highlightFacet) {
+	void highlightFacet(Object highlightFacet) {
 		// FacetText child = getFacetText(highlightFacet);
 		// if (child != null && child.getParent() != null) {
 		// child.highlightFacet();
@@ -362,19 +365,18 @@ public class FacetTreeViz extends LazyPNode {
 		// Util.print("FacetTreeViz.synchronizeWithQuery");
 		// leafRestrictions = q.dontUnderline();
 		// allRestrictions = q.restrictions();
-		Iterator it = getChildrenIterator();
-		while (it.hasNext()) {
+		for (Iterator it = getChildrenIterator(); it.hasNext();) {
 			PNode x = (PNode) it.next();
 			if (x instanceof FacetText) {
 				FacetText child = (FacetText) x;
 				child.selectFacet();
-				showFacet(child.getFacet());
+				highlightFacet(child.getFacet());
 			}
 		}
 		// Util.print("FacetTreeViz.synchronizeWithQuery return");
 	}
 
-	public void clickText(Perspective facet, int modifiers) {
+	void clickText(Perspective facet, int modifiers) {
 		// FacetText facetLabel = getFacetText(facet);
 		// if (facetLabel == null)
 		// // fake it
@@ -383,41 +385,50 @@ public class FacetTreeViz extends LazyPNode {
 		// facetLabel.pick(modifiers);
 	}
 
-	class OpenButton extends TextButton {
-		private static final long serialVersionUID = -8235753301551517525L;
+	final class OpenButton extends BungeeTextButton {
+
+		/**
+		 * plus sign
+		 */
+		private static final String expandLabel = "\u271A";
+
+		/**
+		 * minus sign
+		 */
+		private static final String contractLabel = "\u25AC";
 
 		Object p;
 
-		// SelectedItem parent;
-
-		// float size() {
-		// return (float) Math.ceil(art.lineH * 1);
-		// }
-
-		OpenButton(Object _p, int state) {
-			super("-", art.font, 0, 0, art.lineH, art.lineH, null, 1.8f,
-					openButtonFG, openButtonBG);
+		OpenButton(Object _p, boolean isContracted) {
+			// super("-", art.font, 0, 0, art.lineH, art.lineH, null, 1.8f,
+			// openButtonFG, openButtonBG);
+			super(contractLabel, openButtonFG, openButtonBG,
+					FacetTreeViz.this.art);
 			p = _p;
-			// parent = selected;
-			setStatex(state);
+			((APText) child).setConstrainWidthToTextWidth(true);
+			setLabel(isContracted);
 			setScale(openButtonScale);
 		}
 
-		public void setStatex(int state) {
-			// super.setState(state);
-			setText(state < 0 ? "\u25AC" /* "-" */: state > 0 ? "\u271A" /* "+" */
-			: null);
-			mouseDoc = state < 0 ? "Hide indented lines"
-					: state > 0 ? "Show indented lines" : null;
+		/**
+		 * Don't call this setState, because Button.setPaths would call it and
+		 * screw up the state we want.
+		 * 
+		 * @param isContracted
+		 */
+		void setLabel(boolean isContracted) {
+			super.setState(isContracted);
+
+			// If isContracted, button should show the expand sign
+			setText(isContracted ? expandLabel : contractLabel);
+			mouseDoc = isContracted ? "Show indented lines"
+					: "Hide indented lines";
 		}
 
 		public void doPick() {
-			if (getText() != null)
-				contract(p, getText().charAt(0) == '\u25AC' /* '-' */);
-		}
-
-		public void setMouseDoc(boolean state) {
-			art.setMouseDoc(this, state);
+			assert contractLabel.equals(getText())
+					|| expandLabel.equals(getText()) : getText();
+			contract(p, contractLabel.equals(getText()));
 		}
 
 	}

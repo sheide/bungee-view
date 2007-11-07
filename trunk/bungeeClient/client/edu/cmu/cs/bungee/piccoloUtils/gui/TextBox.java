@@ -60,8 +60,6 @@ public class TextBox extends PNode implements MouseDoc {
 
 	boolean isEditable = false;
 
-	private static final long serialVersionUID = -4542251288320601498L;
-
 //	double w, h;
 
 //	String s;
@@ -89,6 +87,13 @@ public class TextBox extends PNode implements MouseDoc {
 	private PStyledTextEventHandler textHandler;
 
 	protected Runnable editAction;
+
+	/**
+	 * Initially, we rely on Piccolo to flow text into lines. But to scroll
+	 * we have to figure out the lines ourselves. lines is the same string passed
+	 * to the constructor, except with added newlines.
+	 */
+	private String lines;
 
 	public TextBox(double w, double hMax, String _s, Color Scroll_BG,
 			Color Scroll_FG, Color _color, double lineH, Font font) {
@@ -156,9 +161,9 @@ public class TextBox extends PNode implements MouseDoc {
 		int lineOffset = (int) ((nLines - nVisibleLines) * sb.getPos() + 0.5);
 		// System.out.println(lineOffset);
 		if (lineOffset != prevLineOffset) {
-//			if (s == null)
-				String s = text.getBrokenText();
-			String visString = Util.subLines(s, lineOffset, nVisibleLines);
+			if (lines == null)
+				 lines = text.getBrokenText();
+			String visString = Util.subLines(lines, lineOffset, nVisibleLines);
 			text.setText(visString);
 			prevLineOffset = lineOffset;
 		}
@@ -208,11 +213,9 @@ public class TextBox extends PNode implements MouseDoc {
 
 	static class EnterAction extends AbstractAction {
 
-		private static final long serialVersionUID = -3636184693260706104L;
-
 		TextBox qv;
 
-		public EnterAction(TextBox _q) {
+		 EnterAction(TextBox _q) {
 			qv = _q;
 		}
 
@@ -237,8 +240,6 @@ public class TextBox extends PNode implements MouseDoc {
 	// copied from PStyledTextEventHandler
 	private JTextComponent createEditor() {
 		JTextPane tComp = new JTextPane() {
-
-			private static final long serialVersionUID = -1081364272578141120L;
 
 			/**
 			 * Set some rendering hints - if we don't then the rendering can be
@@ -273,7 +274,7 @@ public class TextBox extends PNode implements MouseDoc {
 		return tComp;
 	}
 
-	// private PStyledText searchBox;
+	public // private PStyledText searchBox;
 	//
 	// private JTextComponent editor;
 	//
@@ -341,9 +342,9 @@ public class TextBox extends PNode implements MouseDoc {
 	// return tComp;
 	// }
 
-	public void setMouseDoc(String doc, boolean state) {
+	 void setMouseDoc(String doc) {
 		if (getParent() instanceof MouseDoc) {
-			((MouseDoc) getParent()).setMouseDoc(doc, state);
+			((MouseDoc) getParent()).setMouseDoc(doc);
 		}
 	}
 
@@ -354,6 +355,6 @@ public class TextBox extends PNode implements MouseDoc {
 //	}
 
 	public void setMouseDoc(PNode source, boolean state) {
-		setMouseDoc(((Button) source).mouseDoc, state);
+		setMouseDoc(state ? ((Button) source).mouseDoc : null);
 	}
 }

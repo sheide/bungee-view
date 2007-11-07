@@ -33,9 +33,7 @@ package edu.cmu.cs.bungee.client.viz;
 
 import java.awt.Paint;
 import java.awt.event.InputEvent;
-import java.lang.ref.SoftReference;
 import java.util.ArrayList;
-import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.List;
 
@@ -44,34 +42,32 @@ import edu.cmu.cs.bungee.client.query.ItemPredicate;
 import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.cmu.cs.bungee.client.query.PerspectiveObserver;
 import edu.cmu.cs.bungee.client.query.Query.Item;
+import edu.cmu.cs.bungee.javaExtensions.Util;
 import edu.cmu.cs.bungee.piccoloUtils.gui.APText;
 import edu.cmu.cs.bungee.piccoloUtils.gui.Button;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPPath;
 import edu.umd.cs.piccolo.PNode;
 import edu.umd.cs.piccolo.event.PInputEvent;
 
+class FacetText extends APText implements FacetNode, PerspectiveObserver {
 
-public class FacetText extends APText implements FacetNode, PerspectiveObserver {
+	PerspectiveObserver redraw;
 
-	private static final long serialVersionUID = 4849947064017481501L;
+	boolean dontHideTransients;
 
-	 PerspectiveObserver redraw;
-
-	 boolean dontHideTransients;
-
-	 Perspective facet;
+	Perspective facet;
 
 	Cluster cluster;
 
-	 Button checkBox;
+	Button checkBox;
 
 	/* APText */LazyPPath checkmark;
 
-	 Button xBox;
+	Button xBox;
 
 	/* APText */LazyPPath xmark;
 
-	 Bungee art;
+	Bungee art;
 
 	private Paint permanentTextPaint;
 
@@ -79,17 +75,19 @@ public class FacetText extends APText implements FacetNode, PerspectiveObserver 
 
 	boolean showChildIndicator;
 
-	public boolean isPickable;
-
-	/**
-	 * Only meaningful if !isPickable
-	 * -1 means do nothing; -2 means open category
-	 */
-	int unpickableAction = -1;
+	// boolean isPickable;
+	//
+	// /**
+	// * Only meaningful if !isPickable -1 means do nothing; -2 means open
+	// * category
+	// */
+	// int unpickableAction = -1;
 
 	double numW = -1;
 
 	double nameW = -1;
+
+	boolean padToNameW = false;
 
 	PickFacetTextNotifier pickFacetTextNotifier;
 
@@ -99,151 +97,221 @@ public class FacetText extends APText implements FacetNode, PerspectiveObserver 
 
 	static final FacetTextHandler facetTextHandler = new FacetTextHandler();
 
-	private static transient SoftReference facetTexts;
+	// Use this to avoid the non-null assert on getName, in carefully considered
+	// places
+	private static final PerspectiveObserver NULL_REDRAWER = new TextNfacets(
+			null, null, false);
 
-	// Use this to avoid the non-null assert on getName, in carefully considered places
-	private static final PerspectiveObserver NULL_REDRAWER = new TextNfacets(null, null, false);
-
-	static void clearFacetTexts() {
-		facetTexts = null;
+	/**
+	 * Called by QueryViz on a String or a Cluster and called by
+	 * drawTreeInternal
+	 */
+	static FacetText getFacetText(Object treeObject, Bungee a,
+			boolean _showCheckBox, PickFacetTextNotifier notifier) {
+		FacetText result = getFacetText(treeObject, a, -1, -1, false,
+				_showCheckBox, 1, null, defaultUnderline(treeObject,
+						_showCheckBox, notifier));
+		result.pickFacetTextNotifier = notifier;
+		return result;
 	}
 
-	static FacetText getFacetText(Object treeObject, Bungee a) {
-		return getFacetText(treeObject, a, -1, -1, false, false, false, null,
-				0, null, -1, null);
-	}
+	// static FacetText getFacetText(Object treeObject, Bungee a, double _numW,
+	// double _nameW, boolean _showChildIndicator, boolean _showCheckBox,
+	// boolean _dontHideTransients, PickFacetTextNotifier notifier,
+	// int onCount) {
+	// FacetText result = getFacetText(treeObject, a, _numW, _nameW,
+	// _showChildIndicator,
+	// _showCheckBox, onCount,
+	// null, defaultUnderline(treeObject, _showCheckBox, notifier));
+	// result.dontHideTransients = _dontHideTransients;
+	// return result;
+	// }
 
-	static synchronized FacetText getFacetText(Object treeObject, Bungee a,
-			double _numY, double _nameY, boolean _showChildIndicator,
-			boolean _showCheckBox, boolean _dontHideTransients,
-			PickFacetTextNotifier notifier, int onCount,
-			Paint _permanentTextPaint, int _unpickableAction, PerspectiveObserver _redraw) {
-		return getFacetText(treeObject, a, _numY, _nameY, _showChildIndicator,
-				_showCheckBox, _dontHideTransients, notifier, onCount,
-				_permanentTextPaint, _unpickableAction, _redraw,
-				defaultUnderline(treeObject, _showCheckBox, notifier));
-	}
-
-	static synchronized FacetText getFacetText(Object treeObject, Bungee a,
-			double _numY, double _nameY, boolean _showChildIndicator,
-			boolean _showCheckBox, boolean _dontHideTransients,
-			PickFacetTextNotifier notifier, int onCount,
-			Paint _permanentTextPaint, int _unpickableAction, PerspectiveObserver _redraw,
-			boolean _underline) {
-		Perspective _facet = null;
-		Cluster _cluster = null;
+	/**
+	 * @param treeObject
+	 *            the Perspective, Cluster, or String represented
+	 * @param a
+	 *            the application
+	 * @param _numW
+	 *            the width to make the onCount, or -1 to not show counts.
+	 * @param _nameW
+	 *            the width to make the name, or -1 for unlimited.
+	 * @param _showChildIndicator
+	 *            append a down arrow?
+	 * @param _showCheckBox
+	 *            prepend check- and x- boxes?
+	 * @param _dontHideTransients
+	 * @param notifier
+	 *            don't call us for pick, highlight, and mouseMoved; call
+	 *            notifier
+	 * @param onCount
+	 *            the number to prepend; also used to determine text color,
+	 *            unless _permanentTextPaint is non-null
+	 * @param _permanentTextPaint
+	 *            always use this text color
+	 * @param _redraw
+	 *            call this Redrawer when the treeObject's name becomes known
+	 * @param _underline
+	 *            underline the text?
+	 * @return a FacetText whose text is truncated (not at word boundaries)
+	 *         according to numW & nameW, with setConstrainWidthToTextWidth =
+	 *         true and setConstrainHeightToTextWidth = false.
+	 */
+	// This can't be static, because Perspective.equals only looks at the ID, so
+	// even when you get new objects (when changing dbs), you get the old ft.
+	static FacetText getFacetText(Object treeObject, Bungee a, double _numW,
+			double _nameW, boolean _showChildIndicator, boolean _showCheckBox,
+			int onCount, PerspectiveObserver _redraw, boolean _underline) {
+//		Util.print("getFacetText " + treeObject + " " + _showCheckBox);
+		// Cluster _cluster = null;
 		if (treeObject instanceof Perspective) {
-			_facet = (Perspective) treeObject;
-			_showCheckBox = _showCheckBox && _facet.getParent() != null;
+			_showCheckBox = _showCheckBox
+					&& ((Perspective) treeObject).getParent() != null;
 		} else {
 			onCount = 1;
-			_numY = -1;
-			_nameY = -1;
+			// _numW = -1;
+			// _nameW = -1;
 			_showChildIndicator = false;
 			_showCheckBox = false;
 			if (treeObject instanceof Cluster) {
-				_cluster = (Cluster) treeObject;
+				// _cluster = (Cluster) treeObject;
 			} else {
-				assert treeObject instanceof String || treeObject instanceof Item : treeObject;
-				notifier = null;
+				assert treeObject instanceof String
+						|| treeObject instanceof Item : treeObject;
 			}
 		}
-		String s = computeText(a, _facet, treeObject, _numY, _nameY, onCount,
-				true, _showChildIndicator, _showCheckBox, false, _redraw == null ? NULL_REDRAWER : _redraw);
-		boolean _isPickable = _showCheckBox || notifier != null
-				|| _cluster != null;
-
 		FacetText result = null;
-		Hashtable table = facetTexts == null ? null : (Hashtable) facetTexts.get();
-		if (table == null) {
-			table = new Hashtable();
-			facetTexts = new SoftReference(table);
-		}
-		List texts = (List) table.get(treeObject);
+		List texts = a.lookupFacetText(treeObject);
 		if (texts != null) {
 			for (Iterator it = texts.iterator(); it.hasNext() && result == null;) {
 				FacetText facetLabel = (FacetText) it.next();
-				if (facetLabel.getParent() == null && a == facetLabel.art
-						&& s.equals(facetLabel.getText())
-						&& _underline == facetLabel.underline) {
-					// facetLabel.setFont(a.font);
-					// facetLabel.setHeight(a.lineH);
+				if (facetLabel.getParent() == null
+						&& a == facetLabel.art
+						&& facetLabel.numW == _numW
+						&& facetLabel.nameW == _nameW
+						&& facetLabel.padToNameW == false
+						&& facetLabel.showChildIndicator == _showChildIndicator
+						&& facetLabel.showCheckBox == _showCheckBox
+						&& _underline == facetLabel.underline
+						&& (_numW < 0 || facetLabel.getText().equals(
+								computeText(a, treeObject, _numW, _nameW,
+										onCount, true, _showChildIndicator,
+										_showCheckBox,
+										_redraw == null ? NULL_REDRAWER
+												: _redraw)))) {
 					facetLabel.setConstrainWidthToTextWidth(true);
 					facetLabel.setConstrainHeightToTextHeight(false);
-					facetLabel.selectFacet();
-					if (_numY > 0)
-						facetLabel.setText(facetLabel.art.facetLabel(
-								(Perspective) treeObject, _numY, _nameY,
-								onCount, true, _showChildIndicator,
-								_showCheckBox, false, facetLabel));
 					result = facetLabel;
 				}
 			}
 		} else {
 			texts = new ArrayList();
-			table.put(treeObject, texts);
+			a.putFacetText(treeObject, texts);
 		}
 		if (result == null) {
-			result = new FacetText(treeObject, a, _numY, _nameY,
-					_showChildIndicator);
+			result = new FacetText(treeObject, a, _numW, _nameW,
+					_showChildIndicator, _showCheckBox, _underline, onCount, _redraw);
 			texts.add(result);
-			result.showCheckBox = _showCheckBox;
-			result.setUnderline(_underline); // set this before setText for
-			// efficiency
-			if (treeObject != null) {
-				result.setColor(onCount);
-				if (_redraw == null && s.indexOf('?') >= 0)
-					s = computeText(a, _facet, treeObject, _numY, _nameY,
-							onCount, true, _showChildIndicator, _showCheckBox,
-							false, result);
-				result.setText(s);
-			}
+//			 Util.print("new FacetText '" + treeObject + "' => '" + result.getText() + "'");
 		}
 		result.redraw = _redraw == null ? result : _redraw;
-		result.isPickable = _isPickable;
-		result.setPermanentTextPaint(_permanentTextPaint);
-		result.unpickableAction = _unpickableAction;
-		result.dontHideTransients = _dontHideTransients;
-		result.pickFacetTextNotifier = notifier;
+		result.permanentTextPaint = null;
+		result.setColor(onCount);
 		result.numFirst = true;
+		result.dontHideTransients = false;
+		result.pickFacetTextNotifier = null;
 		return result;
+	}
+
+	/**
+	 * TextNfacets.myWrap calls this when it setText's to break on word
+	 * boundaries
+	 * 
+	 * Don't understand why ((APText) foo).setText was calling this
+	 */
+	public void setTextAndDecache(String text, Object treeObject) {
+		if (!Util.equalsNullOK(text, getText())) {
+			decache(treeObject);
+			super.setText(text);
+		}
+	}
+
+	void setObject(Object treeObject, Object oldTreeObject) {
+		if (!treeObject.equals(treeObject())) {
+			decache(oldTreeObject);
+			if (treeObject instanceof Perspective) {
+				facet = (Perspective) treeObject;
+				addInputEventListener(facetTextHandler);
+			} else if (treeObject instanceof Cluster) {
+				cluster = (Cluster) treeObject;
+				addInputEventListener(facetTextHandler);
+			} else {
+				removeInputEventListener(facetTextHandler);
+			}
+		}
+	}
+
+	void decache(Object treeObject) {
+//		Object treeObject = treeObject();
+//		Util.print("decache " + treeObject + " " + "'" + getText() + "'");
+		assert treeObject != null;
+		List texts = treeObject == null ? null : art
+				.lookupFacetText(treeObject);
+		assert texts != null : "'" + treeObject + "' " + treeObject.equals(getText());
+		assert texts.contains(this) : this + " " + treeObject;
+		if (texts != null)
+			texts.remove(this);
 	}
 
 	// underline = isPickable
 	// isPickable = showCheckBox
 	// showCheckBox = _showCheckBox && _facet != null && _facet.parent != null
-	private FacetText(Object treeObject, Bungee a, double numY, double nameY,
-			boolean _showChildIndicator) {
+	private FacetText(Object treeObject, Bungee a, double _numW, double _nameW,
+			boolean _showChildIndicator, boolean _showCheckBox,
+			boolean _underline, int onCount, PerspectiveObserver _redraw) {
 		super(a.font);
-		if (treeObject instanceof Perspective)
+		if (treeObject instanceof Perspective) {
 			facet = (Perspective) treeObject;
-		else if (treeObject instanceof Cluster)
+			addInputEventListener(facetTextHandler);
+		} else if (treeObject instanceof Cluster) {
 			cluster = (Cluster) treeObject;
+			addInputEventListener(facetTextHandler);
+		}
 		// if (facet != null) {
 		// onCount = facet.getOnCount();
 		// if (onCount < 0)
 		// onCount = facet.totalCount;
 		// }
 		art = a;
-		numW = numY;
-		nameW = nameY;
+		numW = _numW;
+		nameW = _nameW;
 		showChildIndicator = _showChildIndicator;
 		setConstrainHeightToTextHeight(false);
 		setHeight(art.lineH);
-		setWrapText(false);
-		addInputEventListener(facetTextHandler);
+		setWrapOnWordBoundaries(false);
+
+		showCheckBox = _showCheckBox;
+		setUnderline(_underline); // set this before setText for
+		// efficiency
+		
+
+		String s = computeText(a, treeObject, _numW, _nameW, onCount, true,
+				_showChildIndicator, _showCheckBox,
+				_redraw == null ? this : _redraw);
+		super.setText(s);
 	}
 
 	// only called by FacetPText, which keeps its own cache
-	 FacetText(Bungee a, double numY, double nameY) {
+	FacetText(Bungee a, double _numW, double _nameW) {
 		super(a.font);
 		art = a;
-		numW = numY;
-		nameW = nameY;
+		numW = _numW;
+		nameW = _nameW;
+		padToNameW = true;
 		redraw = this;
 		setConstrainHeightToTextHeight(false);
 		setHeight(a.lineH);
-		setWrapText(false);
+		setWrapOnWordBoundaries(false);
 		addInputEventListener(facetTextHandler);
 	}
 
@@ -259,30 +327,36 @@ public class FacetText extends APText implements FacetNode, PerspectiveObserver 
 			if (treeObject instanceof Cluster) {
 				_cluster = (Cluster) treeObject;
 			} else {
-				assert treeObject instanceof String || treeObject instanceof Item : treeObject;
+				assert treeObject instanceof String
+						|| treeObject instanceof Item : treeObject;
 				notifier = null;
 			}
 		}
 		return _showCheckBox || notifier != null || _cluster != null;
 	}
 
-	static String computeText(Bungee a, Perspective _facet, Object treeObject,
-			double _numY, double _nameY, int _onCount, boolean _numFirst,
+	static String computeText(Bungee a, Object treeObject, double _numW,
+			double _nameW, int _onCount, boolean _numFirst,
 			boolean _showChildIndicator, boolean _showCheckBox,
-			boolean _justify, PerspectiveObserver _redraw) {
+			PerspectiveObserver _redraw) {
 		String result = null;
-		if (_facet != null)
-			result = a.facetLabel(_facet, _numY, _nameY, _onCount, _numFirst,
-					_showChildIndicator, _showCheckBox, _justify, _redraw);
+		if (treeObject instanceof ItemPredicate)
+			result = a.facetLabel((ItemPredicate) treeObject, _numW, _nameW,
+					_onCount, _numFirst, _showChildIndicator, _showCheckBox,
+					false, _redraw);
+		else if (_nameW >= 0)
+			result = a.truncateText(treeObject.toString(), _nameW);
 		else
 			result = treeObject.toString();
+//		Util.print("ComputeText " + treeObject + " => " + result);
 		return result;
 	}
 
 	public void redraw() {
-		// Util.print("\nFT redraw " + facet);
-		setText(art.facetLabel(facet, numW, nameW, numFirst, showChildIndicator,
-				showCheckBox, true, redraw));
+		super
+				.setText(art.facetLabel((ItemPredicate) treeObject(), numW,
+						nameW, numFirst, showChildIndicator, showCheckBox,
+						padToNameW, redraw));
 	}
 
 	// public void setText(String s) {
@@ -302,11 +376,11 @@ public class FacetText extends APText implements FacetNode, PerspectiveObserver 
 		return facet;
 	}
 
-	public Cluster getCluster() {
+	Cluster getCluster() {
 		return cluster;
 	}
 
-	public Object treeObject() {
+	Object treeObject() {
 		if (facet != null)
 			return facet;
 		else if (cluster != null)
@@ -316,27 +390,30 @@ public class FacetText extends APText implements FacetNode, PerspectiveObserver 
 	}
 
 	void setPermanentTextPaint(Paint paint) {
-		permanentTextPaint = paint;
-		setColor();
+		if (paint != permanentTextPaint) {
+			permanentTextPaint = paint;
+			setColor();
+		}
 	}
 
 	void selectFacet() {
 		setColor(1);
 	}
 
-	public void highlightFacet() {
-//		setColor(1);  // Why did we use a constant here?
+	void highlightFacet() {
+		// setColor(1); // Why did we use a constant here?
 		setColor();
 	}
 
-	 void setColor() {
-		int onCount = facet != null ? facet.getOnCount() : 1;
+	void setColor() {
+		int onCount = facet != null ? facet.guessOnCount() : 1;
 		setColor(onCount);
 	}
 
-	 void setColor(int onCount) {
-//		 Util.print("...setColor " + getText());
+	void setColor(int onCount) {
 		if (permanentTextPaint != null) {
+			// Util.print("...setColor " + getText() + " " +
+			// permanentTextPaint);
 			// Gross hack for MouseDoc line
 			setTextPaint(permanentTextPaint);
 		} else
@@ -350,7 +427,7 @@ public class FacetText extends APText implements FacetNode, PerspectiveObserver 
 	}
 
 	void updateCheckBox() {
-//		 Util.print("updateCheckBox " + facet + " " + showCheckBox);
+		// Util.print("updateCheckBox " + facet + " " + showCheckBox);
 		if (showCheckBox && facet.getParent() != null) {
 			double checkXoffset = checkboxOffset();
 			double size = Math.ceil(checkXoffset * 0.6666666);
@@ -364,29 +441,31 @@ public class FacetText extends APText implements FacetNode, PerspectiveObserver 
 				checkBox.setPickable(false);
 				addChild(checkBox);
 
-				xBox = new Button(0, y, size, size, null, fadeFactor, Bungee.xFG);
+				xBox = new Button(0, y, size, size, null, fadeFactor,
+						Bungee.xFG);
 				xBox.setPickable(false);
 				addChild(xBox);
 			}
 			boolean isFacetRequired = facet.isRestriction(true);
 			if (facet.getParent() != null)
-//			 Util.print("updateCheckBox " + isFacetRequired + " " + check);
-			if (checkmark != null) {
-				checkmark.setVisible(isFacetRequired);
-			} else if (isFacetRequired) {
-//				Util.print("Creating check for " + getText());
-				checkmark = new LazyPPath();
-				checkmark.setStroke(null);
-				checkmark.setPaint(Bungee.checkColor);
-				float[] Xs = { 22, 0, 58, 93, 106, 138, 417, 450, 456, 112, 69,
-						22 };
-				float[] Ys = { 376, 193, 133, 132, 150, 261, 0, 0, 73, 415,
-						415, 376 };
-				checkmark.setPathToPolyline(Xs, Ys);
-				checkmark.setScale(art.lineH / 600);
-				checkmark.setOffset(checkXoffset, textYoffset);
-				addChild(checkmark);
-			}
+				// Util.print("updateCheckBox " + isFacetRequired + " " +
+				// check);
+				if (checkmark != null) {
+					checkmark.setVisible(isFacetRequired);
+				} else if (isFacetRequired) {
+					// Util.print("Creating check for " + getText());
+					checkmark = new LazyPPath();
+					checkmark.setStroke(null);
+					checkmark.setPaint(Bungee.checkColor);
+					float[] Xs = { 22, 0, 58, 93, 106, 138, 417, 450, 456, 112,
+							69, 22 };
+					float[] Ys = { 376, 193, 133, 132, 150, 261, 0, 0, 73, 415,
+							415, 376 };
+					checkmark.setPathToPolyline(Xs, Ys);
+					checkmark.setScale(art.lineH / 600);
+					checkmark.setOffset(checkXoffset, textYoffset);
+					addChild(checkmark);
+				}
 			boolean isFacetExcluded = facet.isRestriction(false);
 			if (xmark != null)
 				xmark.setVisible(isFacetExcluded);
@@ -406,15 +485,27 @@ public class FacetText extends APText implements FacetNode, PerspectiveObserver 
 		}
 	}
 
+	// point of information: facet labels' isPickable = whether they are
+	// connected.
 	int getModifiers(PInputEvent e) {
-		int result = getModifiersInternal(isPickable ? e.getModifiersEx() : 0,
-				e.getPositionRelativeTo(this).getX());
-		if (!isPickable && result == 0)
-			result = unpickableAction;
+		int result = getModifiersInternal(
+		/* isPickable ? */e.getModifiersEx() /* : 0 */, e
+				.getPositionRelativeTo(this).getX());
+		// if (!isPickable && result == 0)
+		// result = unpickableAction;
 		// Util.print("FacetText.getModifiers " + isPickable + " => " + result);
+		assert result >= 0;
 		return result;
 	}
 
+	/**
+	 * @param modifiers
+	 *            normal modifiers from mouse gesture
+	 * @param x
+	 *            local x-coordinate of gesture
+	 * @return modifiers + implicit modifiers from being over the check- or
+	 *         x-box.
+	 */
 	int getModifiersInternal(int modifiers, double x) {
 		if (showCheckBox && x < 2 * checkboxOffset()) {
 			if (x > checkboxOffset())
@@ -434,18 +525,19 @@ public class FacetText extends APText implements FacetNode, PerspectiveObserver 
 		return highlight(state, getModifiers(e));
 	}
 
-	public boolean highlight(boolean state, int modifiers) {
+	boolean highlight(boolean state, int modifiers) {
 		// Util.print("FT.highlight " + getText());
 		if (pickFacetTextNotifier != null
 				&& pickFacetTextNotifier.highlight(this, state, modifiers)) {
 			return true;
-		} else if (facet != null)
-			art.highlightFacet(facet, state, modifiers);
-		else if (cluster != null)
-			art.highlightCluster(cluster, state);
+		} else if (facet != null) {
+			art.highlightFacet(state ? facet : null, modifiers);
+			art.setClickDesc(state ? facet.facetDoc(modifiers) : null);
+		} else if (cluster != null)
+			art.highlightCluster(state ? cluster : null);
 		else
 			return false;
-		return modifiers >= 0;
+		return true;
 	}
 
 	// private boolean shouldUnderline(Perspective[] restrictions) {
@@ -455,26 +547,24 @@ public class FacetText extends APText implements FacetNode, PerspectiveObserver 
 	// }
 
 	public boolean pick(PInputEvent e) {
-//		 Util.print("FacetText.pick " + isPickable + " " +
-//		 e.getModifiersEx() + " " + getFacet() + " " + pickFacetTextNotifier);
+		// Util.print("FacetText.pick " + isPickable + " " +
+		// e.getModifiersEx() + " " + getFacet() + " " + pickFacetTextNotifier);
 		return pick(getModifiers(e));
 	}
 
-	public boolean pick(int modifiers) {
+	boolean pick(int modifiers) {
 		if (pickFacetTextNotifier != null
 				&& pickFacetTextNotifier.pick(this, modifiers)) {
-			return true;
-		} else if (modifiers >= 0) {
-			if (facet != null) {
-				art.printUserAction(Bungee.FACET_TREE, facet, modifiers);
-				art.toggleFacet(facet, modifiers);
-				// highlight(true, modifiers);
-			} else if (cluster != null) {
-				art.toggleCluster(cluster);
-			}
-			return true;
+			// already handled - don't do anything here.
+		} else if (facet != null && facet.getParent() != null) {
+			art.printUserAction(Bungee.FACET_TREE, facet, modifiers);
+			art.toggleFacet(facet, modifiers);
+			// highlight(true, modifiers);
+		} else if (cluster != null) {
+			art.toggleCluster(cluster);
 		} else
 			return false;
+		return true;
 	}
 
 	public void mayHideTransients(PNode ignore) {
@@ -482,13 +572,19 @@ public class FacetText extends APText implements FacetNode, PerspectiveObserver 
 			art.mayHideTransients();
 	}
 
-	public void mouseMoved(PInputEvent e) {
-		int modifiers = getModifiers(e);
-		// Util.print("FacetText.mouseMoved " + getModifiers(e));
-		if (pickFacetTextNotifier == null
-				|| !pickFacetTextNotifier.mouseMoved(this, modifiers)) {
-			art.rehighlightFacet(modifiers, true);
-		}
+	boolean mouseMoved(PInputEvent e) {
+		return highlight(true, getModifiers(e));
+		// int modifiers = getModifiers(e);
+		// if (pickFacetTextNotifier == null
+		// || !pickFacetTextNotifier.mouseMoved(this, modifiers)) {
+		// // Util.print("default FacetText.mouseMoved " + getFacet() + " " +
+		// // getModifiers(e));
+		// art.updateItemPredicateClickDesc(modifiers, true);
+		// }
+	}
+
+	boolean shiftKeysChanged(PInputEvent e) {
+		return highlight(true, getModifiers(e));
 	}
 
 	public Bungee art() {
@@ -498,13 +594,13 @@ public class FacetText extends APText implements FacetNode, PerspectiveObserver 
 
 class FacetTextHandler extends FacetClickHandler {
 
-	public void mouseMoved(PInputEvent e) {
-		PNode node = e.getPickedNode();
-		while (node != null && !FacetText.class.isInstance(node))
-			node = node.getParent();
-		if (node != null) {
-			((FacetText) node).mouseMoved(e);
-		}
+	protected boolean moved(PNode node, PInputEvent e) {
+		return ((FacetText) node).mouseMoved(e);
+	}
+
+	protected boolean shiftKeysChanged(PNode node, PInputEvent e) {
+		// Util.print("FT.shiftKeysChanged");
+		return ((FacetText) node).shiftKeysChanged(e);
 	}
 
 }

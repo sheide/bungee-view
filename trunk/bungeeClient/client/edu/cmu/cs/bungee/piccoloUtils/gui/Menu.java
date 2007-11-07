@@ -39,8 +39,6 @@ import edu.umd.cs.piccolo.PNode;
 
 public class Menu extends PNode implements MouseDoc {
 
-	private static final long serialVersionUID = -208400747764004381L;
-
 	MenuButton[] buttons;
 
 	public APText value;
@@ -57,9 +55,9 @@ public class Menu extends PNode implements MouseDoc {
 
 	protected Runnable action;
 
-	protected Font font;
+	private Font font;
 
-	public Object data;
+	private Object data;
 
 	// private int alignment; // 0 = left; 1 = middle; 2 = right
 
@@ -73,7 +71,7 @@ public class Menu extends PNode implements MouseDoc {
 		// alignment = _alignment;
 		value = new APText(font);
 		value.setPaint(bg);
-		value.setWrapText(false);
+		value.setWrapOnWordBoundaries(false);
 		value.setJustification(Component.CENTER_ALIGNMENT);
 		value.setTextPaint(fg);
 		value.setUnderline(true);
@@ -109,24 +107,33 @@ public class Menu extends PNode implements MouseDoc {
 		}
 		double newW = b.getWidth();
 		if (newW > w) {
-			w = Math.ceil(newW);
-			value.setWidth(w);
-			setBounds(value.getBounds());
-			for (int i = 0; i < oldNbuttons; i++) {
-				pButton[i].setW(w);
-			}
+			setWidth(newW);
 		}
 		b.setW(w);
 		draw();
 	}
+	
+	public void setText(String desc) {
+//		System.out.println("Menu.setText " + desc);
+		value.setConstrainWidthToTextWidth(true);
+		value.setText(desc);
+		double newW = value.getWidth();
+		value.setConstrainWidthToTextWidth(false);
+//		System.out.println(newW + " " + value.getWidth() + " " + getHeight());
+		if (true || newW > w) {
+			setWidth(Math.max(w, newW));
+		}
+	}
 
 	public boolean setWidth(double width) {
-		value.setWidth(width);
+		w = Math.ceil(width);
+		value.setWidth(w);
+		setBounds(value.getBounds());
 		int oldNbuttons = buttons == null ? 0 : buttons.length;
 		for (int i = 0; i < oldNbuttons; i++) {
-			buttons[i].setW(width);
+			buttons[i].setW(w);
 		}
-		return super.setWidth(width);
+		return super.setWidth(w);
 	}
 
 	void draw() {
@@ -159,6 +166,7 @@ public class Menu extends PNode implements MouseDoc {
 	}
 
 	public void choose(int buttonIndex) {
+		visible = true; // choose calls pick, which will toggle visibility
 		MenuButton button = buttons[buttonIndex];
 		choose(button.getText(), button.data);
 	}
@@ -185,28 +193,28 @@ public class Menu extends PNode implements MouseDoc {
 		return data;
 	}
 
-	public void pick() {
+	 public void pick() {
 		// System.out.println("Menu.pick");
 		visible = !visible;
 		setMouseDoc(true);
 		draw();
 	}
 
-	public void setMouseDoc(boolean state) {
+	 void setMouseDoc(boolean state) {
 		if (getParent() instanceof MouseDoc) {
-			String doc = visible ? "Close this menu without doing anything"
-					: "Open this menu";
-			((MouseDoc) getParent()).setMouseDoc(doc, state);
+			String doc = state ? (visible ? "Close this menu without doing anything"
+					: "Open this menu") : null;
+			((MouseDoc) getParent()).setMouseDoc(doc);
 		}
 	}
 
 	public void setMouseDoc(PNode source, boolean state) {
-		setMouseDoc(((Button) source).mouseDoc, state);
+		setMouseDoc(state ? ((Button) source).mouseDoc : null);
 	}
 
-	public void setMouseDoc(String doc, boolean state) {
+	public void setMouseDoc(String doc) {
 		if (getParent() instanceof MouseDoc)
-			((MouseDoc) getParent()).setMouseDoc(doc, state);
+			((MouseDoc) getParent()).setMouseDoc(doc);
 	}
 
 //	public void setMouseDoc(Vector doc, boolean state) {
@@ -223,7 +231,7 @@ public class Menu extends PNode implements MouseDoc {
 
 }
 
-class MenuClickHandler extends MyInputEventHandler {
+final class MenuClickHandler extends MyInputEventHandler {
 
 	MenuClickHandler() {
 		super(Menu.class);
@@ -239,17 +247,17 @@ class MenuClickHandler extends MyInputEventHandler {
 	// return true;
 	// }
 
-	public boolean click(PNode node) {
+	protected boolean click(PNode node) {
 		((Menu) node).pick();
 		return true;
 	}
 
-	public boolean exit(PNode node) {
+	protected boolean exit(PNode node) {
 		((Menu) node).setMouseDoc(false);
 		return false;
 	}
 
-	public boolean enter(PNode node) {
+	protected boolean enter(PNode node) {
 		((Menu) node).setMouseDoc(true);
 		return false;
 	}

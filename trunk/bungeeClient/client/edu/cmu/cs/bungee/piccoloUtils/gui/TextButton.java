@@ -38,20 +38,20 @@ import java.awt.Paint;
 
 public class TextButton extends Button {
 
-	private static final long serialVersionUID = -2392904538759382182L;
-
 	// Must specify final w and h, rather than have it computed from text.
 	// Otherwise, Button would try to shrink it, which wouldn't have an effect,
 	// and child would occlude the whole Button.
 	public TextButton(String label, Font f, double x, double y, double w,
 			double h, String disabledMessage, float fadeFactor1,
 			Color textColor, Color bgColor) {
-		super(x, y, w >= 0 ? w
-				: Math.ceil(edu.cmu.cs.bungee.piccoloUtils.gui.Util.getStringWidth(label, f)) + 2, h >= 0 ? h
-				: Math.ceil(edu.cmu.cs.bungee.piccoloUtils.gui.Util.getStringHeight(label, 99999, f)) + 2,
-				disabledMessage, fadeFactor1, textColor);
+		super(x, y, w >= 0 ? w : Math
+				.ceil(edu.cmu.cs.bungee.piccoloUtils.gui.Util.getStringWidth(
+						label, f)) + 2, h >= 0 ? h : Math
+				.ceil(edu.cmu.cs.bungee.piccoloUtils.gui.Util.getStringHeight(
+						label, 99999, f)) + 2, disabledMessage, fadeFactor1,
+				textColor);
 		child = new APText(f);
-		((APText) child).setWrapText(false);
+		((APText) child).setWrapOnWordBoundaries(false);
 		if (textColor == null)
 			textColor = Color.BLACK;
 		((APText) child).setTextPaint(textColor);
@@ -65,13 +65,37 @@ public class TextButton extends Button {
 		((APText) child).setText(label);
 	}
 
-	public void setFont(Font f) {
-		setScale(f.getSize2D() / ((APText) child).getFont().getSize2D());
+	 protected double publicScale = 1.0;
+
+	public void setScale(double _scale) {
+		publicScale = _scale;
+		setFont(getFont());
+	}
+
+//	public double getScale() {
+//		return publicScale;
+//	}
+
+	Font getFont() {
+		return ((APText) child).getFont();
+	}
+
+	public void setFont(Font f) {		
+		double scale = publicScale * f.getSize2D() / getFont().getSize2D();
+		super.setScale(scale);
+//		edu.cmu.cs.bungee.javaExtensions.Util.print("setFont " + getText()
+//				+ " " + f.getSize() + "/" + getFont().getSize() + " "
+//				+ publicScale + " " + super.getScale());
 	}
 
 	public void setText(String text) {
-		if (!getText().equals(text)) {
+		if (child != null
+				&& !edu.cmu.cs.bungee.javaExtensions.Util.equalsNullOK(
+						getText(), text)) {
 			((APText) child).setText(text);
+			if (((APText) child).isConstrainWidthToTextWidth()) {
+				setWidth(child.getWidth() + 2);
+			}
 			// double w = Math
 			// .ceil(gui.Util.getStringWidth(text, label.getFont())) + 2;
 			// setWidth(w);
@@ -87,18 +111,18 @@ public class TextButton extends Button {
 	// e.g. javax.swing.JLabel.LEFT_ALIGNMENT;
 	public void setJustification(float just) {
 		((APText) child).setJustification(just);
-//		if (just == javax.swing.JLabel.LEFT_ALIGNMENT)
-//			child.setOffset(0, 0);
-//		else if (just == javax.swing.JLabel.CENTER_ALIGNMENT)
-//			child.setOffset((getWidth() - child.getWidth()) / 2, 0);
-//		else if (just == javax.swing.JLabel.RIGHT_ALIGNMENT)
-//			child.setOffset(getWidth() - child.getWidth(), 0);
-//		else
-//			assert false : just;
+		// if (just == javax.swing.JLabel.LEFT_ALIGNMENT)
+		// child.setOffset(0, 0);
+		// else if (just == javax.swing.JLabel.CENTER_ALIGNMENT)
+		// child.setOffset((getWidth() - child.getWidth()) / 2, 0);
+		// else if (just == javax.swing.JLabel.RIGHT_ALIGNMENT)
+		// child.setOffset(getWidth() - child.getWidth(), 0);
+		// else
+		// assert false : just;
 	}
 
 	public String getText() {
-		return ((APText) child).getText();
+		return child == null ? null : ((APText) child).getText();
 	}
 
 	public void setVisible(boolean state) {

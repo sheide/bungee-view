@@ -37,16 +37,19 @@ import java.awt.event.InputEvent;
 import java.awt.geom.Rectangle2D;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
-
-
+import java.util.List;
+import java.util.SortedSet;
 
 import edu.cmu.cs.bungee.client.query.ItemPredicate;
 import edu.cmu.cs.bungee.client.query.Markup;
 import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.cmu.cs.bungee.client.query.PerspectiveObserver;
+import edu.cmu.cs.bungee.client.query.Query;
 import edu.cmu.cs.bungee.javaExtensions.Util;
+import edu.cmu.cs.bungee.javaExtensions.ValueComparator;
 import edu.cmu.cs.bungee.piccoloUtils.gui.APText;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPPath;
@@ -55,33 +58,26 @@ import edu.cmu.cs.bungee.piccoloUtils.gui.TextButton;
 import edu.cmu.cs.bungee.piccoloUtils.gui.VScrollbar;
 import edu.umd.cs.piccolo.PNode;
 
-class PerspectiveList extends LazyPNode implements MouseDoc, PerspectiveObserver {
+final class PerspectiveList extends LazyPNode implements MouseDoc,
+		PerspectiveObserver {
+	/**
+	 * Draw the list above the rank label (as opposed to below)?
+	 */
+	private static final boolean onTop = false;
 
 	// private Perspective parent;
 
+	/**
+	 * The current Bar - base from which arrow keys navigate. Null if we're not
+	 * being used.
+	 */
 	private Perspective selected;
 
-	private int[] counts;
-
-	private final APText label;
-
-	// private double labelH = 0;
-
-	private static final long serialVersionUID = -4454383021673737826L;
-
-	final Bungee art;
-
-	private double w;
-
-	private double h;
-
-	private double margin = 5;
-
-	private double sortButtonMargin = 1;
-
-	final VScrollbar scrollbar;
-
-	private LazyPPath border = new LazyPPath();
+	/**
+	 * The onCounts that would result from selecting each Bar (i.e. selecting
+	 * siblings of selected).
+	 */
+	int[] counts;
 
 	private SortButton sortBySelection;
 
@@ -98,11 +94,30 @@ class PerspectiveList extends LazyPNode implements MouseDoc, PerspectiveObserver
 	 */
 	int sortDirection = 1;
 
-	// private final PerspectiveListClickHandler clickHandler;
-
 	private int maxCount;
 
-	private Perspective longestName;
+	private Perspective longestNamedFacet;
+
+	private final APText label;
+
+	final Bungee art;
+
+	/**
+	 * Width of this LazyPNode
+	 */
+	private double w;
+
+	private double h;
+
+	private double margin = 5;
+
+	private double sortButtonMargin = 2;
+
+	final VScrollbar scrollbar;
+
+	private LazyPPath border = new LazyPPath();
+
+	private Perspective[] countSortedFacets;
 
 	PerspectiveList(Bungee a) {
 		art = a;
@@ -120,15 +135,17 @@ class PerspectiveList extends LazyPNode implements MouseDoc, PerspectiveObserver
 		Runnable scroll = new Runnable() {
 			public void run() {
 				int offset = (int) (scrollbar.getPos() * nInvisibleValues() + 0.5);
+				// Util.print(scrollbar.getPos() + " " + size() + " " +
+				// nLines());
 				showList(offset);
 			}
 		};
-		
+
 		scrollbar = new VScrollbar(10, 50, Color.white, Color.lightGray, scroll);
 
-		sortBySelection = new SortButton(this, SortButton.SORT_BY_SELECTION);
-		sortByOnCount = new SortButton(this, SortButton.SORT_BY_ON_COUNT);
-		sortByNatural = new SortButton(this, SortButton.SORT_BY_NATURAL_ORDER);
+		sortBySelection = new SortButton(SortButton.SORT_BY_SELECTION);
+		sortByOnCount = new SortButton(SortButton.SORT_BY_ON_COUNT);
+		sortByNatural = new SortButton(SortButton.SORT_BY_NATURAL_ORDER);
 		sortBySelection.setJustification(Component.CENTER_ALIGNMENT);
 		sortByOnCount.setJustification(Component.CENTER_ALIGNMENT);
 		sortByNatural.setJustification(Component.CENTER_ALIGNMENT);
@@ -140,93 +157,116 @@ class PerspectiveList extends LazyPNode implements MouseDoc, PerspectiveObserver
 
 	void validate() {
 		if (!isHidden()) {
-			boolean onTop = false;
 			Summary summary = art.summary;
 			Rank connectedRank = summary.connectedRank();
-			if (connectedRank != null) {
-				Rectangle2D rankLabelBounds = summary
-						.globalToLocal(connectedRank.perspectives[0].rankLabel
-								.getGlobalBounds());
-				double y = (int) (onTop ? rankLabelBounds.getMinY()
-						: rankLabelBounds.getMaxY());
-				if (onTop) {
-					setOffset(sortButtonMargin, 0);
-					h = y;
-				} else {
-					setOffset(sortButtonMargin, y);
-					h = summary.getHeight() - y;
-				}
-				// w = 2 * summary.queryW;
-				// setBounds(0, 0, w, h);
-				label.setFont(art.font);
-				label.setHeight(art.lineH);
-				redraw();
-				// Util.print("PerspectiveList.validate " + w + " " + h + " " +
-				// y);
+			assert connectedRank != null;
+			Rectangle2D rankLabelBounds = summary
+					.globalToLocal(connectedRank.perspectives[0].rankLabel
+							.getGlobalBounds());
+			double y = (int) (onTop ? rankLabelBounds.getMinY()
+					: rankLabelBounds.getMaxY());
+			if (onTop) {
+				setOffset(sortButtonMargin, 0);
+				h = y;
+			} else {
+				setOffset(sortButtonMargin, y);
+				h = summary.getHeight() - y;
 			}
+			label.setFont(art.font);
+			// label.setHeight(art.lineH);
+			redraw();
+			// Util.print("PerspectiveList.validate " + w + " " + h + " " +
+			// y);
 		}
 	}
 
-	double validateSortButtons(double numY) {
+	public double maxWidth() {
+		return 2 * art.summary.queryW;
+	}
+
+	private double countXoffset() {
+		return margin + art.checkBoxWidth;
+	}
+
+	private double nameXoffset() {
+		// For some reason things line up better adding 1 space instead of 2
+		return sortByOnCount.getMaxX() + art.getStringWidth(" ");
+	}
+
+	/**
+	 * 
+	 * layout: <margin> <art.checkBoxWidth> <numW> " " <name> <margin>
+	 * <scrollbar> <art.scrollMarginSize>
+	 * 
+	 * numW has margin built in to it. The two spaces are added by
+	 * Bungee.facetLabel.
+	 * 
+	 * @param numW
+	 *            the numW we'll pass to getFacetText. Note that each row is a
+	 *            single FacetText, so column placement is dictated by that, not
+	 *            arbitrary constants we get to set.
+	 * @return the y-coordinate where we can start drawing tags
+	 */
+	double validateSortButtons(double numW) {
 		setButtonOrder();
-		label.setOffset(Math
-				.round((w - label.getScale() * label.getWidth()) / 2.0), 0.0);
+		// label.setOffset(Math
+		// .round((w - label.getScale() * label.getWidth()) / 2.0), 0.0);
 		double y = label.getMaxY() + margin;
-		double checkBoxW = art.checkBoxWidth * 0.7;
-		double numW = (int) (numY + art.lineH / 3);
-		sortBySelection.setWidth(checkBoxW - 2 * sortButtonMargin);
+
+		// art.checkBoxWidth has some extra space on the right built in, so the
+		// 0.7 let's us line up more exactly with the boxes.
+		sortBySelection.setWidth(art.checkBoxWidth * 0.7);
 		sortBySelection.setOffset(margin, y);
 		addChild(sortBySelection);
 
-		sortByOnCount.setWidth(numW);
-		sortByOnCount.setOffset(margin + checkBoxW, y);
+		sortByOnCount.setWidth((int) (numW));
+		sortByOnCount.setOffset(countXoffset(), y);
 		addChild(sortByOnCount);
 
-		double naturalOffset = sortByOnCount.getMaxX() + sortButtonMargin;
-		sortByNatural.setOffset(naturalOffset, y);
-		w = longestName == null ? 0 : Math.min(naturalOffset
-				+ art.getFacetStringWidth(longestName, true, true),
-				2 * art.summary.queryW);
-		w = Math.max(label.getWidth(), w);
-		if (isScrollBar()) {
-			w += art.scrollBarWidth + 2 * art.scrollMarginSize;
-		}
+		double rightMargin = margin
+				+ (isScrollBar() ? art.scrollBarWidth + art.scrollMarginSize
+						: 0);
+		w = Math.max(label.getWidth() + 2 * margin, Math.min(maxWidth(),
+				nameXoffset() + longestNameLength() + rightMargin));
 		// Util.print(" v " + longestName + " "
 		// + art.getFacetStringWidth(longestName, false, false) + " "
 		// + naturalOffset + " " + isScrollBar());
 
-		sortByNatural.setWidth((int) (w - naturalOffset - sortButtonMargin));
+		sortByNatural.setWidth((int) (w - nameXoffset() - rightMargin));
+		sortByNatural.setOffset(nameXoffset(), y);
 		addChild(sortByNatural);
+
 		// setWidth(w);
 		label.setOffset(Math
 				.round((w - label.getScale() * label.getWidth()) / 2.0), 0.0);
 
-		return (int) (y + 1.5 * art.lineH);
+		return (int) (sortByNatural.getMaxY() + margin);
 	}
 
 	public void redraw() {
 		if (!isHidden())
-			showList(selected);
+			showList(lineOffset());
 	}
 
 	public void setMouseDoc(PNode source, boolean state) {
 		art.setMouseDoc(source, state);
 	}
 
-	public void setMouseDoc(String doc, boolean state) {
-		art.setMouseDoc(doc, state);
+	public void setMouseDoc(String doc) {
+		art.setMouseDoc(doc);
 	}
 
-	public void setMouseDoc(Markup doc, boolean state) {
-		art.setMouseDoc(doc, state);
-	}
+	// public void setMouseDoc(Markup doc, boolean state) {
+	// art.setMouseDoc(doc, state);
+	// }
 
-	void show(boolean state) {
-		if (!state) {
+	void toggle() {
+		if (!isHidden()) {
 			removeFromParent();
 			// art.selectedItem.setChildrenPickable(true);
 		} else {
-			showList(selected);
+			art.summary.addChild(this);
+			validate();
 		}
 	}
 
@@ -234,84 +274,135 @@ class PerspectiveList extends LazyPNode implements MouseDoc, PerspectiveObserver
 		return getParent() == null;
 	}
 
+	Perspective listedPerspective() {
+		return (!isHidden() && selected != null) ? selected.getParent() : null;
+	}
+
+	Perspective pvp() {
+		return selected != null ? selected.getParent() : null;
+	}
+
 	int size() {
 		return counts == null ? 0 : counts.length;
 	}
 
-	void maybeInit() {
-		// Util.print("maybeInit() " + isHidden() + " " + parent);
-		if (isHidden()) {
-			art.summary.addChild(this);
-			// art.selectedItem.setChildrenPickable(false);
-			moveToFront();
-			sortField = SortButton.SORT_BY_NATURAL_ORDER;
-			sortDirection = 1;
+	void init(Perspective _selected) {
+		// Util.print("maybeInit() " + isHidden() + " " + _selected);
+		assert _selected != null;
+		Perspective _selectedParent = _selected.getParent();
+		assert _selectedParent != null : _selected;
+		// Perspective selectedParent = selected != null ? selected.getParent()
+		// : null;
+		selected = _selected;
+		// if (_selectedParent != selectedParent) {
+		// art.summary.addChild(this);
+		// art.selectedItem.setChildrenPickable(false);
+		moveToFront();
+		// sortField = SortButton.SORT_BY_NATURAL_ORDER;
+		// sortDirection = 1;
 
-			longestName = null;
-			maxCount = 0;
-			Perspective parent = selected.getParent();
-			counts = new int[parent.nChildren()];
-			ResultSet rs = art.query.getCountsIgnoringFacet(parent);
-			if (rs == null) {
-				for (int i = 0; i < size(); i++) {
-					Perspective v = parent.getNthChild(i);
-					counts[i] = v.totalCount;
+		longestNamedFacet = null;
+		maxCount = 0;
+		counts = new int[_selectedParent.nChildren()];
+		countSortedFacets = null;
+		boolean isRestricted = _selectedParent.isRestricted();
+		ResultSet rs = isRestricted ? query().getCountsIgnoringFacet(
+				_selectedParent) : null;
+		if (rs == null) {
+			for (Iterator it = _selectedParent.getChildIterator(); it.hasNext();) {
+				Perspective v = (Perspective) it.next();
+				int i = v.whichChild();
+
+				// If query is invalid, we'll recount soon. In the mean time,
+				// make all counts non-zero so arrows will still function.
+				// If isRestricted by rs == null, must have no other
+				// restrictions, and need to use totalCount.
+				counts[i] = isRestricted ? v.getTotalCount() : v.guessOnCount();
+
+				if (counts[i] > maxCount)
+					maxCount = counts[i];
+				updateLongestNamedFacet(v);
+			}
+		} else {
+			try {
+				while (rs.next()) {
+					Perspective v = query().findPerspective(rs.getInt(1));
+					assert v.getParent() == _selectedParent;
+					int i = v.whichChild();
+					int count = rs.getInt(2);
+					assert count <= v.getTotalCount() : count + " " + v;
+					counts[i] = count;
 					if (counts[i] > maxCount)
 						maxCount = counts[i];
-					checkName(v);
+					updateLongestNamedFacet(v);
 				}
-			} else {
-				try {
-					while (rs.next()) {
-						Perspective v = art.query.findPerspective(rs.getInt(1));
-						assert v.getParent() == parent;
-						int i = v.getIndex();
-						int count = rs.getInt(2);
-						assert count <= v.totalCount : count + " " + v;
-						counts[i] = count;
-						if (counts[i] > maxCount)
-							maxCount = counts[i];
-						checkName(v);
-					}
-				} catch (SQLException se) {
-					Util.err("SQL Exception in PerspectiveList.init: "
-							+ se.getMessage());
-					se.printStackTrace();
-				}
+			} catch (Throwable se) {
+				Util.err("SQL Exception in PerspectiveList.init: "
+						+ se.getMessage());
+				se.printStackTrace();
+			} finally {
+				query().close(rs);
 			}
-			label.setText("(" + Util.addCommas(size()) + " values)");
-			validate();
 		}
+		label.setText(Util.addCommas(size()) + " " + _selectedParent.getName()
+				+ " tags");
+		// }
 	}
 
-	void checkName(Perspective v) {
-		if (w < 2 * art.summary.queryW) {
-			if (longestName == null)
-				longestName = v;
-			else {
-				String name = v.getNameIfPossible();
-				if (name != null
-						&& art.getFacetStringWidth(v, true, true) > art
-								.getFacetStringWidth(longestName, true, true)) {
-					longestName = v;
-				}
+	double longestNameLength() {
+		// Util.print(longestNamedFacet + " yy "
+		// + art.getFacetStringWidth(longestNamedFacet, true, false));
+		return art.getFacetStringWidth(longestNamedFacet, true, false);
+	}
+
+	void updateLongestNamedFacet(Perspective v) {
+		if (longestNamedFacet == null) {
+			longestNamedFacet = v;
+		} else if (w < maxWidth()) {
+			String name = v.getNameIfPossible();
+			if (name != null
+					&& art.getFacetStringWidth(v, true, false) > longestNameLength()) {
+				longestNamedFacet = v;
 			}
-			// Util.print("checkName " + v + " " + longestName + " " + w + " "
-			// + art.getFacetStringWidth(v, false, false));
 		}
+		// Util.print("checkName " + v + " " + longestName + " " + w + " "
+		// + art.getFacetStringWidth(v, false, false));
+	}
+
+	void updateData() {
+		init(selected);
+		validate(); // in case offset needs to change due to change in displayed
+		// pv's
 	}
 
 	void setSelected(Perspective _selected) {
 		// Util.print("PL.setSelected " + isHidden());
-		selected = _selected;
-		art.arrowFocus = selected;
-		maybeInit();
+		assert _selected.getParent() != null : _selected;
+		art.setArrowFocus(_selected);
+		init(_selected);
 	}
 
-	Perspective handleArrow(Perspective _selected, int key, int modifiers) {
-		// Util.print("PerspectiveViz.handleArrow " + key);
-		setSelected(_selected);
-		int sortIndex = getSortIndex(_selected);
+	/**
+	 * @param key
+	 *            an arrow key, HOME, END, or c-A
+	 * @param modifiers
+	 *            control keys pressed along with key
+	 * @return the newly-selected Perspective, or null if there is no change.
+	 *         (Non-null leads to the input event being marked as handled.)
+	 */
+	Perspective handleArrow(int key, int modifiers) {
+		// Util.print("PerspectiveList.handleArrow " + key);
+		Perspective parent = selected.getParent();
+		if (!(parent.isRestriction() || parent.getParent() == null)) {
+			assert false;
+			// if parent has only negative filters, its grandparent might be
+			// unrestricted. If we add positive filters on parent, onItemsQuery
+			// won't notice. Need to think about proper behavior for arrows in
+			// this case. Should they change to a new negated filter?
+			// For now, just disallow.
+			return null;
+		}
+		int sortIndex = getSortIndex(selected);
 		int delta = 0;
 		switch (key) {
 		case java.awt.event.KeyEvent.VK_KP_LEFT:
@@ -335,29 +426,48 @@ class PerspectiveList extends LazyPNode implements MouseDoc, PerspectiveObserver
 		case java.awt.event.KeyEvent.VK_A:
 			if (Util.isControlDown(modifiers)) {
 				sortIndex = 0;
-				_selected = getFacet(0);
-				if (!_selected.isRestriction(true))
-					art.toggleFacet(_selected, 0);
-				modifiers = InputEvent.SHIFT_DOWN_MASK;
+				Perspective _selected = getFacet(0);
 				delta = size() - 1;
+				if (!_selected.isRestriction(true)) {
+					if (delta > 0) {
+						// Don't tell Bungee, which would trigger an extra DB
+						// call.
+						query().toggleFacet(_selected, 0);
+					} else {
+						art.toggleFacet(_selected, 0);
+					}
+				}
+				modifiers = InputEvent.SHIFT_DOWN_MASK;
 			}
 			break;
 		}
 		if (delta != 0) {
+			boolean nowhereToGo = true;
 			for (int index = sortIndex + delta; index >= 0 && index < size(); index += delta) {
 				Perspective p = getFacet(index);
-				// Util.print(selected + " " + sortIndex + " " + delta + " " +
-				// index + " " + p);
-				if (counts[p.getIndex()] > 0) {
-					setSelected(p);
+				// Util.print("handleArrow " + selected + " " + sortIndex + " "
+				// + delta + " " + index + " " + p + " "
+				// + counts[p.whichChild()]);
+				if (counts[p.whichChild()] > 0) {
+					selected = p;
 					art.toggleFacet(selected, modifiers);
 					art.setClickDesc((Markup) null);
+					nowhereToGo = false;
 					break;
 				}
 			}
-			art.printUserAction(Bungee.KEYPRESS, "PerspectiveList", selected.getID());
-			showList(selected);
-			return selected;
+			if (nowhereToGo) {
+				art
+						.setTip("No "
+								+ selected.getParent().getName()
+								+ " tags with non-zero count found in response to navigation keypress.");
+			} else {
+				art.printUserAction(Bungee.FACET_ARROW, selected.getID(),
+						modifiers);
+				if (!isHidden())
+					showList(selected);
+				return selected;
+			}
 		}
 		return null;
 	}
@@ -376,34 +486,41 @@ class PerspectiveList extends LazyPNode implements MouseDoc, PerspectiveObserver
 		showList(lineOffset);
 	}
 
-	boolean isScrollBar() {
+	private boolean isScrollBar() {
 		return nInvisibleValues() > 0;
+	}
+
+	private int lineOffset() {
+		if (isScrollBar())
+			return (int) (scrollbar.getPos() * nInvisibleValues() + 0.5);
+		else
+			return 0;
 	}
 
 	void showList(int lineOffset) {
 		// Util.print("PL.showList " + lineOffset);
-		if (size() != selected.getParent().nChildren()) {
+		assert !isHidden();
+		if (size() != selected.nSiblings()) {
 			// In case we've added or removed facets
-			show(false);
+			removeFromParent();
 			return;
 		}
 		moveToFront();
 		removeAllChildren();
-		double numY = art.numWidth(maxCount);
-		double y = validateSortButtons(numY);
-		double nameY = w - 10.0 - numY;
-		ItemPredicate initialLongName = longestName;
+		double numW = art.numWidth(maxCount) + margin;
+		double y = validateSortButtons(numW);
+		double nameW = w - 2 * margin - numW;
+		ItemPredicate initialLongName = longestNamedFacet;
 		int nLines = nLines();
-		int nInvisibleValues = nInvisibleValues();
 		int maxLine;
-		if (nInvisibleValues > 0) {
+		if (nInvisibleValues() > 0) {
 			lineOffset = Util.constrain(lineOffset, 0, size() - nLines);
-			if (lineOffset != (int) (scrollbar.getPos() * nInvisibleValues + 0.5)) {
-				scrollbar.setPos(lineOffset / (double) nInvisibleValues);
-				// setPos will call us again.
+			if (lineOffset != (int) (scrollbar.getPos() * nInvisibleValues() + 0.5)) {
+				scrollbar.setPos(lineOffset / (double) nInvisibleValues());
+				// setPos will have called us recursively, so our work is done.
 				return;
 			}
-			nameY -= art.scrollBarWidth + 2 * art.scrollMarginSize;
+			nameW -= art.scrollBarWidth + 2 * art.scrollMarginSize;
 			maxLine = lineOffset + nLines;
 
 			scrollbar.setOffset(w - art.scrollBarWidth + art.scrollMarginSize,
@@ -420,31 +537,19 @@ class PerspectiveList extends LazyPNode implements MouseDoc, PerspectiveObserver
 		addChild(border);
 		for (int i = lineOffset; i < maxLine; i++) {
 			Perspective p = getFacet(i);
-			FacetText pLabel = FacetText.getFacetText(p, art, numY, nameY,
-					true, true, true, null, counts[p.getIndex()], null, -1,
-					null);
-			addChild(pLabel);
-			// Color c = counts[i] == 0 ? Color.darkGray : art.facetBarColor(p);
-			// if (p == selected)
-			// c = Color.WHITE;
-			// pLabel.setTextPaint(c);
-			// pLabel.setText(art.facetLabel(p, numY, nameY, counts[i], true,
-			// true, true, false));
-			pLabel.setOffset(margin, y);
-			// pLabel.dontHideTransients = true;
-			// pLabel.highlightFacet();
-			// pLabel.isPickable = true;
-			// pLabel.addInputEventListener(clickHandler);
 
-			// if (p.isRestriction()) {
-			// APText checkBox = art.oneLineLabel();
-			// checkBox.setTextPaint(Art.darkGreen);
-			// checkBox.setText("\u221A");
-			// addChild(checkBox);
-			// checkBox.setOffset(5.0, y);
-			// checkBox.setPickable(false);
-			// }
-			checkName(p);
+			// redrawer has to be this, in case longestNamedFacet changes
+			FacetText pLabel = FacetText.getFacetText(p, art, numW, nameW,
+					true, true, counts[p.whichChild()], this, true);
+
+			// We want to paint based on counts ignoring restrictions, so make
+			// sure highlighting doesn't fade it.
+			pLabel.setPermanentTextPaint(pLabel.getTextPaint());
+
+			pLabel.dontHideTransients = true;
+			addChild(pLabel);
+			pLabel.setOffset(margin, y);
+			updateLongestNamedFacet(p);
 
 			y += art.lineH;
 		}
@@ -452,20 +557,20 @@ class PerspectiveList extends LazyPNode implements MouseDoc, PerspectiveObserver
 			y = h;
 		setBounds(0, 0, w, Math.min(h, y));
 		border.setPathToRectangle(0, 0, (float) (w), (float) Math.min(h, y));
-		if (longestName != initialLongName)
+		if (longestNamedFacet != initialLongName) {
 			showList(lineOffset);
+		}
 	}
 
-	void showFacet(Perspective facet) {
-		if (!isHidden() && facet.getParent() == selected.getParent()) {
+	void highlightFacet(Perspective facet) {
+		if (!isHidden() && facet.getParent() == listedPerspective()) {
 			// Util.print("PL.showFacet " + facet);
-			Iterator it = getChildrenIterator();
-			while (it.hasNext()) {
+			for (Iterator it = getChildrenIterator(); it.hasNext();) {
 				PNode n = (PNode) it.next();
 				if (n instanceof FacetText) {
 					FacetText f = (FacetText) n;
 					if (f.getFacet() == facet) {
-						f.setColor(counts[facet.getIndex()]);
+						f.setColor(counts[facet.whichChild()]);
 						break;
 					}
 				}
@@ -473,9 +578,7 @@ class PerspectiveList extends LazyPNode implements MouseDoc, PerspectiveObserver
 		}
 	}
 
-	class SortButton extends TextButton {
-
-		private static final long serialVersionUID = 8163957367626599694L;
+	final class SortButton extends BungeeTextButton {
 
 		static final int SORT_BY_SELECTION = 1;
 
@@ -495,14 +598,17 @@ class PerspectiveList extends LazyPNode implements MouseDoc, PerspectiveObserver
 
 		// boolean reverseOrder = false;
 
-		PerspectiveList parent;
+		// PerspectiveList parent;
 
-		SortButton(PerspectiveList _parent, int field) {
+		SortButton(int field) {
+			// super(field == SORT_BY_NATURAL_ORDER ? a_zLabel : noneLabel,
+			// art.font, 0, 0, -1, -1, null, 1.8f, Color.darkGray, Color
+			// .getHSBColor(0, 0, 0.1f));
 			super(field == SORT_BY_NATURAL_ORDER ? a_zLabel : noneLabel,
-					art.font, 0, 0, -1, -1, null, 1.8f, Color.darkGray, Color
-							.getHSBColor(0, 0, 0.1f));
+					Color.darkGray, Color.getHSBColor(0, 0, 0.1f),
+					PerspectiveList.this.art);
 			mouseDoc = "Sort by this column";
-			parent = _parent;
+			// parent = _parent;
 			order = field;
 		}
 
@@ -539,7 +645,7 @@ class PerspectiveList extends LazyPNode implements MouseDoc, PerspectiveObserver
 		}
 
 		public void doPick() {
-			parent.setOrder(order, getDirection());
+			PerspectiveList.this.setOrder(order, getDirection());
 		}
 
 		// public void mayHideTransients(PNode node) {
@@ -548,7 +654,7 @@ class PerspectiveList extends LazyPNode implements MouseDoc, PerspectiveObserver
 
 	}
 
-	public void setOrder(int order, int direction) {
+	void setOrder(int order, int direction) {
 		// Util.print("PerspectiveList.setOrder " + order + " " + direction);
 		// Util.print(sortDirection + " " + sortField);
 		if (sortField == order) {
@@ -579,15 +685,13 @@ class PerspectiveList extends LazyPNode implements MouseDoc, PerspectiveObserver
 
 	int getSortIndex(Perspective facet) {
 		int result = -1;
-		Perspective parent = selected.getParent();
 		switch (sortField) {
 		case SortButton.SORT_BY_NATURAL_ORDER:
-			result = facet.getIndex();
+			result = facet.whichChild();
 			break;
 		case SortButton.SORT_BY_ON_COUNT:
-			parent.sortDataIndexByOn();
 			for (int i = 0; i < size() && result < 0; i++) {
-				ItemPredicate child = parent.getNthOnValue(i);
+				ItemPredicate child = countSortedFacets()[i];
 				if (child == facet)
 					result = i;
 			}
@@ -595,13 +699,12 @@ class PerspectiveList extends LazyPNode implements MouseDoc, PerspectiveObserver
 		case SortButton.SORT_BY_TOTAL_COUNT:
 			assert false;
 		case SortButton.SORT_BY_SELECTION:
-			result = facet.getIndex();
+			result = facet.whichChild();
 			int indexOffset = 0;
-			Perspective[] restrictions = parent.allRestrictions();
-			int nRestrictions = restrictions.length;
-			for (int i = 0; i < nRestrictions; i++) {
-				Perspective child = restrictions[i];
-				if (child.getIndex() > result)
+			SortedSet restrictions = pvp().allRestrictions();
+			for (Iterator it = restrictions.iterator(); it.hasNext();) {
+				Perspective child = (Perspective) it.next();
+				if (child.whichChild() > result)
 					indexOffset++;
 			}
 			result += indexOffset;
@@ -619,7 +722,7 @@ class PerspectiveList extends LazyPNode implements MouseDoc, PerspectiveObserver
 
 	Perspective getFacet(int sortIndex) {
 		Perspective result = null;
-		Perspective parent = selected.getParent();
+		Perspective parent = pvp();
 		if ((sortDirection == -1) == (sortField == SortButton.SORT_BY_NATURAL_ORDER))
 			sortIndex = size() - sortIndex - 1;
 		switch (sortField) {
@@ -627,27 +730,28 @@ class PerspectiveList extends LazyPNode implements MouseDoc, PerspectiveObserver
 			result = parent.getNthChild(sortIndex);
 			break;
 		case SortButton.SORT_BY_ON_COUNT:
-			parent.sortDataIndexByOn();
-			result = parent.getNthOnValue(sortIndex);
+			result = countSortedFacets()[sortIndex];
 			break;
 		case SortButton.SORT_BY_TOTAL_COUNT:
 			assert false;
 		case SortButton.SORT_BY_SELECTION:
-			Perspective[] restrictions = parent.allRestrictions();
-			int nRestrictions = restrictions.length;
+			List restrictions = new ArrayList(parent.allRestrictions());
+			int nRestrictions = restrictions.size();
 			if (nRestrictions > 0) {
-				if (nRestrictions > 1) {
-					Perspective[] temp = new Perspective[nRestrictions];
-					System.arraycopy(restrictions, 0, temp, 0, nRestrictions);
-					restrictions = temp;
-					Arrays.sort(restrictions);
-				}
+				// if (nRestrictions > 1) {
+				// Perspective[] temp = new Perspective[nRestrictions];
+				// System.arraycopy(restrictions, 0, temp, 0, nRestrictions);
+				// restrictions = temp;
+				// Arrays.sort(restrictions);
+				// }
 				if (sortIndex < nRestrictions) {
-					result = restrictions[nRestrictions - sortIndex - 1];
+					result = (Perspective) restrictions.get(nRestrictions
+							- sortIndex - 1);
 				} else {
 					for (int i = 0; i < nRestrictions && result == null; i++) {
-						Perspective child = restrictions[nRestrictions - i - 1];
-						int nSkipped = child.getIndex() - i;
+						Perspective child = (Perspective) restrictions
+								.get(nRestrictions - i - 1);
+						int nSkipped = child.whichChild() - i;
 						if (nSkipped > sortIndex - nRestrictions)
 							result = parent.getNthChild(sortIndex
 									- nRestrictions + i);
@@ -665,5 +769,24 @@ class PerspectiveList extends LazyPNode implements MouseDoc, PerspectiveObserver
 		}
 		assert result != null : parent + " " + sortIndex;
 		return result;
+	}
+
+	Perspective[] countSortedFacets() {
+		if (countSortedFacets == null) {
+			countSortedFacets = pvp().getChildren();
+			Arrays.sort(countSortedFacets, new OnCountComparator());
+		}
+		return countSortedFacets;
+	}
+
+	final class OnCountComparator extends ValueComparator {
+
+		public int value(Object data) {
+			return counts[((Perspective) data).whichChild()];
+		}
+	}
+
+	Query query() {
+		return art.query;
 	}
 }

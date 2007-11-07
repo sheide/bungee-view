@@ -6,8 +6,6 @@ import java.awt.Paint;
 import edu.umd.cs.piccolo.nodes.PPath;
 
 public class Arrow extends LazyPNode {
-	
-	private static final long serialVersionUID = -5740421000360331116L;
 	protected PPath line;
 	protected PPath tail;
 	protected PPath leftHead;
@@ -57,14 +55,17 @@ public class Arrow extends LazyPNode {
 		float[] Xs = { 0, length};
 		float[] Ys = { 0, 0 };
 		line.setPathToPolyline(Xs, Ys);
+		double h = leftHead.getHeight();
 		if (length < 0) {
 //			tail.setOffset(length - halfMarkSize, -halfMarkSize);
 			leftHead.setOffset(length, 0);
 //			Xs[0] = -length;
 //			Xs[1] = 0;
+			setBounds(length-h/2, -h/2, -length+h, h);
 		} else	if (length > 0) {
 //			tail.setOffset(- halfMarkSize, -halfMarkSize);
 			rightHead.setOffset(length, 0);
+			setBounds(-h/2, -h/2, length+h, h);
 		}
 		
 		rightHead.setVisible(length > 0);

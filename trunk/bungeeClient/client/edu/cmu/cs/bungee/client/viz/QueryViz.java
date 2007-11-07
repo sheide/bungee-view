@@ -32,9 +32,9 @@
 package edu.cmu.cs.bungee.client.viz;
 
 import edu.cmu.cs.bungee.client.query.Cluster;
-import edu.cmu.cs.bungee.client.query.Markup;
 import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.cmu.cs.bungee.client.query.Query;
+import edu.cmu.cs.bungee.javaExtensions.Util;
 import edu.cmu.cs.bungee.piccoloUtils.gui.APText;
 import edu.cmu.cs.bungee.piccoloUtils.gui.Boundary;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
@@ -44,15 +44,17 @@ import edu.umd.cs.piccolo.PNode;
 import edu.umd.cs.piccolox.event.PStyledTextEventHandler;
 import edu.umd.cs.piccolox.nodes.PStyledText;
 import java.awt.Color;
+import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
+import java.util.Collection;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
-import java.util.Set;
 import java.util.Vector;
 
 import javax.swing.AbstractAction;
@@ -63,16 +65,16 @@ import javax.swing.text.BadLocationException;
 import javax.swing.text.Document;
 import javax.swing.text.JTextComponent;
 
+final class QueryViz extends LazyPNode implements MouseDoc {
 
-
-public class QueryViz extends LazyPNode implements MouseDoc {
-
-	private static final long serialVersionUID = -4215862457900923376L;
-
-	private double h;
+	// private double h;
 
 	private final Summary summary;
 
+	/**
+	 * A p-list of DeleteButtons and FacetTexts for both text searches and
+	 * clusters
+	 */
 	private final List searches = new Vector();
 
 	private PStyledText searchBox;
@@ -85,7 +87,7 @@ public class QueryViz extends LazyPNode implements MouseDoc {
 
 	private APText shortSearchWarning;
 
-	public QueryViz(Summary _summary) {
+	QueryViz(Summary _summary) {
 		summary = _summary;
 		setPickable(false);
 	}
@@ -96,6 +98,9 @@ public class QueryViz extends LazyPNode implements MouseDoc {
 
 	private APText clusterLabel;
 
+	/**
+	 * This gets called after validate is first called
+	 */
 	void init() {
 		// Util.print("QueryViz.init");
 		shortSearchWarning = oneLineLabel();
@@ -120,7 +125,7 @@ public class QueryViz extends LazyPNode implements MouseDoc {
 		addChild(clusterLabel);
 
 		editor = createEditor();
-		editor.setFont(art().font);
+		editor.setFont(font());
 		// editor.setText(" ");
 		textHandler = new PStyledTextEventHandler(art().getCanvas(), editor);
 		addInputEventListener(textHandler);
@@ -134,23 +139,24 @@ public class QueryViz extends LazyPNode implements MouseDoc {
 		Document doc = editor.getUI().getEditorKit(editor)
 				.createDefaultDocument();
 		searchBox.setDocument(doc);
-		searchBox.setHeight(lineH());
+		searchBox.setHeight(lineH() - 2);
 		addChild(searchBox);
 
 		InputMap inputMap = editor.getInputMap();
 		KeyStroke key = KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0);
-		inputMap.put(key, new EnterAction(this));
+		inputMap.put(key, new KeypressEnterAction(this));
 
 		boundary = new Boundary(this, false);
 		addChild(boundary);
 
 		isInitted = true;
-		positionSearchBox(h);
+		positionSearchBox();
 	}
 
 	double getBottomMargin() {
-		int nSearches = query().getSearches().size();
-		double margin = 6 + lineH() * (1 + nSearches);
+		int nSearches = query().nSearches();
+		// 1 is for label, and 0.5 is for a margin below
+		double margin = lineH() * (1.5 + nSearches);
 		int nClusters = query().nClusters();
 		if (nClusters > 0) {
 			margin += lineH() * (1 + nClusters);
@@ -167,7 +173,8 @@ public class QueryViz extends LazyPNode implements MouseDoc {
 		setBounds(0, 0, _w, _h);
 		if (boundary != null)
 			boundary.validate();
-		positionSearchBox(_h);
+		// positionSearchBox();
+		synchronizeWithQuery();
 	}
 
 	Bungee art() {
@@ -177,18 +184,24 @@ public class QueryViz extends LazyPNode implements MouseDoc {
 	Query query() {
 		return summary.q;
 	}
-	
+
 	double lineH() {
-		return art().lineH;
+		return art().lineH + 1.0;
 	}
-	
+
+	Font font() {
+		return art().font;
+	}
+
 	APText oneLineLabel() {
 		return art().oneLineLabel();
 	}
 
-	void positionSearchBox(double _h) {
-		h = _h;
+	double positionSearchBox() {
+		// h = _h;
+		double y = getHeight() - getBottomMargin();
 		if (isInitted) {
+			// Util.print("positionSearchBox " + y);
 			// setBounds(0, 0, w, h);
 			// setPaint(queryBG);
 			// label.setOffset(w / 2.0 - label.getScale() * label.getWidth() /
@@ -196,12 +209,11 @@ public class QueryViz extends LazyPNode implements MouseDoc {
 			// 0);
 			// textLabel.setOffset(2, y);
 			// y += textLabel.getScale() * textLabel.getHeight() * 1.2;
-			double y = h - getBottomMargin();
 			double x = 2;
-			searchLabel.setFont(art().font);
+			searchLabel.setFont(font());
 			searchLabel.setOffset(x, y);
 			x += Math.ceil(searchLabel.getWidth());
-			searchBox.setHeight(lineH());
+//			searchBox.setHeight(lineH() - 2);
 			searchBox.setOffset(x + 10, y);
 			searchBox.setWidth(10 * lineH());
 			if (searchBox.getParent() == null)
@@ -221,28 +233,31 @@ public class QueryViz extends LazyPNode implements MouseDoc {
 
 			if (query().nClusters() > 0) {
 				x = 2;
-				y += lineH() * (1 + query().getSearches().size());
+				y += lineH() * (1 + query().nSearches());
 				clusterLabel.setOffset(x, y);
+				clusterLabel.setFont(font());
+				y += lineH();
 			}
 		}
+		return y;
 	}
 
 	public void updateBoundary(Boundary boundary1) {
 		// System.out.println("Grid.updateBoundary " + boundary.centerX());
 		assert boundary1 == boundary;
-		validate(boundary1.center(), h);
+		validate(boundary1.center(), -1);
 		summary.updateQueryBoundary();
 	}
 
 	public double minWidth() {
-		return 50;
+		return lineH() * 3;
 	}
 
 	public double maxWidth() {
-		return getWidth() + summary.getWidth() - summary.minWidth(null);
+		return getWidth() + summary.getWidth() - summary.minWidth(false);
 	}
 
-	public void doSearch() {
+	void doSearch() {
 		String s = editor.getText().trim();
 		art().printUserAction(Bungee.SEARCH, s, 0);
 		// Util.print("doSearch '" + s + "'");
@@ -257,6 +272,10 @@ public class QueryViz extends LazyPNode implements MouseDoc {
 			summary.mayHideTransients();
 			query().addTextSearch(s);
 			art().updateAllData();
+
+			// This doesn't work - it is already grabbed from PInputManager's
+			// point of view.
+			// art().grabFocus();
 		}
 	}
 
@@ -268,13 +287,14 @@ public class QueryViz extends LazyPNode implements MouseDoc {
 		}
 	}
 
-	static class EnterAction extends AbstractAction {
-
-		private static final long serialVersionUID = -3636184693260706104L;
+	static final class KeypressEnterAction extends AbstractAction {
 
 		QueryViz qv;
 
-		public EnterAction(QueryViz _q) {
+		/**
+		 * What to do when Enter key is pressed
+		 */
+		KeypressEnterAction(QueryViz _q) {
 			qv = _q;
 		}
 
@@ -286,8 +306,6 @@ public class QueryViz extends LazyPNode implements MouseDoc {
 	// copied from PStyledTextEventHandler
 	private JTextComponent createEditor() {
 		JTextPane tComp = new JTextPane() {
-
-			private static final long serialVersionUID = -1081364272578141120L;
 
 			/**
 			 * Set some rendering hints - if we don't then the rendering can be
@@ -326,116 +344,130 @@ public class QueryViz extends LazyPNode implements MouseDoc {
 	// return q.isRestricted() || editor.getText().length() != 0;
 	// }
 
-	public void synchronizeWithQuery() {
+	List spareDeleteButtons = new LinkedList();
+
+	void synchronizeWithQuery() {
 		if (isInitted) {
 			// summary.updateQueryH(0);
-			// Util.print("ClearQuery.setVisible " + q.isRestricted());
-			Set desiredSearches = query().getSearches();
-			// Color color = (desiredSearches.size() > 0 ?
-			// Util.brighten(Art.summaryFG)
-			// : Art.summaryFG);
-			// searchLabel.setTextPaint(color);
-
-			double y = h - getBottomMargin() + searchLabel.getHeight() + 3;
-
-			Iterator textIt = desiredSearches.iterator();
+			// Util.print("synchronizeWithQuery " );
+			List desiredSearches = new LinkedList(query().getSearches());
+			double y = getHeight() - getBottomMargin() + lineH();
 			ListIterator nodeIt = searches.listIterator();
-			while (textIt.hasNext()) {
+			// Out with the old Strings
+			while (nodeIt.hasNext()) {
+				DeleteSearchButton button = (DeleteSearchButton) nodeIt.next();
+				if (button.treeObject instanceof Cluster)
+					break;
+				else
+					y = updateButton(desiredSearches, nodeIt, button, y);
+			}
+			// nodeIt either points to the first cluster FacetText or nothing
+			if (nodeIt.hasNext())
+				nodeIt.previous();
+			// In with the new Strings
+			for (Iterator textIt = desiredSearches.iterator(); textIt.hasNext();) {
 				String desiredSearch = (String) textIt.next();
-				addButton(nodeIt, desiredSearch, y, null);
-				y += lineH() + 1.0;
+				y = addButton(nodeIt, desiredSearch, y);
 			}
 			int nClusters = query().nClusters();
 			clusterLabel.setVisible(nClusters > 0);
-			if (nClusters > 0) {
-				positionSearchBox(h);
-				y += lineH() + 1.0;
-				for (Iterator it = query().clusters().iterator(); it.hasNext();) {
-					Cluster cluster = (Cluster) it.next();
-					String s = cluster.toString();
-					addButton(nodeIt, s, y, cluster);
-					y += lineH() + 1.0;
-				}
-			}
+			// if (nClusters > 0) {
+			y = positionSearchBox();
+			// }
+			List desiredClusters = new LinkedList(query().clusters());
+			// Out with the old Clusters
 			while (nodeIt.hasNext()) {
-				PNode node = (PNode) nodeIt.next();
-				if (node.getParent() == null)
-					break;
-				// removeChild(node);
-				node.setVisible(false);
-				node.setPickable(false);
-				// searches.remove(node);
+				DeleteSearchButton button = (DeleteSearchButton) nodeIt.next();
+				assert button.treeObject instanceof Cluster;
+				y = updateButton(desiredClusters, nodeIt, button, y);
+			}
+			// In with the new Clusters
+			for (Iterator it = desiredClusters.iterator(); it.hasNext();) {
+				Cluster cluster = (Cluster) it.next();
+				// String s = cluster.toString();
+				y = addButton(nodeIt, cluster, y);
 			}
 		}
 	}
 
-	void addButton(ListIterator nodeIt, String s, double y, Cluster cluster) {
-		// Util.print("addButton " + s);
-		DeleteSearchButton delete;
-		FacetText searchText;
-		if (nodeIt.hasNext()) {
-			delete = (DeleteSearchButton) nodeIt.next();
-			searchText = (FacetText) nodeIt.next();
-			delete.setVisible(true);
-			searchText.setVisible(true);
-			searchText.setPickable(true);
+	double updateButton(Collection desired, ListIterator nodeIt,
+			DeleteSearchButton button, double y) {
+		if (!desired.contains(button.treeObject)) {
+			removeChild(button);
+			spareDeleteButtons.add(button);
+			nodeIt.remove();
+			FacetText text = (FacetText) nodeIt.next();
+			removeChild(text);
+			nodeIt.remove();
 		} else {
-			// nodeIt = null;
-			delete = new DeleteSearchButton(art());
-			addChild(delete);
-			// delete.addInputEventListener(deleteSearchHandler);
-			nodeIt.add(delete);
-
-			Object treeObject = s;
-			if (cluster != null)
-				treeObject = cluster;
-			searchText = FacetText.getFacetText(treeObject, art());
-			addChild(searchText);
-			// searchText.pickFacetTextNotifier = pickFacetTextNotifier;
-
-			// searchText = oneLineLabel();
-			// searchText.setTextPaint(Art.greens[2]);
-			// searchText.setPickable(false);
-			nodeIt.add(searchText);
+			desired.remove(button.treeObject);
+			button.setOffset(5, y + 2);
+			button.setFont(font());
+			FacetText text = (FacetText) nodeIt.next();
+			text.setOffset(Math.ceil(button.getMaxX() + 5), y);
+			text.setFont(font());
+			y += lineH();
 		}
-		delete.setOffset(5, y + 2);
-		delete.setSearchText(s);
-		delete.cluster = cluster;
-		searchText.setOffset(Math.ceil(delete.getXOffset() + delete.getWidth()
-				* delete.getScale() + 5), y);
-		searchText.setText(s);
-		// if (delete.getParent() == null) {
-		// addChild(delete);
-		// addChild(searchText);
-		// }
+		return y;
 	}
 
-	public void setSearchVisibility(boolean isVisible) {
+	double addButton(ListIterator nodeIt, Object treeObject, double y) {
+		// Util.print("addButton " + s);
+		// nodeIt = null;
+		DeleteSearchButton delete = (DeleteSearchButton) (spareDeleteButtons
+				.size() > 0 ? spareDeleteButtons.remove(0)
+				: new DeleteSearchButton());
+		addChild(delete);
+		delete.setFont(font());
+		// delete.addInputEventListener(deleteSearchHandler);
+		nodeIt.add(delete);
+		delete.setOffset(5, y + 2);
+		delete.treeObject = treeObject;
+
+		FacetText searchText = FacetText.getFacetText(treeObject, art(), false,
+				null);
+		addChild(searchText);
+		// searchText.pickFacetTextNotifier = pickFacetTextNotifier;
+
+		// searchText = oneLineLabel();
+		// searchText.setTextPaint(Art.greens[2]);
+		// searchText.setPickable(false);
+		nodeIt.add(searchText);
+		searchText.setOffset(Math.ceil(delete.getMaxX() + 5), y);
+		return y + lineH();
+	}
+
+	void setSearchVisibility(boolean isVisible) {
+//		Util.print("setSearchVisibility12 " + isVisible);
 		searchLabel.setVisible(isVisible);
 		searchBox.setVisible(isVisible);
 		if (searchBox.getParent() == null)
 			addChild(searchBox);
 	}
 
-	public void removeSearch(String searchText) {
+	boolean removeSearch(Object treeObject) {
+		boolean result = false;
 		summary.mayHideTransients();
-		art().printUserAction(Bungee.BUTTON, searchText, 0);
-		if (!query().removeTextSearch(searchText)) {
-			Cluster cluster = query().findCluster(searchText);
-			assert cluster != null : searchText;
-			query().toggleCluster(cluster);
+		if (treeObject instanceof String) {
+			String searchText = (String) treeObject;
+			art().printUserAction(Bungee.BUTTON, searchText, 0);
+			result = query().removeTextSearch(searchText);
+		} else {
+			query().toggleCluster((Cluster) treeObject);
+			result = true;
 		}
-		art().updateAllData();
+		if (result)
+			art().updateAllData();
+		return result;
 	}
 
 	void highlightCluster(Cluster cluster) {
 		// Util.print("highlightCluster " + cluster.toString());
 		if (clusterLabel.getVisible()) {
-			for (ListIterator nodeIt = searches.listIterator(); nodeIt
-					.hasNext();) {
-				DeleteSearchButton button = (DeleteSearchButton) nodeIt.next();
-				APText label = (APText) nodeIt.next();
-				if (cluster.equals(button.cluster)) {
+			for (Iterator nodeIt = searches.iterator(); nodeIt.hasNext();) {
+				nodeIt.next();
+				FacetText label = (FacetText) nodeIt.next();
+				if (cluster.equals(label.cluster)) {
 					label.setTextPaint(art().clusterTextColor(cluster));
 				}
 			}
@@ -453,15 +485,15 @@ public class QueryViz extends LazyPNode implements MouseDoc {
 		art().setMouseDoc(source, state);
 	}
 
-	public void setMouseDoc(String doc, boolean state) {
-		art().setMouseDoc(doc, state);
+	public void setMouseDoc(String doc) {
+		art().setMouseDoc(doc);
 	}
 
-	public void setMouseDoc(Markup doc, boolean state) {
-		art().setMouseDoc(doc, state);
-	}
+	// public void setMouseDoc(Markup doc, boolean state) {
+	// art().setMouseDoc(doc, state);
+	// }
 
-	// class ClearQueryHandler extends PBasicInputEventHandler {
+	// final class ClearQueryHandler extends PBasicInputEventHandler {
 	// public void mousePressed(PInputEvent e) {
 	// //Util.print("PerspectiveSelectionHandler.mousePressed");
 	// PNode node = e.getPickedNode();
@@ -511,27 +543,28 @@ public class QueryViz extends LazyPNode implements MouseDoc {
 	// }
 	// }
 
-	static class DeleteSearchButton extends TextButton {
+	 final class DeleteSearchButton extends BungeeTextButton {
 
-		private static final long serialVersionUID = 7249386072107937171L;
+		// String searchText;
+		//
+		// Cluster cluster;
 
-		private String searchText;
+		Object treeObject;
 
-		Cluster cluster;
-
-		DeleteSearchButton(Bungee art) {
-			super("X", art.font, 0, 0, art.lineH, art.lineH, null, 2.0f,
-					Bungee.summaryFG, Bungee.summaryBG);
+		DeleteSearchButton() {
+//			super("X", art.font, 0, 0, art.lineH, art.lineH, null, 2.0f,
+//					Bungee.summaryFG, Bungee.summaryBG);
+			super("X", Bungee.summaryFG, Bungee.summaryBG, QueryViz.this.art());
 			setScale(0.6);
 		}
 
-		void setSearchText(String text) {
-			searchText = text;
-			mouseDoc = "Remove search '" + searchText + "'";
-		}
+		// void setSearchText(String text) {
+		// searchText = text;
+		// mouseDoc = "Remove search '" + searchText + "'";
+		// }
 
 		public void doPick() {
-			((QueryViz) getParent()).removeSearch(searchText);
+			removeSearch(treeObject);
 		}
 
 		// public void exit() {
@@ -547,7 +580,7 @@ public class QueryViz extends LazyPNode implements MouseDoc {
 
 	}
 
-	public void setSelectedForEdit(Perspective facet) {
+	void setSelectedForEdit(Perspective facet) {
 		// Util.print("QueryViz.setSelectedForEdit");
 		// searchBox.setEditing(true);
 		try {
@@ -569,7 +602,7 @@ public class QueryViz extends LazyPNode implements MouseDoc {
 		// textHandler.stopEditing();
 	}
 
-	// class DeleteSearch extends APText {
+	// final class DeleteSearch extends APText {
 	// String searchText;
 	//
 	// DeleteSearch(String s) {
@@ -579,7 +612,7 @@ public class QueryViz extends LazyPNode implements MouseDoc {
 	// }
 	// }
 	//
-	// class DeleteSearchHandler extends PBasicInputEventHandler {
+	// final class DeleteSearchHandler extends PBasicInputEventHandler {
 	// public void mousePressed(PInputEvent e) {
 	// DeleteSearch node = (DeleteSearch) e.getPickedNode();
 	// ((QueryViz) node.getParent()).removeSearch(node.searchText);
