@@ -17,13 +17,15 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import sun.jdbc.odbc.JdbcOdbc;
+
 import edu.cmu.cs.bungee.javaExtensions.Util;
 
 enum Command {
-	CONNECT, CLOSE, getCountsIgnoringFacet, ABOUT_COLLECTION, getFilteredCounts, updateOnItems, prefetch, offsetItems, getThumbs, cluster, getDescAndImage, getItemInfo, ITEM_URL, itemIndex, itemIndexFromURL, printUserAction, restrict, baseFacets, getFilteredCountTypes, addItemsFacet, addChildFacet, removeItemFacet, reparent, addItemFacet, writeback, rotate, rename, removeItemsFacet, getNames, reorderItems, setItemDescription, opsSpec
+	CONNECT, CLOSE, getCountsIgnoringFacet, ABOUT_COLLECTION, getFilteredCounts, updateOnItems, prefetch, offsetItems, getThumbs, cluster, getDescAndImage, getItemInfo, ITEM_URL, itemIndex, itemIndexFromURL, restrict, baseFacets, getFilteredCountTypes, addItemsFacet, addChildFacet, removeItemFacet, reparent, addItemFacet, writeback, rotate, rename, removeItemsFacet, getNames, reorderItems, setItemDescription, opsSpec
 }
 
-public class Bungee extends HttpServlet {
+public class Servlet extends HttpServlet {
 
 	private Map<Integer, Database> sessions = new HashMap<Integer, Database>();
 
@@ -46,11 +48,12 @@ public class Bungee extends HttpServlet {
 
 	// This method is called by the servlet container just after this servlet
 	// is removed from service.
+	@Override
 	synchronized public void destroy() {
 		// log("destroy");
-		Iterator it = sessions.values().iterator();
-		while (it.hasNext()) {
-			Database db = (Database) it.next();
+		for (Iterator<Database> iterator = sessions.values().iterator(); iterator
+				.hasNext();) {
+			Database db = iterator.next();
 			try {
 				db.close();
 			} catch (SQLException e) {
@@ -89,20 +92,25 @@ public class Bungee extends HttpServlet {
 	private int handleItemIndex(int item, int table, int nNeighbors,
 			Database db, DataOutputStream out) throws ServletException,
 			SQLException, IOException {
-		int intResult = db.itemIndex(item, table);
+		int itemOffset = db.itemOffset(item, table);
+
+		// servletInterface will subtract 1 from the result.
+		Database.writeInt(itemOffset + 1, out);
+
 		if (nNeighbors > 1) {
-			int base = Math.max(0, intResult - 1);
+			int base = Math.max(0, itemOffset);
 			int minOffset = Math.max(0, base - nNeighbors + 1);
 			int maxOffset = base + nNeighbors;
-			Database.writeInt(intResult, out);
+
 			Database.writeInt(minOffset, out);
-			Database.writeInt(maxOffset, out);
+			// Database.writeInt(maxOffset, out);
 			db.offsetItems(minOffset, maxOffset, table, out);
 		}
 		// log("itemIndex " + intResult);
-		return intResult;
+		return itemOffset;
 	}
 
+	@Override
 	protected void doGet(HttpServletRequest request,
 			HttpServletResponse response) throws IOException {
 		log(request.getParameter("command"));
@@ -111,6 +119,7 @@ public class Bungee extends HttpServlet {
 		doPost(request, response);
 	}
 
+	@Override
 	protected void doPost(HttpServletRequest request,
 			HttpServletResponse response) throws IOException {
 		String errMsg = null;
@@ -190,7 +199,10 @@ public class Bungee extends HttpServlet {
 		case CONNECT:
 			log("session = '" + xsession.toString() + "'");
 			Database.writeString(xsession.toString(), out);
-			Database.writeString(getServletConfig().getInitParameter("dbs"), out);
+			Database.writeString(db.dbDescs(getServletConfig()
+					.getInitParameter("dbs")), out);
+			// Database.writeString(getServletConfig().getInitParameter("dbs"),
+			// out);
 			Database.writeInt(db.facetCount(), out);
 			Database.writeInt(db.itemCount(), out);
 			String[] globals = db.getGlobals();
@@ -207,7 +219,8 @@ public class Bungee extends HttpServlet {
 					.getParameter("arg2"), out);
 			break;
 		case ITEM_URL:
-			Database.writeString(db.getItemURL(getIntParameter(request, "arg1")), out);
+			Database.writeString(db
+					.getItemURL(getIntParameter(request, "arg1")), out);
 			break;
 		case getFilteredCounts:
 			db.getFilteredCounts(request.getParameter("arg1"), request
@@ -257,12 +270,10 @@ public class Bungee extends HttpServlet {
 			int nNeighbors = getIntParameter(request, "arg4");
 			int nItems = db.updateOnItems(subQuery);
 			if (Database.writeInt(nItems, out) > 0) {
-				int index = handleItemIndex(item, table, nNeighbors, db, out);
-				if (index > nItems)
-					throw (new ServletException("Bad index: " + index + " > "
-							+ nItems + " for table " + table + " item " + item
-							+ " query " + subQuery));
-				Database.writeInt(index, out);
+				// int index =
+				handleItemIndex(item, table, nNeighbors, db, out);
+				// servletInterface will subtract 1 from the result.
+				// Database.writeInt(index + 1, out);
 			}
 			break;
 		case itemIndexFromURL:
@@ -270,20 +281,23 @@ public class Bungee extends HttpServlet {
 			Database.writeInt(item, out);
 			table = getIntParameter(request, "arg2");
 			nNeighbors = getIntParameter(request, "arg3");
-			Database.writeInt(handleItemIndex(item, table, nNeighbors, db, out), out);
+
+			// servletInterface will subtract 1 from the result.
+			// Database.writeInt(
+			handleItemIndex(item, table, nNeighbors, db, out);
+			// +1, out);
+
 			break;
 		case itemIndex:
 			item = getIntParameter(request, "arg1");
 			table = getIntParameter(request, "arg2");
 			nNeighbors = getIntParameter(request, "arg3");
-			Database.writeInt(handleItemIndex(item, table, nNeighbors, db, out), out);
-			break;
-		case printUserAction:
-			int location = getIntParameter(request, "arg1");
-			String object = request.getParameter("arg2");
-			int modifiers = getIntParameter(request, "arg3");
-			db.printUserAction(request.getRemoteHost(), xsession.intValue(),
-					location, object, modifiers);
+
+			// servletInterface will subtract 1 from the result.
+			// Database.writeInt(
+			handleItemIndex(item, table, nNeighbors, db, out);
+			// +1, out);
+
 			break;
 		case setItemDescription:
 			item = getIntParameter(request, "arg1");
@@ -347,6 +361,21 @@ public class Bungee extends HttpServlet {
 			break;
 		default:
 			throw (new ServletException("Unknown command: " + command));
+		}
+		String actionsString = request.getParameter("userActions");
+		if (actionsString != null) {
+			String[] actions = Util.splitSemicolon(actionsString);
+			for (int i = 0; i < actions.length; i++) {
+				String[] actionString = Util.splitComma(actions[i]);
+				Database.myAssert(actionString.length == 4, "Bad argString: '"
+						+ actions[i] + "' in '" + actionsString);
+				int actionIndex = Integer.parseInt(actionString[0]);
+				int location = Integer.parseInt(actionString[1]);
+				String object = actionString[2];
+				int modifiers = Integer.parseInt(actionString[3]);
+				db.printUserAction(request.getRemoteHost(),
+						xsession.intValue(), actionIndex, location, object, modifiers);
+			}
 		}
 		// log("...doPost " + command + " writing");
 	}

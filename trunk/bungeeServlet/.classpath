@@ -2,32 +2,11 @@
 <classpath>
 	<classpathentry kind="src" path=""/>
 	<classpathentry kind="src" path="/javaExtensions"/>
-	<classpathentry kind="lib" path="WEB-INF/lib/mysql-connector-java-5.0.3-bin.jar"/>
-	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/jre1.5.0_06"/>
-	<classpathentry kind="lib" path="C:/Program Files/Java/jdk1.5.0_06/jre/lib/ext/jai_imageio.jar">
-		<attributes>
-			<attribute value="http://java.sun.com/products/java-media/jai/forDevelopers/jai-apidocs" name="javadoc_location"/>
-		</attributes>
-	</classpathentry>
-	<classpathentry kind="lib" path="C:/Program Files/Java/jdk1.5.0_06/jre/lib/ext/jai_core.jar">
-		<attributes>
-			<attribute value="http://java.sun.com/products/java-media/jai/forDevelopers/jai-apidocs" name="javadoc_location"/>
-		</attributes>
-	</classpathentry>
-	<classpathentry kind="lib" path="C:/Program Files/Java/jdk1.5.0_06/jre/lib/ext/jai_codec.jar">
-		<attributes>
-			<attribute value="http://java.sun.com/products/java-media/jai/forDevelopers/jai-apidocs" name="javadoc_location"/>
-		</attributes>
-	</classpathentry>
-	<classpathentry kind="lib" path="C:/Program Files/Java/jdk1.5.0_06/jre/lib/ext/mlibwrapper_jai.jar"/>
-	<classpathentry kind="lib" path="C:/Program Files/Java/jdk1.5.0_06/jre/lib/ext/clibwrapper_jiio.jar">
-		<attributes>
-			<attribute value="http://java.sun.com/products/java-media/jai/forDevelopers/jai-apidocs" name="javadoc_location"/>
-		</attributes>
-	</classpathentry>
+	<classpathentry kind="lib" path="C:/Documents and Settings/mad/workspace/bungeeServlet/mysql-connector-java-5.0.3-bin.jar"/>
 	<classpathentry kind="lib" path="C:/Program Files/Apache Software Foundation/Tomcat 5.5/common/lib/servlet-api.jar"/>
 	<classpathentry kind="lib" path="C:/Program Files/Apache Software Foundation/Tomcat 5.5/common/lib/jsp-api.jar"/>
 	<classpathentry kind="src" path="/bungeeDBscripts"/>
 	<classpathentry kind="src" path="/statistics"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
 	<classpathentry kind="output" path=""/>
 </classpath>

@@ -59,10 +59,12 @@ import edu.cmu.cs.bungee.dbScripts.ConvertFromRaw;
 import edu.cmu.cs.bungee.javaExtensions.*;
 import edu.cmu.cs.bungee.javaExtensions.MyResultSet.Column;
 
-
 // Permissions to add
-//GRANT SELECT, INSERT, UPDATE, CREATE, DELETE, CREATE TEMPORARY TABLES ON
-//chartresvezelay.* TO p5@localhost
+// GRANT SELECT, INSERT, UPDATE, CREATE, DELETE, CREATE TEMPORARY TABLES ON
+// chartresvezelay.* TO p5@localhost
+
+// Dump like this:
+// mysqldump -u root -p --add-drop-database --databases wpa > wpa.sql
 
 class Database {
 
@@ -71,7 +73,7 @@ class Database {
 	Database(String _server, String _db, String _user, String _pass,
 			GenericServlet _servlet) throws SQLException,
 			InstantiationException, IllegalAccessException,
-			ClassNotFoundException {
+			ClassNotFoundException, ServletException {
 		String connectString = _server + _db + "?user=" + _user;
 		if (_pass != null)
 			connectString += "&password=" + _pass;
@@ -90,23 +92,17 @@ class Database {
 
 				"CREATE TEMPORARY TABLE onItems (record_num "
 						+ item_id_column_type
-						+ ", PRIMARY KEY (record_num)) ENGINE=HEAP " // DEFAULT
-						// CHARSET=ascii
-						// "
+						+ ", PRIMARY KEY (record_num)) ENGINE=HEAP "
 						+ "PACK_KEYS=1 ROW_FORMAT=FIXED",
 
 				"CREATE TEMPORARY TABLE restricted (record_num "
 						+ item_id_column_type
-						+ ", PRIMARY KEY (record_num)) ENGINE=HEAP " // DEFAULT
-						// CHARSET=ascii
-						// "
+						+ ", PRIMARY KEY (record_num)) ENGINE=HEAP "
 						+ "PACK_KEYS=1 ROW_FORMAT=FIXED",
 
 				"CREATE TEMPORARY TABLE relevantFacets (" + "facet_id "
 						+ facet_id_column_type + ", "
-						+ "PRIMARY KEY USING BTREE (facet_id)) ENGINE=HEAP " // DEFAULT
-						// CHARSET=ascii
-						// "
+						+ "PRIMARY KEY USING BTREE (facet_id)) ENGINE=HEAP "
 						+ "PACK_KEYS=1 ROW_FORMAT=FIXED",
 
 		};
@@ -166,7 +162,7 @@ class Database {
 						ResultSet.CONCUR_READ_ONLY);
 
 		printUserActionStmt = jdbc
-				.prepareStatement("INSERT INTO user_actions VALUES(NOW(), ?, ?, ?, ?, ?)");
+				.prepareStatement("INSERT INTO user_actions VALUES(NOW(), ?, ?, ?, ?, ?, ?)");
 	}
 
 	void close() throws SQLException {
@@ -225,12 +221,16 @@ class Database {
 
 	private PreparedStatement itemURLPS;
 
-	String getItemURL(int item) throws SQLException {
+	String getItemURL(int item) throws SQLException, ServletException {
 		// Util.print("itemDesc " + item);
 		// try {
 		synchronized (itemIdPS) {
 			itemIdPS.setInt(1, item);
-			return jdbc.SQLqueryString(itemIdPS, "Get item URL.");
+			String result = jdbc.SQLqueryString(itemIdPS, "Get item URL.");
+			myAssert(result != null, "Can't find "
+					+ jdbc.SQLqueryString("SELECT itemURL FROM globals")
+					+ " for record_num " + item);
+			return result;
 		}
 		// } catch (SQLException se) {
 		// System.err
@@ -256,40 +256,76 @@ class Database {
 		}
 	}
 
-	void reorderItems(int facetType) throws SQLException {
-		String column = facetType < 0 ? "random_ID"
-				: facetType == 0 ? "record_num" : "col" + facetType;
+	String sortedResultTable(int i) throws ServletException {
+		switch (i) {
+		case 0:
+			// no filters
+			return "item_order_heap";
+		case 1:
+			// restricted but no filters
+			return "restricted";
+		case 2:
+			// filters applied
+			return "onItems";
+		}
+		myAssert(false, "Bad table index: " + i);
+		return null;
+	}
 
-		// 0 random_item_ID: no filters
-		// 1 restricted; restricted but no filters
-		// 2 onItems: filters applied
-		String[] tables = { "random_item_ID", "restricted", "onItems" };
-		offsetItemsQuery = new PreparedStatement[tables.length];
-		itemIndexQuery1 = new PreparedStatement[tables.length];
-		itemIndexQuery2 = new PreparedStatement[tables.length];
-		for (int i = 1; i < tables.length; i++) {
+	/**
+	 * Update offsetItemsQuery (used by offsetItems) and itemOffsetQuery (1 and 2) (used
+	 * by itemOffset) so they return indexes sorted appropriately.
+	 * 
+	 * The indexes into these two arrays show which table contains the on items:
+	 * 
+	 * @see #sortedResultTable
+	 * 
+	 * @param facetType the item_order_heap column to sort by 
+	 *            -1 means random, 0 means ID, else the facet_type_ID
+	 * @throws SQLException
+	 * @throws ServletException
+	 * 
+	 */
+	void reorderItems(int facetType) throws SQLException, ServletException {
+		String columnToSortBy = facetType < 0 ? "random_ID"
+				: facetType == 0 ? "record_num" : "col" + facetType;
+		offsetItemsQuery = new PreparedStatement[3];
+		itemOffsetQuery1 = new PreparedStatement[offsetItemsQuery.length];
+		itemOffsetQuery2 = new PreparedStatement[offsetItemsQuery.length];
+		for (int i = 1; i < offsetItemsQuery.length; i++) {
 			offsetItemsQuery[i] = jdbc
 					.prepareStatement("SELECT o.record_num FROM "
-							+ tables[i]
+							+ sortedResultTable(i)
 							+ " o INNER JOIN item_order_heap r USING (record_num)"
-							+ " ORDER BY r." + column + " LIMIT ?, ?");
+							+ " ORDER BY r." + columnToSortBy + " LIMIT ?, ?");
 
-			itemIndexQuery1[i] = jdbc.prepareStatement("SELECT r." + column
-					+ " FROM item_order_heap r " + "INNER JOIN " + tables[i]
-					+ " o USING (record_num) WHERE r.record_num = ?");
-			itemIndexQuery2[i] = jdbc
-					.prepareStatement("SELECT COUNT(*) FROM item_order_heap r "
-							+ "INNER JOIN " + tables[i]
-							+ " o USING (record_num) WHERE r." + column
-							+ " < ?");
+			// Have to use 2 queries to work around the "can't reopen temporary table" problem in MySQL
+			// Only call query 2 if query 1 result > 0 (should never be exactly 0)
+			// Argument to query 2 is the result of query 1
+			itemOffsetQuery1[i] = jdbc
+					.prepareStatement("SELECT s."
+							+ columnToSortBy
+							+ " FROM item_order_heap s INNER JOIN "
+							+ sortedResultTable(i)
+							+ " USING (record_num) WHERE s.record_num = ?");
+			itemOffsetQuery2[i] = jdbc
+			.prepareStatement("SELECT COUNT(*) FROM item_order_heap r "
+					+ "INNER JOIN "
+					+ sortedResultTable(i)
+					+ " USING (record_num) WHERE r."
+					+ columnToSortBy
+					+ " < ?");
 		}
 		offsetItemsQuery[0] = jdbc.prepareStatement("SELECT record_num FROM "
-				+ "item_order_heap ORDER BY " + column + " LIMIT ?, ?");
-		itemIndexQuery1[0] = jdbc.prepareStatement("SELECT " + column
-				+ " FROM item_order_heap " + " WHERE record_num = ?");
-		itemIndexQuery2[0] = jdbc
-				.prepareStatement("SELECT COUNT(*) FROM item_order_heap "
-						+ " WHERE " + column + " < ?");
+				+ "item_order_heap ORDER BY " + columnToSortBy + " LIMIT ?, ?");
+		
+		itemOffsetQuery1[0] = jdbc
+				.prepareStatement("SELECT s."
+						+ columnToSortBy
+						+ " FROM item_order_heap s WHERE s.record_num = ?");
+		itemOffsetQuery2[0] = jdbc
+		.prepareStatement("SELECT COUNT(*)-1 FROM item_order_heap "
+				+ " WHERE " + columnToSortBy + " <= ?");
 	}
 
 	int getItemFromURL(String URL) throws SQLException {
@@ -299,6 +335,7 @@ class Database {
 		}
 	}
 
+	@SuppressWarnings("unchecked")
 	void getCountsIgnoringFacet(String subQuery, String facet_id,
 			DataOutputStream out) throws SQLException, ServletException,
 			IOException {
@@ -319,6 +356,7 @@ class Database {
 
 	private PreparedStatement filteredCountTypeQuery;
 
+	@SuppressWarnings("unchecked")
 	void getFilteredCounts(String perspectivesToAdd,
 			String perspectivesToRemove, DataOutputStream out)
 			throws SQLException, ServletException, IOException {
@@ -330,6 +368,7 @@ class Database {
 		}
 	}
 
+	@SuppressWarnings("unchecked")
 	void getFilteredCountTypes(DataOutputStream out) throws SQLException,
 			ServletException, IOException {
 		synchronized (filteredCountTypeQuery) {
@@ -384,6 +423,7 @@ class Database {
 		return buf.toString();
 	}
 
+	@SuppressWarnings("unchecked")
 	void initPerspectives(DataOutputStream out) throws SQLException,
 			ServletException, IOException {
 		ResultSet rs = jdbc
@@ -396,6 +436,7 @@ class Database {
 	}
 
 	int updateOnItems(String onSQL) throws SQLException {
+//		lastQuery = onSQL;
 		jdbc.SQLupdate("TRUNCATE TABLE onItems");
 		return jdbc.SQLupdate("INSERT INTO onItems " + onSQL);
 	}
@@ -412,11 +453,14 @@ class Database {
 
 	private PreparedStatement prefetchNoNameQueryRestricted;
 
+	// The client uses java 1.4, so the compiler can't check the MyResultSet
+	// constants
+	@SuppressWarnings("unchecked")
 	void prefetch(int facet_id, int args, DataOutputStream out)
 			throws SQLException, ServletException, IOException {
 		String message = "getting initial counts and names of facet children";
 		PreparedStatement ps;
-		List types;
+		List<Object> types;
 		switch (args) {
 		case 1:
 			ps = prefetchQuery;
@@ -452,6 +496,7 @@ class Database {
 		}
 	}
 
+	@SuppressWarnings("unchecked")
 	void getNames(String facets, DataOutputStream out) throws SQLException,
 			ServletException, IOException {
 		ResultSet rs = jdbc
@@ -460,6 +505,7 @@ class Database {
 		sendResultSet(rs, MyResultSet.STRING, out);
 	}
 
+	@SuppressWarnings("unchecked")
 	void init(DataOutputStream out) throws SQLException, ServletException,
 			IOException {
 		ResultSet rs = jdbc.SQLquery("SELECT f.n_items as cnt "
@@ -469,20 +515,30 @@ class Database {
 		sendResultSet(rs, MyResultSet.INT, out);
 	}
 
+	/**
+	 * Return the recordNum's for a range of offsets.
+	 */
 	private PreparedStatement[] offsetItemsQuery;
 
+	@SuppressWarnings("unchecked")
 	void offsetItems(int minOffset, int maxOffset, int table,
 			DataOutputStream out) throws SQLException, ServletException,
 			IOException {
 		synchronized (offsetItemsQuery) {
+			int nRows = maxOffset - minOffset;
 			PreparedStatement s = offsetItemsQuery[table];
 			s.setInt(1, minOffset);
-			s.setInt(2, maxOffset - minOffset);
+			s.setInt(2, nRows);
 			ResultSet rs = jdbc.SQLquery(s, "Get offsets");
+			// myAssert(MyResultSet.nRows(rs) == nRows
+			// || jdbc.SQLqueryInt("SELECT COUNT(*) FROM "
+			// + sortedResultTable(table)) < nRows, minOffset
+			// + "-" + nRows + " " + MyResultSet.nRows(rs));
 			sendResultSet(rs, MyResultSet.INT, out);
 		}
 	}
 
+	@SuppressWarnings("unchecked")
 	ResultSet getThumbs(String items, int imageW, int imageH, int quality,
 			DataOutputStream out) throws SQLException, ServletException,
 			IOException {
@@ -496,6 +552,7 @@ class Database {
 
 	private String imageQuery;
 
+	@SuppressWarnings("unchecked")
 	ResultSet getDescAndImage(int item, int imageW, int imageH, int quality,
 			DataOutputStream out) throws SQLException, ServletException,
 			IOException {
@@ -508,35 +565,66 @@ class Database {
 		// }
 	}
 
-	private PreparedStatement[] itemIndexQuery1;
+	/**
+	 * Return the ordinal for a single Item.
+	 */
+	private PreparedStatement[] itemOffsetQuery1;
+	/**
+	 * Return the offset for that ordinal.
+	 */
+	private PreparedStatement[] itemOffsetQuery2;
 
-	private PreparedStatement[] itemIndexQuery2;
+//	private String lastQuery;
 
-	// offsets and random_id's are 1-based, so 0 means "not found"
-	// servletInterface will subtract 1 from the result.
-	int itemIndex(int item, int table) throws SQLException {
-		int result = 0;
-		synchronized (itemIndexQuery1) {
-			PreparedStatement s1 = itemIndexQuery1[table];
+	/**
+	 * @param item
+	 * @param table
+	 *            see reorderItems
+	 * @return the offset into the on items table of this item. -1 means not
+	 *         found.
+	 * @throws SQLException
+	 */
+	@SuppressWarnings("unchecked")
+	int itemOffset(int item, int table) throws SQLException {
+		int offset = -1;
+		PreparedStatement s1 = itemOffsetQuery1[table];
+		synchronized (s1) {
 			s1.setInt(1, item);
-			// SQLqueryInt returns -1 if not found, and Bungee can't write
-			// negative numbers,
-			// so add 1 to everything. Therefore subtract 1 in the queries.
-			int random_ID = jdbc.SQLqueryInt(s1,
+
+			int ordinal = jdbc.SQLqueryInt(s1,
 					"Get onItems offset from record_num.");
-			if (random_ID >= 0) {
-				PreparedStatement s2 = itemIndexQuery2[table];
-				s2.setInt(1, random_ID);
-				result = jdbc.SQLqueryInt(s2,
-						"Get onItems offset from record_num.") + 1;
+			if (ordinal > 0) {
+				PreparedStatement s2 = itemOffsetQuery2[table];
+				s2.setInt(1, ordinal);
+				offset = jdbc.SQLqueryInt(s2,
+						"Get onItems offset from record_num.");
 			}
+
+//			try {
+//				int onCount = jdbc.SQLqueryInt("SELECT COUNT(*) FROM "
+//						+ sortedResultTable(table));
+//				if (onCount < 5 || offset >= onCount) {
+//					printRecords(
+//							jdbc
+//									.SQLquery("SELECT s.record_num, s.random_id FROM item_order_heap s "
+//											+ "INNER JOIN onItems Using (record_num)"),
+//							MyResultSet.INT_INT);
+//					log(item + " " + offset + " " + table);
+//					 throw new ServletException("Bad index: " + offset + " >= "
+//					 + onCount + " for table " + table + " item " + item
+//					 + " query " + lastQuery);
+//				}
+//			} catch (ServletException e) {
+//				e.printStackTrace();
+//			}
 		}
 		// Util.print("itemIndex " + item + " => " + result);
-		return result;
+		return offset;
 	}
 
 	private PreparedStatement getItemInfoQuery;
 
+	@SuppressWarnings("unchecked")
 	void getItemInfo(int item, DataOutputStream out) throws SQLException,
 			ServletException, IOException {
 		// try {
@@ -553,14 +641,15 @@ class Database {
 
 	private PreparedStatement printUserActionStmt;
 
-	void printUserAction(String client, int session, int location,
+	void printUserAction(String client, int session, int actionIndex, int location,
 			String object, int modifiers) throws SQLException {
 		synchronized (printUserActionStmt) {
-			printUserActionStmt.setInt(1, location);
-			printUserActionStmt.setString(2, object);
-			printUserActionStmt.setInt(3, modifiers);
-			printUserActionStmt.setInt(4, session);
-			printUserActionStmt.setString(5, client);
+			printUserActionStmt.setInt(1, actionIndex);
+			printUserActionStmt.setInt(2, location);
+			printUserActionStmt.setString(3, object);
+			printUserActionStmt.setInt(4, modifiers);
+			printUserActionStmt.setInt(5, session);
+			printUserActionStmt.setString(6, client);
 			jdbc.SQLupdate(printUserActionStmt, "Print user action.");
 		}
 	}
@@ -700,7 +789,7 @@ class Database {
 			updateFacetCounts(child, out);
 		} else {
 			int order = jdbc
-					.SQLqueryInt("SELECT MAX(order_num) + 1 FROM raw_facet_type");
+					.SQLqueryInt("SELECT MAX(sort) + 1 FROM raw_facet_type");
 			myAssert(order < -127 || order > 127, "Bad order " + order);
 			jdbc.SQLupdate("INSERT INTO raw_facet_type VALUES(" + child + ", '"
 					+ name
@@ -795,6 +884,7 @@ class Database {
 		updateFacetCounts(leafs, out);
 	}
 
+	@SuppressWarnings("unchecked")
 	private void updateFacetCounts(int[] leafFacets, DataOutputStream out)
 			throws SQLException, ServletException, IOException {
 		int[] ancestors = null;
@@ -867,8 +957,8 @@ class Database {
 		jdbc.SQLupdate("DROP TABLE IF EXISTS rft");
 		jdbc
 				.SQLupdate("CREATE TEMPORARY TABLE rft AS"
-						+ " SELECT IFNULL(f.facet_id, 0) oldID, COUNT(*) ID, r.name, r.ordered_child_names, "
-						+ "r.descriptionCategory, r.descriptionPreposition, r.order_num, r.isOrdered "
+						+ " SELECT IFNULL(f.facet_id, 0) oldID, COUNT(*) ID, r.name, "
+						+ "r.descriptionCategory, r.descriptionPreposition, r.sort, r.isOrdered "
 						+ "FROM raw_facet_type r LEFT JOIN facet f USING (name) "
 						+ "INNER JOIN raw_facet_type prev ON prev.name <= r.name "
 						+ "WHERE f.parent_facet_id = 0 OR f.parent_facet_id IS NULL "
@@ -881,8 +971,8 @@ class Database {
 
 		jdbc.SQLupdate("TRUNCATE TABLE raw_facet_type");
 		jdbc
-				.SQLupdate("INSERT INTO raw_facet_type SELECT ID, name, ordered_child_names, "
-						+ "descriptionCategory, descriptionPreposition, order_num, isOrdered FROM rft");
+				.SQLupdate("INSERT INTO raw_facet_type SELECT ID, name, "
+						+ "descriptionCategory, descriptionPreposition, sort, isOrdered FROM rft");
 		// jdbc.SQLupdate("DROP TABLE rft");
 		jdbc.SQLupdate("TRUNCATE TABLE raw_item_facet");
 		jdbc
@@ -891,13 +981,15 @@ class Database {
 		jdbc
 				.SQLupdate("INSERT INTO raw_facet SELECT facet_id, name, parent_facet_id, parent_facet_id, '' FROM facet "
 						+ "WHERE parent_facet_id > 0");
-		while (jdbc
-				.SQLqueryInt("SELECT 1 FROM raw_facet f, raw_facet parent WHERE f.facet_type_id != parent.facet_type_id "
-						+ "AND f.parent_facet_id = parent.facet_id LIMIT 1") > 0) {
-			jdbc
-					.SQLupdate("UPDATE raw_facet f, raw_facet parent SET f.facet_type_id = parent.facet_type_id "
-							+ "WHERE f.parent_facet_id = parent.facet_id");
-		}
+		// while (jdbc
+		// .SQLqueryInt("SELECT 1 FROM raw_facet f, raw_facet parent WHERE
+		// f.facet_type_idxx != parent.facet_type_idxx "
+		// + "AND f.parent_facet_id = parent.facet_id LIMIT 1") > 0) {
+		// jdbc
+		// .SQLupdate("UPDATE raw_facet f, raw_facet parent SET
+		// f.facet_type_idxx = parent.facet_type_idxx "
+		// + "WHERE f.parent_facet_id = parent.facet_id");
+		// }
 		ConvertFromRaw converter = new ConvertFromRaw(jdbc);
 		converter.findBrokenLinks(true, 1);
 		converter.convert(1000);
@@ -948,13 +1040,13 @@ class Database {
 		if (maxClusterSize > 3)
 			// MySQL crashes on size 4 query
 			maxClusterSize = 3;
-		
+
 		createClusterTables(maxClusterSize);
-		
+
 		for (int n = 1; n <= maxClusterSize; n++) {
 			pValue = addClusters(n, pValue, maxClusters, facetRestriction);
 		}
-		
+
 		extractClustersFromTables(maxClusters, out);
 	}
 
@@ -968,7 +1060,7 @@ class Database {
 				// + "ENGINE=HEAP "
 				+ "PACK_KEYS=1 ROW_FORMAT=FIXED;");
 
-//		jdbc.SQLupdate("DROP TABLE IF EXISTS clusterFacets21");
+		// jdbc.SQLupdate("DROP TABLE IF EXISTS clusterFacets21");
 		// facet_index == 0 means ancestor
 		String clusterFacetsDef = ""
 				+ "(cluster_id MEDIUMINT UNSIGNED NOT NULL, "
@@ -980,20 +1072,24 @@ class Database {
 				+ "PRIMARY KEY (cluster_id, facet_index)) ";
 		jdbc.SQLupdate("CREATE TEMPORARY TABLE IF NOT EXISTS clusterFacets21 "
 				+ clusterFacetsDef);
-		
-//		jdbc.SQLupdate("TRUNCATE TABLE clusterFacets21");
-		// Truncate doesn't work with these MERGE tables.  Need DELETE with a WHERE clause
+
+		// jdbc.SQLupdate("TRUNCATE TABLE clusterFacets21");
+		// Truncate doesn't work with these MERGE tables. Need DELETE with a
+		// WHERE clause
 		jdbc.SQLupdate("DELETE FROM clusterFacets21 WHERE cluster_id > 0");
 		jdbc.SQLupdate("TRUNCATE TABLE clusterInfo");
 		try {
-			myAssert(jdbc.SQLqueryInt("SELECT COUNT(*) FROM clusterFacets21") == 0, "Truncate didnt work");
+			myAssert(
+					jdbc.SQLqueryInt("SELECT COUNT(*) FROM clusterFacets21") == 0,
+					"Truncate didnt work");
 		} catch (ServletException e) {
 			e.printStackTrace();
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
 
-		// work around MySQL limitation that you can't use a temporary table more than once in a query
+		// work around MySQL limitation that you can't use a temporary table
+		// more than once in a query
 		int nCFtables = Math.max(3, maxClusterSize);
 		for (int i = 1; i <= nCFtables; i++) {
 			for (int j = 1; j <= nCFtables; j++) {
@@ -1010,7 +1106,8 @@ class Database {
 	}
 
 	private synchronized double addClusters(int nFacets, double pValue,
-			int maxClusters, String facetRestriction) throws SQLException, ServletException {
+			int maxClusters, String facetRestriction) throws SQLException,
+			ServletException {
 		int neededClusters = maxClusters
 				- jdbc.SQLqueryInt("SELECT COUNT(*) FROM clusterInfo");
 		if (pValue > 0 || neededClusters > 0) {
@@ -1025,14 +1122,13 @@ class Database {
 				int db = jdbc.SQLqueryInt("SELECT COUNT(*) FROM item");
 				int c = jdbc
 						.SQLqueryInt("SELECT MAX(cluster_id) FROM clusterInfo");
-				ChiSq2x2 chiSqTable = new ChiSq2x2();
 				rs = jdbc.SQLquery(clusterQuery(nFacets, facetRestriction));
 				while (rs.next() && (pValue > 0 || neededClusters > 0)) {
 					int con = rs.getInt(1);
 					int ctot = rs.getInt(2);
 					if (con * db > q * ctot) {
-						chiSqTable.setChiSq2x2(db, q, ctot, con);
-						double p = chiSqTable.pValue();
+						double p = ChiSq2x2.pValue(db, q, ctot, con);
+						myAssert(p >= 0, "p = " + p);
 						if (p < pValue || (p == pValue && neededClusters > 0)) {
 							addCluster.setInt(1, ++c);
 							addCluster.setInt(2, nFacets);
@@ -1044,19 +1140,23 @@ class Database {
 							for (int i = 0; i < nFacets; i++) {
 								addClusterFacets.setInt(2, rs.getInt(i + 3));
 								addClusterFacets.setInt(3, i + 1);
-								jdbc.SQLupdate(addClusterFacets, "Insert cluster");
+								jdbc.SQLupdate(addClusterFacets,
+										"Insert cluster");
 							}
 							if (--neededClusters < 0) {
 								double newPvalue = jdbc
-										.SQLqueryDouble("SELECT pValue FROM clusterInfo ORDER BY pValue LIMIT " + maxClusters + ", 1");
-								myAssert(newPvalue <= pValue, newPvalue + " should be less than " + pValue);
+										.SQLqueryDouble("SELECT pValue FROM clusterInfo ORDER BY pValue LIMIT "
+												+ maxClusters + ", 1");
+								myAssert(newPvalue <= pValue, newPvalue
+										+ " should be less than " + pValue);
 								pValue = newPvalue;
 							}
 						}
 					}
 				}
-//				rs.last();
-//				log("addClusters " + nFacets + " " + neededClusters + " " + rs.getRow() + " " + pValue);
+				// rs.last();
+				// log("addClusters " + nFacets + " " + neededClusters + " " +
+				// rs.getRow() + " " + pValue);
 			} finally {
 				if (rs != null)
 					rs.close();
@@ -1069,6 +1169,7 @@ class Database {
 		return pValue;
 	}
 
+	@SuppressWarnings("unchecked")
 	void extractClustersFromTables(int maxClusters, DataOutputStream out)
 			throws SQLException, ServletException, IOException {
 		ResultSet rs = null;
@@ -1092,7 +1193,6 @@ class Database {
 								+ "AND dup.facet_id IS NULL "
 								+ "GROUP BY cf.cluster_id, parent_facet_id ORDER BY NULL");
 			}
-			rs = null;
 			rs = jdbc
 					.SQLquery("SELECT cluster_id, pValue, nOn, nTotal FROM clusterInfo "
 							+ "ORDER BY pValue, nOn/nTotal DESC, nFacets DESC LIMIT "
@@ -1114,6 +1214,7 @@ class Database {
 								+ "INNER JOIN facet f USING (facet_id) "
 								+ "WHERE cf.cluster_id = "
 								+ rs.getInt(1)
+								+ " AND f.parent_facet_id > 0"
 								+ " ORDER BY f.facet_id");
 				sendResultSet(
 						rs1,
@@ -1160,7 +1261,8 @@ class Database {
 
 	private static String clusterQueryInternal(int nFacets)
 			throws ServletException {
-		// This only makes sense for nFacets > 2, and the nFacets == 4 version crashes MySQL
+		// This only makes sense for nFacets > 2, and the nFacets == 4 version
+		// crashes MySQL
 		myAssert(nFacets == 3, "clusterQuery facets=" + nFacets);
 		String cfExpr = "SELECT STRAIGHT_JOIN "
 				+ "COUNT(DISTINCT o.record_num) con, COUNT(DISTINCT i1.record_num) ctot, ";
@@ -1214,7 +1316,7 @@ class Database {
 		return cfExpr;
 	}
 
-	void printRecords(ResultSet result, List types)
+	void printRecords(ResultSet result, List<Object> types)
 			throws SQLException, ServletException {
 		StringBuffer buf = new StringBuffer();
 		result.last();
@@ -1227,7 +1329,7 @@ class Database {
 			result.next();
 			buf.append("\n");
 			for (int j = 0; j < nCols; j++) {
-				Object type = types.get(i);
+				Object type = types.get(j);
 				if (type == MyResultSet.Column.IntegerType
 						|| type == MyResultSet.Column.SortedIntegerType
 						|| type == MyResultSet.Column.SortedNMIntegerType
@@ -1286,6 +1388,7 @@ class Database {
 		}
 	}
 
+	@SuppressWarnings("unchecked")
 	void opsSpec(int session, DataOutputStream out) throws SQLException,
 			ServletException, IOException {
 		ResultSet rs = jdbc
@@ -1295,18 +1398,19 @@ class Database {
 						+ "),"
 						+ " timestamp),"
 						+ " location, object, modifiers) FROM user_actions WHERE session = "
-						+ session + " ORDER BY timestamp");
+						+ session + " ORDER BY action_number");
 		sendResultSet(rs, MyResultSet.STRING, out);
 	}
 
-	void sendResultSet(ResultSet result, List types, DataOutputStream out)
-			throws ServletException, SQLException, IOException {
+	void sendResultSet(ResultSet result, List<Object> types,
+			DataOutputStream out) throws ServletException, SQLException,
+			IOException {
 		sendResultSet(result, types, -1, -1, -1, out);
 	}
 
-	void sendResultSet(ResultSet result, List types, int imageW, int imageH,
-			int quality, DataOutputStream out) throws ServletException,
-			SQLException, IOException {
+	void sendResultSet(ResultSet result, List<Object> types, int imageW,
+			int imageH, int quality, DataOutputStream out)
+			throws ServletException, SQLException, IOException {
 		if (result == null) {
 			writeInt(0, out);
 			jdbc.print("sendResultSet given null result set.");
@@ -1318,11 +1422,10 @@ class Database {
 				writeInt(nRows + 1, out);
 				writeInt(nCols, out);
 				for (int i = 0; i < nCols; i++) {
-					if (types.get(i) == Column.ImageType
-							&& (types.get(i + 1) != Column.IntegerType || types
-									.get(i + 2) != Column.IntegerType))
-						throw (new ServletException(
-								"Images must be followed by width and height"));
+					myAssert(!(types.get(i) == Column.ImageType && (types
+							.get(i + 1) != Column.IntegerType || types
+							.get(i + 2) != Column.IntegerType)),
+							"Images must be followed by width and height");
 					writeCol(result, i + 1, types.get(i), imageW, imageH,
 							quality, out);
 				}
@@ -1369,13 +1472,11 @@ class Database {
 			int value = result.getInt(colIndex);
 			if (sorted) {
 				int diff = value - prev;
-				if (diff < 0)
-					throw (new ServletException("Column " + colIndex
-							+ " is not sorted: " + value + " < " + prev));
-				if (positive && diff == 0)
-					throw (new ServletException("Column " + colIndex
-							+ " is not monotonically increasing: " + value
-							+ " < " + prev));
+				myAssert(diff >= 0, "Column " + colIndex + " is not sorted: "
+						+ value + " < " + prev);
+				myAssert(!positive || diff != 0, "Column " + colIndex
+						+ " is not monotonically increasing: " + value + " < "
+						+ prev);
 				prev = value;
 				value = diff;
 			}
@@ -1390,16 +1491,14 @@ class Database {
 	}
 
 	private static void writeStringCol(ResultSet result, int colIndex,
-			DataOutputStream out) throws SQLException,
-			IOException {
+			DataOutputStream out) throws SQLException, IOException {
 		while (result.next()) {
 			writeString(result.getString(colIndex), out);
 		}
 	}
 
 	private static void writeDoubleCol(ResultSet result, int colIndex,
-			DataOutputStream out) throws SQLException,
-			IOException {
+			DataOutputStream out) throws SQLException, IOException {
 		while (result.next()) {
 			writeDouble(result.getDouble(colIndex), out);
 		}
@@ -1419,8 +1518,10 @@ class Database {
 		}
 	}
 
-	static void writeString(String s, DataOutputStream out)
-			throws IOException {
+	static void writeString(String s, DataOutputStream out) throws IOException {
+		if (s == null)
+			s = "";
+		// Avoid an error, at least, and hope for the best.
 		out.writeUTF(s);
 	}
 
@@ -1431,10 +1532,8 @@ class Database {
 
 	static int writeInt(int n, OutputStream out) throws ServletException,
 			IOException {
-		if (n < 0)
-			throw (new ServletException(n + " Tried to write a negative int."));
-		if (n >= 1073741824)
-			throw (new ServletException(n + " Tried to write a too-large int:"));
+		myAssert(n >= 0, n + " Tried to write a negative int.");
+		myAssert(n < 1073741824, n + " Tried to write a too-large int:");
 		if (n < 128)
 			out.write(n);
 		else if (n < 16384) {
@@ -1457,17 +1556,14 @@ class Database {
 			boolean positive) throws ServletException, IOException {
 		// Util.print("writeIntOrTwo " + n + " " + nextN + " " + positive);
 		if (positive) {
-			if (nextN == 0 || n == 0)
-				throw (new ServletException("Tried to write 0 to a PINT: " + n
-						+ " " + nextN));
+			myAssert(nextN != 0 && n != 0, "Tried to write 0 to a PINT: " + n
+					+ " " + nextN);
 			n--;
 			nextN--;
 		}
-		if (n < 0)
-			throw (new ServletException(n + " Tried to write a negative int."));
-		if (n >= 1073741824 || nextN >= 1073741824)
-			throw (new ServletException(n + " Tried to write a too-large int:"));
-
+		myAssert(n >= 0, n + " Tried to write a negative int.");
+		myAssert(n < 1073741824 && nextN < 1073741824, n
+				+ " Tried to write a too-large int:");
 		if (n < 8 && nextN >= 0 && nextN < 8) {
 			out.write(n << 3 | nextN | 64);
 			nextN = -2;
@@ -1554,5 +1650,16 @@ class Database {
 		} finally {
 			byteArrayStream.close();
 		}
+	}
+
+	String dbDescs(String dbNameList) throws SQLException {
+		String[] dbNames = Util.splitComma(dbNameList);
+		String[] dbDescs = new String[dbNames.length];
+		for (int i = 0; i < dbDescs.length; i++) {
+			String desc = jdbc.SQLqueryString("SELECT description FROM "
+					+ dbNames[i] + ".globals");
+			dbDescs[i] = dbNames[i] + "," + desc;
+		}
+		return Util.join(dbDescs, ";");
 	}
 }
