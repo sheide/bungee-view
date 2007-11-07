@@ -133,9 +133,9 @@ public class StatisticsCalculator {
 
 	/***
 	 * Faster binomial distribution calculation using natural log gamma function.
-	 * @param numbers: number of success (e.g., annotated count of a GO term in test set)
-	 * @param trials: number of trials (e.g., number of genes having at least one GO annotation in test set)
-	 * @param probability: n/N (n: number of annotated count of a GO term in reference set;
+	 * @param numbers number of success (e.g., annotated count of a GO term in test set)
+	 * @param trials number of trials (e.g., number of genes having at least one GO annotation in test set)
+	 * @param probability n/N (n: number of annotated count of a GO term in reference set;
 	 * 		                    N: number of genes having at least one GO annotaiton in reference set)
 	 * @return binomial distribution value
 	 */
