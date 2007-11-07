@@ -78,13 +78,15 @@ public class JDBCSample {
 	}
 
 	public void close() throws SQLException {
-		print(statements.size() + " SQL statements were not closed:");
-		// if (statements.size() > 0) {
-		for (Iterator it = statements.values().iterator(); it.hasNext();) {
-			String SQL = (String) it.next();
-			print(SQL);
+		if (slowQueryTime >= 0) {
+			print(statements.size() + " SQL statements were not closed:");
+			// if (statements.size() > 0) {
+			for (Iterator it = statements.values().iterator(); it.hasNext();) {
+				String SQL = (String) it.next();
+				print(SQL);
+			}
+			statements.clear();
 		}
-		statements.clear();
 		// }
 		if (con != null) {
 			// try {
@@ -197,7 +199,7 @@ public class JDBCSample {
 	private Statement myCreateStatement(String SQL) throws SQLException {
 		Statement result = con.createStatement();
 		if (slowQueryTime >= 0)
-		statements.put(result, SQL);
+			statements.put(result, SQL);
 		return result;
 	}
 
@@ -376,7 +378,7 @@ public class JDBCSample {
 			rs.close();
 		else {
 			if (slowQueryTime >= 0)
-			statements.remove(s);
+				statements.remove(s);
 			s.close();
 			// } catch (SQLException se) {
 			// System.err.println("SQL Exception: " + se.getMessage());
