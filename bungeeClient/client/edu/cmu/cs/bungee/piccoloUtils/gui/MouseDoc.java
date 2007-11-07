@@ -27,22 +27,35 @@ Carnegie-Mellon University
 Human-Computer Interaction Institute
 Pittsburgh, PA 15213
 
-*/
+ */
 
 package edu.cmu.cs.bungee.piccoloUtils.gui;
 
 import edu.umd.cs.piccolo.PNode;
 
 /**
+ * Support Genera-like Mouse Documentation Line at the bottom of the window. The
+ * application sends these messages to its Mouse Documentation Line, and
+ * descendents pass messages up. The messages can be either something that
+ * implements MouseDoc and can describe themselves, or a String to display.
+ * 
  * @author mad
- *
- * TODO To change the template for this generated type comment go to
- * Window - Preferences - Java - Code Style - Code Templates
+ * 
  */
 public interface MouseDoc {
 
+	/**
+	 * @param source
+	 *            the MouseDoc whose description is to be displayed.
+	 * @param state whether we're entering (false for exiting)
+	 */
 	public void setMouseDoc(PNode source, boolean state);
-	public void setMouseDoc(String doc, boolean state);
-//	public void setMouseDoc(Markup doc, boolean state);
+
+	/**
+	 * @param doc
+	 *            the String to display, or null to hide display.
+	 */
+	public void setMouseDoc(String doc);
+	// public void setMouseDoc(Markup doc, boolean state);
 
 }

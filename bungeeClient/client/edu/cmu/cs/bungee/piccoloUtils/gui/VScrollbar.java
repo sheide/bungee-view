@@ -37,9 +37,7 @@ import edu.cmu.cs.bungee.javaExtensions.Util;
 import edu.umd.cs.piccolo.PNode;
 import edu.umd.cs.piccolo.event.PInputEvent;
 
-
 public class VScrollbar extends PNode implements MouseDoc {
-	private static final long serialVersionUID = -5929478028979742275L;
 
 	protected double swidth, sheight; // width and height of bar
 
@@ -61,9 +59,10 @@ public class VScrollbar extends PNode implements MouseDoc {
 
 	protected double spos0; // origin for dragging
 
-	private double delta = 0.1; // percentage to scroll when up or down button
-
-	// is pressed
+	/**
+	 * percentage to scroll when up or down button is pressed
+	 */
+	private double delta = 0.1;
 
 	ScrollButton up;
 
@@ -79,25 +78,25 @@ public class VScrollbar extends PNode implements MouseDoc {
 		init(xPosition, width, height, _BG, _FG, _action);
 	}
 
-	void init(double xPosition, double sw, double sh, Color _BG, Color _FG,
+	void init(double xPosition, double width, double height, Color _BG, Color _FG,
 			Runnable _action) {
-		assert sh > 3 * sw;
+		assert height > 3 * width;
 		action = _action;
-		swidth = sw;
-		sheight = sh - 2 * sw;
+		swidth = width;
+		sheight = height - 2 * width;
 		thumbSize = swidth; // default to square thumb
 		xpos = xPosition; // - swidth / 2;
-		sposMin = sw;
+		sposMin = width;
 		spos = sposMin;
 		setPaint(_BG);
 		thumb = new PNode();
 		thumb.setPaint(_FG);
-		thumb.setWidth(sw);
+		thumb.setWidth(width);
 		addChild(thumb);
 
-		up = new ScrollButton(xpos, -1, sw, -1, _FG, _BG);
+		up = new ScrollButton(xpos, -1, width, -1, _FG, _BG);
 		addChild(up);
-		down = new ScrollButton(xpos, sheight + swidth + 1, sw, 1, _FG, _BG);
+		down = new ScrollButton(xpos, sheight + swidth + 1, width, 1, _FG, _BG);
 		addChild(down);
 
 		resize();
@@ -137,7 +136,7 @@ public class VScrollbar extends PNode implements MouseDoc {
 
 	public void setBufferPercent(double nVisible, double nTotal) {
 		double percent = nVisible / nTotal;
-//		 System.out.println("setBufferPercent " + percent + " " + sheight);
+		// System.out.println("setBufferPercent " + percent + " " + sheight);
 		if (percent >= 1.0) {
 			setVisible(false);
 			reset();
@@ -159,9 +158,12 @@ public class VScrollbar extends PNode implements MouseDoc {
 		setPos(getPos() + delta * direction);
 	}
 
+	/**
+	 * @return value between 0 and 1 representing thumb position
+	 */
 	public double getPos() {
-//		 System.out.println("VScrollbar.getPos " + ((spos - sposMin) * ratio / delta));
-		// convert spos to be values between 0 and 1
+//		System.out.println("VScrollbar.getPos " + spos + " " + sposMin + " "
+//				+ ((spos - sposMin) * ratio));
 		return (spos - sposMin) * ratio;
 	}
 
@@ -185,8 +187,8 @@ public class VScrollbar extends PNode implements MouseDoc {
 		spos0 = spos - sposMin;
 	}
 
-//	public void endDrag() {
-//	}
+	// public void endDrag() {
+	// }
 
 	public double visibleThumbSize() {
 		return Math.max(swidth, thumbSize);
@@ -199,8 +201,9 @@ public class VScrollbar extends PNode implements MouseDoc {
 			direction = -1;
 		else if (y >= spos + visibleThumbSize())
 			direction = 1;
-		// If mouse enters from outside of the window, y will be the value where it last exited!
-//		assert direction != 0 : y + " " + spos + " " + thumbSize;
+		// If mouse enters from outside of the window, y will be the value where
+		// it last exited!
+		// assert direction != 0 : y + " " + spos + " " + thumbSize;
 		return direction;
 	}
 
@@ -211,32 +214,33 @@ public class VScrollbar extends PNode implements MouseDoc {
 	}
 
 	public void setMouseDoc(PNode source, boolean state) {
-		setMouseDoc(((Button) source).mouseDoc, state);
+		setMouseDoc(state ? ((Button) source).mouseDoc : null);
 	}
 
-	public void setMouseDoc(String doc, boolean state) {
+	public void setMouseDoc(String doc) {
 		if (getParent() instanceof MouseDoc) {
-			((MouseDoc) getParent()).setMouseDoc(doc, state);
+			((MouseDoc) getParent()).setMouseDoc(doc);
 		}
 	}
 
-//	public void setMouseDoc(Vector doc, boolean state) {
-//		if (getParent() instanceof MouseDoc) {
-//			((MouseDoc) getParent()).setMouseDoc(doc, state);
-//		}
-//	}
+	// public void setMouseDoc(Vector doc, boolean state) {
+	// if (getParent() instanceof MouseDoc) {
+	// ((MouseDoc) getParent()).setMouseDoc(doc, state);
+	// }
+	// }
 
 	void mouseDoc(PNode node, PInputEvent e, boolean state) {
 		assert node == this;
 		String desc = null;
-		PNode pickedNode = e.getPickedNode();
-		if (pickedNode == node) {
-			if (state)
+		if (state) {
+			PNode pickedNode = e.getPickedNode();
+			if (pickedNode == node) {
 				desc = getPageDirection(e) > 0 ? "Page down" : "Page up";
-		} else {
-			desc = "Start dragging scrollbar";
+			} else {
+				desc = "Start dragging scrollbar";
+			}
 		}
-		setMouseDoc(desc, state);
+		setMouseDoc(desc);
 	}
 }
 
@@ -251,7 +255,7 @@ class VScrollHandler extends MyInputEventHandler {
 	// || pickedNode == node.down;
 	// }
 
-	public boolean press(PNode node, PInputEvent e) {
+	protected boolean press(PNode node, PInputEvent e) {
 		boolean result = true;
 		PNode pickedNode = e.getPickedNode();
 		if (pickedNode == node) {
@@ -263,7 +267,7 @@ class VScrollHandler extends MyInputEventHandler {
 		return result;
 	}
 
-	public boolean drag(PNode node, PInputEvent e) {
+	protected boolean drag(PNode node, PInputEvent e) {
 		PNode pickedNode = e.getPickedNode();
 		if (pickedNode == ((VScrollbar) node).thumb) {
 			((VScrollbar) node).drag(e);
@@ -272,21 +276,21 @@ class VScrollHandler extends MyInputEventHandler {
 		return false;
 	}
 
-	public boolean release(PNode node, PInputEvent e) {
+	protected boolean release(PNode node, PInputEvent e) {
 		PNode pickedNode = e.getPickedNode();
 		if (pickedNode == ((VScrollbar) node).thumb) {
-//			((VScrollbar) node).endDrag();
+			// ((VScrollbar) node).endDrag();
 			return true;
 		}
 		return false;
 	}
 
-	public boolean enter(PNode node, PInputEvent e) {
+	protected boolean enter(PNode node, PInputEvent e) {
 		((VScrollbar) node).mouseDoc(node, e, true);
 		return true;
 	}
 
-	public boolean exit(PNode node, PInputEvent e) {
+	protected boolean exit(PNode node, PInputEvent e) {
 		((VScrollbar) node).mouseDoc(node, e, false);
 		return true;
 	}
@@ -396,7 +400,6 @@ class VScrollHandler extends MyInputEventHandler {
 // }
 
 class ScrollButton extends Button {
-	private static final long serialVersionUID = -6144417647047741781L;
 
 	int _direction; // +1 or -1
 
@@ -438,15 +441,15 @@ class ScrollButton extends Button {
 
 	// make sure drag doesn't propagate up to thumb
 
-//	public boolean press(PNode node, PInputEvent e) {
-//		return true;
-//	}
-//
-//	public boolean drag(PNode node, PInputEvent e) {
-//		return true;
-//	}
-//
-//	public boolean release(PNode node, PInputEvent e) {
-//		return true;
-//	}
+	// public boolean press(PNode node, PInputEvent e) {
+	// return true;
+	// }
+	//
+	// public boolean drag(PNode node, PInputEvent e) {
+	// return true;
+	// }
+	//
+	// public boolean release(PNode node, PInputEvent e) {
+	// return true;
+	// }
 }

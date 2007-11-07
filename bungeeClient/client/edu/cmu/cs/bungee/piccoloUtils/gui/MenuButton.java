@@ -38,11 +38,9 @@ import java.awt.Font;
 
 public class MenuButton extends APText {
 
-	private static final long serialVersionUID = -7227593130937815495L;
-
-	String desc = "Select this menu choice";
+	private final String desc; // = "Select this menu choice";
 	
-	Object data;
+	final Object data;
 
 	static final MenuButtonClickHandler menuButtonClickHandler = new MenuButtonClickHandler();
 
@@ -54,7 +52,7 @@ public class MenuButton extends APText {
 			setTextPaint(FG);
 		if (BG != null)
 			setPaint(BG);
-		setWrapText(false);
+		setWrapOnWordBoundaries(false);
 		setText(label);
 		setConstrainHeightToTextHeight(false);
 		setHeight(Math.ceil(getHeight()));
@@ -83,9 +81,9 @@ public class MenuButton extends APText {
 	//        ((Menu) getParent()).setDoc(desc);
 	//    }
 
-	public void setMouseDoc(boolean state) {
+	 void setMouseDoc(boolean state) {
 		if (getParent() instanceof MouseDoc)
-			((MouseDoc) getParent()).setMouseDoc(desc, state);
+			((MouseDoc) getParent()).setMouseDoc(state ? desc : null);
 	}
 }
 
@@ -105,17 +103,17 @@ class MenuButtonClickHandler extends MyInputEventHandler {
 	//      return true;
 	//  }
 
-	public boolean click(PNode node) {
+	protected boolean click(PNode node) {
 		((MenuButton) node).pick();
 		return true;
 	}
 
-	public boolean exit(PNode node) {
+	protected boolean exit(PNode node) {
 		((MenuButton) node).setMouseDoc(false);
 		return true;
 	}
 
-	public boolean enter(PNode node) {
+	protected boolean enter(PNode node) {
 		((MenuButton) node).setMouseDoc(true);
 		return true;
 	}

@@ -11,13 +11,11 @@ class FacetClickHandler extends MyInputEventHandler {
 
 	PerspectiveViz dragging;
 
-	// Art art;
-
 	FacetClickHandler() {
 		super(FacetNode.class);
 	}
 
-	// public void mouseMoved(PInputEvent e) {
+	// protected // public void mouseMoved(PInputEvent e) {
 	// //Util.print("FacetClickHandler.mouseEntered");
 	// PNode node = e.getPickedNode();
 	// if (node instanceof FacetPNode) {
@@ -32,34 +30,41 @@ class FacetClickHandler extends MyInputEventHandler {
 	// }
 	// }
 
-	public boolean enter(PNode node, PInputEvent e) {
-//		 Util.print("FacetClickHandler.enter " + ((FacetNode) node).getFacet() + " " + e.getModifiersEx());
+	// Treat it like enter
+	protected boolean shiftKeysChanged(PNode node, PInputEvent e) {
+		// Util.print("FacetClickHandler.enter " + ((FacetNode) node).getFacet()
+		// + " " + e.getModifiersEx());
 		return ((FacetNode) node).highlight(true, e.getModifiersEx(), e);
 	}
 
-	public boolean exit(PNode node, PInputEvent e) {
-//		 Util.print("FacetClickHandler.exit " + ((FacetNode) node).getFacet());
+	protected boolean enter(PNode node, PInputEvent e) {
+		// Util.print("FacetClickHandler.enter " + ((FacetNode) node).getFacet()
+		// + " " + e.getModifiersEx());
+		return ((FacetNode) node).highlight(true, e.getModifiersEx(), e);
+	}
+
+	protected boolean exit(PNode node, PInputEvent e) {
+		// Util.print("FacetClickHandler.exit " + ((FacetNode)
+		// node).getFacet());
 		return ((FacetNode) node).highlight(false, e.getModifiersEx(), e);
 	}
 
-	public boolean click(PNode node, PInputEvent e) {
+	protected boolean click(PNode node, PInputEvent e) {
 		FacetNode f = (FacetNode) node;
-//		 Util.print("FacetClickHandler.click  " + f);
-		if (e.isRightMouseButton()) {
-			f.art().setSelectedForEdit(f.getFacet(), e.getModifiersEx());
+		// Util.print("FacetClickHandler.click " + f);
+		if (e.isRightMouseButton()
+				&& f.art().setSelectedForEdit(f.getFacet(), e.getModifiersEx()))
 			return true;
-		} else if (e.isMiddleMouseButton()) {
-			f.art().facetMiddleMenu(f.getFacet());
+		if (e.isMiddleMouseButton() && f.art().facetMiddleMenu(f.getFacet()))
 			return true;
-		} else
-			return f.pick(e);
+		return f.pick(e);
 	}
 
-	public void mayHideTransients(PNode node) {
+	protected void mayHideTransients(PNode node) {
 		((FacetNode) node).mayHideTransients(node);
 	}
 
-	public boolean press(PNode node, PInputEvent e) {
+	protected boolean press(PNode node, PInputEvent e) {
 		boolean result = node instanceof Bar;
 		if (result) {
 			PNode parent = node.getParent();
@@ -78,13 +83,13 @@ class FacetClickHandler extends MyInputEventHandler {
 		return result;
 	}
 
-	public boolean release(PNode ignore) {
+	protected boolean release(PNode ignore) {
 		boolean result = dragging != null;
 		dragging = null;
 		return result;
 	}
 
-	public boolean drag(PNode ignore, PInputEvent e) {
+	protected boolean drag(PNode ignore, PInputEvent e) {
 		boolean result = dragging != null;
 		if (result) {
 			// gui.Util.printDescendents(node);

@@ -39,10 +39,8 @@ import java.util.Arrays;
 import java.util.Hashtable;
 import java.util.Map;
 
-
-
 import edu.cmu.cs.bungee.client.query.ItemPredicate;
-import edu.cmu.cs.bungee.client.query.Markup;
+import edu.cmu.cs.bungee.client.query.Query;
 import edu.cmu.cs.bungee.client.query.Query.Item;
 import edu.cmu.cs.bungee.javaExtensions.*;
 import edu.cmu.cs.bungee.piccoloUtils.gui.APText;
@@ -54,15 +52,13 @@ import edu.cmu.cs.bungee.piccoloUtils.gui.MouseDoc;
 import edu.cmu.cs.bungee.piccoloUtils.gui.VScrollbar;
 import edu.umd.cs.piccolo.PNode;
 
-public class ResultsGrid extends LazyPNode implements MouseDoc {
-
-	private static final long serialVersionUID = -3582704861244473459L;
+final class ResultsGrid extends LazyPNode implements MouseDoc {
 
 	int desiredCols = -1;
 
 	private int marginSize = 5;
 
-	 double w;
+	double w;
 
 	private double h;
 
@@ -71,7 +67,7 @@ public class ResultsGrid extends LazyPNode implements MouseDoc {
 	 */
 	private transient SoftReference thumbs;
 
-	 VScrollbar gridScrollBar;
+	VScrollbar gridScrollBar;
 
 	Bungee art;
 
@@ -128,6 +124,7 @@ public class ResultsGrid extends LazyPNode implements MouseDoc {
 	}
 
 	void init() {
+		assert rangeEnsurer == null : "init called twice!!";
 		rangeEnsurer = new RangeEnsurer(this);
 		rangeEnsurer.start();
 		// setPaint(Color.black); // hide initially
@@ -148,8 +145,8 @@ public class ResultsGrid extends LazyPNode implements MouseDoc {
 
 		thumbnails = new Thumbnails();
 
-		outline = (LazyPPath) LazyPPath.createRectangle(0, 0, 1, 1,
-				LazyPPath.getStrokeInstance(1));
+		outline = (LazyPPath) LazyPPath.createRectangle(0, 0, 1, 1, LazyPPath
+				.getStrokeInstance(1));
 		outline.setStroke(LazyPPath.getStrokeInstance(6));
 		outline.setStrokePaint(Bungee.selectedItemOutlineColor);
 		outline.setTransparency(0.9f);
@@ -178,8 +175,11 @@ public class ResultsGrid extends LazyPNode implements MouseDoc {
 			}
 		};
 
-		gridScrollBar = new VScrollbar(art.scrollBarWidth, 50,
-				Bungee.gridScrollBG, Bungee.gridScrollFG, scroll);
+		// Use a placeholder for height, which is required to be greater than 3
+		// times the width
+		gridScrollBar = new VScrollbar(art.scrollBarWidth,
+				4 * art.scrollBarWidth, Bungee.gridScrollBG,
+				Bungee.gridScrollFG, scroll);
 
 		boundary = new Boundary(this, false);
 		addChild(boundary);
@@ -201,8 +201,8 @@ public class ResultsGrid extends LazyPNode implements MouseDoc {
 				art.font);
 		sortMenu.addButton("Random", "Random", new Integer(-1));
 		sortMenu.addButton("ID", "ID", new Integer(0));
-		for (int i = 1; i <= art.query.nAttributes; i++) {
-			ItemPredicate facetType = art.query.findPerspective(i);
+		for (int i = 1; i <= query().nAttributes; i++) {
+			ItemPredicate facetType = query().findPerspective(i);
 			sortMenu.addButton(facetType.getName(), facetType.getName(),
 					new Integer(i));
 		}
@@ -225,7 +225,8 @@ public class ResultsGrid extends LazyPNode implements MouseDoc {
 	}
 
 	double getTopMargin() {
-		return (2.0 /* label.getScale() */+ 2.0) * art.lineH + 10.0;
+		return percentLabel.getMaxY() + art.lineH / 2;
+		// return (2.0 /* label.getScale() */+ 2.0) * art.lineH + 10.0;
 	}
 
 	double getBottomMargin() {
@@ -245,15 +246,20 @@ public class ResultsGrid extends LazyPNode implements MouseDoc {
 		if (isInitted()) {
 			label.setOffset(marginSize, 0.0);
 			label.setFont(art.font);
-			label.setHeight(art.lineH);
-			double y = label.getScale() * art.lineH;
-			countLabel.setOffset(marginSize, y);
+			// label.setHeight(art.lineH);
+
+			countLabel.setOffset(marginSize, label.getMaxY());
 			countLabel.setFont(art.font);
-			percentLabel.setOffset(marginSize, y + art.lineH);
+
+			percentLabel.setOffset(marginSize, countLabel.getMaxY());
 			percentLabel.setFont(art.font);
+
 			thumbnails.setOffset(marginSize, getTopMargin());
 			gridScrollBar.setOffset(w - marginSize - art.scrollBarWidth,
 					getTopMargin());
+
+			sortLabel.setFont(art.font);
+			sortMenu.setFont(art.font);
 			double sortY = h - sortMenu.getHeight() * sortMenu.getScale() - 5.0;
 			if (sortLabel.getWidth() + sortMenu.getWidth() + 5.0 <= w) {
 				sortLabel.setOffset(5.0, sortY);
@@ -263,9 +269,11 @@ public class ResultsGrid extends LazyPNode implements MouseDoc {
 				sortY -= sortLabel.getHeight() * sortLabel.getScale();
 				sortLabel.setOffset(5.0, sortY);
 			}
+
 			// boundary.setMinX(minW);
 			// boundary.setMaxX(maxW);
 			boundary.validate();
+
 			if (onCount > 0)
 				dataUpdated();
 		}
@@ -279,12 +287,12 @@ public class ResultsGrid extends LazyPNode implements MouseDoc {
 
 	public double minWidth() {
 		return art.getStringWidth("(0.001% of 999,999 "
-				+ Util.pluralize(art.query.genericObjectLabel) + ")");
+				+ Util.pluralize(query().genericObjectLabel) + ")");
 	}
 
 	public double maxWidth() {
 		return getWidth() + art.selectedItem.getWidth()
-				- art.selectedItem.minWidth(null);
+				- art.selectedItem.minWidth();
 	}
 
 	void setDescription() {
@@ -298,14 +306,14 @@ public class ResultsGrid extends LazyPNode implements MouseDoc {
 		assert w > countLabel.getWidth() : w + " " + countLabel.getWidth()
 				+ countLabel.getText();
 
-		result = formatPercent(onCount / (double) art.query.totalCount, null);
+		result = formatPercent(onCount / (double) query().getTotalCount(), null);
 		result.insert(0, "(");
 		result.append(" of ");
 
-		result.append(Util.addCommas(art.query.totalCount));
+		result.append(Util.addCommas(query().getTotalCount()));
 
 		result.append(" ");
-		String object = Util.pluralize(art.query.genericObjectLabel);
+		String object = Util.pluralize(query().genericObjectLabel);
 		result.append(object);
 		result.append(")");
 		percentLabel.setText(result.toString());
@@ -334,8 +342,8 @@ public class ResultsGrid extends LazyPNode implements MouseDoc {
 	}
 
 	void dataUpdated() {
-		// Util.print("Grid.dataUpdated " + art.query.onCount);
-		onCount = art.query.onCount;
+		// Util.print("Grid.dataUpdated " + query().onCount);
+		onCount = query().getOnCount();
 		setDescription();
 		offsetItemTableRangesIndex = 0;
 		if (onCount > 0) {
@@ -370,7 +378,7 @@ public class ResultsGrid extends LazyPNode implements MouseDoc {
 			gridW = (int) (usableW / nCols);
 		}
 		nVisibleRows = Math.min(nVisibleRows, nRows);
-//		Util.print("maxThumbs " + usableW);
+		// Util.print("maxThumbs " + usableW);
 		return nVisibleRows * nCols;
 	}
 
@@ -398,7 +406,7 @@ public class ResultsGrid extends LazyPNode implements MouseDoc {
 		// thumbnails.updateBoundaries(nCols, nVisibleRows, grid);
 	}
 
-	public void setDesiredCols(int newNcols) {
+	void setDesiredCols(int newNcols) {
 		// Util.print("setDesiredCols " + newNcols);
 		if (newNcols != desiredCols) {
 			desiredCols = newNcols;
@@ -418,9 +426,14 @@ public class ResultsGrid extends LazyPNode implements MouseDoc {
 		}
 	}
 
+	void chooseReorder(int facetType) {
+		sortMenu.choose(facetType + 1);
+	}
+
 	void reorder(int facetType) {
 		// art.handleCursor(true);
-		art.query.reorderItems(facetType);
+		art.printUserAction(Bungee.REORDER, facetType, 0);
+		query().reorderItems(facetType);
 		// offsetItemTableRangesIndex = 0;
 		// doEnsureRange();
 		dataUpdated();
@@ -432,16 +445,17 @@ public class ResultsGrid extends LazyPNode implements MouseDoc {
 		rangeEnsurer.update();
 	}
 
-	// We don't want slow db calls in the mouse process, so this is
-	// called by rangeEnsurer.
-	public void ensureRange() {
+	/**
+	 * Called in thread rangeEnsurer
+	 */
+	void ensureRange() {
 		// Util.print("ensureRange " + selectedItem + " " + selectedItemOffset +
 		// " " + onCount);
 		// If selectedItem is still in onItems, return it's new offset;
 		// otherwise, set offset to zero.
 		if (selectedItem != null && selectedItemOffset < 0) {
 			// This should be pre-computed - no need to talk to server.
-			selectedItemOffset = art.query.itemIndex(selectedItem,
+			selectedItemOffset = query().itemIndex(selectedItem,
 			// add an extra 1 to catch the case of paging down.
 					(nVisibleRows + 1) * nCols);
 			// Util.print("itemIndex = " + selectedItemOffset);
@@ -464,7 +478,7 @@ public class ResultsGrid extends LazyPNode implements MouseDoc {
 			originalMaxOffset = Util.min(onCount, originalMaxOffset);
 			if (offsetItemTable == null) {
 				// assert offsetItemTableRangesIndex == 0;
-				offsetItemTable = new Item[art.query.totalCount];
+				offsetItemTable = new Item[query().getTotalCount()];
 				// if (offsetItemTable != null)
 				// System.arraycopy(offsetItemTable, 0, tempOffsetItemTable,
 				// 0, offsetItemTable.length);
@@ -529,6 +543,9 @@ public class ResultsGrid extends LazyPNode implements MouseDoc {
 	// checks whether items need ItemImages (which it calls loadThumbs to load
 	// from db) or GridImages
 	// (which it creates immediately).
+	/**
+	 * Called in thread rangeEnsurer
+	 */
 	void checkCached(int minOffset, int maxOffset) {
 		// Util.print("ensureCached " + edge + " " + onCount + " " + minOffset +
 		// " " + maxOffset);
@@ -537,11 +554,12 @@ public class ResultsGrid extends LazyPNode implements MouseDoc {
 			assert maxOffset <= offsetItemTable.length : offsetItemTable.length
 					+ " " + minOffset + "-" + maxOffset + " "
 					+ offsetItemTableRangesIndex + " "
-					+ PrintArray.printArrayString(offsetItemTableRanges);
+					+ Util.valueOfDeep(offsetItemTableRanges);
 			for (int i = minOffset; i < maxOffset; i++) {
-				Item item = offsetItemTable[i];
 				if (isInRange(i, i)) {
-					assert item != null;
+					Item item = offsetItemTable[i];
+					assert item != null : i + " " + minOffset + "-" + maxOffset
+							+ " " + Util.valueOfDeep(offsetItemTable);
 
 					ItemImage ii = art.lookupItemImage(item);
 					// Util.print("offset [" + minOffset + ", " + maxOffset + "]
@@ -562,8 +580,8 @@ public class ResultsGrid extends LazyPNode implements MouseDoc {
 		}
 		assert !Util.hasDuplicates(toLoad) : minOffset + "-" + maxOffset + " "
 				+ offsetItemTableRangesIndex + " "
-				+ PrintArray.printArrayString(offsetItemTableRanges) + " "
-				+ PrintArray.printArrayString(toLoad);
+				+ Util.valueOfDeep(offsetItemTableRanges) + " "
+				+ Util.valueOfDeep(toLoad);
 		if (toLoad != null) {
 			loadThumbs(toLoad);
 			javax.swing.SwingUtilities.invokeLater(getDoRedraw());
@@ -571,36 +589,47 @@ public class ResultsGrid extends LazyPNode implements MouseDoc {
 	}
 
 	// ensureRange makes sure that offsetItemTable is updated
+	/**
+	 * Called in thread rangeEnsurer
+	 */
 	void ensureRangeInternal(int minOffset, int maxOffset) {
 		// Util.print("ensureRangeInternal " + minOffset + "-" + maxOffset);
-		java.sql.ResultSet rs = art.query.offsetItems(minOffset, maxOffset);
+		java.sql.ResultSet rs = query().offsetItems(minOffset, maxOffset);
 		// WARNING: don't change rs row, as it may be purposefullly set to an
 		// intermediate row.
 		try {
 			while (rs.next() && minOffset < maxOffset) {
+				// Util.print(minOffset + " " + rs.getInt(1));
 				Item item = Item.ensureItem(rs.getInt(1));
 				offsetItemTable[minOffset++] = item;
 			}
-		} catch (SQLException e) {
+			// Util.print(" " + minOffset + " " + maxOffset + " "
+			// + rs.getRow());
+			// assert minOffset == maxOffset : minOffset + " " + maxOffset + " "
+			// + rs.getRow();
+		} catch (Throwable e) {
 			e.printStackTrace();
 		} finally {
-			art.query.close(rs);
+			query().close(rs);
 		}
-		// Util.print("ensureRangeInternal return " +
-		// PrintArray.printArrayString(toLoad));
+		// Util.print("ensureRangeInternal return ");
 	}
 
-	void loadThumbs(Item[] myItems) {
-		if (myItems != null) {
-//			 Util.print("loadThumbs " + PrintArray.printArrayString(myItems));
-			Arrays.sort(myItems);
+	/**
+	 * Called in thread rangeEnsurer
+	 */
+	void loadThumbs(Item[] items) {
+		if (items != null) {
+//			 Util.print("loadThumbs " + Util.valueOfDeep(items));
+			Arrays.sort(items);
 			ResultSet rs = null;
 			try {
-				rs = art.query.getThumbs(myItems, edgeW, edgeH, Bungee.ThumbQuality);
+				rs = query()
+						.getThumbs(items, edgeW, edgeH, Bungee.ThumbQuality);
 				boolean hasNext = rs.next();
 				Item blobItem = hasNext ? Item.ensureItem(rs.getInt(1)) : null;
-				for (int index = 0; index < myItems.length; index++) {
-					Item item = myItems[index];
+				for (int index = 0; index < items.length; index++) {
+					Item item = items[index];
 					int rawW = 0;
 					int rawH = 0;
 					InputStream blobStream = null;
@@ -620,54 +649,23 @@ public class ResultsGrid extends LazyPNode implements MouseDoc {
 					}
 					ItemImage ii = art.ensureItemImage(item, rawW, rawH,
 							Bungee.ThumbQuality, blobStream);
-					 Util.print("addThumb " + edgeW + "*" + edgeH + " " + item + " " + rawW + "*" + rawH);
+					// Util.print("addThumb " + edgeW + "*" + edgeH + " " + item
+					// + " " + rawW + "*" + rawH);
 					addThumb(item, new GridImage(ii)); // art, item,
 					// image));
 				}
-
-				// int index = 0;
-				// while (rs.next()) {
-				// int blobItem = rs.getInt(1);
-				// InputStream blobStream = ((MyResultSet) rs)
-				// .getInputStream(2);
-				// int item;
-				// while ((item = myItems[index++]) != blobItem) {
-				// thumbs.put(item, new GridImage(item, this,
-				// getMissingImage()));
-				// }
-				// if (blobStream != null) {
-				// BufferedImage image = ImageIO.read(blobStream);
-				// if (image.getColorModel().getNumColorComponents() < 3)
-				// // Workaround for washed out colors when resizing
-				// // grayscale images
-				// image = PImage.toBufferedImage(image, true);
-				// thumbs.put(blobItem, new GridImage(item, this, image));
-				// }
-				// }
-				// while (index < myItems.length) {
-				// int item = myItems[index++];
-				// thumbs.put(item, new GridImage(item, this,
-				// getMissingImage()));
-				// }
-			} catch (SQLException e) {
+			} catch (Throwable e) {
 				e.printStackTrace();
 			} finally {
-				art.query.close(rs);
+				query().close(rs);
 			}
 		}
 		// Util.print("loadThumbs return");
 	}
 
-	// void revUpLoadThumbs() {
-	// // Util.print("revUpLoadThumbs");
-	// // loadThumbs takes a while the first time because it has to look
-	// // up the appropriate reader for the stream's MIME type.
-	// loadThumbs(ensureRangeInternal(0, 1));
-	// }
-
 	private transient Runnable doRedraw;
 
-	 Runnable getDoRedraw() {
+	Runnable getDoRedraw() {
 		if (doRedraw == null)
 			doRedraw = new Runnable() {
 
@@ -746,8 +744,10 @@ public class ResultsGrid extends LazyPNode implements MouseDoc {
 								// }
 								// image.setOffset(x, 0);
 								// x += iw + margin;
-								double x = col * gridW + (int) ((gridW - iw) / 2);
-								double y = row * gridH + (int) ((gridH - ih) / 2);
+								double x = col * gridW
+										+ (int) ((gridW - iw) / 2);
+								double y = row * gridH
+										+ (int) ((gridH - ih) / 2);
 								image.setOffset(x, y);
 								thumbnails.addChild(image);
 
@@ -757,7 +757,7 @@ public class ResultsGrid extends LazyPNode implements MouseDoc {
 									updateSelectionOutline(x, y, iw, ih);
 									if (mustSetItem) {
 										mustSetItem = false;
-										art.setSelectedItemID(item, outline);
+										art.setSelectedItem(item, outline);
 									}
 								}
 								// } else {
@@ -825,7 +825,7 @@ public class ResultsGrid extends LazyPNode implements MouseDoc {
 	// }
 	//
 	// // No longer used -- packs thumbnails keeping aspect ratio
-	// class GridImageHeightComparator extends ValueComparator {
+	// final class GridImageHeightComparator extends ValueComparator {
 	//
 	// public int value(Object data) {
 	// if (data == null)
@@ -848,6 +848,9 @@ public class ResultsGrid extends LazyPNode implements MouseDoc {
 	 */
 	int offsetItemTableRangesIndex = 0;
 
+	/**
+	 * Can be called in thread rangeEnsurer
+	 */
 	boolean isInRange(int min, int max) {
 		for (int i = 0; i < offsetItemTableRangesIndex; i += 2) {
 			if (offsetItemTableRanges[i] <= min
@@ -902,7 +905,10 @@ public class ResultsGrid extends LazyPNode implements MouseDoc {
 			assert false : key;
 		}
 		computeSelectedItemFromSelectedOffset(offset, -1);
-		art.printUserAction(Bungee.KEYPRESS, "grid", selectedItem.getId());
+		if (selectedItem != null)
+			// If we went off the screen, and have to call ensureRange, won't
+			// know selectedItem yet.
+			art.printUserAction(Bungee.GRID_ARROW, selectedItem.getId(), 0);
 	}
 
 	// Called by handleArrow, pick, and scroll.run
@@ -931,8 +937,9 @@ public class ResultsGrid extends LazyPNode implements MouseDoc {
 				// Util.print("^^^ csif calling doEnsureRange");
 				doEnsureRange();
 				// Util.print("^^^ csif returning doEnsureRange");
-			} else {
-				assert selectedItem != null;
+			} else if (selectedItem != null) {
+				// if selectedItem is null, it means we're waiting for
+				// ensureRange, which will call drawGrid when it's ready.
 				GridImage thumb = thumbnails.findThumb(selectedItemOffset);
 				// If thumbs cache has been GC'd lookupThumb will fail even if
 				// we're displaying that thumb
@@ -941,7 +948,7 @@ public class ResultsGrid extends LazyPNode implements MouseDoc {
 					updateSelectionOutline(thumb.getXOffset(), thumb
 							.getYOffset(), thumb.getWidth(), thumb.getHeight());
 					if (oldSelectedItem != selectedItem)
-						art.setSelectedItemID(selectedItem, thumb);
+						art.setSelectedItem(selectedItem, thumb);
 				}
 			}
 			// for (int gridOffset=0; gridOffset<nRows*nCols; gridOffset++) {
@@ -958,6 +965,9 @@ public class ResultsGrid extends LazyPNode implements MouseDoc {
 				/ (double) Math.max(1, (nRows - nVisibleRows)));
 	}
 
+	/**
+	 * Can be called in thread rangeEnsurer
+	 */
 	int visibleRowOffset(int currentRowOffset, int itemOffset) {
 		assert itemOffset >= 0;
 		assert itemOffset < onCount || (itemOffset == 0 && mustSetItem) : selectedItem
@@ -989,15 +999,16 @@ public class ResultsGrid extends LazyPNode implements MouseDoc {
 		art.setMouseDoc(source, state);
 	}
 
-	public void setMouseDoc(String doc, boolean state) {
-		art.setMouseDoc(doc, state);
+	public void setMouseDoc(String doc) {
+		art.setMouseDoc(doc);
 	}
 
-	public void setMouseDoc(Markup doc, boolean state) {
-		art.setMouseDoc(doc, state);
-	}
+	// public void setMouseDoc(Markup doc, boolean state) {
+	// art.setMouseDoc(doc, state);
+	// }
 
 	void mayHideTransients() {
+		art.arrowFocus = null;
 		art.mayHideTransients();
 	}
 
@@ -1021,40 +1032,30 @@ public class ResultsGrid extends LazyPNode implements MouseDoc {
 	}
 
 	// only called by replayOps
-	public void clickThumb(Item item) {
+	void clickThumb(Item item) {
 		GridImage thumb = lookupThumb(item);
 		// Util.print("clickThumb " + item + " " +
-		// art.query.itemIndex(selectedItem));
+		// query().itemIndex(selectedItem));
 		if (thumb == null) {
 			selectedItem = item;
-			selectedItemOffset = art.query.itemIndex(item, 0);
-			assert selectedItemOffset >= 0;
+			selectedItemOffset = query().itemIndex(item, 0);
+			assert selectedItemOffset >= 0 : selectedItemOffset + " "
+					+ query().isQueryValid() + " "
+					+ query().findPerspective(item.getId()) + "\n" + query();
 			ensureRange();
 			drawGrid();
 			thumb = lookupThumb(selectedItem);
-			art.setSelectedItemID(selectedItem, thumb);
+			art.setSelectedItem(selectedItem, thumb);
 		}
 		thumb.pick(false, false);
 	}
 
-	// only called on startup
-	public void clickThumb(String URL) {
-		int[] x = art.query.itemIndexFromURL(URL, 0);
-		selectedItem = Item.ensureItem(x[0]);
-		selectedItemOffset = x[1];
-		// Util.print("sss " + selectedItem + " " + selectedItemOffset);
-		// doEnsureRange();
-		// ensureRange();
-		// drawGrid();
-		// GridImage thumb = (GridImage) thumbs.get(selectedItem);
-		// art.setSelectedItemID(selectedItem, thumb);
-		art.selectedItem.animateOutline(selectedItem, -1, -1, -1, -1);
+	Query query() {
+		return art.query;
 	}
 }
 
-class Thumbnails extends LazyPNode implements MouseDoc {
-
-	private static final long serialVersionUID = 5187249169891162433L;
+final class Thumbnails extends LazyPNode implements MouseDoc {
 
 	private Boundary[] vBoundaries;
 
@@ -1068,8 +1069,8 @@ class Thumbnails extends LazyPNode implements MouseDoc {
 		return ((ResultsGrid) getParent()).nVisibleRows;
 	}
 
-	public void updateBoundaries(int nCols, int nRows, int edgeW, int edgeH) {
-//		 Util.print("updateBoundaries " + nCols + " " + edgeW + " " + edgeH);
+	void updateBoundaries(int nCols, int nRows, int edgeW, int edgeH) {
+		// Util.print("updateBoundaries " + nCols + " " + edgeW + " " + edgeH);
 		setWidth(nCols * edgeW);
 		setHeight(nRows * edgeH);
 		vBoundaries = updateBoundariesInternal(nCols + 1, vBoundaries, edgeW,
@@ -1080,7 +1081,8 @@ class Thumbnails extends LazyPNode implements MouseDoc {
 
 	Boundary[] updateBoundariesInternal(int nBoundaries, Boundary[] boundaries,
 			int edge, boolean isHorizontal) {
-//		Util.print("updateBoundariesInternal " + isHorizontal + " " + nBoundaries + " " + edge);
+		// Util.print("updateBoundariesInternal " + isHorizontal + " " +
+		// nBoundaries + " " + edge);
 		for (int i = 0; i < nBoundaries; i++) {
 			if (boundaries == null || boundaries.length <= i) {
 				boundaries = (Boundary[]) Util.endPush(boundaries,
@@ -1115,8 +1117,8 @@ class Thumbnails extends LazyPNode implements MouseDoc {
 		return getHeight() * row;
 	}
 
-	public void addGrid(int nCols, int nRows, int edgeW, int edgeH) {
-//		Util.print("addGrid " + (nCols*edgeW) + " " + getWidth());
+	void addGrid(int nCols, int nRows, int edgeW, int edgeH) {
+		// Util.print("addGrid " + (nCols*edgeW) + " " + getWidth());
 		updateBoundaries(nCols, nRows, edgeW, edgeH);
 		for (int i = 0; i <= nCols; i++) {
 			addChild(vBoundaries[i]);
@@ -1161,42 +1163,35 @@ class Thumbnails extends LazyPNode implements MouseDoc {
 	public void exitBoundary(Boundary boundary) {
 		setBoundariesVisible(false);
 	}
-	
+
 	void setBoundariesVisible(boolean state) {
 		for (int i = 0; i <= nCols() && i < vBoundaries.length; i++) {
 			vBoundaries[i].setVisible(state);
 		}
 		for (int i = 0; i <= nRows() && i < hBoundaries.length; i++) {
 			hBoundaries[i].setVisible(state);
-		}		
+		}
 	}
 
 	public void setMouseDoc(PNode source, boolean state) {
 		((ResultsGrid) getParent()).setMouseDoc(source, state);
 	}
 
-	public void setMouseDoc(String doc, boolean state) {
-		((ResultsGrid) getParent()).setMouseDoc(doc, state);
+	public void setMouseDoc(String doc) {
+		((ResultsGrid) getParent()).setMouseDoc(doc);
 	}
 
-	public void setMouseDoc(Markup doc, boolean state) {
-		((ResultsGrid) getParent()).setMouseDoc(doc, state);
-	}
+	// public void setMouseDoc(Markup doc, boolean state) {
+	// ((ResultsGrid) getParent()).setMouseDoc(doc, state);
+	// }
 
 }
 
-class RangeEnsurer extends UpdateNoArgsThread {
+final class RangeEnsurer extends UpdateNoArgsThread {
 
 	ResultsGrid results;
 
-	public synchronized void exit() {
-		// Util.print("RangeEnsurer.exit");
-		results = null; // Threads seem to stick around. Lose this reference so
-		// it can be gc'd
-		super.exit();
-	}
-
-	public RangeEnsurer(ResultsGrid _results) {
+	RangeEnsurer(ResultsGrid _results) {
 		super("Grid.UpdateData", -2);
 		results = _results;
 	}

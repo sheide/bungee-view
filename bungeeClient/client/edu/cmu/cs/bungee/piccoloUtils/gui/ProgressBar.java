@@ -10,8 +10,7 @@ import edu.umd.cs.piccolo.PLayer;
 import edu.umd.cs.piccolo.PNode;
 import edu.umd.cs.piccolox.PFrame;
 
-public class ProgressBar extends PFrame {
-	private static final long serialVersionUID = 4448851149817305872L;
+public final class ProgressBar extends PFrame {
 
 	final static int barW = 200;
 

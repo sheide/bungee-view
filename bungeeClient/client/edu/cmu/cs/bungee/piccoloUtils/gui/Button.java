@@ -41,8 +41,6 @@ public class Button extends LazyPNode {
 
 	float fadeFactor;
 
-	private static final long serialVersionUID = -4885565420352715444L;
-
 	APText message;
 
 	protected PNode child;
@@ -146,8 +144,8 @@ public class Button extends LazyPNode {
 	}
 
 	public void positionChild() {
-		double w = getWidth();
-		double h = getHeight();
+		double w = Math.round(getWidth());
+		double h = Math.round(getHeight());
 		child.setWidth(w - (isThreeD() ? 2.0 * borderW : 0.0));
 		child.setHeight(h - (isThreeD() ? 2.0 * borderW : 0.0));
 		// setPaths();
@@ -216,7 +214,7 @@ public class Button extends LazyPNode {
 
 	public void mayHideTransients(PNode node) {
 		assert edu.cmu.cs.bungee.javaExtensions.Util.ignore(node);
-		System.err.println("Should override Buttons.mayHideTransients");
+//		System.err.println("Should override Buttons.mayHideTransients");
 	}
 }
 
@@ -229,22 +227,22 @@ class ButtonHandler extends MyInputEventHandler {
 	// Pretty much anything you do on a button shouldn't go any further, so
 	// always return true.
 
-	public boolean click(PNode node) {
+	protected boolean click(PNode node) {
 		((Button) node).pick();
 		return true;
 	}
 
-	public boolean exit(PNode node) {
+	protected boolean exit(PNode node) {
 		((Button) node).exit();
 		return true;
 	}
 
-	public boolean enter(PNode node) {
+	protected boolean enter(PNode node) {
 		((Button) node).enter();
 		return true;
 	}
 
-	public void mayHideTransients(PNode node) {
+	protected void mayHideTransients(PNode node) {
 		((Button) node).mayHideTransients(node);
 	}
 

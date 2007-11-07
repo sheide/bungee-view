@@ -46,8 +46,6 @@ public class LazyPPath extends PPath implements Cloneable {
 //	    assert h == Math.round(h);
 //		    return super.setBounds(x, y, w, h);		
 //	}
-
-	private static final long serialVersionUID = 7975172615235041562L;
 	
 	public static final Stroke[] strokeCache = new BasicStroke[11]; 
 	

@@ -36,13 +36,11 @@ import java.awt.Color;
 import edu.umd.cs.piccolo.PNode;
 import edu.umd.cs.piccolo.event.PInputEvent;
 
-public class Boundary extends LazyPNode {
+public final class Boundary extends LazyPNode {
 
 	private static final double w = 2;
 	
 	LazyPNode parent;
-
-	private static final long serialVersionUID = 7061973015916519679L;
 
 	static BoundaryHandler handler = new BoundaryHandler();
 
@@ -140,10 +138,10 @@ public class Boundary extends LazyPNode {
 			((MouseDoc) parent).setMouseDoc(this, state);
 	}
 
-	public void mayHideTransients(PNode node) {
-		assert edu.cmu.cs.bungee.javaExtensions.Util.ignore(node);
-		System.err.println("Should override Boundary.mayHideTransients");
-	}
+//	public void mayHideTransients(PNode node) {
+//		assert edu.cmu.cs.bungee.javaExtensions.Util.ignore(node);
+//		System.err.println("Should override Boundary.mayHideTransients: " + parent);
+//	}
 
 	public void drag(PInputEvent e) {
 		double dx = isHorizontal ? e.getDelta().getHeight() : e.getDelta()
@@ -165,8 +163,8 @@ public class Boundary extends LazyPNode {
 			minX = parent.minWidth(this);
 			maxX = parent.maxWidth(this);
 		}
-		assert minX == Math.round(minX);
-		assert maxX == Math.round(maxX);
+		assert minX == Math.round(minX) : getParent();
+		assert maxX == Math.round(maxX) : getParent();
 	}
 
 	public void endDrag() {
@@ -176,37 +174,37 @@ public class Boundary extends LazyPNode {
 	}
 }
 
-class BoundaryHandler extends MyInputEventHandler {
+final class BoundaryHandler extends MyInputEventHandler {
 
 	public BoundaryHandler() {
 		super(Boundary.class);
 	}
 
-	public boolean exit(PNode node) {
+	protected boolean exit(PNode node) {
 		((Boundary) node).exit();
 		return true;
 	}
 
-	public boolean enter(PNode node) {
+	protected boolean enter(PNode node) {
 		((Boundary) node).enter();
 		return true;
 	}
 
-	public void mayHideTransients(PNode node) {
-		((Boundary) node).mayHideTransients(node);
-	}
+//	protected void mayHideTransients(PNode node) {
+//		((Boundary) node).mayHideTransients(node);
+//	}
 
-	public boolean press(PNode node) {
+	protected boolean press(PNode node) {
 		((Boundary) node).startDrag();
 		return true;
 	}
 
-	public boolean drag(PNode node, PInputEvent e) {
+	protected boolean drag(PNode node, PInputEvent e) {
 		((Boundary) node).drag(e);
 		return true;
 	}
 
-	public boolean release(PNode node) {
+	protected boolean release(PNode node) {
 		((Boundary) node).endDrag();
 		return true;
 	}

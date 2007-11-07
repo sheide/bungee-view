@@ -48,9 +48,7 @@ import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
 
 
 
-public class MouseDocLine extends LazyPNode implements PerspectiveObserver {
-
-	private static final long serialVersionUID = -7745327274592201872L;
+ final class MouseDocLine extends LazyPNode implements PerspectiveObserver {
 
 	private static final Color tipBG = Color.yellow;
 
@@ -62,14 +60,14 @@ public class MouseDocLine extends LazyPNode implements PerspectiveObserver {
 
 	private TextNfacets facetDesc;
 
-	public void validate(double w, double h) {
+	 void validate(double w, double h) {
 		// Util.print("MouseDoc.validate: " + _w + " x " + _h);
 		setBounds(0, 0, w, h);
 		clickDesc.setBounds(0, 0, w, h);
 		tip.setBounds(0, 0, w, h);
 	}
 
-	public MouseDocLine(Bungee _art) {
+	 MouseDocLine(Bungee _art) {
 		art = _art;
 		facetDesc = new TextNfacets(art, Bungee.mouseDocFG, false);
 		// facetDesc.setJustification(Component.CENTER_ALIGNMENT);
@@ -93,7 +91,7 @@ public class MouseDocLine extends LazyPNode implements PerspectiveObserver {
 		clickDesc = new TextNfacets(art, Bungee.mouseDocFG, false);
 		clickDesc.setPaint(Bungee.headerBG.brighter());
 		clickDesc.setVisible(false);
-		clickDesc.facetTextPaint = Color.white;
+		clickDesc.facetPermanentTextPaint = Color.white;
 		// clickDesc.setWrapText(true);
 		clickDesc.setTrim(20, 0);
 		addChild(clickDesc);
@@ -112,7 +110,7 @@ public class MouseDocLine extends LazyPNode implements PerspectiveObserver {
 		setPaint(Bungee.headerBG);
 	}
 
-	public void setTip(String s) {
+	 void setTip(String s) {
 		if (s != null) {
 			tip.setText(s);
 			tip.setVisible(true);
@@ -125,7 +123,7 @@ public class MouseDocLine extends LazyPNode implements PerspectiveObserver {
 		}
 	}
 
-	public void setClickDesc(String s) {
+	 void setClickDesc(String s) {
 		// Util.print("setClickDesc " + s);
 		if (s == null)
 			defaultClickDesc();
@@ -136,7 +134,7 @@ public class MouseDocLine extends LazyPNode implements PerspectiveObserver {
 		}
 	}
 
-	public void setClickDesc(Markup s) {
+	 void setClickDesc(Markup s) {
 		// Util.print("setClickDesc " + s);
 		if (s == null)
 			defaultClickDesc();
@@ -147,7 +145,8 @@ public class MouseDocLine extends LazyPNode implements PerspectiveObserver {
 	}
 
 	private void setClickDescInternal(Markup s) {
-		// Util.print("setClickDesc " + s);
+//		 Util.print("setClickDesc " + s);
+		assert s != null;
 		clickDesc.setContent(s);
 		// Allow room for facetDoc to at least say "mmmm (100% of nnnn) P=1E-10"
 		clickDesc.setWidth(getWidth() - art.lineH * 20);
@@ -156,6 +155,9 @@ public class MouseDocLine extends LazyPNode implements PerspectiveObserver {
 		clickDesc.setVisible(true);
 	}
 
+	/**
+	 * The mouse doc to display when the mouse isn't over something you can click on.
+	 */
 	private void defaultClickDesc() {
 		// if (clickDesc.content != null) {
 		// for (Iterator it=clickDesc.content.iterator(); it.hasNext(); ) {
@@ -185,7 +187,7 @@ public class MouseDocLine extends LazyPNode implements PerspectiveObserver {
 	static final FieldPosition stupid = new FieldPosition(
 			NumberFormat.FRACTION_FIELD);
 
-	public void showObjectDesc(Markup desc, Object facet) {
+	 void showObjectDesc(Markup desc, Object facet) {
 		// Util.print("showObjectDesc " + desc);
 		if (desc == null || facet == null) {
 			facetDesc.setVisible(false);
@@ -198,10 +200,10 @@ public class MouseDocLine extends LazyPNode implements PerspectiveObserver {
 		// gui.Util.printDescendents(facetDesc);
 	}
 
-	public void showFacet(Perspective facet, boolean state) {
+	 void showPopup(Perspective facet) {
 		// Util.print("MouseDoc.showFacet " + state + " " + facet);
 		Markup desc = null;
-		if (state && facet != null) {
+		if (facet != null) {
 			desc = Query.emptyMarkup();
 			if (facet.getParent() == null) {
 				desc.add(Util.pluralize(art.query.genericObjectLabel));
@@ -213,7 +215,7 @@ public class MouseDocLine extends LazyPNode implements PerspectiveObserver {
 		showObjectDesc(desc, facet);
 	}
 
-	public void redraw() {
+	 public void redraw() {
 		if (facetDesc.getVisible()) {
 			facetDesc.layout(getWidth(), getHeight());
 //			Util.print("MD.redraw " + facetDesc.getWidth() + " " + facetDesc.toText());
@@ -222,8 +224,8 @@ public class MouseDocLine extends LazyPNode implements PerspectiveObserver {
 	}
 
 	String facetInfo(Perspective facet) {
-		// PrintArray.printArray(facet.setChiSqTable());
-		return facetInfo(facet.getOnCount(), facet.totalCount, facet.pValue());
+		// Util.printDeep(facet.setChiSqTable());
+		return facetInfo(facet.guessOnCount(), facet.getTotalCount(), facet.pValue());
 	}
 
 	String facetInfo(Cluster facet) {

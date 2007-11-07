@@ -35,13 +35,34 @@ import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.umd.cs.piccolo.PNode;
 import edu.umd.cs.piccolo.event.PInputEvent;
 
-
-public interface FacetNode {
+interface FacetNode {
 	// Constructors should
 	// addInputEventListener(Art.facetClickHandler);
+	
+    /**
+     * @param e the PInputEvent
+     * @return whether the event was handled
+     */
     boolean pick(PInputEvent e);
+    /**
+     * @param state did mouse enter (as opposed to exit)?
+     * @param modifiers shift keys
+     * @param e the PInputEvent
+     * @return whether the event was handled
+     */
     boolean highlight(boolean state, int modifiers, PInputEvent e);
+	/**
+	 * The user did something, indicating that temporary messages or whatever should be removed.
+	 * 
+	 * @param node the PNode gestured on
+	 */
 	void mayHideTransients(PNode node);	
+	/**
+	 * @return the facet associated with this FacetNode
+	 */
 	Perspective getFacet();	
+	/**
+	 * @return the Bungee PFrame we're in
+	 */
 	Bungee art();
 }
