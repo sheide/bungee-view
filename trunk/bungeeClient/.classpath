@@ -2,11 +2,10 @@
 <classpath>
 	<classpathentry kind="src" path="/javaExtensions"/>
 	<classpathentry kind="src" path="client"/>
-	<classpathentry kind="src" path="/piccoloUtils"/>
-	<classpathentry kind="src" path="/piccolo"/>
 	<classpathentry kind="lib" path="C:/Program Files/Java/jdk1.5.0_06/sample/jnlp/servlet/jnlp.jar"/>
 	<classpathentry kind="src" path="/statistics"/>
 	<classpathentry kind="src" path="/bungeeDBscripts"/>
-	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/piccolo"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/j2re1.4.2_11"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
