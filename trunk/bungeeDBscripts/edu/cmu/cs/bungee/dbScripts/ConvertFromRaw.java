@@ -9,35 +9,54 @@ import java.sql.SQLException;
 
 import javax.imageio.ImageIO;
 
-import com.mysql.jdbc.exceptions.MySQLSyntaxErrorException;
-
 import edu.cmu.cs.bungee.javaExtensions.JDBCSample;
+import edu.cmu.cs.bungee.javaExtensions.MyResultSet;
 import edu.cmu.cs.bungee.javaExtensions.Util;
+import edu.cmu.cs.bungee.javaExtensions.psk.cmdline.ApplicationSettings;
+import edu.cmu.cs.bungee.javaExtensions.psk.cmdline.StringToken;
+import edu.cmu.cs.bungee.javaExtensions.psk.cmdline.Token;
 
 import JSci.maths.statistics.ChiSqr;
 
-
 public class ConvertFromRaw {
+
+	static StringToken sm_db = new StringToken("db", "database to convert", "",
+			Token.optRequired | Token.optSwitch, "");
+	static StringToken sm_server = new StringToken("server", "MySQL server",
+			"", Token.optSwitch, "jdbc:mysql://localhost/");
+	static StringToken sm_user = new StringToken("user", "MySQL user", "",
+			Token.optSwitch, "p5");
+	static StringToken sm_pass = new StringToken("pass", "MySQL user password",
+			"", Token.optSwitch, "p5pass");
+	static ApplicationSettings sm_main = new ApplicationSettings();
+	static {
+		sm_main.addToken(sm_db);
+		sm_main.addToken(sm_server);
+		sm_main.addToken(sm_user);
+		sm_main.addToken(sm_pass);
+	}
 
 	// private String connectString;
 
 	private JDBCSample jdbc;
 
-	static final int NO_ERRORS = 0;
+	// static final int NO_ERRORS = 0;
+	//
+	// static final int INPUT_ERRORS = 1;
+	//
+	// static final int OUTPUT_ERRORS = 2;
 
-	static final int INPUT_ERRORS = 1;
-
-	static final int OUTPUT_ERRORS = 2;
-
-	public static void main(String[] args) throws SQLException {
-		ConvertFromRaw convert = new ConvertFromRaw(args[0], args[1], args[2],
-				args[3]);
-		convert.convert(1000);
+	public static void main(String[] args) throws Exception {
+		if (sm_main.parseArgs(args)) {
+			ConvertFromRaw convert = new ConvertFromRaw(sm_server.getValue(),
+					sm_db.getValue(), sm_user.getValue(), sm_pass.getValue());
+			convert.convert(1000);
+		}
 	}
 
-	public int convert(int minFacets) throws SQLException {
+	public void convert(int minFacets) throws SQLException {
 		// createTables();
-		return canonicalize(minFacets);
+		canonicalize(minFacets);
 		// addImageSizes();
 	}
 
@@ -58,10 +77,9 @@ public class ConvertFromRaw {
 		jdbc = _jdbc;
 	}
 
-	int canonicalize(int minFacets) throws SQLException {
+	private void canonicalize(int minFacets) throws SQLException {
 		// Create facet from raw_facet & raw_facet_type. Also update item_facet.
 		jdbc.print("Converting " + jdbc);
-		int result;
 		if (checkRawErrors() == 0) {
 			summarize();
 			computeItemCounts();
@@ -90,10 +108,16 @@ public class ConvertFromRaw {
 			// createAncestorNames();
 			createItemFacetType();
 			createRandomItemIDs();
+			createUserActions();
 
-			result = checkCanonErrors();
+			jdbc.print("\nChecking output tables for errors...");
+			int nErrors = 0; // No longer true... checkTempCount();
+			nErrors += findBrokenLinks(false, 8);
+			// result = checkCanonErrors();
 
-			setUpFacetSearch();
+			nErrors += setUpFacetSearch();
+			jdbc.print("...found " + nErrors + " errors in output tables.");
+
 			findPairs(facet_idType, item_idType);
 
 			jdbc.print("\nCleaning up...");
@@ -105,24 +129,22 @@ public class ConvertFromRaw {
 			jdbc.SQLupdate("OPTIMIZE TABLE facet, item_facet, item ");
 			jdbc.print("\nDone.");
 			// }
-		} else
-			result = INPUT_ERRORS;
-		return result;
+		}
 	}
 
-	void summarize() throws SQLException {
+	private void summarize() throws SQLException {
 		printErrors(
-				"SELECT if(order_num<0,'ignore ', '       ') include, "
+				"SELECT if(r.sort<0,'ignore ', '       ') include, "
 						+ "if(f.parent_facet_id is null, 0, count(*)) n_children,"
 						+ "r.name, substring_index(group_concat(f.name separator '%$%'), '%$%', 1) example "
 						+ "FROM raw_facet_type r left join raw_facet f on f.parent_facet_id = r.facet_type_id "
-						+ "group by r.facet_type_id ORDER BY order_num",
+						+ "group by r.facet_type_id ORDER BY r.sort",
 				"Summary:",
-				"Include, Facet Type,Number of Immediate Children, Example Child",
+				"Include, Number of Immediate Children, Facet Type, Example Child",
 				999);
 	}
 
-	void createTemp() throws SQLException {
+	private void createTemp() throws SQLException {
 		jdbc.print("\nCreating temp...");
 
 		jdbc.SQLupdate("DROP TABLE IF EXISTS temp");
@@ -148,7 +170,7 @@ public class ConvertFromRaw {
 				+ " KEY name (name)" + " ) ENGINE=MyISAM DEFAULT CHARSET=utf8");
 	}
 
-	void computeIDs() throws SQLException {
+	private void computeIDs() throws SQLException {
 		jdbc.SQLupdate("DROP PROCEDURE IF EXISTS computeIDs");
 		jdbc
 				.SQLupdate("CREATE PROCEDURE computeIDs(parent INT, grandparent INT, canonical INT, parent_name VARCHAR(255)) "
@@ -172,11 +194,11 @@ public class ConvertFromRaw {
 						+ " UNTIL done END REPEAT; "
 						+ " CLOSE cur; " + "END ");
 		int nFacetTypes = jdbc
-				.SQLqueryInt("SELECT COUNT(*) FROM raw_facet_type WHERE order_num >= 0");
+				.SQLqueryInt("SELECT COUNT(*) FROM raw_facet_type WHERE sort >= 0");
 		jdbc.SQLupdate("SET @child_offset = " + nFacetTypes
 				+ ", max_sp_recursion_depth = 100;");
 		ResultSet rs = jdbc
-				.SQLquery("SELECT facet_type_id, name FROM raw_facet_type WHERE order_num >= 0 ORDER BY order_num");
+				.SQLquery("SELECT facet_type_id, name FROM raw_facet_type WHERE sort >= 0 ORDER BY sort");
 		int ID = 1;
 		while (rs.next()) {
 			jdbc.SQLupdate("CALL computeIDs(" + rs.getInt(1) + ", 0, " + ID++
@@ -185,7 +207,7 @@ public class ConvertFromRaw {
 		jdbc.SQLupdate("DROP PROCEDURE computeIDs");
 	}
 
-	void computeItemCounts() throws SQLException {
+	private void computeItemCounts() throws SQLException {
 		jdbc.print("\nComputing item counts...");
 		// Note that facet types have n_items = 0
 
@@ -197,13 +219,13 @@ public class ConvertFromRaw {
 				+ " PRIMARY KEY (facet_id)"
 				+ ") ENGINE=MyISAM DEFAULT CHARSET=utf8");
 
-		jdbc
-				.SQLupdate("INSERT INTO itemCounts"
-						+ " SELECT rif.facet_id, COUNT(*) cnt"
-						+ " FROM raw_item_facet rif"
-						+ " INNER JOIN raw_facet f ON f.facet_id = rif.facet_id"
-						+ " INNER JOIN raw_facet_type type ON type.facet_type_id = f.facet_type_id AND order_num > 0"
-						+ " GROUP BY facet_id");
+		jdbc.SQLupdate("INSERT INTO itemCounts"
+				+ " SELECT rif.facet_id, COUNT(*) cnt"
+				+ " FROM raw_item_facet rif"
+				+ " INNER JOIN raw_facet f ON f.facet_id = rif.facet_id"
+				// + " INNER JOIN raw_facet_type type ON type.facet_type_id =
+				// f.facet_type_idxx AND type.sort > 0"
+				+ " GROUP BY facet_id");
 
 		int maxCount = getMaxCount();
 		String maxFacet = jdbc
@@ -213,29 +235,39 @@ public class ConvertFromRaw {
 		jdbc.print("Max count = " + maxCount + " for " + maxFacet);
 	}
 
-	int getMaxCount() throws SQLException {
+	private int getMaxCount() throws SQLException {
 		return jdbc
 				.SQLqueryInt("SELECT MAX(cnt) "
 						+ "FROM itemCounts c INNER JOIN raw_facet f ON c.facet_id = f.facet_id "
-						+ "INNER JOIN raw_facet_type ft on f.facet_type_id = ft.facet_type_id "
-						+ "WHERE order_num > 0");
+				// + "INNER JOIN raw_facet_type ft on f.facet_type_idxx =
+				// ft.facet_type_id "
+				// + "WHERE ft.sort > 0"
+				);
 	}
 
-	void createFacet(String countType, String facet_idType) throws SQLException {
+	private void createFacet(String countType, String facet_idType)
+			throws SQLException {
 		jdbc.print("\nCreating facet...");
 		jdbc.SQLupdate("DROP TABLE IF EXISTS facet");
 
-		int maxLftRgt = jdbc
-				.SQLqueryInt("SELECT MAX(canonical_facet_id) FROM temp") * 2;
-		String lftRgtType = jdbc.unsignedTypeForMaxValue(maxLftRgt);
+		// int maxLftRgt = jdbc
+		// .SQLqueryInt("SELECT MAX(canonical_facet_id) FROM temp") * 2;
+		// String lftRgtType = jdbc.unsignedTypeForMaxValue(maxLftRgt);
 
 		jdbc.SQLupdate("CREATE TABLE facet (" + " facet_id " + facet_idType
 				+ " ," + " name VARCHAR(200) DEFAULT '<unnamed>',"
 				+ " parent_facet_id " + facet_idType + " ," + " n_items "
-				+ countType + " ," + " n_child_facets " + facet_idType + " ,"
-				+ " first_child_offset " + facet_idType + // ", " + " lft " +
-															// lftRgtType +
-				", rgt " + lftRgtType + "," + " PRIMARY KEY  (facet_id),"
+				+ countType
+				+ " ,"
+				+ " n_child_facets "
+				+ facet_idType
+				+ " ,"
+				+ " first_child_offset "
+				+ facet_idType
+				+ // ", " + " lft " +
+				// lftRgtType +
+				// ", rgt " + lftRgtType +
+				"," + " PRIMARY KEY  (facet_id),"
 				+ " KEY parent (parent_facet_id)"
 				+ ") ENGINE=MyISAM DEFAULT CHARSET=utf8");
 
@@ -248,15 +280,15 @@ public class ConvertFromRaw {
 						+ " IFNULL(parent.canonical_facet_id, 0) AS parent_facet_id,"
 						+ " IFNULL(cnt, 0) AS n_items,"
 						+ " facet.n_child_facets,"
-						+ " IF(facet.n_child_facets > 0, facet.children_offset, 0),"
+						+ " IF(facet.n_child_facets > 0, facet.children_offset, 0)"
 						// + " 0 AS lft,"
-						+ " 0 AS rgt"
+						// + " 0 AS rgt"
 						+ " FROM (temp facet"
 						+ " LEFT JOIN itemCounts ON itemCounts.facet_id = facet.facet_id)"
 						+ " LEFT JOIN temp parent ON facet.parent_facet_id = parent.facet_id");
 	}
 
-	void createAncestor(String facet_idType) throws SQLException {
+	private void createAncestor(String facet_idType) throws SQLException {
 		jdbc.print("\nCreating ancestor...");
 		jdbc.SQLupdate("DROP TABLE IF EXISTS ancestor");
 
@@ -283,7 +315,7 @@ public class ConvertFromRaw {
 		}
 	}
 
-	void createItemFacet(String facet_idType, String item_idType)
+	private void createItemFacet(String facet_idType, String item_idType)
 			throws SQLException {
 		jdbc.print("\nCreating itemFacet...");
 		jdbc.SQLupdate("DROP TABLE IF EXISTS item_facet");
@@ -314,18 +346,37 @@ public class ConvertFromRaw {
 						+ " KEY facet (facet_id)"
 						+ ") ENGINE=HEAP DEFAULT CHARSET=ascii PACK_KEYS=1 ROW_FORMAT=FIXED");
 
-//		jdbc
-//				.SQLupdate("INSERT INTO item_facet_heap SELECT record_num, facet_id FROM item_facet");
+		jdbc
+				.SQLupdate("INSERT INTO item_facet_heap SELECT record_num, facet_id FROM item_facet");
 	}
 
-	void addLftRgt() throws SQLException {
-		jdbc.print("\nAdding lft & rgt to facet...");
+	private void addLftRgt() throws SQLException {
+		jdbc.print("\nComputing lft & rgt ...");
+		int maxRgt = 2 * jdbc
+				.SQLqueryInt("SELECT MAX(canonical_facet_id) FROM temp");
+		String facet_idType = jdbc.unsignedTypeForMaxValue(maxRgt);
+
+		jdbc
+				.SQLupdate("CREATE TEMPORARY TABLE rgt ("
+						+ " facet_id  "
+						+ facet_idType
+						+ " ,"
+						+ " rgt "
+						+ facet_idType
+						+ " ,"
+						+ " PRIMARY KEY (facet_id)"
+						+ ") ENGINE=HEAP DEFAULT CHARSET=ascii PACK_KEYS=1 ROW_FORMAT=FIXED");
+
 		int nChildren = jdbc
 				.SQLqueryInt("SELECT COUNT(*) FROM facet WHERE parent_facet_id = 0");
 		int rgt = 1;
 		for (int i = 0; i < nChildren; i++) {
 			rgt = addLftRgtInternal(1 + i, rgt);
 		}
+
+		int nFacets = jdbc.SQLqueryInt("SELECT COUNT(*) FROM facet");
+		int nRgt = jdbc.SQLqueryInt("SELECT COUNT(*) FROM rgt");
+		assert nFacets == nRgt : nFacets + " " + nRgt;
 	}
 
 	private PreparedStatement lftRgt1;
@@ -334,16 +385,14 @@ public class ConvertFromRaw {
 
 	private PreparedStatement lftRgt3;
 
-	int addLftRgtInternal(int facet, int lft) throws SQLException {
+	private int addLftRgtInternal(int facet, int lft) throws SQLException {
 		int rgt = lft + 1;
 		if (lftRgt1 == null) {
 			lftRgt1 = jdbc
 					.prepareStatement("SELECT first_child_offset FROM facet WHERE facet_id = ? AND n_child_facets > 0");
 			lftRgt2 = jdbc
 					.prepareStatement("SELECT n_child_facets FROM facet WHERE facet_id = ?");
-			lftRgt3 = jdbc.prepareStatement("UPDATE facet SET" +
-			// " lft = ?," +
-					" rgt = ? WHERE facet_id = ?");
+			lftRgt3 = jdbc.prepareStatement("INSERT INTO rgt VALUES(?, ?)");
 		}
 		lftRgt1.setInt(1, facet);
 		int child = jdbc.SQLqueryInt(lftRgt1, "Get child offset");
@@ -355,13 +404,13 @@ public class ConvertFromRaw {
 			}
 		}
 		// lftRgt3.setInt(1, lft);
-		lftRgt3.setInt(1, rgt);
-		lftRgt3.setInt(2, facet);
+		lftRgt3.setInt(1, facet);
+		lftRgt3.setInt(2, rgt);
 		jdbc.SQLupdate(lftRgt3, "Set lft, rgt");
 		return rgt + 1;
 	}
 
-	void createItemFacetType() throws SQLException {
+	private void createItemFacetType() throws SQLException {
 		jdbc.SQLupdate("DROP TABLE IF EXISTS item_facet_type_heap");
 		jdbc
 				.SQLupdate("CREATE TABLE item_facet_type_heap LIKE item_facet_heap");
@@ -376,8 +425,8 @@ public class ConvertFromRaw {
 						+ "WHERE f.parent_facet_id = 0");
 	}
 
-	void createRandomItemIDs() throws SQLException {
-		 jdbc.print("\nCreating random IDs...");
+	private void createRandomItemIDs() throws SQLException {
+		jdbc.print("\nCreating random IDs...");
 		jdbc.SQLupdate("DROP TABLE IF EXISTS item_order");
 		jdbc.SQLupdate("DROP TABLE IF EXISTS item_order_heap");
 
@@ -390,11 +439,11 @@ public class ConvertFromRaw {
 				"INSERT INTO item_order SELECT record_num, 0");
 		StringBuffer create = new StringBuffer();
 		StringBuffer indexes = new StringBuffer();
-		create.append(" (record_num ").append(
-				item_idType);
+		create.append(" (record_num ").append(item_idType);
 		create.append(", random_id ").append(countType);
 		ResultSet rs = jdbc
-				.SQLquery("SELECT facet_id, rgt FROM facet WHERE parent_facet_id = 0 ORDER BY facet_id");
+				.SQLquery("SELECT f.facet_id, rgt FROM facet f INNER JOIN rgt USING (facet_id) "
+						+ "WHERE parent_facet_id = 0 ORDER BY facet_id");
 		while (rs.next()) {
 			String name = "col" + rs.getInt(1);
 
@@ -410,25 +459,28 @@ public class ConvertFromRaw {
 					" USING BTREE (").append(name).append(")");
 		}
 		update.append(" FROM item");
-		create
-				.append(", PRIMARY KEY (record_num))");
-//						+ "ENGINE=HEAP DEFAULT CHARSET=ascii PACK_KEYS=1 ROW_FORMAT=FIXED");
+		create.append(", PRIMARY KEY (record_num))");
+		// + "ENGINE=HEAP DEFAULT CHARSET=ascii PACK_KEYS=1 ROW_FORMAT=FIXED");
 		indexes.append(", ADD UNIQUE INDEX random_id USING BTREE (random_id)");
 		// Util.print(update.toString());
 		// Util.print(create.toString());
 		// Util.print(indexes.toString());
 		jdbc.SQLupdate("CREATE TABLE item_order" + create.toString());
-		jdbc.SQLupdate("CREATE TABLE item_order_heap" + create.toString() + "ENGINE=HEAP");
+		jdbc.SQLupdate("CREATE TABLE item_order_heap" + create.toString()
+				+ "ENGINE=HEAP");
 
 		jdbc.SQLupdate(update.toString());
 
 		populateRandomItemIDs(rs, item_idType);
 
 		jdbc.SQLupdate(indexes.toString());
+		jdbc.SQLupdate("DROP TABLE rgt");
+		jdbc.SQLupdate("INSERT INTO item_order_heap "
+				+ "SELECT * FROM item_order");
 	}
 
 	// Set all the facet_type columns
-	void populateRandomItemIDs(ResultSet rs, String item_id_column_type)
+	private void populateRandomItemIDs(ResultSet rs, String item_id_column_type)
 			throws SQLException {
 		jdbc.SQLupdate("DROP TABLE IF EXISTS random_item_ID");
 
@@ -456,8 +508,10 @@ public class ConvertFromRaw {
 			int rgt = rs.getInt(2);
 			jdbc
 					.SQLupdate("INSERT INTO random_item_ID"
-							+ " SELECT record_num, NULL FROM item_facet_heap ifh"
+							+ " SELECT record_num, NULL"
+							+ " FROM item_facet_heap ifh"
 							+ " INNER JOIN facet f on f.facet_id = ifh.facet_id"
+							+ " INNER JOIN rgt on f.facet_id = rgt.facet_id"
 							+ " WHERE rgt > " + prevRgt + " AND rgt <= " + rgt
 							+ " GROUP BY record_num"
 							+ " ORDER BY MIN(rgt), record_num");
@@ -480,64 +534,80 @@ public class ConvertFromRaw {
 		jdbc.SQLupdate("DROP TABLE random_item_ID");
 	}
 
-	boolean isPowerOf2(int n) {
-		for (int i = 0, pow = 1; i < 30; i++, pow = pow << 1) {
-			if (pow == n)
-				return true;
-			else if (pow > n)
-				return false;
-		}
-		return false;
+	void createUserActions() throws SQLException {
+		jdbc.SQLupdate("CREATE TABLE IF NOT EXISTS user_actions ("
+				+ "timestamp datetime NOT NULL,"
+				+ " location tinyint(3) unsigned NOT NULL,"
+				+ " object varchar(255) NOT NULL,"
+				+ " modifiers mediumint(9) NOT NULL,"
+				+ " session int(11) NOT NULL,"
+				+ " client varchar(255) NOT NULL)");
 	}
 
-	int checkCanonErrors() throws SQLException {
-		jdbc.print("\nChecking output tables for errors...");
-		int nErrors = 0; // No longer true... checkTempCount();
-		nErrors += findBrokenLinks(false, 8);
-		jdbc.print("...found " + nErrors + " errors in output tables.");
-		return nErrors == 0 ? NO_ERRORS : OUTPUT_ERRORS;
-	}
+	// private boolean isPowerOf2(int n) {
+	// for (int i = 0, pow = 1; i < 30; i++, pow = pow << 1) {
+	// if (pow == n)
+	// return true;
+	// else if (pow > n)
+	// return false;
+	// }
+	// return false;
+	// }
+	//
+	// int checkCanonErrors() throws SQLException {
+	// jdbc.print("\nChecking output tables for errors...");
+	// int nErrors = 0; // No longer true... checkTempCount();
+	// nErrors += findBrokenLinks(false, 8);
+	// jdbc.print("...found " + nErrors + " errors in output tables.");
+	// return nErrors == 0 ? NO_ERRORS : OUTPUT_ERRORS;
+	// }
+	//
+	// private int checkTempCount() throws SQLException {
+	// int nErrors = 0;
+	// int nRawFacets = jdbc.SQLqueryInt("SELECT COUNT(*) FROM raw_facet");
+	// int nRawFacetTypes = jdbc
+	// .SQLqueryInt("SELECT COUNT(DISTINCT facet_type_id) "
+	// + "FROM raw_facet_type ft INNER JOIN temp ON temp.facet_id =
+	// ft.facet_type_id");
+	// int nFacets = jdbc.SQLqueryInt("SELECT COUNT(*) FROM facet");
+	// if (nRawFacetTypes + nRawFacets != nFacets) {
+	// jdbc.print("\nERROR: nRawFacets + nRawFacetTypes != nFacets: "
+	// + nRawFacets + " " + nRawFacetTypes + " " + nFacets);
+	// nErrors += 1;
+	// }
+	// return nErrors;
+	// }
+	//
+	// private int checkInTemp() throws SQLException {
+	// return printErrors(
+	// "SELECT raw.facet_id, raw.name, raw.parent_facet_id"
+	// + " FROM raw_facet raw LEFT JOIN temp ON raw.facet_id = temp.facet_id"
+	// + " WHERE temp.facet_id IS NULL",
+	// "\nERROR: Not in temp",
+	// "raw.facet_id, raw.name, raw.parent_facet_id", 8);
+	// }
+	//
+	// private int checkNoIDs() throws SQLException {
+	// return printErrors(
+	// "SELECT facet.facet_id, facet.name, facet.parent_facet_id,
+	// facet.which_child"
+	// + " FROM temp facet LEFT JOIN temp parent ON facet.parent_facet_id =
+	// parent.facet_id"
+	// + " WHERE (facet.canonical_facet_id IS NULL OR facet.canonical_facet_id =
+	// 0)"
+	// + " AND parent.children_offset > 0",
+	// "\nERROR: no canonical ID",
+	// "[facet_id, name, parent_facet_id, which_child", 8);
+	// }
 
-	int checkTempCount() throws SQLException {
-		int nErrors = 0;
-		int nRawFacets = jdbc.SQLqueryInt("SELECT COUNT(*) FROM raw_facet");
-		int nRawFacetTypes = jdbc
-				.SQLqueryInt("SELECT COUNT(DISTINCT facet_type_id) "
-						+ "FROM raw_facet_type ft INNER JOIN temp ON temp.facet_id = ft.facet_type_id");
-		int nFacets = jdbc.SQLqueryInt("SELECT COUNT(*) FROM facet");
-		if (nRawFacetTypes + nRawFacets != nFacets) {
-			jdbc.print("\nERROR: nRawFacets + nRawFacetTypes != nFacets: "
-					+ nRawFacets + " " + nRawFacetTypes + " " + nFacets);
-			nErrors += 1;
-		}
-		return nErrors;
-	}
-
-	int checkInTemp() throws SQLException {
-		return printErrors(
-				"SELECT raw.facet_id, raw.name, raw.parent_facet_id"
-						+ " FROM raw_facet raw LEFT JOIN temp ON raw.facet_id = temp.facet_id"
-						+ " WHERE temp.facet_id IS NULL", "Not in temp",
-				"raw.facet_id, raw.name, raw.parent_facet_id", 8);
-	}
-
-	int checkNoIDs() throws SQLException {
-		return printErrors(
-				"SELECT facet.facet_id, facet.name, facet.parent_facet_id, facet.which_child"
-						+ " FROM temp facet LEFT JOIN temp parent ON facet.parent_facet_id = parent.facet_id"
-						+ " WHERE (facet.canonical_facet_id IS NULL OR facet.canonical_facet_id = 0)"
-						+ " AND parent.children_offset > 0", "no canonical ID",
-				"[facet_id, name, parent_facet_id, which_child", 8);
-	}
-
-	int printErrors(String query, String message, String fieldList, int maxPrint)
-			throws SQLException {
+	private int printErrors(String query, String message, String fieldList,
+			int maxPrint) throws SQLException {
 		int nErrors = jdbc.SQLqueryInt("SELECT COUNT(*) FROM (" + query
 				+ ") dummayName");
 		// It takes lots of VM for big result sets, so do LIMIT here and COUNT
 		// below.
 		if (nErrors > 0 && maxPrint > 0) {
-			jdbc.print("\nERROR: " + message + " [" + fieldList + "]:");
+			jdbc.print(message + " [" + fieldList + "]:");
 			String[] fields = fieldList.split(",");
 			ResultSet rs = jdbc.SQLquery(query + " LIMIT " + maxPrint);
 			try {
@@ -564,7 +634,7 @@ public class ConvertFromRaw {
 		return nErrors;
 	}
 
-	int checkRawErrors() throws SQLException {
+	private int checkRawErrors() throws SQLException {
 		int maxPrint = 8;
 		jdbc.print("\nChecking input tables for errors...");
 
@@ -577,11 +647,11 @@ public class ConvertFromRaw {
 						+ " FROM raw_facet raw LEFT JOIN raw_facet parent"
 						+ " ON raw.parent_facet_id = parent.facet_id"
 						+ " WHERE raw.name IS NULL OR raw.name = ''",
-				"No name in raw_facet",
+				"\nERROR: No name in raw_facet",
 				"facet_id, parent_facet_id, parent.name", 8);
 		jdbc
 				.SQLupdate("REPLACE INTO raw_facet (SELECT raw.facet_id, CONCAT('<unnamed', raw.facet_id, '>'),"
-						+ " raw.parent_facet_id, raw.facet_type_id, raw.sort FROM raw_facet raw"
+						+ " raw.parent_facet_id, raw.sort FROM raw_facet raw"
 						+ " INNER JOIN raw_facet child ON child.parent_facet_id = raw.facet_id"
 						+ " WHERE raw.name IS NULL OR raw.name = '')");
 		jdbc.SQLupdate("DELETE FROM raw_facet WHERE name IS NULL OR name = ''");
@@ -593,11 +663,12 @@ public class ConvertFromRaw {
 		nErrors += findBrokenLinks(true, maxPrint);
 
 		nErrors += printErrors(
-				"SELECT raw.facet_id, raw.name, raw.parent_facet_id, raw.facet_type_id"
+				"SELECT raw.facet_id, raw.name, raw.parent_facet_id"
 						+ " FROM raw_facet raw LEFT JOIN raw_facet parent ON raw.parent_facet_id = parent.facet_id"
 						+ " WHERE parent.facet_id IS NULL"
 						+ " AND raw.parent_facet_id > " + maxRawFacetTypes,
-				"No parent in raw_facet", "facet_id, name, parent_facet_id", 8);
+				"\nERROR: No parent in raw_facet",
+				"facet_id, name, parent_facet_id", 8);
 
 		jdbc.print("...found " + nErrors + " errors in raw tables.\n");
 
@@ -634,55 +705,68 @@ public class ConvertFromRaw {
 						+ descField
 						+ " FROM item LEFT JOIN usedItems used ON item.record_num = used.record_num"
 						+ " WHERE used.record_num IS NULL",
-				"Item is not associated with any facets", "record_num, title",
-				maxPrint);
+				"\nERROR: Item is not associated with any facets",
+				"record_num, " + descField, maxPrint);
 
 		jdbc.SQLupdate("DROP TABLE IF EXISTS unusedFacets");
 
 		jdbc
 				.SQLupdate("CREATE TABLE unusedFacets AS"
-						+ " SELECT type.name type_name, facet.name, facet.facet_id"
+						+ " SELECT parent.name parent_name, facet.name, facet.facet_id"
 						+ " FROM "
-						+ (raw ? "raw_facet facet inner join raw_facet_type type on facet.facet_type_id = type.facet_type_id "
-								: "facet inner join facet type on facet.parent_facet_id = type.facet_id")
+						+ (raw ? "raw_facet facet left join raw_facet parent"
+								: "facet left join facet parent")
+						+ " on facet.parent_facet_id = parent.facet_id"
 						+ " LEFT JOIN usedFacets used ON facet.facet_id = used.facet_id"
 						+ " WHERE used.facet_id IS NULL");
 
-		int unused = printErrors(
-				"SELECT type_name, CONCAT('[', COUNT(*), ' facets: ', GROUP_CONCAT(name), '] [', GROUP_CONCAT(facet_id), ']') FROM unusedFacets"
-						+ " GROUP BY type_name",
-				"Facet is not associated with any items",
-				"facet_type, facet names. facet ids", maxPrint);
-		if (raw && unused > 0) {
-			unused = jdbc.SQLqueryInt("SELECT COUNT(*) FROM unusedFacets");
-			nErrors += unused;
-			jdbc.print("Deleting " + unused + " unused facets from raw_facet");
+		int unusedFacets = printErrors(
+				"SELECT parent_name, CONCAT('[', COUNT(*), ' facets: ', GROUP_CONCAT(name), '] [', GROUP_CONCAT(facet_id), ']') FROM unusedFacets"
+						+ " GROUP BY parent_name",
+				"\nERROR: Facet is not associated with any items",
+				"parent, facet names. facet ids", maxPrint);
+		if (raw && unusedFacets > 0) {
+			unusedFacets = jdbc
+					.SQLqueryInt("SELECT COUNT(*) FROM unusedFacets");
+			nErrors += unusedFacets;
+			jdbc.print("Deleting " + unusedFacets
+					+ " unused facets from raw_facet");
 			jdbc.SQLupdate("DELETE raw_facet r1 FROM " + f
 					+ " r1, unusedFacets bar WHERE r1.facet_id = bar.facet_id");
 		}
 		jdbc.SQLupdate("DROP TABLE IF EXISTS unusedFacets");
 
-		nErrors += printErrors("SELECT i_f.facet_id, i_f.record_num" + " FROM "
-				+ i_f
+		int noSuchItems = printErrors("SELECT i_f.facet_id, i_f.record_num"
+				+ " FROM " + i_f
 				+ " i_f LEFT JOIN item ON item.record_num = i_f.record_num"
-				+ " WHERE item.record_num IS NULL", "No such item",
+				+ " WHERE item.record_num IS NULL", "\nERROR: No such item",
 				"facet_id, record_num", maxPrint);
+		nErrors += noSuchItems;
 
 		String q = "SELECT i_f.facet_id, i_f.record_num" + " FROM " + i_f
 				+ " i_f LEFT JOIN " + f
 				+ " facet ON facet.facet_id = i_f.facet_id"
 				+ " WHERE facet.facet_id IS NULL";
-		unused = printErrors(q, "No such facet", "facet_id, record_num",
-				maxPrint);
-		nErrors += unused;
-		if (raw && unused > 0) {
-			jdbc.print("Deleting " + unused
-					+ " bogus facet links from raw_item_facet");
-			jdbc
-					.SQLupdate("DELETE raw_item_facet FROM raw_item_facet, ("
-							+ q
-							+ ") unused"
-							+ " WHERE raw_item_facet.record_num = unused.record_num AND raw_item_facet.facet_id = unused.facet_id");
+		int noSuchFacets = printErrors(q, "\nERROR: No such facet",
+				"facet_id, record_num", maxPrint);
+		nErrors += noSuchFacets;
+		if (raw && (noSuchFacets > 0 || noSuchItems > 0)) {
+
+			q = "SELECT i_f.facet_id, i_f.record_num"
+					+ " FROM "
+					+ i_f
+					+ " i_f LEFT JOIN "
+					+ f
+					+ " facet ON facet.facet_id = i_f.facet_id"
+					+ " LEFT JOIN item ON item.record_num = i_f.record_num"
+					+ " WHERE facet.facet_id IS NULL OR item.record_num IS NULL";
+
+			jdbc.print("Deleting " + (noSuchFacets + noSuchItems)
+					+ " bogus facet/item links from raw_item_facet");
+			jdbc.SQLupdate("DELETE raw_item_facet FROM raw_item_facet, (" + q
+					+ ") unused"
+					+ " WHERE raw_item_facet.record_num = unused.record_num"
+					+ " AND raw_item_facet.facet_id = unused.facet_id");
 		}
 
 		jdbc.SQLupdate("DROP TABLE usedFacets");
@@ -706,7 +790,7 @@ public class ConvertFromRaw {
 		int nErrors = printErrors(
 				"SELECT name, facet_id, parent_name, parent_facet_id, CONCAT('[', COUNT(*), ' records: ', GROUP_CONCAT(record_num), ']') FROM missingFacets"
 						+ " GROUP BY record_num, facet_id",
-				"Item has facet child, but not its parent",
+				"\nERROR: Item has facet child, but not its parent",
 				"name, facet_id, parent_name, parent_facet_id, record_nums",
 				maxPrint);
 		if (nErrors > 0) {
@@ -723,11 +807,18 @@ public class ConvertFromRaw {
 
 	void ensureIndex(String table, String name, String columnNames)
 			throws SQLException {
+		ResultSet rs = null;
 		try {
+			rs = jdbc.SQLquery("SHOW INDEX FROM " + table
+					+ " WHERE key_name = '" + name + "'");
+			boolean exists = MyResultSet.nRows(rs) > 0;
+			if (exists)
+				jdbc.SQLupdate("ALTER TABLE " + table + " DROP INDEX " + name);
 			jdbc.SQLupdate("ALTER TABLE " + table + " ADD INDEX " + name + " ("
 					+ columnNames + ")");
-		} catch (MySQLSyntaxErrorException e) {
-			// ignore if the index already exists
+		} finally {
+			if (rs != null)
+				jdbc.close(rs);
 		}
 	}
 
@@ -747,7 +838,8 @@ public class ConvertFromRaw {
 						+ " GROUP BY old.facet_id");
 
 		int nErrors = printErrors("SELECT * FROM duplicates",
-				"duplicate facets", "copy1, copy2, name, parent_facet_id", 8);
+				"\nERROR: duplicate facets",
+				"copy1, copy2, name, parent_facet_id", 8);
 		if (nErrors > 0) {
 			jdbc.print("Merging copy1s into copy2s...");
 			jdbc
@@ -772,8 +864,9 @@ public class ConvertFromRaw {
 		return nErrors;
 	}
 
-	void setUpFacetSearch() throws SQLException {
+	private int setUpFacetSearch() throws SQLException {
 		jdbc.print("\nSetting up facet search...");
+		int nErrors = 0;
 		String itemDescs = jdbc
 				.SQLqueryString("SELECT itemDescriptionFields FROM globals");
 		if (itemDescs != null) {
@@ -783,51 +876,57 @@ public class ConvertFromRaw {
 				// CONCAT_WS ignores nulls, so replace empty strings with NULLs.
 				jdbc.SQLupdate("UPDATE item SET " + field
 						+ " = NULL WHERE LENGTH(TRIM(" + field + ")) = 0");
+
+				boolean OK = true;
+				boolean indexExists = false;
+				ResultSet rs = jdbc
+						.SQLquery("SHOW INDEX FROM item WHERE key_name = 'search'");
+				int n = 0;
+				while (OK && rs.next()) {
+					indexExists = true;
+					String col = rs.getString("column_name");
+					if (Util.isMember(itemDescFields, col)
+							|| col.equals("facet_names"))
+						n++;
+					else
+						OK = false;
+				}
+				if (!OK || (n != itemDescFields.length)) {
+					if (indexExists)
+						jdbc.SQLupdate("ALTER TABLE item DROP INDEX search");
+					jdbc
+							.SQLupdate("ALTER TABLE item ADD FULLTEXT search(facet_names,"
+									+ itemDescs + ")");
+				}
 			}
 
-			boolean OK = true;
-			ResultSet rs = jdbc
-					.SQLquery("SHOW INDEX FROM item WHERE key_name = 'search'");
-			int n = -1;
-			while (OK && rs.next()) {
-				String col = rs.getString("column_name");
-				if (Util.isMember(itemDescFields, col)
-						|| col.equals("facet_names"))
-					n++;
-				else
-					OK = false;
-			}
-			if (!OK || (n != itemDescFields.length)) {
-				jdbc.SQLupdate("ALTER TABLE item DROP INDEX search");
-				jdbc
-						.SQLupdate("ALTER TABLE item ADD FULLTEXT search(facet_names,"
-								+ itemDescs + ")");
-			}
+			// Set up facet search
+			jdbc.SQLupdate("DROP TABLE IF EXISTS item_temp");
+			jdbc.SQLupdate("CREATE TABLE item_temp ("
+					+ " record_num INT NOT NULL DEFAULT 0,"
+					+ " facet_names TEXT," + " PRIMARY KEY  (record_num))");
+			jdbc
+					.SQLupdate("INSERT INTO item_temp"
+							+ " SELECT it.record_num, GROUP_CONCAT(DISTINCT f.name)"
+							+ " FROM item_facet it INNER JOIN facet f ON it.facet_id = f.facet_id"
+							// + " WHERE name != 'No Categorization' AND name !=
+							// 'No
+							// Further Categorization'"
+							+ " GROUP BY it.record_num ORDER BY NULL");
+			jdbc.SQLupdate("ALTER TABLE item DISABLE KEYS");
+			jdbc.SQLupdate("UPDATE item i, item_temp it"
+					+ " SET i.facet_names = it.facet_names"
+					+ " WHERE i.record_num = it.record_num");
+			jdbc.SQLupdate("ALTER TABLE item ENABLE KEYS");
+			jdbc.SQLupdate("DROP TABLE item_temp");
 		}
-
-		// Set up facet search
-		jdbc.SQLupdate("DROP TABLE IF EXISTS item_temp");
-		jdbc.SQLupdate("CREATE TABLE item_temp ("
-				+ " record_num INT NOT NULL DEFAULT 0," + " facet_names TEXT,"
-				+ " PRIMARY KEY  (record_num))");
-		jdbc
-				.SQLupdate("INSERT INTO item_temp"
-						+ " SELECT it.record_num, GROUP_CONCAT(DISTINCT f.name)"
-						+ " FROM item_facet it INNER JOIN facet f ON it.facet_id = f.facet_id"
-						// + " WHERE name != 'No Categorization' AND name != 'No
-						// Further Categorization'"
-						+ " GROUP BY it.record_num ORDER BY NULL");
-		jdbc.SQLupdate("ALTER TABLE item DISABLE KEYS");
-		jdbc.SQLupdate("UPDATE item i, item_temp it"
-				+ " SET i.facet_names = it.facet_names"
-				+ " WHERE i.record_num = it.record_num");
-		jdbc.SQLupdate("ALTER TABLE item ENABLE KEYS");
-		jdbc.SQLupdate("DROP TABLE item_temp");
+		return nErrors;
 	}
 
 	private PreparedStatement setChiSquared;
 
-	void findPairs(String facet_idType, String item_idType) throws SQLException {
+	private void findPairs(String facet_idType, String item_idType)
+			throws SQLException {
 		jdbc.print("Finding pairs with high Chi Squared...");
 		jdbc.SQLupdate(" DROP TABLE IF EXISTS pairs; ");
 		jdbc.SQLupdate("CREATE TABLE pairs ( " + "  facet1 " + facet_idType
@@ -901,13 +1000,13 @@ public class ConvertFromRaw {
 		}
 	}
 
-	void loadImages(String directory) throws SQLException {
+	private void loadImages(String directory) throws SQLException {
 		jdbc
 				.SQLupdate("INSERT INTO images (SELECT record_num, LOAD_FILE(CONCAT('"
 						+ directory + "', filename)) FROM item)");
 	}
 
-	void addImageSizes() throws SQLException, IOException {
+	private void addImageSizes() throws SQLException, IOException {
 		String[] tables = { "images" };
 		for (int i = 0; i < tables.length; i++) {
 			boolean done = false;

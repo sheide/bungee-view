@@ -81,7 +81,7 @@ public class Chartres {
 		if (i >= 0 && record.length > i)
 			result = record[i];
 		else {
-			// PrintArray.printArray(record);
+			// Util.printDeep(record);
 			Util.print(lineNo + " WARNING: No " + name);
 		}
 		return result;
@@ -92,16 +92,13 @@ public class Chartres {
 	private void parse() {
 		try {
 			String set = "visuals"; // colValue("Location");
-			if (set != null) {
 				handler.newItem();
 				Field field = Field.getField("Collection", Field.FACET);
 				int[] facets = handler.getFacets(field, set);
 				assert CreateRawSaxHandler.dontUpdate || facets != null : field + " '"
 						+ set + "'";
-				if (facets != null) {
 					assert facets.length == 1 : "'" + set + "'";
 					handler.setCollection(facets[0]);
-				}
 				set = set.toLowerCase();
 				if (set.endsWith("zelay"))
 					set = "vezelay";
@@ -159,7 +156,6 @@ public class Chartres {
 				// parseField("Bibliography",
 				// URLtail(colValue("Bibliography")));
 				// parseField("Diagram", URLtail(colValue("Diagram")));
-			}
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
