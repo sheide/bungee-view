@@ -2,7 +2,7 @@
 <!-- JNLP File for Bungee View Application -->
 <jnlp
   spec="1.0+"
-  codebase="http://localhost/bungeeOLD"
+  codebase="http://localhost/bungee"
   >
   <information>
     <title>Bungee View</title>
@@ -17,16 +17,16 @@
   <security>
   </security>
   <resources>
-    <j2se version="1.4+" initial-heap-size="128m"/>
-    <jar href="art_shrunk.jar"/>
+    <j2se version="1.4+" initial-heap-size="128m" max-heap-size="256m"/>
+    <jar href="bungeeClient.jar"/>
   </resources>
-  <application-desc main-class="viz.Art">
+  <application-desc main-class="edu.cmu.cs.bungee.client.viz.Bungee">
     
 <%
 String query = request.getQueryString();
 if (query == null) query = "";
 if (query.length() > 0) query = query + "&";
-query = query + "server=http://localhost/bungeeOLD/Bungee";
+query = query + "server=http://localhost/bungee/Bungee";
 
 response.setContentType("application/x-java-jnlp-file");
 response.setHeader("Content-Disposition", "inline; filename=bungee.jnlp");
