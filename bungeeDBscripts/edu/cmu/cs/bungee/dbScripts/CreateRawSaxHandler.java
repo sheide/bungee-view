@@ -26,7 +26,6 @@ import java.util.Vector;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-
 import org.xml.sax.Attributes;
 import org.xml.sax.helpers.DefaultHandler;
 
@@ -37,8 +36,6 @@ import com.sun.image.codec.jpeg.JPEGImageEncoder;
 
 import edu.cmu.cs.bungee.javaExtensions.JDBCSample;
 import edu.cmu.cs.bungee.javaExtensions.Util;
-
-
 
 final class CreateRawSaxHandler extends DefaultHandler {
 
@@ -152,7 +149,9 @@ final class CreateRawSaxHandler extends DefaultHandler {
 			"Northern Mariana Islands;mp", "Nova Scotia;ns", "Ohio;oh",
 			"Oklahoma;ok:okla", "Ontario;ont", "Oregon;or:ore", "Palau;pw",
 			"Pennsylvania;pa:penn", "Puerto Rico;pr", "Rhode Island;ri",
-			"South Carolina;sc", "South Dakota;sd", "Tennessee;tn:tenn",
+			"South Carolina;sc",
+			"South Dakota;sd",
+			"Tennessee;tn:tenn",
 			"Texas;tx:tex",
 			// "United States;us",
 			"Utah;ut", "Vermont;vt", "Virgin Islands;vi", "Virginia;va",
@@ -293,7 +292,7 @@ final class CreateRawSaxHandler extends DefaultHandler {
 	}
 
 	private void createTables() {
-		String copyFrom = "hp2";
+		String copyFrom = "wpa";
 		String[] tables = { "images", "raw_facet", "raw_facet_type",
 				"user_actions", "raw_item_facet", "item", "globals" /*
 																	 * "places_hierarchy",
@@ -528,7 +527,7 @@ final class CreateRawSaxHandler extends DefaultHandler {
 				String[] olds = x[0].split(" -- ");
 				String[] news = x[1].split(" -- ");
 				int parentFacet = facetType(olds[0]);
-				
+
 				for (int j = 1; j < olds.length && parentFacet > 0; j++)
 					parentFacet = lookupFacet(olds[j], parentFacet);
 				if (parentFacet > 0) {
@@ -583,7 +582,7 @@ final class CreateRawSaxHandler extends DefaultHandler {
 		convertFromRaw().fixMissingItemFacets(0);
 		promote(toPromoteDoublingItems);
 
-		fixFacetTypes();
+//		fixFacetTypes();
 		convertFromRaw().fixDuplicates();
 		convertFromRaw().fixMissingItemFacets(0);
 		convertFromRaw().findBrokenLinks(true, 0);
@@ -626,9 +625,10 @@ final class CreateRawSaxHandler extends DefaultHandler {
 	}
 
 	private void promoteSingletonCategories() throws SQLException {
+
 		ResultSet rs = jdbc
-				.SQLquery("SELECT facet_id FROM raw_facet WHERE parent_facet_id = facet_type_id "
-						+ "GROUP BY facet_type_id HAVING COUNT(*) = 1");
+				.SQLquery("SELECT facet_id, facet_type_id FROM raw_facet f INNER JOIN raw_facet_type ft ON f.parent_facet_id = ft.facet_type_id"
+						+ " GROUP BY facet_type_id HAVING COUNT(*) = 1");
 		boolean change = false;
 		while (rs.next()) {
 			int singleton = rs.getInt(1);
@@ -639,8 +639,9 @@ final class CreateRawSaxHandler extends DefaultHandler {
 				change = true;
 				// Util.print("Promoting singleton "
 				// + Util.join(ancestors(singleton, false)));
-				db("UPDATE raw_facet set parent_facet_id = facet_type_id WHERE parent_facet_id = "
-						+ singleton);
+				int type = rs.getInt(2);
+				db("UPDATE raw_facet set parent_facet_id = " + type
+						+ " WHERE parent_facet_id = " + singleton);
 				db("DELETE FROM raw_facet WHERE facet_id = " + singleton);
 			}
 		}
@@ -656,17 +657,17 @@ final class CreateRawSaxHandler extends DefaultHandler {
 						+ facetID1);
 	}
 
-	private void fixFacetTypes() {
-		db("UPDATE raw_facet r, raw_facet_type p "
-				+ "SET r.facet_type_id = p.facet_type_id "
-				+ "WHERE r.parent_facet_id = p.facet_type_id");
-		while (db("UPDATE raw_facet r, raw_facet p	"
-				+ "SET r.facet_type_id = p.facet_type_id "
-				+ "WHERE r.parent_facet_id = p.facet_id "
-				+ "AND r.facet_type_id != p.facet_type_id") > 0) {
-			// Loop till they are all updated
-		}
-	}
+	// private void fixFacetTypes() {
+	// db("UPDATE raw_facet r, raw_facet_type p "
+	// + "SET r.facet_type_idxx = p.facet_type_id "
+	// + "WHERE r.parent_facet_id = p.facet_type_id");
+	// while (db("UPDATE raw_facet r, raw_facet p "
+	// + "SET r.facet_type_idxx = p.facet_type_idxx "
+	// + "WHERE r.parent_facet_id = p.facet_id "
+	// + "AND r.facet_type_idxx != p.facet_type_idxx") > 0) {
+	// // Loop till they are all updated
+	// }
+	// }
 
 	private void useTGMinternal(String TGMtable, int facetTypeID)
 			throws SQLException {
@@ -691,8 +692,8 @@ final class CreateRawSaxHandler extends DefaultHandler {
 						+ "FROM (raw_facet r INNER JOIN "
 						+ TGMtable
 						+ " t ON r.name = t.term) "
-						+ "LEFT JOIN raw_facet p ON t.broader = p.name AND p.facet_type_id = "
-						+ facetTypeID
+						+ "LEFT JOIN raw_facet p ON t.broader = p.name" // AND p.facet_type_idxx = "
+//						+ facetTypeID
 						+ " WHERE r.parent_facet_id = "
 						+ facetTypeID + " GROUP BY t.broader");
 		while (rs.next()) {
@@ -700,9 +701,12 @@ final class CreateRawSaxHandler extends DefaultHandler {
 			int[] parents = null;
 			if (parentIDs != null) {
 				String[] parentIDstrings = parentIDs.split(",");
-				parents = new int[parentIDstrings.length];
-				for (int i = 0; i < parents.length; i++)
-					parents[i] = Integer.parseInt(parentIDstrings[i]);
+				parents = new int[0];
+				for (int i = 0; i < parentIDstrings.length; i++) {
+					int parent = Integer.parseInt(parentIDstrings[i]);
+					if (getFacetType(parent) == facetTypeID) 
+						parents = Util.push(parents, parent);
+				}
 			}
 			parents = pickParent(parents);
 			int nParents = parents == null ? 0 : parents.length;
@@ -820,6 +824,14 @@ final class CreateRawSaxHandler extends DefaultHandler {
 			Util.print("UPDATE raw_facet SET parent_facet_id = " + parent
 					+ " WHERE facet_id = " + facet);
 	}
+	
+	private int lookupSomeFacet(String name, int facetType) throws SQLException {
+		int[] facets = lookupFacets(name, facetType);
+		if (facets.length > 0)
+			return facets[0];
+		else 
+			return -1;
+	}
 
 	private PreparedStatement lookupFacet;
 
@@ -843,24 +855,49 @@ final class CreateRawSaxHandler extends DefaultHandler {
 		return result;
 	}
 
-	private PreparedStatement lookupSomeFacet;
+	private PreparedStatement lookupFacets;
 
-	private int lookupSomeFacet(String name, int type) {
-		int result = -1;
+	private int[] lookupFacets(String name, int type) throws SQLException {
+		int[] result = new int[0];
+		ResultSet rs = null;
 		try {
-			if (lookupSomeFacet == null) {
-				lookupSomeFacet = jdbc
-						.prepareStatement("SELECT facet_id FROM raw_facet WHERE name = ? AND facet_type_id = ? LIMIT 1");
+			if (lookupFacets == null) {
+				lookupFacets = jdbc
+						.prepareStatement("SELECT facet_id FROM raw_facet WHERE name = ?");
 			}
-			lookupSomeFacet.setString(1, truncateName(name, true));
-			lookupSomeFacet.setInt(2, type);
-			result = jdbc.SQLqueryInt(lookupSomeFacet,
-					"Find one facet with name and type");
-		} catch (SQLException e) {
-			e.printStackTrace();
+			lookupFacets.setString(1, truncateName(name, true));
+			// lookupSomeFacet.setInt(2, type);
+			for (rs = jdbc.SQLquery(lookupFacets,
+					"Find one facet with name and type"); rs.next();) {
+				int facet = rs.getInt(1);
+				if (getFacetType(facet) == type) {
+					result = Util.push(result, facet);
+				}
+			}
+		} finally {
+			if (rs != null)
+				jdbc.close(rs);
 		}
 		return result;
 	}
+
+//	private PreparedStatement lookupFacets;
+//
+//	private ResultSet lookupFacets(String name, int type) {
+//		ResultSet rs = null;
+//		try {
+//			if (lookupFacets == null) {
+//				lookupFacets = jdbc
+//						.prepareStatement("SELECT f.facet_id FROM raw_facet f WHERE f.name = ? AND f.facet_type_idxx = ?");
+//			}
+//			lookupFacets.setString(1, truncateName(name, false));
+//			lookupFacets.setInt(2, type);
+//			rs = jdbc.SQLquery(lookupFacets, "Get child facet names");
+//		} catch (SQLException e) {
+//			e.printStackTrace();
+//		}
+//		return rs;
+//	}
 
 	private void addDuplicateFacet(String term, int parent, int facetType)
 			throws SQLException {
@@ -968,12 +1005,12 @@ final class CreateRawSaxHandler extends DefaultHandler {
 			try {
 				if (newFacet == null) {
 					newFacet = jdbc
-							.prepareStatement("INSERT INTO raw_facet VALUES(?, ?, null, ?, ?)");
+							.prepareStatement("INSERT INTO raw_facet VALUES(?, ?, ?, null)");
 				}
 				newFacet.setInt(1, ++facetID);
 				newFacet.setString(2, name);
 				newFacet.setInt(3, parent);
-				newFacet.setInt(4, facetType);
+//				newFacet.setInt(4, facetType);
 				jdbc.SQLupdate(newFacet, "Add new facet");
 			} catch (SQLException e) {
 				Util.err("Problem creating facet: name='" + name + "'; parent="
@@ -983,7 +1020,7 @@ final class CreateRawSaxHandler extends DefaultHandler {
 			}
 		} else
 			Util.print("INSERT INTO raw_facet VALUES(<next facet_id>, " + name
-					+ ", null, " + parent + ", " + facetType + ")");
+					+ ", " + parent + ", null)");
 		return facetID;
 	}
 
@@ -1179,9 +1216,8 @@ final class CreateRawSaxHandler extends DefaultHandler {
 		}
 	}
 
-	static Vector download(URL base, String address,
-			String localFilename) throws ImageFormatException,
-			InterruptedException, IOException {
+	static Vector download(URL base, String address, String localFilename)
+			throws ImageFormatException, InterruptedException, IOException {
 		Vector result = null;
 		OutputStream out = null;
 		URLConnection conn = null;
@@ -1190,7 +1226,7 @@ final class CreateRawSaxHandler extends DefaultHandler {
 		String dst = null;
 		try {
 			URL url = new URL(base, address);
-//			Util.print(url);
+			// Util.print(url);
 			conn = url.openConnection();
 			in = conn.getInputStream();
 			String[] types = conn.getContentType().split("/");
@@ -1227,46 +1263,46 @@ final class CreateRawSaxHandler extends DefaultHandler {
 		return result;
 	}
 
-	static Vector convertImage(String inFile, String outFile,
-			int quality) throws InterruptedException, ImageFormatException,
-			IOException {
+	static Vector convertImage(String inFile, String outFile, int quality)
+			throws InterruptedException, ImageFormatException, IOException {
 		Vector result = null;
 		if (inFile != null) {
-		Image image = Toolkit.getDefaultToolkit().createImage(inFile);
-		MediaTracker mediaTracker = new MediaTracker(new Container());
-		mediaTracker.addImage(image, 0);
-		mediaTracker.waitForID(0);
-		// Util.print("errors? => " + mediaTracker.isErrorAny());
-		// determine thumbnail size from WIDTH and HEIGHT
-		int imageWidth = image.getWidth(null);
-		int imageHeight = image.getHeight(null);
-		// assert imageWidth > 0 && imageHeight > 0 : imageWidth + "x" +
-		// imageHeight;
-		if (inFile != outFile) {
-			BufferedImage thumbImage = new BufferedImage(imageWidth,
-					imageHeight, BufferedImage.TYPE_INT_RGB);
-			Graphics2D graphics2D = thumbImage.createGraphics();
-			graphics2D.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
-					RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-			graphics2D.drawImage(image, 0, 0, imageWidth, imageHeight, null);
-			// save thumbnail image to OUTFILE
-			BufferedOutputStream out = new BufferedOutputStream(
-					new FileOutputStream(outFile));
-			JPEGImageEncoder encoder = JPEGCodec.createJPEGEncoder(out);
-			JPEGEncodeParam param = encoder
-					.getDefaultJPEGEncodeParam(thumbImage);
-			quality = Math.max(0, Math.min(quality, 100));
-			param.setQuality(quality / 100.0f, false);
-			encoder.setJPEGEncodeParam(param);
-			encoder.encode(thumbImage);
-			out.close();
+			Image image = Toolkit.getDefaultToolkit().createImage(inFile);
+			MediaTracker mediaTracker = new MediaTracker(new Container());
+			mediaTracker.addImage(image, 0);
+			mediaTracker.waitForID(0);
+			// Util.print("errors? => " + mediaTracker.isErrorAny());
+			// determine thumbnail size from WIDTH and HEIGHT
+			int imageWidth = image.getWidth(null);
+			int imageHeight = image.getHeight(null);
+			// assert imageWidth > 0 && imageHeight > 0 : imageWidth + "x" +
+			// imageHeight;
+			if (inFile != outFile) {
+				BufferedImage thumbImage = new BufferedImage(imageWidth,
+						imageHeight, BufferedImage.TYPE_INT_RGB);
+				Graphics2D graphics2D = thumbImage.createGraphics();
+				graphics2D.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
+						RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+				graphics2D
+						.drawImage(image, 0, 0, imageWidth, imageHeight, null);
+				// save thumbnail image to OUTFILE
+				BufferedOutputStream out = new BufferedOutputStream(
+						new FileOutputStream(outFile));
+				JPEGImageEncoder encoder = JPEGCodec.createJPEGEncoder(out);
+				JPEGEncodeParam param = encoder
+						.getDefaultJPEGEncodeParam(thumbImage);
+				quality = Math.max(0, Math.min(quality, 100));
+				param.setQuality(quality / 100.0f, false);
+				encoder.setJPEGEncodeParam(param);
+				encoder.encode(thumbImage);
+				out.close();
+			}
+			result = new Vector(3);
+			result.add(outFile);
+			result.add(new Integer(imageWidth));
+			result.add(new Integer(imageHeight));
 		}
-		result = new Vector(3);
-		result.add(outFile);
-		result.add(new Integer(imageWidth));
-		result.add(new Integer(imageHeight));
-		}
-//		Util.print("convertImage return " + result);
+		// Util.print("convertImage return " + result);
 		return result;
 	}
 
@@ -1308,7 +1344,7 @@ final class CreateRawSaxHandler extends DefaultHandler {
 	//
 	// System.out.println("JPEG2000 Parameter: ");
 	// System.out.print("getCodeBlockSize: ");
-	// PrintArray.printArray(paramJ2K.getCodeBlockSize());
+	// Util.printDeep(paramJ2K.getCodeBlockSize());
 	// System.out.println("getComponentTransformation: "
 	// + paramJ2K.getComponentTransformation());
 	// System.out.println("getEPH: " + paramJ2K.getEPH());
@@ -1395,10 +1431,8 @@ final class CreateRawSaxHandler extends DefaultHandler {
 				Field field = Field.getField("Collection", Field.FACET);
 				int[] facets = getFacets(field, set);
 				assert dontUpdate || facets != null : field + " '" + set + "'";
-				if (facets != null) {
-					assert facets.length == 1 : "'" + set + "'";
-					setCollection(facets[0]);
-				}
+				assert facets.length == 1 : "'" + set + "'";
+				setCollection(facets[0]);
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
@@ -1743,7 +1777,7 @@ final class CreateRawSaxHandler extends DefaultHandler {
 			field = hierField(field);
 			for (int p = 0; p < hierValues.length; p++) {
 				String[] hierValue = hierValues[p];
-				// PrintArray.printArray(hierValue);
+				// Util.printDeep(hierValue);
 				if (hierValue != null && hierValue.length > 0) {
 					int[] topLevel = getFacets(field, hierValue[0], field
 							.getFacetType(this));
@@ -1949,10 +1983,17 @@ final class CreateRawSaxHandler extends DefaultHandler {
 						+ facet_id);
 	}
 
-	private String getFacetTypeName(int facet_id) throws SQLException {
+	private String getFacetTypeName(int facet_type_id) throws SQLException {
 		return jdbc
 				.SQLqueryString("SELECT name FROM raw_facet_type WHERE facet_type_id = "
-						+ facet_id);
+						+ facet_type_id);
+	}
+
+	private int getFacetType(int facet_id) throws SQLException {
+		for (int facet_type_id = facet_id; facet_type_id > 0; facet_type_id = getParentFacet(facet_type_id)) {
+			facet_id = facet_type_id;
+		}
+		return facet_id;
 	}
 
 	private int getParentFacet(int facet_id) throws SQLException {
@@ -2049,7 +2090,7 @@ final class CreateRawSaxHandler extends DefaultHandler {
 			result[0] = hierValuesInternal(value, "z");
 			if (result[0].length == 1)
 				result = trimPlaces(result[0][0]);
-			// PrintArray.printArray(result);
+			// Util.printDeep(result);
 			if (result[0].length == 1)
 				result[0] = hierPlaces(result[0][0]);
 		} else if (field.name.equals("Date of Creation")
@@ -2384,10 +2425,7 @@ final class CreateRawSaxHandler extends DefaultHandler {
 		// Util.print("getFacets " + field + " " + value + " " + parent + "
 		// " + facetType);
 		if (parent < 0) {
-			ResultSet rs = lookupFacets(value, facetType);
-			while (rs.next()) {
-				result = Util.push(result, rs.getInt(1));
-			}
+			result = lookupFacets(value, facetType);
 			parent = facetType;
 		} else {
 			int theResult = lookupFacet(value, parent);
@@ -2452,24 +2490,6 @@ final class CreateRawSaxHandler extends DefaultHandler {
 		return result;
 	}
 
-	private PreparedStatement lookupFacets;
-
-	private ResultSet lookupFacets(String name, int type) {
-		ResultSet rs = null;
-		try {
-			if (lookupFacets == null) {
-				lookupFacets = jdbc
-						.prepareStatement("SELECT f.facet_id FROM raw_facet f WHERE f.name = ? AND f.facet_type_id = ?");
-			}
-			lookupFacets.setString(1, truncateName(name, false));
-			lookupFacets.setInt(2, type);
-			rs = jdbc.SQLquery(lookupFacets, "Get child facet names");
-		} catch (SQLException e) {
-			e.printStackTrace();
-		}
-		return rs;
-	}
-
 	private PreparedStatement lookupGAC;
 
 	private String[] lookupGAC(String name) {
@@ -2526,7 +2546,7 @@ final class CreateRawSaxHandler extends DefaultHandler {
 			} else if (tag1.equals("dc:publisher")) {
 				result = Field.getField("Publisher", Field.FACET);
 			} else if (tag1.equals("dc:format")) {
-				result = result = Field.getField("Subject", Field.FACET);
+				result = Field.getField("Subject", Field.FACET);
 			} else if (tag1.equals("dc:rights")) {
 				result = Field.getField("Rights", Field.FACET);
 			} else if (tag1.equals("dc:title")) {
@@ -2752,4 +2772,3 @@ class Field {
 		return "<Field " + name + ">";
 	}
 }
-

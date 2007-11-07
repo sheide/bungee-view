@@ -383,7 +383,7 @@ final class SaxWFMovieHandler extends HTMLEditorKit.ParserCallback {
 		// Util.print(thumbURL + " " + record);
 		String[] filenames = loc.split("\\.");
 		// Util.print(loc);
-		// PrintArray.printArray(filenames);
+		// Util.printDeep(filenames);
 		String filename = directory + filenames[filenames.length - 2];
 		int w = 0;
 		int h = 0;
