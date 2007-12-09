@@ -1611,6 +1611,13 @@ final class Summary extends LazyPNode implements MouseDoc {
 
 	}
 
+	boolean keyPress(char key) {
+		Rank r = connectedRank();
+		if (r != null)
+			return r.keyPress(key);
+		return false;
+	}
+
 	// final class Fetcher extends QueueThread {
 	//
 	// public Fetcher() {

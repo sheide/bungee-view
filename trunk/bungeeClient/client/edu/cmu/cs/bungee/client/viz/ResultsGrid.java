@@ -757,7 +757,7 @@ final class ResultsGrid extends LazyPNode implements MouseDoc {
 									updateSelectionOutline(x, y, iw, ih);
 									if (mustSetItem) {
 										mustSetItem = false;
-										art.setSelectedItem(item, outline);
+										art.setSelectedItem(item, outline, false);
 									}
 								}
 								// } else {
@@ -914,6 +914,7 @@ final class ResultsGrid extends LazyPNode implements MouseDoc {
 	// Called by handleArrow, pick, and scroll.run
 	void computeSelectedItemFromSelectedOffset(int itemOffset, int rowOffset) {
 		if (onCount > 0) {
+			boolean isExplicitly = rowOffset < 0;
 			selectedItemOffset = Util.constrain(itemOffset, 0, onCount - 1);
 			if (rowOffset < 0) {
 				rowOffset = visibleRowOffset(visRowOffset, selectedItemOffset);
@@ -948,7 +949,7 @@ final class ResultsGrid extends LazyPNode implements MouseDoc {
 					updateSelectionOutline(thumb.getXOffset(), thumb
 							.getYOffset(), thumb.getWidth(), thumb.getHeight());
 					if (oldSelectedItem != selectedItem)
-						art.setSelectedItem(selectedItem, thumb);
+						art.setSelectedItem(selectedItem, thumb, isExplicitly);
 				}
 			}
 			// for (int gridOffset=0; gridOffset<nRows*nCols; gridOffset++) {
@@ -1045,7 +1046,7 @@ final class ResultsGrid extends LazyPNode implements MouseDoc {
 			ensureRange();
 			drawGrid();
 			thumb = lookupThumb(selectedItem);
-			art.setSelectedItem(selectedItem, thumb);
+			art.setSelectedItem(selectedItem, thumb, true);
 		}
 		thumb.pick(false, false);
 	}

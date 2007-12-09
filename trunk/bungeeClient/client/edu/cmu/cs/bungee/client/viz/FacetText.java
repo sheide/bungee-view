@@ -33,6 +33,7 @@ package edu.cmu.cs.bungee.client.viz;
 
 import java.awt.Paint;
 import java.awt.event.InputEvent;
+import java.awt.geom.Point2D;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -48,6 +49,7 @@ import edu.cmu.cs.bungee.piccoloUtils.gui.Button;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPPath;
 import edu.umd.cs.piccolo.PNode;
 import edu.umd.cs.piccolo.event.PInputEvent;
+import edu.umd.cs.piccolo.util.PDimension;
 
 class FacetText extends APText implements FacetNode, PerspectiveObserver {
 
@@ -162,7 +164,7 @@ class FacetText extends APText implements FacetNode, PerspectiveObserver {
 	static FacetText getFacetText(Object treeObject, Bungee a, double _numW,
 			double _nameW, boolean _showChildIndicator, boolean _showCheckBox,
 			int onCount, PerspectiveObserver _redraw, boolean _underline) {
-//		Util.print("getFacetText " + treeObject + " " + _showCheckBox);
+		// Util.print("getFacetText " + treeObject + " " + _showCheckBox);
 		// Cluster _cluster = null;
 		if (treeObject instanceof Perspective) {
 			_showCheckBox = _showCheckBox
@@ -210,9 +212,11 @@ class FacetText extends APText implements FacetNode, PerspectiveObserver {
 		}
 		if (result == null) {
 			result = new FacetText(treeObject, a, _numW, _nameW,
-					_showChildIndicator, _showCheckBox, _underline, onCount, _redraw);
+					_showChildIndicator, _showCheckBox, _underline, onCount,
+					_redraw);
 			texts.add(result);
-//			 Util.print("new FacetText '" + treeObject + "' => '" + result.getText() + "'");
+			// Util.print("new FacetText '" + treeObject + "' => '" +
+			// result.getText() + "'");
 		}
 		result.redraw = _redraw == null ? result : _redraw;
 		result.permanentTextPaint = null;
@@ -252,12 +256,13 @@ class FacetText extends APText implements FacetNode, PerspectiveObserver {
 	}
 
 	void decache(Object treeObject) {
-//		Object treeObject = treeObject();
-//		Util.print("decache " + treeObject + " " + "'" + getText() + "'");
+		// Object treeObject = treeObject();
+		// Util.print("decache " + treeObject + " " + "'" + getText() + "'");
 		assert treeObject != null;
 		List texts = treeObject == null ? null : art
 				.lookupFacetText(treeObject);
-		assert texts != null : "'" + treeObject + "' " + treeObject.equals(getText());
+		assert texts != null : "'" + treeObject + "' "
+				+ treeObject.equals(getText());
 		assert texts.contains(this) : this + " " + treeObject;
 		if (texts != null)
 			texts.remove(this);
@@ -293,11 +298,10 @@ class FacetText extends APText implements FacetNode, PerspectiveObserver {
 		showCheckBox = _showCheckBox;
 		setUnderline(_underline); // set this before setText for
 		// efficiency
-		
 
 		String s = computeText(a, treeObject, _numW, _nameW, onCount, true,
-				_showChildIndicator, _showCheckBox,
-				_redraw == null ? this : _redraw);
+				_showChildIndicator, _showCheckBox, _redraw == null ? this
+						: _redraw);
 		super.setText(s);
 	}
 
@@ -348,7 +352,7 @@ class FacetText extends APText implements FacetNode, PerspectiveObserver {
 			result = a.truncateText(treeObject.toString(), _nameW);
 		else
 			result = treeObject.toString();
-//		Util.print("ComputeText " + treeObject + " => " + result);
+		// Util.print("ComputeText " + treeObject + " => " + result);
 		return result;
 	}
 
@@ -428,7 +432,7 @@ class FacetText extends APText implements FacetNode, PerspectiveObserver {
 
 	void updateCheckBox() {
 		// Util.print("updateCheckBox " + facet + " " + showCheckBox);
-		if (showCheckBox && facet.getParent() != null) {
+		if (showCheckBox && facet != null && facet.getParent() != null) {
 			double checkXoffset = checkboxOffset();
 			double size = Math.ceil(checkXoffset * 0.6666666);
 			double textYoffset = Math.round(art.lineH / 8);
@@ -547,7 +551,7 @@ class FacetText extends APText implements FacetNode, PerspectiveObserver {
 	// }
 
 	public boolean pick(PInputEvent e) {
-		// Util.print("FacetText.pick " + isPickable + " " +
+		// Util.print("FacetText.pick " +
 		// e.getModifiersEx() + " " + getFacet() + " " + pickFacetTextNotifier);
 		return pick(getModifiers(e));
 	}
@@ -589,6 +593,15 @@ class FacetText extends APText implements FacetNode, PerspectiveObserver {
 
 	public Bungee art() {
 		return art;
+	}
+
+	public void drag(Point2D position, PDimension delta) {
+		assert false;
+	}
+
+	public FacetNode startDrag(PNode node, Point2D positionRelativeTo) {
+		// TODO Auto-generated method stub
+		return null;
 	}
 }
 

@@ -31,8 +31,6 @@ import java.text.DecimalFormat;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
-import sun.security.krb5.internal.bp;
-
 import edu.cmu.cs.bungee.client.query.Markup;
 import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.cmu.cs.bungee.client.query.Query;
@@ -88,8 +86,9 @@ final class Rank extends LazyPNode {
 	void validateInternal() {
 		int nPerspectives = perspectives.length;
 		if (w > 0 && nPerspectives > 0) {
-//			 Util.print("Rank.validateInternal " + this + " " + (w- summary.queryW) + " " +
-//					 perspectives.length + " " + totalChildTotalCount());
+			// Util.print("Rank.validateInternal " + this + " " + (w-
+			// summary.queryW) + " " +
+			// perspectives.length + " " + totalChildTotalCount());
 			double barW = w - summary.queryW - margin * (nPerspectives - 1);
 			double ratio = barW / totalChildTotalCount();
 			double xOffset = summary.queryW;
@@ -158,7 +157,7 @@ final class Rank extends LazyPNode {
 			PerspectiveViz p = perspectives[i];
 			p.updateData();
 		}
-		perspectives[0].redraw100PercentLabel();
+		// perspectives[0].redraw100PercentLabel();
 		perspectives[0].layoutRankLabel(true); // true in case colors have
 		// changed
 	}
@@ -277,14 +276,14 @@ final class Rank extends LazyPNode {
 
 	private int totalChildTotalCount = -1;
 
-	private double warpPower = -1.0;
-
-	private static final double SIGMOID_STEEPNESS = 10.0;
-
-	private static final double SIGMOID_MIN = 1.0 / (1.0 + Math.pow(Math.E,
-			SIGMOID_STEEPNESS / 2.0));
-
-	private static final double SIGMOID_SCALE = 1.0 - 2.0 * SIGMOID_MIN;
+	// private double warpPower = -1.0;
+	//
+	// private static final double SIGMOID_STEEPNESS = 10.0;
+	//
+	// private static final double SIGMOID_MIN = 1.0 / (1.0 + Math.pow(Math.E,
+	// SIGMOID_STEEPNESS / 2.0));
+	//
+	// private static final double SIGMOID_SCALE = 1.0 - 2.0 * SIGMOID_MIN;
 
 	// private double maxChildPercentOn = -1;
 
@@ -328,28 +327,28 @@ final class Rank extends LazyPNode {
 		// Util.print("Rank.decacheTotalChildOnCount " + getName());
 		totalChildOnCount = -1;
 		// maxChildPercentOn = -1;
-		warpPower = -1.0;
+		// warpPower = -1.0;
 	}
 
-	static final int WARP_PERCENT = 0;
-	static final int WARP_CORRELATION = 1;
-	static final int WARP_MUT_INF = 2;
-	static final int WARP_TYPE = WARP_PERCENT;
-
-	double warp(Perspective facet) {
-//		if ("MPAA Rating".equals(getName())) {
-//			printTable(facet);
-//		}
-		switch (WARP_TYPE) {
-		case WARP_PERCENT:
-			return warpPercent(facet.percentOn());
-		case WARP_CORRELATION:
-			return warpLogOddsRatio(facet);
-		case WARP_MUT_INF:
-			return warpMutInf(facet, false);
-		}
-		return -1;
-	}
+	// static final int WARP_PERCENT = 0;
+	// static final int WARP_CORRELATION = 1;
+	// static final int WARP_MUT_INF = 2;
+	// static final int WARP_TYPE = WARP_CORRELATION;
+	//
+	// double warp(Perspective facet) {
+	// // if ("MPAA Rating".equals(getName())) {
+	// // printTable(facet);
+	// // }
+	// switch (WARP_TYPE) {
+	// case WARP_PERCENT:
+	// return warpPercent(facet.percentOn());
+	// case WARP_CORRELATION:
+	// return warpLogOddsRatio(facet);
+	// case WARP_MUT_INF:
+	// return warpMutInf(facet, false);
+	// }
+	// return -1;
+	// }
 
 	void printTable(Perspective facet) {
 		int a = facet.getOnCount();
@@ -367,178 +366,193 @@ final class Rank extends LazyPNode {
 		Util.print(f.format(a) + f.format(b) + f.format(row0));
 		Util.print(f.format(c) + f.format(d) + f.format(row1));
 		Util.print(f.format(col0) + f.format(col1) + f.format(itotal));
-		Util.print(f2.format(warpPercent(facet.percentOn()))
-				+ f2.format(warpCorrelation(facet))
-//				+ f2.format(warpMutInf(facet, false))
-//				+ f2.format(warpMutInf(facet, true))
-				+ f2.format(warpLogOddsRatio(facet)));
+		Util.print(
+		// f2.format(warpPercent(facet.percentOn()))
+				// + f2.format(warpCorrelation(facet))
+				// + f2.format(warpMutInf(facet, false))
+				// + f2.format(warpMutInf(facet, true))
+				f2.format(warp(facet)));
 	}
 
-	/**
-	 * mutual information
-	 * 
-	 * SUMcell in {a,b,c,d} [cell/total * log((cell/total) / ((row/total) *
-	 * (col/total))] = cell/total * log(total*cell/(row*col)) = cell/total *
-	 * (log(total) + log(cell/(row*col))) = 1/total * (a*log(total*a/(row0
-	 * 
-	 * @see "http://en.wikipedia.org/wiki/Mutual_information"
-	 * @param facet
-	 * @return
-	 */
-	double warpMutInf(Perspective facet, boolean isMin) {
+	// /**
+	// * mutual information
+	// *
+	// * SUMcell in {a,b,c,d} [cell/total * log((cell/total) / ((row/total) *
+	// * (col/total))] = cell/total * log(total*cell/(row*col)) = cell/total *
+	// * (log(total) + log(cell/(row*col))) = 1/total * (a*log(total*a/(row0
+	// *
+	// * @see "http://en.wikipedia.org/wiki/Mutual_information"
+	// * @param facet
+	// * @return
+	// */
+	// double warpMutInf(Perspective facet, boolean isMin) {
+	// double result = 0.5;
+	// int a = facet.getOnCount();
+	// int row0 = facet.getTotalCount();
+	// int col0 = totalChildOnCount();
+	// int itotal = totalChildTotalCount();
+	// int col1 = itotal - col0;
+	// int row1 = itotal - row0;
+	// // Util.print("wapr " + facet + " " + row0 + " " + col0 + " " + col1 + "
+	// // " + row1);
+	// if (row0 > 0 && row1 > 0 && col0 > 0 && col1 > 0) {
+	// double total = itotal;
+	// int b = row0 - a;
+	// int c = col0 - a;
+	// int d = col1 - b;
+	// double entropy = 0;
+	// entropy -= col0 / total * Math.log(col0 / total);
+	// entropy -= col1 / total * Math.log(col1 / total);
+	//
+	// if (isMin) {
+	// double entropy2 = 0;
+	// entropy2 -= row0 / total * Math.log(row0 / total);
+	// entropy2 -= row1 / total * Math.log(row1 / total);
+	// if (entropy2 < entropy)
+	// entropy = entropy2;
+	// }
+	//
+	// double mutInf = 0.0;
+	// if (a > 0)
+	// mutInf += a * Math.log(total * a / row0 / col0);
+	// // Util.print(result);
+	// if (b > 0)
+	// mutInf += b * Math.log(total * b / row0 / col1);
+	// // Util.print(result);
+	// if (c > 0)
+	// mutInf += c * Math.log(total * c / row1 / col0);
+	// // Util.print(result);
+	// if (d > 0)
+	// mutInf += d * Math.log(total * d / row1 / col1);
+	// mutInf /= total;
+	// // if (mutInf > 0.1)
+	// // Util.print(facet + " " + mutInf + " " + entropy);
+	// // Util.print(a + " " + b + " " + c + " " + d + "\n");
+	// assert mutInf >= 0 && mutInf <= 1 : a + " " + b + " " + c + " " + d
+	// + " " + facet + " " + mutInf;
+	// result = mutInf / entropy;
+	// if (facet.percentOn() > expectedPercentOn())
+	// result = 0.5 + result / 2;
+	// else
+	// result = 0.5 - result / 2;
+	// }
+	// return result;
+	// }
+	//
+	// /**
+	// * For 2x2 contingency table abcd, return correlation row ab is facet
+	// count
+	// * col ac is onCount
+	// *
+	// * ad - bc / sqrt((a+b)(a+c)(b+d)(c+d))
+	// *
+	// * scaled to the interval [0-1]
+	// *
+	// * @see "http://mpra.ub.uni-muenchen.de/2662/01/MPRA_paper_2662.pdf"
+	// *
+	// * @return
+	// */
+	// double warpCorrelation(Perspective facet) {
+	// double result = 0.5;
+	// int a = facet.getOnCount();
+	// int aPlusb = facet.getTotalCount();
+	// int aPlusc = totalChildOnCount();
+	// int aPlusbcd = totalChildTotalCount();
+	// int bPlusd = aPlusbcd - aPlusc;
+	// int cPlusd = aPlusbcd - aPlusb;
+	// double denom = ((double) aPlusb) * aPlusc * bPlusd * cPlusd;
+	// if (denom > 0) {
+	// int b = aPlusb - a;
+	// int c = aPlusc - a;
+	// int d = bPlusd - b;
+	// double correlation = (a * d - b * c) / Math.sqrt(denom);
+	// result = (correlation + 1.0) / 2.0;
+	// // Util.print(aPlusb + " " + aPlusc + " " + bPlusd + " " + cPlusd);
+	// // Util.print(a + " " + b + " " + c + " " + d + "\n");
+	// assert result >= 0 && result <= 1 : a + " " + b + " " + c + " " + d
+	// + " " + facet + " " + correlation + " " + result + " "
+	// + denom;
+	// }
+	// return result;
+	// }
+
+	static final double logOddsRange = Math.log(100);
+
+	double warp(Perspective facet) {
 		double result = 0.5;
 		int a = facet.getOnCount();
-		int row0 = facet.getTotalCount();
-		int col0 = totalChildOnCount();
-		int itotal = totalChildTotalCount();
-		int col1 = itotal - col0;
-		int row1 = itotal - row0;
-		// Util.print("wapr " + facet + " " + row0 + " " + col0 + " " + col1 + "
-		// " + row1);
-		if (row0 > 0 && row1 > 0 && col0 > 0 && col1 > 0) {
-			double total = itotal;
-			int b = row0 - a;
-			int c = col0 - a;
-			int d = col1 - b;
-			double entropy = 0;
-			entropy -= col0 / total * Math.log(col0 / total);
-			entropy -= col1 / total * Math.log(col1 / total);
-
-			if (isMin) {
-				double entropy2 = 0;
-				entropy2 -= row0 / total * Math.log(row0 / total);
-				entropy2 -= row1 / total * Math.log(row1 / total);
-				if (entropy2 < entropy)
-					entropy = entropy2;
-			}
-
-			double mutInf = 0.0;
-			if (a > 0)
-				mutInf += a * Math.log(total * a / row0 / col0);
-			// Util.print(result);
-			if (b > 0)
-				mutInf += b * Math.log(total * b / row0 / col1);
-			// Util.print(result);
-			if (c > 0)
-				mutInf += c * Math.log(total * c / row1 / col0);
-			// Util.print(result);
-			if (d > 0)
-				mutInf += d * Math.log(total * d / row1 / col1);
-			mutInf /= total;
-			// if (mutInf > 0.1)
-			// Util.print(facet + " " + mutInf + " " + entropy);
+		int aPlusb = facet.getTotalCount();
+		int aPlusc = totalChildOnCount();
+		int aPlusbcd = totalChildTotalCount();
+		int bPlusd = aPlusbcd - aPlusc;
+		int cPlusd = aPlusbcd - aPlusb;
+		double denom = ((double) aPlusb) * aPlusc * bPlusd * cPlusd;
+		if (denom > 0) {
+			int b = aPlusb - a;
+			int c = aPlusc - a;
+			int d = bPlusd - b;
+			double logOdds = Util.constrain(Math.log(a * d / (double) b / c),
+					-logOddsRange, logOddsRange);
+			// Util.print((a*d/(double) b/c) + " " + logOdds);
+			result = (logOdds + logOddsRange) / (2 * logOddsRange);
+			// Util.print(aPlusb + " " + aPlusc + " " + bPlusd + " " + cPlusd);
 			// Util.print(a + " " + b + " " + c + " " + d + "\n");
-			assert mutInf >= 0 && mutInf <= 1 : a + " " + b + " " + c + " " + d
-					+ " " + facet + " " + mutInf;
-			result = mutInf / entropy;
-			if (facet.percentOn() > expectedPercentOn())
-				result = 0.5 + result / 2;
-			else
-				result = 0.5 - result / 2;
+			assert result >= 0 && result <= 1 : a + " " + b + " " + c + " " + d
+					+ " " + facet + " " + logOdds + " " + result + " " + denom;
 		}
 		return result;
 	}
+
+	// double warpPower() {
+	// double percent = expectedPercentOn();
+	//
+	// if (warpPower < 0) {
+	// if (percent > 0.0 && percent < 1.0) {
+	// warpPower = -Math.log(2) / Math.log(percent);
+	// } else {
+	// warpPower = 1.0;
+	// }
+	// }
+	// assert warpPower > 0.0 : expectedPercentOn() + " " + warpPower;
+	// return warpPower;
+	// }
+	//
+	// double warpPercent(double percent) {
+	// if (percent == 0.0 || percent == 1.0)
+	// return percent;
+	//
+	// double powWarped = Math.pow(percent, warpPower());
+	// double result = 1.0 / (1.0 + Math.pow(Math.E, SIGMOID_STEEPNESS
+	// * (0.5 - powWarped)));
+	// result = (result - SIGMOID_MIN) / SIGMOID_SCALE;
+	// // if (getName().equals("Genre"))
+	// // Util.print(warpPower + " " + expectedPercentOn() + " percent="
+	// // + percent + " " + powWarped + " " + result);
+	// return result;
+	// }
+	//
+	// double unwarp(double y) {
+	// if (y == 0.0 || y == 1.0)
+	// return y;
+	// y = y * SIGMOID_SCALE + SIGMOID_MIN;
+	// double result = Math.pow(0.5 - Math.log(1.0 / y - 1.0)
+	// / SIGMOID_STEEPNESS, 1.0 / warpPower());
+	// // if (getName().equals("Genre"))
+	// // Util.print("unwarp " + warpPower + " y=" + x + " => " + y + " "
+	// // + result + " inv=" + warp(result));
+	//
+	// return result;
+	// }
 
 	/**
-	 * For 2x2 contingency table abcd, return correlation row ab is facet count
-	 * col ac is onCount
-	 * 
-	 * ad - bc / sqrt((a+b)(a+c)(b+d)(c+d))
-	 * 
-	 * scaled to the interval [0-1]
-	 * 
-	 * @see "http://mpra.ub.uni-muenchen.de/2662/01/MPRA_paper_2662.pdf" 
-	 * 
-	 * @return
+	 * @param y
+	 *            1-y-coordinate, so most positive association is 0
+	 * @return the odds ratio for this y value
 	 */
-	double warpCorrelation(Perspective facet) {
-		double result = 0.5;
-		int a = facet.getOnCount();
-		int aPlusb = facet.getTotalCount();
-		int aPlusc = totalChildOnCount();
-		int aPlusbcd = totalChildTotalCount();
-		int bPlusd = aPlusbcd - aPlusc;
-		int cPlusd = aPlusbcd - aPlusb;
-		double denom = ((double) aPlusb) * aPlusc * bPlusd * cPlusd;
-		if (denom > 0) {
-			int b = aPlusb - a;
-			int c = aPlusc - a;
-			int d = bPlusd - b;
-			double correlation = (a * d - b * c) / Math.sqrt(denom);
-			result = (correlation + 1.0) / 2.0;
-//			Util.print(aPlusb + " " + aPlusc + " " + bPlusd + " " + cPlusd);
-//			Util.print(a + " " + b + " " + c + " " + d + "\n");
-			assert result >= 0 && result <= 1 : a + " " + b + " " + c + " " + d
-					+ " " + facet + " " + correlation + " " + result + " "
-					+ denom;
-		}
-		return result;
-	}
-	
-	double warpLogOddsRatio(Perspective facet) {
-		double result = 0.5;
-		int a = facet.getOnCount();
-		int aPlusb = facet.getTotalCount();
-		int aPlusc = totalChildOnCount();
-		int aPlusbcd = totalChildTotalCount();
-		int bPlusd = aPlusbcd - aPlusc;
-		int cPlusd = aPlusbcd - aPlusb;
-		double denom = ((double) aPlusb) * aPlusc * bPlusd * cPlusd;
-		if (denom > 0) {
-			int b = aPlusb - a;
-			int c = aPlusc - a;
-			int d = bPlusd - b;
-			double logOdds = Util.constrain(Math.log(a*d/(double) b/c), -5, 5);
-//			Util.print((a*d/(double) b/c) + " " + logOdds);
-			result = (logOdds + 5)/10;
-//			Util.print(aPlusb + " " + aPlusc + " " + bPlusd + " " + cPlusd);
-//			Util.print(a + " " + b + " " + c + " " + d + "\n");
-			assert result >= 0 && result <= 1 : a + " " + b + " " + c + " " + d
-					+ " " + facet + " " + logOdds + " " + result + " "
-					+ denom;
-		}
-		return result;
-	}
-
-	double warpPower() {
-		double percent = expectedPercentOn();
-
-		if (warpPower < 0) {
-			if (percent > 0.0 && percent < 1.0) {
-				warpPower = -Math.log(2) / Math.log(percent);
-			} else {
-				warpPower = 1.0;
-			}
-		}
-		assert warpPower > 0.0 : expectedPercentOn() + " " + warpPower;
-		return warpPower;
-	}
-
-	double warpPercent(double percent) {
-		if (percent == 0.0 || percent == 1.0)
-			return percent;
-
-		double powWarped = Math.pow(percent, warpPower());
-		double result = 1.0 / (1.0 + Math.pow(Math.E, SIGMOID_STEEPNESS
-				* (0.5 - powWarped)));
-		result = (result - SIGMOID_MIN) / SIGMOID_SCALE;
-		// if (getName().equals("Genre"))
-		// Util.print(warpPower + " " + expectedPercentOn() + " percent="
-		// + percent + " " + powWarped + " " + result);
-		return result;
-	}
-
 	double unwarp(double y) {
-		if (y == 0.0 || y == 1.0)
-			return y;
-		y = y * SIGMOID_SCALE + SIGMOID_MIN;
-		double result = Math.pow(0.5 - Math.log(1.0 / y - 1.0)
-				/ SIGMOID_STEEPNESS, 1.0 / warpPower());
-		// if (getName().equals("Genre"))
-		// Util.print("unwarp " + warpPower + " y=" + x + " => " + y + " "
-		// + result + " inv=" + warp(result));
-
-		return result;
+		double logOdds = (y - 0.5) * 2 * logOddsRange;
+		double odds = Math.exp(logOdds);
+		return odds;
 	}
 
 	int maxCount() {
@@ -713,9 +727,9 @@ final class Rank extends LazyPNode {
 	// }
 	// }
 
-	private Bungee art() {
-		return summary.art;
-	}
+	// private Bungee art() {
+	// return summary.art;
+	// }
 
 	// void mayHideTransients() {
 	// summary.mayHideTransients();
@@ -796,6 +810,10 @@ final class Rank extends LazyPNode {
 			return "<Rank "
 					+ (perspectives[0] != null ? perspectives[0].p : null)
 					+ ">";
+	}
+
+	boolean keyPress(char key) {
+		return perspectives[0].keyPress(key);
 	}
 }
 

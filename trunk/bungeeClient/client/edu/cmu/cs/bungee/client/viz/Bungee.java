@@ -33,6 +33,22 @@ package edu.cmu.cs.bungee.client.viz;
 /**
  * ToDo:
  * 
+ * log interface: scatterplot of seesions by date and database; size shows # of
+ * operations; clicking opens a window that replays the session.
+ * 
+ * Help for log odds: 1) add / _______ 1/23 2) expand pv 3) add connecting line
+ * 4) magnify odds label 5) same message about significance
+ * 
+ * Tweedie-style bars showing expected, current, current except for us, current
+ * except for 1 other.
+ * 
+ * Sort by relevance as one menu option. Cluster by similarity another option.
+ * SELECT *, match(facet_names, title) against ('eastwood') relevance FROM item
+ * order by relevance desc
+ * 
+ * new attribute for number of clicks (facets and items). Doesn't make sense for
+ * facets. Instead color background of bar to show popularity.
+ * 
  * This file has way too much crap in it, which should be moved to
  * javaExtentions, FacetText, or it's own file.
  * 
@@ -193,7 +209,7 @@ import edu.umd.cs.piccolox.PFrame;
 
 final class Bungee extends PFrame {
 
-	static final String version = "8/16/07";
+	static final String version = "7 November 2007";
 
 	private static final boolean isPrintUserActions = true;
 
@@ -319,8 +335,6 @@ final class Bungee extends PFrame {
 	// delete button is F078; checkbox is F0FE; delete is FoFD
 
 	double parentIndicatorWidth;
-
-	boolean extraGreen = true;
 
 	private boolean isPopups = true;
 
@@ -963,23 +977,26 @@ final class Bungee extends PFrame {
 	}
 
 	void setSelectedItem(Item item) {
-		setSelectedItem(item, -1, -1, -1, -1);
+		setSelectedItem(item, -1, -1, -1, -1, false);
 	}
 
-	void setSelectedItem(Item item, PNode source) {
+	void setSelectedItem(Item item, PNode source, boolean isExplicitly) {
 		PBounds gStartRect = source.getGlobalBounds();
 		Rectangle2D lStartRect = selectedItem.globalToLocal(gStartRect);
 		double selectedY = lStartRect.getY();
 		double selectedX = lStartRect.getX();
 		double selectedW = lStartRect.getWidth();
 		double selectedH = lStartRect.getHeight();
-		setSelectedItem(item, selectedX, selectedY, selectedW, selectedH);
+		setSelectedItem(item, selectedX, selectedY, selectedW, selectedH,
+				isExplicitly);
 	}
 
 	void setSelectedItem(Item item, double selectedX, double selectedY,
-			double selectedW, double selectedH) {
+			double selectedW, double selectedH, boolean isExplicitly) {
 		// Util.print("art.setSelectedItemID " + item_id);
-		printUserAction(Bungee.THUMBNAIL, item.getId(), 0);
+
+		// send if this is from a click/arrow or just the default item
+		printUserAction(Bungee.THUMBNAIL, item.getId(), isExplicitly ? 1 : 0);
 		selectedItem.animateOutline(item, selectedX, selectedY, selectedW,
 				selectedH);
 		if (clusterViz != null)
@@ -1105,18 +1122,13 @@ final class Bungee extends PFrame {
 						}
 					}
 				}
+				updateAllData();
 			}
 			setInitialSelectedItem(argURLQuery);
-			Perspective toConnect = null;
 			String facetName = argURLQuery.getArgument("SelectedFacet");
 			if (facetName.length() > 0) {
 				PerspectiveViz pv = summary.findPerspective(facetName);
-				toConnect = pv.p;
-			}
-			if (q.length() > 0)
-				updateAllData(toConnect);
-			else if (toConnect != null) {
-				summary.findPerspective(toConnect).connectToPerspective();
+				pv.connectToPerspective();
 			}
 
 			// ops =
@@ -1181,11 +1193,11 @@ final class Bungee extends PFrame {
 			| InputEvent.SHIFT_DOWN_MASK | ItemPredicate.EXCLUDE_ACTION;
 
 	void toggleFacet(Perspective facet, int modifiers) {
-//		Util.print("Art.toggleFacet " + facet + " " + modifiers);
+		// Util.print("Art.toggleFacet " + facet + " " + modifiers);
 		assert facet != null;
 		assert facet.getParent() != null : facet;
 		// arrowFocus = facet;
-		if (query.zeroHits(facet, modifiers))
+		if (query.isQueryValid() && query.zeroHits(facet, modifiers))
 			setTip("There would be no results if you added this filter.  (There are now "
 					+ query.describeNfilters() + ")");
 		else if (query.toggleFacet(facet, modifiers)) {
@@ -2022,40 +2034,32 @@ final class Bungee extends PFrame {
 
 	private final class KeyEventHandler extends MyInputEventHandler {
 
-		final int[] arrowKeys = { java.awt.event.KeyEvent.VK_KP_DOWN,
-				java.awt.event.KeyEvent.VK_KP_UP,
-				java.awt.event.KeyEvent.VK_KP_LEFT,
-				java.awt.event.KeyEvent.VK_KP_RIGHT,
-				java.awt.event.KeyEvent.VK_DOWN, java.awt.event.KeyEvent.VK_UP,
-				java.awt.event.KeyEvent.VK_LEFT,
-				java.awt.event.KeyEvent.VK_RIGHT, java.awt.event.KeyEvent.VK_A,
-				java.awt.event.KeyEvent.VK_END, java.awt.event.KeyEvent.VK_HOME };
-
 		KeyEventHandler() {
 			super(Bungee.class);
 		}
 
-		protected boolean keyPress(int key, PInputEvent e) {
-			// Util.print("keyPress " + (key - '0'));
-			if (Util.isMember(arrowKeys, key)) {
-				return handleArrow(key, e.getModifiersEx());
+		protected boolean keyPress(char key, PInputEvent e) {
+			// Util.print("keyPress " + key);
+			int modifiers = e.getModifiersEx();
+			if (Util.isMember(MyInputEventHandler.arrowKeys, key) || key == 'A'
+					&& Util.isControlDown(modifiers)) {
+				return handleArrow(key, modifiers);
 			} else if (Util.isMember(MyInputEventHandler.shiftKeys, key)) {
 				// updateItemPredicateClickDesc(e.getModifiersEx(), false);
 				return false;
 			} else if (key == ' ') {
 				showMoreHelp();
-			} else if (key == 'G') {
-				extraGreen = !extraGreen;
-				Util.print("Show extra green: " + extraGreen);
-			} else if (key == 'P') {
+			} else if (key == 'P' && Util.isControlDown(modifiers)) {
 				showPopup(null);
 				toggleIsPopups();
-				Util.print("Show popups: " + getIsPopups());
-			} else if (key == 'C') {
+			} else if (key == 'C' && Util.isControlDown(modifiers)) {
 				showClusters();
-			} else if (editMenu != null && key > '0'
-					&& key - '0' <= editMenu.nChoices()) {
+			} else if (editMenu != null
+					&& Character.digit(key, editMenu.nChoices()) > 0) {
 				editMenu.choose(key - '1');
+			} else if ((Character.isLetter(key) || key == '\b')
+					&& modifiers == 0) {
+				return summary.keyPress(key);
 			} else {
 				// Bungee.this.mayHideTransients();
 				// artHideTransients();
@@ -2142,7 +2146,7 @@ final class Bungee extends PFrame {
 	}
 
 	boolean itemMiddleMenu(Item item, boolean isRight) {
-		if (Query.isEditable) {
+		if (query.isEditable()) {
 			if (isRight) {
 				if (selectedForEdit != null) {
 					Item oldItem = selectedItem.currentItem;
@@ -2167,11 +2171,11 @@ final class Bungee extends PFrame {
 			}
 		} else
 			Util.err("Editing is disabled.");
-		return Query.isEditable;
+		return query.isEditable();
 	}
 
 	boolean facetMiddleMenu(Perspective facet) {
-		if (Query.isEditable) {
+		if (query.isEditable()) {
 			if (editMenu != null)
 				editMenu.removeFromParent();
 			editMenu = new Menu(Color.black, Color.white, getEdit(), font);
@@ -2199,7 +2203,7 @@ final class Bungee extends PFrame {
 			editMenu.pick();
 		} else
 			Util.err("Editing is disabled.");
-		return Query.isEditable;
+		return query.isEditable();
 	}
 
 	void addEditButton(String s) {
@@ -2280,7 +2284,7 @@ final class Bungee extends PFrame {
 	}
 
 	boolean setSelectedForEdit(Perspective facet, int modifiers) {
-		if (Query.isEditable) {
+		if (query.isEditable()) {
 			// Util.print("setSelectedForEdit " + facet + " " + modifiers + " "
 			// + InputEvent.CTRL_DOWN_MASK + " "
 			// + (modifiers & InputEvent.CTRL_DOWN_MASK) + " "
@@ -2298,7 +2302,7 @@ final class Bungee extends PFrame {
 			}
 		} else
 			Util.err("Editing is disabled.");
-		return Query.isEditable;
+		return query.isEditable();
 	}
 
 	/**
@@ -2326,7 +2330,7 @@ final class Bungee extends PFrame {
 	}
 
 	boolean editArrow(int key) {
-		if (Query.isEditable) {
+		if (query.isEditable()) {
 			if (selectedForEdit != null) {
 				ItemPredicate updated = null;
 				ItemPredicate parent = selectedForEdit.getParent();

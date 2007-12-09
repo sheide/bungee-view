@@ -34,7 +34,6 @@ package edu.cmu.cs.bungee.client.viz;
 import java.io.InputStream;
 import java.lang.ref.SoftReference;
 import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.Hashtable;
 import java.util.Map;
 
@@ -62,8 +61,6 @@ final class SelectedItem extends LazyPNode implements MouseDoc {
 
 	double w;
 
-	// private double h;
-
 	double minTextBoxH;
 
 	TextBox selectedItemSummaryTextBox = null;
@@ -75,8 +72,6 @@ final class SelectedItem extends LazyPNode implements MouseDoc {
 	Item currentItem;
 
 	private APText label;
-
-	// private double labelH = 0;
 
 	private LazyPPath outline;
 
@@ -381,7 +376,7 @@ final class SelectedItem extends LazyPNode implements MouseDoc {
 							facetTree.description(), Bungee.textScrollBG,
 							Bungee.textScrollFG, Bungee.selectedItemFG,
 							art.lineH, art.font);
-					if (Query.isEditable)
+					if (query().isEditable())
 						selectedItemSummaryTextBox.setEditable(true, art
 								.getCanvas(), getEdit());
 					// selectedItemSummaryTextBox.startEditing(art.getCanvas());
@@ -521,6 +516,7 @@ final class ItemSetter extends UpdateThread {
 		// parent.art.waitForValidQuery();
 		// if (isUpToDate()) {
 		Bungee art = parent.art;
+		Query query = art.query;
 		Item item = (Item) i;
 		// if (item < 0)
 		// return;
@@ -537,7 +533,7 @@ final class ItemSetter extends UpdateThread {
 		ResultSet rs = null;
 		String description = null;
 		try {
-			rs = art.query.getDescAndImage(item, imageW, imageH,
+			rs = query.getDescAndImage(item, imageW, imageH,
 					Bungee.ImageQuality);
 			while (rs.next()) {
 				// BufferedImage rawImage = null;
@@ -568,14 +564,16 @@ final class ItemSetter extends UpdateThread {
 				art.ensureItemImage(item, rs.getInt(3), rs.getInt(4),
 						Bungee.ImageQuality, blobStream);
 				description = rs.getString(1);
+				if (query.isEditable() && (description == null || description.length() == 0))
+					description = "click to add a description";
 			}
 		} catch (Throwable e) {
 			e.printStackTrace();
 		} finally {
-			art.query.close(rs);
+			query.close(rs);
 		}
 
-		DisplayTree tree = new FacetTree(item, description, art.query);
+		DisplayTree tree = new FacetTree(item, description, query);
 		parent.addFacetTree(item, tree);
 		// ItemImage im = tree.image;
 		// // if (true || art.basicJNLPservice != null) {

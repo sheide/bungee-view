@@ -33,6 +33,7 @@ package edu.cmu.cs.bungee.piccoloUtils.gui;
 
 import java.awt.Component;
 import java.awt.event.MouseEvent;
+import java.util.Arrays;
 import java.util.EventObject;
 
 import javax.swing.event.EventListenerList;
@@ -65,6 +66,37 @@ public class MyInputEventHandler extends PBasicInputEventHandler {
 	 */
 	public MyInputEventHandler(Class _nodeType) {
 		nodeType = _nodeType;
+	}
+
+	/**
+	 * Mask for up, down, left, right, home, end, and c-A
+	 */
+	public final static char[] arrowKeys = arrowKeys();
+	
+	private static char[] arrowKeys() {
+		char[] arrows = { java.awt.event.KeyEvent.VK_KP_DOWN,
+				java.awt.event.KeyEvent.VK_KP_UP,
+				java.awt.event.KeyEvent.VK_KP_LEFT,
+				java.awt.event.KeyEvent.VK_KP_RIGHT,
+				java.awt.event.KeyEvent.VK_DOWN, java.awt.event.KeyEvent.VK_UP,
+				java.awt.event.KeyEvent.VK_LEFT,
+				java.awt.event.KeyEvent.VK_RIGHT, //java.awt.event.KeyEvent.VK_A,
+				java.awt.event.KeyEvent.VK_END, java.awt.event.KeyEvent.VK_HOME };
+		Arrays.sort(arrows);
+		return arrows;
+	}
+
+	/**
+	 * Mask for shift and control
+	 */
+	public final static char[] shiftKeys = shiftKeys();
+	
+	private static char[] shiftKeys() {
+		char[] shifts = { java.awt.event.KeyEvent.VK_ALT,
+				java.awt.event.KeyEvent.VK_CONTROL,
+				java.awt.event.KeyEvent.VK_SHIFT };
+		Arrays.sort(shifts);
+		return shifts;
 	}
 
 	protected boolean click(PNode node) {
@@ -115,7 +147,7 @@ public class MyInputEventHandler extends PBasicInputEventHandler {
 		return false;
 	}
 
-	protected boolean keyPress(int key) {
+	protected boolean keyPress(char key) {
 		// Override this
 		assert edu.cmu.cs.bungee.javaExtensions.Util.ignore(key);
 		return false;
@@ -183,7 +215,7 @@ public class MyInputEventHandler extends PBasicInputEventHandler {
 		return false;
 	}
 
-	protected boolean keyPress(int key, PInputEvent e) {
+	protected boolean keyPress(char key, PInputEvent e) {
 		// Override this
 		assert edu.cmu.cs.bungee.javaExtensions.Util.ignore(key);
 		assert edu.cmu.cs.bungee.javaExtensions.Util.ignore(e);
@@ -238,6 +270,7 @@ public class MyInputEventHandler extends PBasicInputEventHandler {
 	}
 
 	public void mousePressed(PInputEvent e) {
+//		Util.print("mousePressed");
 		PNode node = findNodeType(e);
 		if (node != null) {
 			mayHideTransients(node);
@@ -276,22 +309,19 @@ public class MyInputEventHandler extends PBasicInputEventHandler {
 	}
 
 	private PNode findNodeType(PNode node) {
-		while (node != null && !nodeType.isInstance(node))
+		while (node != null && !nodeType.isInstance(node)) {
+//			Util.print(nodeType + " " + node);
 			node = node.getParent();
+		}
+//		Util.print(nodeType + " => " + node);
 		return node;
 	}
-
-	/**
-	 * Mask for shift and control
-	 */
-	public static final int[] shiftKeys = { java.awt.event.KeyEvent.VK_ALT,
-			java.awt.event.KeyEvent.VK_CONTROL,
-			java.awt.event.KeyEvent.VK_SHIFT };
 
 	// Note that Windows catches the Alt key and the window loses focus!!!
 	public void keyPressed(PInputEvent e) {
 		mayHideTransients(null);
-		int key = e.getKeyCode();
+		char key = (char) e.getKeyCode();
+//		Util.print("keyPressed " + e.getKeyCode() + " " + key);
 		if (keyPress(key) || keyPress(key, e)) {
 			e.setHandled(true);
 		} else {
@@ -318,7 +348,7 @@ public class MyInputEventHandler extends PBasicInputEventHandler {
 	 * @param e
 	 */
 	private void maybeShiftKeysChanged(PInputEvent e) {
-		if (Util.isMember(shiftKeys, e.getKeyCode())) {
+		if (Util.isMember(shiftKeys, (char) e.getKeyCode())) {
 			PPickPath path = e.getInputManager().getMouseOver();
 			PInputEvent ePrime = new PInputEvent(e.getInputManager(),
 					new MouseEvent((Component) e.getSourceSwingEvent()

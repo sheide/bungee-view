@@ -36,6 +36,8 @@ final class ServletInterface {
 
 	final String doc;
 
+	final boolean isEditable;
+
 	private final MyResultSet initPerspectives;
 
 	private final MyResultSet init;
@@ -122,6 +124,7 @@ final class ServletInterface {
 			itemDescriptionFields = MyResultSet.readString(in);
 			label = MyResultSet.readString(in);
 			doc = MyResultSet.readString(in);
+			isEditable = "Y".equalsIgnoreCase(MyResultSet.readString(in));
 
 			initPerspectives = new MyResultSet(in,
 					MyResultSet.STRING_STRING_STRING_INT_INT_INT_INT);
@@ -138,6 +141,7 @@ final class ServletInterface {
 			doc = null;
 			facetCount = -1;
 			itemCount = -1;
+			isEditable = false;
 		}
 	}
 
@@ -183,7 +187,8 @@ final class ServletInterface {
 			if (printOps) {
 				System.out.println(url);
 				if (SwingUtilities.isEventDispatchThread()) {
-					// Note that during replay, most everything is called in the mouse process.
+					// Note that during replay, most everything is called in the
+					// mouse process.
 					System.err
 							.println("Calling ServletInterface in event dispatch thread! "
 									+ url);
@@ -438,28 +443,40 @@ final class ServletInterface {
 		}
 	}
 
+	// facet's children_offset and isAlphabetic is written before rs
 	// Field order count, nChildren, childrenOffset, name
-	ResultSet prefetch(int facetID, int args) {
+	// Passing in facet breaks abstraction, to allow "returning" children_offset
+	// with a side-effect as well as ResultSet
+	ResultSet prefetch(Perspective facet, int type) {
+		int facetID = facet.getID();
 		List types = null;
-		switch (args) {
+		switch (type) {
 		case 1:
 		case 5:
-			types = MyResultSet.INT_INT_INT_STRING;
+			types = MyResultSet.INT_INT_STRING;
 			break;
 		case 2:
 		case 6:
-			types = MyResultSet.INT_INT_INT;
-			break;
-		case 3:
-			types = MyResultSet.INT_INT_STRING;
-			break;
-		case 4:
 			types = MyResultSet.INT_INT;
 			break;
+		case 3:
+			types = MyResultSet.INT_STRING;
+			break;
+		case 4:
+			types = MyResultSet.INT;
+			break;
 		default:
-			assert false : "prefetch args=" + args;
+			assert false : "prefetch args=" + type;
 		}
-		return getResultSet("prefetch", types, facetID, args);
+		String[] args = { Integer.toString(facetID), Integer.toString(type) };
+		DataInputStream in = getStream("prefetch", args);
+		facet.setChildrenOffset(MyResultSet.readInt(in));
+		facet.setIsAlphabetic(MyResultSet.readInt(in) > 0);
+//		Util.print("offset " + facet + " " + facet.childrenOffset() + " "
+//				+ facet.isAlphabetic());
+		ResultSet rs = new MyResultSet(in, types);
+		closeNcatch(in, "prefetch");
+		return rs;
 	}
 
 	ResultSet init() {

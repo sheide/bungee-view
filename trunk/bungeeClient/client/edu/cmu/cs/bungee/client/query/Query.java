@@ -34,11 +34,15 @@ public final class Query implements ItemPredicate {
 	 * Allow adding, deleting, reparenting, renaming facets and changing the
 	 * items they apply to?
 	 */
-	public static final boolean isEditable = false;
+	private boolean isEditable = false;
 
 	private final ServletInterface db;
 
-	private String baseTable = "item_order";
+	private static final Object ITEM_ORDER = "item_order";
+
+	private static final Object RESTRICTED = "restricted";
+
+	private Object baseTable = ITEM_ORDER;
 
 	// private String itemURLgetter;
 
@@ -109,6 +113,7 @@ public final class Query implements ItemPredicate {
 		itemURLdoc = db.doc;
 		allPerspectives = new Perspective[nFacets];
 		nAttributes = initPerspectives();
+		isEditable = db.isEditable;
 		// Util.print("Query return");
 	}
 
@@ -171,7 +176,7 @@ public final class Query implements ItemPredicate {
 	 * clean up when this query is no longer needed
 	 */
 	public void exit() {
-		Util.print("Query.exit priority="
+		Util.print("...exiting Query priority="
 				+ Thread.currentThread().getPriority());
 		if (prefetcher != null) {
 			prefetcher.exit();
@@ -941,7 +946,7 @@ public final class Query implements ItemPredicate {
 	 */
 	public void refetch(Perspective facet) {
 		assert isEditable;
-		extendAllPerspectives(facet.children_offset() + facet.nChildren());
+		extendAllPerspectives(facet.childrenOffset() + facet.nChildren());
 		facet.resetData(0);
 		initPerspective(facet, 1);
 	}
@@ -950,7 +955,7 @@ public final class Query implements ItemPredicate {
 	 * Can be called from thread prefetcher
 	 */
 	void initPerspective(Perspective p, int fetchType) {
-		initPerspective(db.prefetch(p.getID(), fetchType), p,
+		initPerspective(db.prefetch(p, fetchType), p,
 				fetchType > 4 ? fetchType - 4 : fetchType);
 	}
 
@@ -985,11 +990,12 @@ public final class Query implements ItemPredicate {
 			// Map offHist = new TreeMap();
 			// Map ncHist = new TreeMap();
 
-			// Util.print("Query.initPerspective " + isName + " " + isCount + "
-			// "
-			// + p + " " + p.nChildren());
+			// Util.print("Query.initPerspective isName=" + isName + " isCount="
+			// + isCount + " isOffset=" + isOffset + " " + p
+			// + " nChildren=" + p.nChildren() + " childrenOffset="
+			// + p.children_offset());
 
-			int facet_id = p.children_offset();
+			int facet_id = p.childrenOffset();
 			int nRemainingChildren = p.nChildren();
 			int cumCount = 0;
 			int maxCount = -1;
@@ -1000,11 +1006,11 @@ public final class Query implements ItemPredicate {
 				Perspective v;
 				if (isOffset) {
 					int fieldOffset = isCount ? 1 : 0;
-					int childrenOffset = rs.getInt(fieldOffset + 2);
+					// int childrenOffset = rs.getInt(fieldOffset + 2);
 					int nChildren = rs.getInt(fieldOffset + 1);
 					if (isName)
-						name1 = rs.getString(fieldOffset + 3);
-					v = ensurePerspective(++facet_id, p, name1, childrenOffset,
+						name1 = rs.getString(fieldOffset + 2);
+					v = ensurePerspective(++facet_id, p, name1, -1, // childrenOffset,
 							nChildren);
 
 					// incf(offHist, childrenOffset);
@@ -1018,7 +1024,7 @@ public final class Query implements ItemPredicate {
 				} else {
 					assert isCount;
 					// count = rs.getInt(1);
-					v = ensurePerspective(++facet_id, p, null, 0, 0);
+					v = ensurePerspective(++facet_id, p, null, -1, 0);
 				}
 				if (isCount) {
 					count = rs.getInt(1);
@@ -1071,7 +1077,7 @@ public final class Query implements ItemPredicate {
 	 *            all facet onCounts
 	 */
 	public void updateData(boolean resetOnly) {
-//		 Util.print("Query.updateData " + resetOnly);
+		// Util.print("Query.updateData " + resetOnly);
 		ResultSet counts = null;
 		ResultSet typeCounts = null;
 		try {
@@ -1080,14 +1086,14 @@ public final class Query implements ItemPredicate {
 				typeCounts = getFilteredCountTypes();
 			}
 			synchronized (childIndexesBusy) {
-//				Util.print("updateData " + resetOnly + " "
-//						+ displayedPerspectives.size());
+				// Util.print("updateData " + resetOnly + " "
+				// + displayedPerspectives.size());
 				// Don't use Iterator here. If query is being modified it will
 				// barf, and we know we'll be called again, so it doesn't matter
 				// if we skip anything.
 				for (int i = 0; i < displayedPerspectives.size(); i++) {
 					Perspective p = (Perspective) displayedPerspectives.get(i);
-//					Util.print("  " + p + " " + p.isPrefetched());
+					// Util.print(" " + p + " " + p.isPrefetched());
 					if (!p.isPrefetched())
 						waitForPrefetch(p);
 					p.resetData(0);
@@ -1097,9 +1103,9 @@ public final class Query implements ItemPredicate {
 					updateDataInternal(counts);
 					updateDataInternal(typeCounts);
 				}
-//				Util.print(" updateData done");
+				// Util.print(" updateData done");
 			}
-		}catch(Throwable e) {
+		} catch (Throwable e) {
 			e.printStackTrace();
 		} finally {
 			if (counts != null)
@@ -1211,7 +1217,7 @@ public final class Query implements ItemPredicate {
 		for (ListIterator it = displayedPerspectives.listIterator(); it
 				.hasNext();) {
 			Perspective inList = (Perspective) it.next();
-			if (inList.children_offset() > p.children_offset()) {
+			if (inList.childrenOffset() > p.childrenOffset()) {
 				it.previous();
 				it.add(p);
 				added = true;
@@ -1350,8 +1356,9 @@ public final class Query implements ItemPredicate {
 	Perspective ensurePerspective(int facet, Perspective _parent, String name1,
 			int children_offset, int n_children) {
 		Perspective result = findPerspectiveIfPossible(facet);
-		// Util.print("ensurePerspective " + _parent + " " + name + " " + result
-		// + " " + n_children);
+		// Util.print("ensurePerspective " + _parent + " " + name1 + " " +
+		// result
+		// + " " + n_children + " " + children_offset);
 		// if (result != null)
 		// Util.print(" " + result.getNameIfPossible());
 		if (result == null) {
@@ -1360,7 +1367,9 @@ public final class Query implements ItemPredicate {
 			cachePerspective(facet, result);
 			// Util.print("ensurePerspective " + result);
 			if (_parent != null) {
-				_parent.addFacet(facet - _parent.children_offset() - 1, result);
+				// Util.print("ensur " + _parent + " " +
+				// _parent.children_offset());
+				_parent.addFacet(facet - _parent.childrenOffset() - 1, result);
 			}
 		} else { // if (/* name != null && */result.getNameIfPossible() ==
 			// null) {
@@ -1432,16 +1441,28 @@ public final class Query implements ItemPredicate {
 		badOnCounts.clear();
 	}
 
+	/**
+	 * Add a Perspective or Runnable to the prefetch queue. (Runnables should be
+	 * queued after the Perspective they should run on. If a runnable might
+	 * already be on the queue, should remove it first to preserve this
+	 * property, as duplicates aren't added to the queue.)
+	 * 
+	 * @param p
+	 */
 	public void queuePrefetch(Object p) {
 		prefetcher.add(p);
 	}
 
-	public void queuePrefetch(List args) {
-		assert args.size() == 2 : args;
-		assert args.get(0) instanceof Perspective : args.get(0);
-		assert args.get(1) instanceof Runnable : args.get(1);
-		prefetcher.add(args);
+	public void unqueuePrefetch(Object p) {
+		prefetcher.remove(p);
 	}
+
+	// public void queuePrefetch(List args) {
+	// assert args.size() == 2 : args;
+	// assert args.get(0) instanceof Perspective : args.get(0);
+	// assert args.get(1) instanceof Runnable : args.get(1);
+	// prefetcher.add(args);
+	// }
 
 	public synchronized void waitForValidQuery() {
 		// Util.print("waitForValidQuery");
@@ -1496,7 +1517,7 @@ public final class Query implements ItemPredicate {
 			((ItemPredicate) displayedPerspectives.get(i)).restrictData();
 		}
 		db.restrict();
-		baseTable = "restricted";
+		baseTable = RESTRICTED;
 		totalCount = onCount;
 		clear();
 		return totalCount > 0;
@@ -1506,7 +1527,7 @@ public final class Query implements ItemPredicate {
 	 * Can be called from thread prefetcher
 	 */
 	public boolean isRestrictedData() {
-		return baseTable.equals("restricted");
+		return baseTable == RESTRICTED;
 	}
 
 	public void toggleCluster(Cluster cluster) {
@@ -1671,8 +1692,12 @@ public final class Query implements ItemPredicate {
 		db.writeback();
 	}
 
+	public boolean isEditable() {
+		return isEditable;
+	}
+
 	Collection updateIDnCount(ResultSet rs, String name, ItemPredicate parent) {
-		assert Query.isEditable;
+		assert isEditable();
 		// Only create new facets for children of this parent (or if new
 		// parent_id == 0)
 		Collection result = new ArrayList();
@@ -1725,7 +1750,7 @@ public final class Query implements ItemPredicate {
 					}
 					if (p.getParent() != null) {
 						p.getParent().addFacetAllowingNulls(
-								newID - p.getParent().children_offset() - 1, p);
+								newID - p.getParent().childrenOffset() - 1, p);
 					}
 				} else if (parent_facet_id == 0) {
 					p = new Perspective(newID, existingParent, name, offset,
@@ -1942,6 +1967,7 @@ public final class Query implements ItemPredicate {
 
 	/**
 	 * Ignores restrictData
+	 * 
 	 * @return a representation of the current filters from which
 	 *         Bungee.setInitialState can recreate them.
 	 */
@@ -1996,7 +2022,7 @@ final class FirstDoubleComparator implements Comparator {
 		return Util.sgn(value(data1) - value(data2));
 	}
 
-	public double value(Object data) {
+	private double value(Object data) {
 		return ((Double) ((Object[]) data)[0]).doubleValue();
 	}
 }
@@ -2011,32 +2037,11 @@ final class Prefetcher extends QueueThread {
 	}
 
 	public void process(Object info) {
-		ItemPredicate facet = null;
-		Runnable runnable = null;
-		if (info instanceof Perspective) {
-			facet = (ItemPredicate) info;
-		} else if (info instanceof List) {
-			List infoVector = (List) info;
-			facet = (ItemPredicate) infoVector.get(0);
-			runnable = (Runnable) infoVector.get(1);
-		} else {
-			assert false : info;
-		}
-		// Util.print("GetPerspectiveNames.process " + ((Perspective)
-		// facet).getName());
-		// q.waitForValidQuery(); // This can cause deadlock, because updateData
-		// waits for prefetching.
 		if (q != null) {
-			// try {
-			// sleep(3000);
-			// } catch (InterruptedException e) {
-			// // TODO Auto-generated catch block
-			// e.printStackTrace();
-			// }
-			((Perspective) facet).prefetchData();
-			if (runnable != null) {
-				javax.swing.SwingUtilities.invokeLater(runnable);
-			}
+			if (info instanceof Perspective) {
+				((Perspective) info).prefetchData();
+			} else
+				javax.swing.SwingUtilities.invokeLater((Runnable) info);
 		}
 	}
 }

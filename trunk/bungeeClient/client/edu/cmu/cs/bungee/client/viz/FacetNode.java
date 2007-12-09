@@ -31,9 +31,12 @@ Pittsburgh, PA 15213
 
 package edu.cmu.cs.bungee.client.viz;
 
+import java.awt.geom.Point2D;
+
 import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.umd.cs.piccolo.PNode;
 import edu.umd.cs.piccolo.event.PInputEvent;
+import edu.umd.cs.piccolo.util.PDimension;
 
 interface FacetNode {
 	// Constructors should
@@ -44,6 +47,7 @@ interface FacetNode {
      * @return whether the event was handled
      */
     boolean pick(PInputEvent e);
+    
     /**
      * @param state did mouse enter (as opposed to exit)?
      * @param modifiers shift keys
@@ -51,18 +55,35 @@ interface FacetNode {
      * @return whether the event was handled
      */
     boolean highlight(boolean state, int modifiers, PInputEvent e);
+    
 	/**
 	 * The user did something, indicating that temporary messages or whatever should be removed.
 	 * 
 	 * @param node the PNode gestured on
 	 */
 	void mayHideTransients(PNode node);	
+	
 	/**
 	 * @return the facet associated with this FacetNode
 	 */
 	Perspective getFacet();	
+	
 	/**
 	 * @return the Bungee PFrame we're in
 	 */
 	Bungee art();
+
+	/**
+	 * @param node
+	 * @param positionRelativeTo
+	 * @return the node to drag
+	 */
+	FacetNode startDrag(PNode node, Point2D positionRelativeTo);
+
+	/**
+	 * Used to drag Letters, which zooms and pans the PerspectiveViz
+	 * @param position
+	 * @param delta
+	 */
+	void drag(Point2D position, PDimension delta);
 }

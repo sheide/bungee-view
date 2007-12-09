@@ -63,7 +63,8 @@ public final class Cluster implements ItemPredicate {
 				Perspective parent = rs.getInt(1) > 0 ? q.findPerspective(rs
 						.getInt(1)) : null;
 				Perspective p = q.ensurePerspective(rs.getInt(2), parent, rs
-						.getString(3), rs.getInt(5), rs.getInt(4));
+						.getString(3), rs.getInt(5), 
+						rs.getInt(4));
 				if (rs.getInt(7) == 0) {
 					_facets.add(p);
 					_nOnItems = rs.getInt(9);
@@ -230,9 +231,9 @@ public final class Cluster implements ItemPredicate {
 		return getName();
 	}
 
-	public ItemPredicate getParent() {
-		return null;
-	}
+//	public ItemPredicate getParent() {
+//		return null;
+//	}
 
 	public boolean isEffectiveChildren() {
 		return false;

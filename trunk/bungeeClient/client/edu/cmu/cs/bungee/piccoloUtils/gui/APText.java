@@ -126,7 +126,7 @@ public class APText extends PText {
 	}
 
 	public void setTextPaint(Paint aPaint) {
-		if (!Util.equalsNullOK(aPaint, getTextPaint())) 
+		if (!Util.equalsNullOK(aPaint, getTextPaint()))
 			super.setTextPaint(aPaint);
 	}
 
@@ -143,9 +143,10 @@ public class APText extends PText {
 	public void setFont(Font aFont) {
 		if (aFont != getFont()) {
 			decacheCharIter();
-			
+
 			// for one-line labels, update height to match font size
-			boolean resize = !wrapOnWordBoundaries && !isConstrainHeightToTextHeight();
+			boolean resize = !wrapOnWordBoundaries
+					&& !isConstrainHeightToTextHeight();
 			if (resize) {
 				dontRecompute = true;
 				super.setConstrainHeightToTextHeight(true);
@@ -348,8 +349,8 @@ public class APText extends PText {
 		if (tMeasurer == null) {
 			AttributedCharacterIterator it = getCharIter();
 			if (it != null) {
-//				edu.cmu.cs.bungee.javaExtensions.Util.print(" new tm for "
-//						+ getText() + " " + getFont());
+				// edu.cmu.cs.bungee.javaExtensions.Util.print(" new tm for "
+				// + getText() + " " + getFont());
 				tMeasurer = new TextMeasurer(it,
 						PPaintContext.RENDER_QUALITY_HIGH_FRC);
 			}
@@ -357,8 +358,14 @@ public class APText extends PText {
 		return tMeasurer;
 	}
 
+	/**
+	 * @return the number of lines displayed by this APText
+	 */
 	public int getNlines() {
-		return _lines.length;
+		if (_lines != null)
+			return _lines.length;
+		else
+			return 0;
 	}
 
 	private boolean insideRL = false;
@@ -430,8 +437,9 @@ public class APText extends PText {
 				} else
 					_lines = EMPTY_TEXT_LAYOUT_ARRAY;
 			}
-//			edu.cmu.cs.bungee.javaExtensions.Util.print("exit recomputelayout "
-//					+ _text + " " + _lines.length + " " + textHeight);
+			// edu.cmu.cs.bungee.javaExtensions.Util.print("exit recomputelayout
+			// "
+			// + _text + " " + _lines.length + " " + textHeight);
 
 			if (isConstrainWidthToTextWidth()
 					|| isConstrainHeightToTextHeight()) {
