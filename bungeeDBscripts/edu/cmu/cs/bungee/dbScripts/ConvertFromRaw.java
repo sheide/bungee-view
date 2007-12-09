@@ -178,7 +178,7 @@ public class ConvertFromRaw {
 						+ " DECLARE done INT DEFAULT 0; "
 						+ " DECLARE child, nChildren, offset INT DEFAULT 0; "
 						+ " DECLARE child_name VARBINARY(255); "
-						+ " DECLARE cur CURSOR FOR SELECT facet_id, name FROM raw_facet WHERE parent_facet_id = parent ORDER BY sort, name;"
+						+ " DECLARE cur CURSOR FOR SELECT facet_id, name FROM raw_facet WHERE parent_facet_id = parent ORDER BY sort, BINARY LOWER(name);"
 						+ " DECLARE CONTINUE HANDLER FOR SQLSTATE '02000' SET done = 1; "
 						+ " SELECT COUNT(*) INTO nChildren FROM raw_facet WHERE parent_facet_id = parent; "
 						+ " SET offset = @child_offset; "
@@ -254,22 +254,29 @@ public class ConvertFromRaw {
 		// .SQLqueryInt("SELECT MAX(canonical_facet_id) FROM temp") * 2;
 		// String lftRgtType = jdbc.unsignedTypeForMaxValue(maxLftRgt);
 
-		jdbc.SQLupdate("CREATE TABLE facet (" + " facet_id " + facet_idType
-				+ " ," + " name VARCHAR(200) DEFAULT '<unnamed>',"
-				+ " parent_facet_id " + facet_idType + " ," + " n_items "
-				+ countType
-				+ " ,"
-				+ " n_child_facets "
-				+ facet_idType
-				+ " ,"
-				+ " first_child_offset "
-				+ facet_idType
-				+ // ", " + " lft " +
-				// lftRgtType +
-				// ", rgt " + lftRgtType +
-				"," + " PRIMARY KEY  (facet_id),"
-				+ " KEY parent (parent_facet_id)"
-				+ ") ENGINE=MyISAM DEFAULT CHARSET=utf8");
+		jdbc.SQLupdate("CREATE TABLE facet (" +
+
+		" facet_id " + facet_idType + " ," +
+
+		" name VARCHAR(200) DEFAULT '<unnamed>'," +
+
+		" parent_facet_id " + facet_idType + " ," +
+
+		" n_items " + countType + " ," +
+
+		" n_child_facets " + facet_idType + " ," +
+
+		" first_child_offset " + facet_idType + "," +
+
+		" is_alphabetic BIT," +
+
+		" usage_count MEDIUMINT," +
+
+		" PRIMARY KEY (facet_id)," +
+
+		" KEY parent (parent_facet_id)" +
+
+		") ENGINE=MyISAM DEFAULT CHARSET=utf8");
 
 		// parent.canonical_facet_id and cnt will be NULL for facet types.
 		jdbc
@@ -280,12 +287,23 @@ public class ConvertFromRaw {
 						+ " IFNULL(parent.canonical_facet_id, 0) AS parent_facet_id,"
 						+ " IFNULL(cnt, 0) AS n_items,"
 						+ " facet.n_child_facets,"
-						+ " IF(facet.n_child_facets > 0, facet.children_offset, 0)"
-						// + " 0 AS lft,"
-						// + " 0 AS rgt"
+						+ " IF(facet.n_child_facets > 0, facet.children_offset, 0),"
+						+ " TRUE AS is_alphabetic,"
+						+ " 0 AS usage_count"
 						+ " FROM (temp facet"
 						+ " LEFT JOIN itemCounts ON itemCounts.facet_id = facet.facet_id)"
 						+ " LEFT JOIN temp parent ON facet.parent_facet_id = parent.facet_id");
+
+		jdbc
+				.SQLupdate(" UPDATE facet," +
+						" (SELECT DISTINCT parent.facet_id unalph" +
+						" FROM facet child1, facet child2, facet parent" +
+						" WHERE child1.parent_facet_id = parent.facet_id " +
+						" AND child2.parent_facet_id = parent.facet_id " +
+						" AND child2.facet_id = child1.facet_id + 1 " +
+						" AND BINARY LOWER(child2.name) < BINARY LOWER(child1.name)) foo" +
+						" SET is_alphabetic = FALSE" +
+						" WHERE facet_id = unalph");
 	}
 
 	private void createAncestor(String facet_idType) throws SQLException {

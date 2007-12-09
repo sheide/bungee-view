@@ -11,7 +11,7 @@ import edu.cmu.cs.bungee.javaExtensions.Util;
 
 public class Chartres {
 
-	CreateRawSaxHandler handler;
+	ParseOAIhandler handler;
 
 	String[] colNames;
 
@@ -21,7 +21,7 @@ public class Chartres {
 
 	public static void main(String[] args) throws ImageFormatException,
 			SQLException, InterruptedException {
-		CreateRawSaxHandler handler = new CreateRawSaxHandler(args[1], false);
+		ParseOAIhandler handler = ParseOAIhandler.getHandler(args[1]);
 		String directory = args[0];
 		String[] spreadsheets = { "visuals.tab" };
 
@@ -46,7 +46,7 @@ public class Chartres {
 		handler.loadDRLimages(directory + "\\thumbs\\");
 	}
 
-	Chartres(CreateRawSaxHandler _handler, BufferedReader in) {
+	Chartres(ParseOAIhandler _handler, BufferedReader in) {
 		handler = _handler;
 		try {
 			colNames = in.readLine().split("\t");
@@ -95,7 +95,7 @@ public class Chartres {
 				handler.newItem();
 				Field field = Field.getField("Collection", Field.FACET);
 				int[] facets = handler.getFacets(field, set);
-				assert CreateRawSaxHandler.dontUpdate || facets != null : field + " '"
+				assert ParseOAIhandler.dontUpdate || facets != null : field + " '"
 						+ set + "'";
 					assert facets.length == 1 : "'" + set + "'";
 					handler.setCollection(facets[0]);

@@ -22,9 +22,13 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Hashtable;
+import java.util.Map;
 import java.util.Vector;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import javax.xml.parsers.SAXParser;
+import javax.xml.parsers.SAXParserFactory;
 
 import org.xml.sax.Attributes;
 import org.xml.sax.helpers.DefaultHandler;
@@ -37,13 +41,17 @@ import com.sun.image.codec.jpeg.JPEGImageEncoder;
 import edu.cmu.cs.bungee.javaExtensions.JDBCSample;
 import edu.cmu.cs.bungee.javaExtensions.Util;
 
-final class CreateRawSaxHandler extends DefaultHandler {
+/**
+ * Populate database from OAI format XML files.
+ * 
+ */
+final class ParseOAIhandler extends DefaultHandler {
 
 	static final String imageFileExtension = ".jpeg";
 
 	private static final String imageMIMEtype = "jpeg";
 
-	private ConvertFromRaw convert;
+	private ConvertFromRaw converter;
 
 	static final boolean dontUpdate = false;
 
@@ -248,75 +256,34 @@ final class CreateRawSaxHandler extends DefaultHandler {
 	private Hashtable setNames = new Hashtable();
 
 	private String dbName;
+	
+	private Map use;
+	private Map bt;
 
-	CreateRawSaxHandler(String connectString, boolean clearTables) {
-		jdbc = new JDBCSample(null);
+	ParseOAIhandler(JDBCSample jdbc, Map _use, Map _bt) {
+		use = _use;
+		bt = _bt;
+		
+		// parseTGM();
+		// parse043codes();
+		// checkMultipleParents("places_hierarchy");
+		// checkMultipleParents("TGM");
+
 		try {
-			jdbc.openMySQL(connectString);
-			if (clearTables) {
-				createTables();
-				clearTables();
-				// parseTGM();
-				// parse043codes();
-				// checkMultipleParents("places_hierarchy");
-				// checkMultipleParents("TGM");
-			}
-
-			Matcher m = Pattern.compile("/(\\w*)\\?").matcher(connectString);
-			if (m.find()) {
-				dbName = m.group(1);
-			}
-			Util.print("dbname = " + dbName);
-
 			recordNum = jdbc.SQLqueryInt("SELECT MAX(record_num) FROM item");
-			facetID = Math
-					.max(
-							jdbc
-									.SQLqueryInt("SELECT MAX(facet_id) FROM raw_facet"),
-							jdbc
-									.SQLqueryInt("SELECT MAX(facet_type_id) FROM raw_facet_type") + 100);
-		} catch (Exception e) {
+		facetID = Math
+				.max(
+						jdbc.SQLqueryInt("SELECT MAX(facet_id) FROM raw_facet"),
+						jdbc
+								.SQLqueryInt("SELECT MAX(facet_type_id) FROM raw_facet_type") + 100);
+		} catch (SQLException e) {
 			e.printStackTrace();
 		}
 	}
 
-	private void clearTables() {
-		String[] tables = { "raw_facet", "raw_item_facet", "item",
-		/* "places_hierarchy" */};
-		for (int i = 0; i < tables.length; i++) {
-			db("TRUNCATE TABLE " + tables[i]);
-		}
-		for (int i = 0; i < attrTables.length; i++) {
-			db("TRUNCATE TABLE " + attrTables[i]);
-		}
-	}
-
-	private void createTables() {
-		String copyFrom = "wpa";
-		String[] tables = { "images", "raw_facet", "raw_facet_type",
-				"user_actions", "raw_item_facet", "item", "globals" /*
-																	 * "places_hierarchy",
-																	 * "gac",
-																	 * "tgm",
-																	 * "URIs"
-																	 */
-		};
-		for (int i = 0; i < tables.length; i++) {
-			db("CREATE TABLE IF NOT EXISTS " + tables[i] + " LIKE " + copyFrom
-					+ "." + tables[i]);
-		}
-
-		// db("CREATE OR REPLACE VIEW thumbnails AS SELECT * FROM images");
-
-		String[] tablesToCopy = { "raw_facet_type", "globals" };
-		for (int i = 0; i < tablesToCopy.length; i++) {
-			db("REPLACE INTO " + tablesToCopy[i] + " SELECT * FROM " + copyFrom
-					+ "." + tablesToCopy[i]);
-		}
-		for (int i = 0; i < attrTables.length; i++) {
-			db("CREATE TABLE IF NOT EXISTS " + attrTables[i] + " LIKE "
-					+ copyFrom + ".title");
-		}
+	public static ParseOAIhandler getHandler(String connectString) {
+		JDBCSample jdbc = ParseOAI.createJDBC(connectString);
+		return new ParseOAIhandler(jdbc,new Hashtable(), new Hashtable());
 	}
 
 	void copyImages(String copyFrom) throws SQLException {
@@ -346,9 +313,9 @@ final class CreateRawSaxHandler extends DefaultHandler {
 	}
 
 	ConvertFromRaw convertFromRaw() {
-		if (convert == null)
-			convert = new ConvertFromRaw(jdbc);
-		return convert;
+		if (converter == null)
+			converter = new ConvertFromRaw(jdbc);
+		return converter;
 	}
 
 	// private void parseTGM() {
@@ -582,7 +549,7 @@ final class CreateRawSaxHandler extends DefaultHandler {
 		convertFromRaw().fixMissingItemFacets(0);
 		promote(toPromoteDoublingItems);
 
-//		fixFacetTypes();
+		// fixFacetTypes();
 		convertFromRaw().fixDuplicates();
 		convertFromRaw().fixMissingItemFacets(0);
 		convertFromRaw().findBrokenLinks(true, 0);
@@ -692,10 +659,13 @@ final class CreateRawSaxHandler extends DefaultHandler {
 						+ "FROM (raw_facet r INNER JOIN "
 						+ TGMtable
 						+ " t ON r.name = t.term) "
-						+ "LEFT JOIN raw_facet p ON t.broader = p.name" // AND p.facet_type_idxx = "
-//						+ facetTypeID
+						+ "LEFT JOIN raw_facet p ON t.broader = p.name" // AND
+						// p.facet_type_idxx
+						// = "
+						// + facetTypeID
 						+ " WHERE r.parent_facet_id = "
-						+ facetTypeID + " GROUP BY t.broader");
+						+ facetTypeID
+						+ " GROUP BY t.broader");
 		while (rs.next()) {
 			String parentIDs = rs.getString(3);
 			int[] parents = null;
@@ -704,7 +674,7 @@ final class CreateRawSaxHandler extends DefaultHandler {
 				parents = new int[0];
 				for (int i = 0; i < parentIDstrings.length; i++) {
 					int parent = Integer.parseInt(parentIDstrings[i]);
-					if (getFacetType(parent) == facetTypeID) 
+					if (getFacetType(parent) == facetTypeID)
 						parents = Util.push(parents, parent);
 				}
 			}
@@ -804,15 +774,10 @@ final class CreateRawSaxHandler extends DefaultHandler {
 		}
 	}
 
-	private PreparedStatement setParent;
-
 	private void setParent(int facet, int parent) {
 		if (!dontUpdate) {
 			try {
-				if (setParent == null) {
-					setParent = jdbc
-							.prepareStatement("UPDATE raw_facet SET parent_facet_id = ? WHERE facet_id = ?");
-				}
+				PreparedStatement setParent = lookupPS("UPDATE raw_facet SET parent_facet_id = ? WHERE facet_id = ?");
 				setParent.setInt(1, parent);
 				setParent.setInt(2, facet);
 				jdbc.SQLupdate(setParent, "Set facet parent");
@@ -824,24 +789,19 @@ final class CreateRawSaxHandler extends DefaultHandler {
 			Util.print("UPDATE raw_facet SET parent_facet_id = " + parent
 					+ " WHERE facet_id = " + facet);
 	}
-	
+
 	private int lookupSomeFacet(String name, int facetType) throws SQLException {
 		int[] facets = lookupFacets(name, facetType);
 		if (facets.length > 0)
 			return facets[0];
-		else 
+		else
 			return -1;
 	}
-
-	private PreparedStatement lookupFacet;
 
 	private int lookupFacet(String name, int parent) {
 		int result = -1;
 		try {
-			if (lookupFacet == null) {
-				lookupFacet = jdbc
-						.prepareStatement("SELECT facet_id FROM raw_facet WHERE name = ? AND parent_facet_id = ?");
-			}
+			PreparedStatement lookupFacet = lookupPS("SELECT facet_id FROM raw_facet WHERE name = ? AND parent_facet_id = ?");
 			lookupFacet.setString(1, truncateName(name, true));
 			lookupFacet.setInt(2, parent);
 			result = jdbc.SQLqueryInt(lookupFacet,
@@ -855,16 +815,11 @@ final class CreateRawSaxHandler extends DefaultHandler {
 		return result;
 	}
 
-	private PreparedStatement lookupFacets;
-
 	private int[] lookupFacets(String name, int type) throws SQLException {
 		int[] result = new int[0];
 		ResultSet rs = null;
 		try {
-			if (lookupFacets == null) {
-				lookupFacets = jdbc
-						.prepareStatement("SELECT facet_id FROM raw_facet WHERE name = ?");
-			}
+			PreparedStatement lookupFacets = lookupPS("SELECT facet_id FROM raw_facet WHERE name = ?");
 			lookupFacets.setString(1, truncateName(name, true));
 			// lookupSomeFacet.setInt(2, type);
 			for (rs = jdbc.SQLquery(lookupFacets,
@@ -881,23 +836,24 @@ final class CreateRawSaxHandler extends DefaultHandler {
 		return result;
 	}
 
-//	private PreparedStatement lookupFacets;
-//
-//	private ResultSet lookupFacets(String name, int type) {
-//		ResultSet rs = null;
-//		try {
-//			if (lookupFacets == null) {
-//				lookupFacets = jdbc
-//						.prepareStatement("SELECT f.facet_id FROM raw_facet f WHERE f.name = ? AND f.facet_type_idxx = ?");
-//			}
-//			lookupFacets.setString(1, truncateName(name, false));
-//			lookupFacets.setInt(2, type);
-//			rs = jdbc.SQLquery(lookupFacets, "Get child facet names");
-//		} catch (SQLException e) {
-//			e.printStackTrace();
-//		}
-//		return rs;
-//	}
+	// private PreparedStatement lookupFacets;
+	//
+	// private ResultSet lookupFacets(String name, int type) {
+	// ResultSet rs = null;
+	// try {
+	// if (lookupFacets == null) {
+	// lookupFacets = jdbc
+	// .prepareStatement("SELECT f.facet_id FROM raw_facet f WHERE f.name = ?
+	// AND f.facet_type_idxx = ?");
+	// }
+	// lookupFacets.setString(1, truncateName(name, false));
+	// lookupFacets.setInt(2, type);
+	// rs = jdbc.SQLquery(lookupFacets, "Get child facet names");
+	// } catch (SQLException e) {
+	// e.printStackTrace();
+	// }
+	// return rs;
+	// }
 
 	private void addDuplicateFacet(String term, int parent, int facetType)
 			throws SQLException {
@@ -935,15 +891,10 @@ final class CreateRawSaxHandler extends DefaultHandler {
 		}
 	}
 
-	private PreparedStatement childFacets;
-
 	private ResultSet childFacets(int parent) {
 		ResultSet rs = null;
 		try {
-			if (childFacets == null) {
-				childFacets = jdbc
-						.prepareStatement("SELECT name FROM raw_facet WHERE parent_facet_id = ?");
-			}
+			PreparedStatement childFacets = lookupPS("SELECT name FROM raw_facet WHERE parent_facet_id = ?");
 			childFacets.setInt(1, parent);
 			rs = jdbc.SQLquery(childFacets, "Get child facet names");
 		} catch (SQLException e) {
@@ -952,15 +903,10 @@ final class CreateRawSaxHandler extends DefaultHandler {
 		return rs;
 	}
 
-	private PreparedStatement itemFacets;
-
 	private ResultSet itemFacets(int facet) {
 		ResultSet rs = null;
 		try {
-			if (itemFacets == null) {
-				itemFacets = jdbc
-						.prepareStatement("SELECT record_num FROM raw_item_facet WHERE facet_id = ?");
-			}
+			PreparedStatement itemFacets = lookupPS("SELECT record_num FROM raw_item_facet WHERE facet_id = ?");
 			itemFacets.setInt(1, facet);
 			rs = jdbc.SQLquery(itemFacets, "Get items having facet");
 		} catch (SQLException e) {
@@ -969,15 +915,10 @@ final class CreateRawSaxHandler extends DefaultHandler {
 		return rs;
 	}
 
-	private PreparedStatement itemFacet;
-
 	private void addItemFacet(int record_num, int facet_id) {
 		if (!dontUpdate) {
 			try {
-				if (itemFacet == null) {
-					itemFacet = jdbc
-							.prepareStatement("REPLACE INTO raw_item_facet VALUES(?, ?)");
-				}
+				PreparedStatement itemFacet = lookupPS("REPLACE INTO raw_item_facet VALUES(?, ?)");
 				itemFacet.setInt(1, record_num);
 				itemFacet.setInt(2, facet_id);
 				jdbc.SQLupdate(itemFacet, "Add item/facet relationship");
@@ -1003,14 +944,11 @@ final class CreateRawSaxHandler extends DefaultHandler {
 			assert lookupFacet(name, parent) < 0 : name + " " + parent + " "
 					+ getFacetName(parent);
 			try {
-				if (newFacet == null) {
-					newFacet = jdbc
-							.prepareStatement("INSERT INTO raw_facet VALUES(?, ?, ?, null)");
-				}
+				PreparedStatement newFacet = lookupPS("INSERT INTO raw_facet VALUES(?, ?, ?, null)");
 				newFacet.setInt(1, ++facetID);
 				newFacet.setString(2, name);
 				newFacet.setInt(3, parent);
-//				newFacet.setInt(4, facetType);
+				// newFacet.setInt(4, facetType);
 				jdbc.SQLupdate(newFacet, "Add new facet");
 			} catch (SQLException e) {
 				Util.err("Problem creating facet: name='" + name + "'; parent="
@@ -1196,15 +1134,10 @@ final class CreateRawSaxHandler extends DefaultHandler {
 		setImage(record, filename, loc, Math.max(0, w), Math.max(0, h));
 	}
 
-	private PreparedStatement setImage;
-
 	private void setImage(int record_num, String filename, String URI, int w,
 			int h) {
 		try {
-			if (setImage == null) {
-				setImage = jdbc
-						.prepareStatement("INSERT INTO images VALUES(?, LOAD_FILE(?), ?, ?, ?)");
-			}
+			PreparedStatement setImage = lookupPS("INSERT INTO images VALUES(?, LOAD_FILE(?), ?, ?, ?)");
 			setImage.setInt(1, record_num);
 			setImage.setString(2, filename);
 			setImage.setString(3, URI);
@@ -1383,14 +1316,9 @@ final class CreateRawSaxHandler extends DefaultHandler {
 		Util.print("...done\n");
 	}
 
-	private PreparedStatement newItem;
-
 	void newItem() {
 		try {
-			if (newItem == null) {
-				newItem = jdbc
-						.prepareStatement("INSERT INTO item VALUES(null, null, ?, null, null, null, null, null)");
-			}
+			PreparedStatement newItem = lookupPS("INSERT INTO item VALUES(null, null, ?, null, null, null, null, null)");
 			newItem.setInt(1, ++recordNum);
 			if (!dontUpdate) {
 				jdbc.SQLupdate(newItem, "Add new empty item");
@@ -1402,15 +1330,10 @@ final class CreateRawSaxHandler extends DefaultHandler {
 		}
 	}
 
-	private PreparedStatement setCollection;
-
 	void setCollection(int collection) {
 		if (!dontUpdate) {
 			try {
-				if (setCollection == null) {
-					setCollection = jdbc
-							.prepareStatement("INSERT INTO raw_item_facet VALUES(?, ?);");
-				}
+				PreparedStatement setCollection = lookupPS("INSERT INTO raw_item_facet VALUES(?, ?);");
 				setCollection.setInt(1, recordNum);
 				setCollection.setInt(2, collection);
 				jdbc.SQLupdate(setCollection, "Set item's collection");
@@ -1717,15 +1640,10 @@ final class CreateRawSaxHandler extends DefaultHandler {
 	// jdbc.SQLupdate(creator, "Set creator in two formats");
 	// }
 
-	private PreparedStatement updateImageID;
-
 	private void updateImageID(int old) {
 		if (!dontUpdate) {
 			try {
-				if (updateImageID == null) {
-					updateImageID = jdbc
-							.prepareStatement("UPDATE images SET record_num = ? WHERE record_num = ?");
-				}
+				PreparedStatement updateImageID = lookupPS("UPDATE images SET record_num = ? WHERE record_num = ?");
 				updateImageID.setInt(1, recordNum);
 				updateImageID.setInt(2, old);
 				jdbc.SQLupdate(updateImageID, "Set new record_num for image");
@@ -1737,15 +1655,10 @@ final class CreateRawSaxHandler extends DefaultHandler {
 					+ " WHERE record_num = " + old + "");
 	}
 
-	private PreparedStatement lookupItem;
-
 	private ResultSet lookupItem(String uri) {
 		ResultSet rs = null;
 		try {
-			if (lookupItem == null) {
-				lookupItem = jdbc
-						.prepareStatement("SELECT record_num FROM item WHERE URI = ? AND record_num != ?");
-			}
+			PreparedStatement lookupItem = lookupPS("SELECT record_num FROM item WHERE URI = ? AND record_num != ?");
 			lookupItem.setString(1, uri);
 			lookupItem.setInt(2, recordNum);
 			rs = jdbc.SQLquery(lookupItem, "Lookup item from URI");
@@ -1807,6 +1720,11 @@ final class CreateRawSaxHandler extends DefaultHandler {
 		return f;
 	}
 
+	/**
+	 * @param value facet name
+	 * @param key either "z" for Places or "corp" for Specific Organizations
+	 * @return 
+	 */
 	private String[] hierValuesInternal(String value, String key) {
 		String[] result = (String[]) subFacetTable.get(key);
 		// if (result != null && !result[result.length - 1].equals(value)) {
@@ -1819,6 +1737,11 @@ final class CreateRawSaxHandler extends DefaultHandler {
 		return result;
 	}
 
+	/**
+	 * @param value arbitrary string representing a date
+	 * @return ["20th century", "1990s", "1996", "12", "31"]
+	 * @throws SQLException
+	 */
 	private String[] hierDateValues(String value) throws SQLException {
 		String[] result = { value };
 		String parentName = null;
@@ -2083,6 +2006,12 @@ final class CreateRawSaxHandler extends DefaultHandler {
 		return result;
 	}
 
+	/**
+	 * @param field raw field from XML file
+	 * @param value raw string from XML file
+	 * @return [<ancestor facets alternetive 1>, ...]
+	 * @throws SQLException
+	 */
 	private String[][] hierValues(Field field, String value)
 			throws SQLException {
 		String[][] result = { { value } };
@@ -2489,16 +2418,25 @@ final class CreateRawSaxHandler extends DefaultHandler {
 		// Util.print("code 045 " + code + " => " + result);
 		return result;
 	}
+	
+	private Map preparedStatements = new Hashtable();
+	private PreparedStatement lookupPS(String SQL) throws SQLException {
+		PreparedStatement ps = (PreparedStatement) preparedStatements.get(SQL);
+		if (ps == null) {
+			ps = jdbc.prepareStatement(SQL);
+			preparedStatements.put(SQL, ps);
+		}
+		return ps;
+	}
 
-	private PreparedStatement lookupGAC;
-
+	/**
+	 * @param name known to be a place name
+	 * @return <ancestor hierarchy>
+	 */
 	private String[] lookupGAC(String name) {
 		String[] result = null;
 		try {
-			if (lookupGAC == null) {
-				lookupGAC = jdbc
-						.prepareStatement("SELECT broader FROM loc.gac WHERE term = ?");
-			}
+			PreparedStatement lookupGAC = lookupPS("SELECT broader FROM loc.gac WHERE term = ?");
 			lookupGAC.setString(1, name);
 			String place = jdbc.SQLqueryString(lookupGAC,
 					"Lookup place name from GAC code");
@@ -2510,17 +2448,10 @@ final class CreateRawSaxHandler extends DefaultHandler {
 		return result;
 	}
 
-	private PreparedStatement newFacet;
-
-	private PreparedStatement facetTypeQuery;
-
 	int facetType(String name) {
 		int result = -1;
 		try {
-			if (facetTypeQuery == null) {
-				facetTypeQuery = jdbc
-						.prepareStatement("SELECT facet_type_id FROM raw_facet_type WHERE name = ?");
-			}
+			PreparedStatement facetTypeQuery = lookupPS("SELECT facet_type_id FROM raw_facet_type WHERE name = ?");
 			facetTypeQuery.setString(1, name);
 			result = jdbc.SQLqueryInt(facetTypeQuery, "Lookup facet type");
 			assert result > 0 : name;
@@ -2760,7 +2691,7 @@ class Field {
 		return fields[_type];
 	}
 
-	int getFacetType(CreateRawSaxHandler handler) {
+	int getFacetType(ParseOAIhandler handler) {
 		assert type == FACET;
 		if (facetType < 0) {
 			facetType = handler.facetType(name);
