@@ -129,27 +129,26 @@ class Database {
 						+ " GROUP BY facet_id) foo ORDER BY facet_id" };
 
 		prefetchQuery = jdbc
-				.prepareStatement("SELECT n_items, n_child_facets, first_child_offset, name "
+				.prepareStatement("SELECT n_items, n_child_facets, name "
 						+ prefetchFROM[0]);
 
 		prefetchNoCountQuery = jdbc
-				.prepareStatement("SELECT n_child_facets, first_child_offset, name"
+				.prepareStatement("SELECT n_child_facets, name"
 						+ prefetchFROM[0]);
 
 		prefetchNoNameQuery = jdbc
-				.prepareStatement("SELECT n_items, n_child_facets, first_child_offset "
+				.prepareStatement("SELECT n_items, n_child_facets"
 						+ prefetchFROM[0]);
 
 		prefetchNoCountNoNameQuery = jdbc
-				.prepareStatement("SELECT n_child_facets, first_child_offset"
-						+ prefetchFROM[0]);
+				.prepareStatement("SELECT n_child_facets" + prefetchFROM[0]);
 
 		prefetchQueryRestricted = jdbc
-				.prepareStatement("SELECT n_items, n_child_facets, first_child_offset, name "
+				.prepareStatement("SELECT n_items, n_child_facets, name"
 						+ prefetchFROM[1]);
 
 		prefetchNoNameQueryRestricted = jdbc
-				.prepareStatement("SELECT n_items, n_child_facets, first_child_offset "
+				.prepareStatement("SELECT n_items, n_child_facets"
 						+ prefetchFROM[1]);
 
 		getItemInfoQuery = jdbc
@@ -187,7 +186,7 @@ class Database {
 		ResultSet rs = null;
 		try {
 			rs = jdbc
-					.SQLquery("SELECT itemDescriptionFields, genericObjectLabel, itemURL, itemURLdoc FROM globals");
+					.SQLquery("SELECT itemDescriptionFields, genericObjectLabel, itemURL, itemURLdoc, isEditable FROM globals");
 			if (!rs.next())
 				error("Can't get globals");
 			String itemDescriptionFields = rs.getString(1);
@@ -208,7 +207,7 @@ class Database {
 							+ itemURLgetter + " = ?");
 
 			String[] resultx = { itemDescriptionFields, rs.getString(2),
-					rs.getString(4) };
+					rs.getString(4), rs.getString(5) };
 			result = resultx;
 		} finally {
 			if (rs != null)
@@ -253,7 +252,15 @@ class Database {
 			jdbc.SQLupdate("TRUNCATE TABLE item_order_heap;");
 			jdbc.SQLupdate("INSERT INTO item_order_heap "
 					+ "SELECT * FROM item_order");
+			updateUsageCounts();
 		}
+	}
+
+	private void updateUsageCounts() throws SQLException {
+		jdbc
+				.SQLupdate("UPDATE facet, (SELECT COUNT(*) cnt, object FROM user_actions "
+						+ "WHERE location IN (1,2,6) GROUP BY object) temp "
+						+ "SET usage_count = cnt WHERE object = facet_id");
 	}
 
 	String sortedResultTable(int i) throws ServletException {
@@ -273,15 +280,16 @@ class Database {
 	}
 
 	/**
-	 * Update offsetItemsQuery (used by offsetItems) and itemOffsetQuery (1 and 2) (used
-	 * by itemOffset) so they return indexes sorted appropriately.
+	 * Update offsetItemsQuery (used by offsetItems) and itemOffsetQuery (1 and
+	 * 2) (used by itemOffset) so they return indexes sorted appropriately.
 	 * 
 	 * The indexes into these two arrays show which table contains the on items:
 	 * 
 	 * @see #sortedResultTable
 	 * 
-	 * @param facetType the item_order_heap column to sort by 
-	 *            -1 means random, 0 means ID, else the facet_type_ID
+	 * @param facetType
+	 *            the item_order_heap column to sort by -1 means random, 0 means
+	 *            ID, else the facet_type_ID
 	 * @throws SQLException
 	 * @throws ServletException
 	 * 
@@ -299,33 +307,30 @@ class Database {
 							+ " o INNER JOIN item_order_heap r USING (record_num)"
 							+ " ORDER BY r." + columnToSortBy + " LIMIT ?, ?");
 
-			// Have to use 2 queries to work around the "can't reopen temporary table" problem in MySQL
-			// Only call query 2 if query 1 result > 0 (should never be exactly 0)
+			// Have to use 2 queries to work around the "can't reopen temporary
+			// table" problem in MySQL
+			// Only call query 2 if query 1 result > 0 (should never be exactly
+			// 0)
 			// Argument to query 2 is the result of query 1
-			itemOffsetQuery1[i] = jdbc
-					.prepareStatement("SELECT s."
-							+ columnToSortBy
-							+ " FROM item_order_heap s INNER JOIN "
-							+ sortedResultTable(i)
-							+ " USING (record_num) WHERE s.record_num = ?");
-			itemOffsetQuery2[i] = jdbc
-			.prepareStatement("SELECT COUNT(*) FROM item_order_heap r "
-					+ "INNER JOIN "
+			itemOffsetQuery1[i] = jdbc.prepareStatement("SELECT s."
+					+ columnToSortBy + " FROM item_order_heap s INNER JOIN "
 					+ sortedResultTable(i)
-					+ " USING (record_num) WHERE r."
-					+ columnToSortBy
-					+ " < ?");
+					+ " USING (record_num) WHERE s.record_num = ?");
+			itemOffsetQuery2[i] = jdbc
+					.prepareStatement("SELECT COUNT(*) FROM item_order_heap r "
+							+ "INNER JOIN " + sortedResultTable(i)
+							+ " USING (record_num) WHERE r." + columnToSortBy
+							+ " < ?");
 		}
 		offsetItemsQuery[0] = jdbc.prepareStatement("SELECT record_num FROM "
 				+ "item_order_heap ORDER BY " + columnToSortBy + " LIMIT ?, ?");
-		
-		itemOffsetQuery1[0] = jdbc
-				.prepareStatement("SELECT s."
-						+ columnToSortBy
-						+ " FROM item_order_heap s WHERE s.record_num = ?");
+
+		itemOffsetQuery1[0] = jdbc.prepareStatement("SELECT s."
+				+ columnToSortBy
+				+ " FROM item_order_heap s WHERE s.record_num = ?");
 		itemOffsetQuery2[0] = jdbc
-		.prepareStatement("SELECT COUNT(*)-1 FROM item_order_heap "
-				+ " WHERE " + columnToSortBy + " <= ?");
+				.prepareStatement("SELECT COUNT(*)-1 FROM item_order_heap "
+						+ " WHERE " + columnToSortBy + " <= ?");
 	}
 
 	int getItemFromURL(String URL) throws SQLException {
@@ -436,7 +441,7 @@ class Database {
 	}
 
 	int updateOnItems(String onSQL) throws SQLException {
-//		lastQuery = onSQL;
+		// lastQuery = onSQL;
 		jdbc.SQLupdate("TRUNCATE TABLE onItems");
 		return jdbc.SQLupdate("INSERT INTO onItems " + onSQL);
 	}
@@ -458,34 +463,43 @@ class Database {
 	@SuppressWarnings("unchecked")
 	void prefetch(int facet_id, int args, DataOutputStream out)
 			throws SQLException, ServletException, IOException {
+		// log("prefetch " + facet_id + " " + args);
+		int children_offset = jdbc
+				.SQLqueryInt("SELECT first_child_offset FROM facet WHERE facet_id = "
+						+ facet_id);
+		writeInt(children_offset, out);
+		int isAlphabetic = jdbc.SQLqueryInt("SELECT is_alphabetic FROM facet WHERE facet_id = "
+						+ facet_id);
+		writeInt(isAlphabetic, out);
+
 		String message = "getting initial counts and names of facet children";
 		PreparedStatement ps;
 		List<Object> types;
 		switch (args) {
 		case 1:
 			ps = prefetchQuery;
-			types = MyResultSet.INT_INT_INT_STRING;
+			types = MyResultSet.INT_INT_STRING;
 			break;
 		case 2:
 			ps = prefetchNoNameQuery;
-			types = MyResultSet.INT_INT_INT;
+			types = MyResultSet.INT_INT;
 			break;
 		case 3:
 			ps = prefetchNoCountQuery;
-			types = MyResultSet.INT_INT_STRING;
+			types = MyResultSet.INT_STRING;
 			break;
 		case 4:
 			ps = prefetchNoCountNoNameQuery;
-			types = MyResultSet.INT_INT;
+			types = MyResultSet.INT;
 			break;
 		case 5:
 			ps = prefetchQueryRestricted;
-			types = MyResultSet.INT_INT_INT_STRING;
+			types = MyResultSet.INT_INT_STRING;
 			break;
 		default:
 			myAssert(args == 6, "prefetch args=" + args);
 			ps = prefetchNoNameQueryRestricted;
-			types = MyResultSet.INT_INT_INT;
+			types = MyResultSet.INT_INT;
 			break;
 		}
 		synchronized (ps) {
@@ -574,7 +588,7 @@ class Database {
 	 */
 	private PreparedStatement[] itemOffsetQuery2;
 
-//	private String lastQuery;
+	// private String lastQuery;
 
 	/**
 	 * @param item
@@ -600,23 +614,24 @@ class Database {
 						"Get onItems offset from record_num.");
 			}
 
-//			try {
-//				int onCount = jdbc.SQLqueryInt("SELECT COUNT(*) FROM "
-//						+ sortedResultTable(table));
-//				if (onCount < 5 || offset >= onCount) {
-//					printRecords(
-//							jdbc
-//									.SQLquery("SELECT s.record_num, s.random_id FROM item_order_heap s "
-//											+ "INNER JOIN onItems Using (record_num)"),
-//							MyResultSet.INT_INT);
-//					log(item + " " + offset + " " + table);
-//					 throw new ServletException("Bad index: " + offset + " >= "
-//					 + onCount + " for table " + table + " item " + item
-//					 + " query " + lastQuery);
-//				}
-//			} catch (ServletException e) {
-//				e.printStackTrace();
-//			}
+			// try {
+			// int onCount = jdbc.SQLqueryInt("SELECT COUNT(*) FROM "
+			// + sortedResultTable(table));
+			// if (onCount < 5 || offset >= onCount) {
+			// printRecords(
+			// jdbc
+			// .SQLquery("SELECT s.record_num, s.random_id FROM item_order_heap
+			// s "
+			// + "INNER JOIN onItems Using (record_num)"),
+			// MyResultSet.INT_INT);
+			// log(item + " " + offset + " " + table);
+			// throw new ServletException("Bad index: " + offset + " >= "
+			// + onCount + " for table " + table + " item " + item
+			// + " query " + lastQuery);
+			// }
+			// } catch (ServletException e) {
+			// e.printStackTrace();
+			// }
 		}
 		// Util.print("itemIndex " + item + " => " + result);
 		return offset;
@@ -641,8 +656,8 @@ class Database {
 
 	private PreparedStatement printUserActionStmt;
 
-	void printUserAction(String client, int session, int actionIndex, int location,
-			String object, int modifiers) throws SQLException {
+	void printUserAction(String client, int session, int actionIndex,
+			int location, String object, int modifiers) throws SQLException {
 		synchronized (printUserActionStmt) {
 			printUserActionStmt.setInt(1, actionIndex);
 			printUserActionStmt.setInt(2, location);
