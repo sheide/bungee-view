@@ -79,31 +79,58 @@ import com.sun.image.codec.jpeg.JPEGCodec;
 import com.sun.image.codec.jpeg.JPEGEncodeParam;
 import com.sun.image.codec.jpeg.JPEGImageEncoder;
 
+/**
+ * misc static functions on numbers, strings, images, treating arrays as sets
+ * 
+ */
 public final class Util {
-	
+
 	private Util() {
 		// Disallow instantiation
 	}
-	
+
 	/**
-	 * Stick this in an assert to suppress compiler warnings:
-	 * assert ignore(ignore);
+	 * Stick this in an assert to suppress compiler warnings: assert
+	 * ignore(ignore);
+	 * 
 	 * @param ignore
 	 * @return true
 	 */
 	public static boolean ignore(Object ignore) {
 		return ignore == null || true;
 	}
+
+	/**
+	 * @param ignore
+	 *            a variable for which to ignore never-read warnings
+	 * @return true
+	 */
 	public static boolean ignore(boolean ignore) {
-		return ignore  || true;
+		return ignore || true;
 	}
+
+	/**
+	 * @param ignore
+	 *            a variable for which to ignore never-read warnings
+	 * @return true
+	 */
 	public static boolean ignore(int ignore) {
 		return ignore == 0 || ignore != 0;
 	}
+
+	/**
+	 * @param ignore
+	 *            a variable for which to ignore never-read warnings
+	 * @return true
+	 */
 	public static boolean ignore(double ignore) {
 		return ignore == 0 || ignore != 0;
 	}
 
+	/**
+	 * @param n
+	 * @return -1, 0, or 1 depending on signum of n
+	 */
 	public static int sgn(int n) {
 		if (n < 0)
 			return -1;
@@ -113,6 +140,10 @@ public final class Util {
 			return 0;
 	}
 
+	/**
+	 * @param n
+	 * @return -1, 0, or 1 depending on signum of n
+	 */
 	public static int sgn(double n) {
 		if (n < 0)
 			return -1;
@@ -122,6 +153,11 @@ public final class Util {
 			return 0;
 	}
 
+	/**
+	 * @param x
+	 * @param y
+	 * @return minimum of x and y
+	 */
 	public static double min(double x, double y) {
 		if (x < y)
 			return x;
@@ -129,6 +165,11 @@ public final class Util {
 			return y;
 	}
 
+	/**
+	 * @param x
+	 * @param y
+	 * @return minimum of x and y
+	 */
 	public static float min(float x, float y) {
 		if (x < y)
 			return x;
@@ -136,6 +177,11 @@ public final class Util {
 			return y;
 	}
 
+	/**
+	 * @param x
+	 * @param y
+	 * @return minimum of x and y
+	 */
 	public static int min(int x, int y) {
 		if (x < y)
 			return x;
@@ -143,6 +189,11 @@ public final class Util {
 			return y;
 	}
 
+	/**
+	 * @param x
+	 * @param y
+	 * @return maximum of x and y
+	 */
 	public static double max(double x, double y) {
 		if (x > y)
 			return x;
@@ -150,6 +201,11 @@ public final class Util {
 			return y;
 	}
 
+	/**
+	 * @param x
+	 * @param y
+	 * @return maximum of x and y
+	 */
 	public static float max(float x, float y) {
 		if (x > y)
 			return x;
@@ -157,6 +213,11 @@ public final class Util {
 			return y;
 	}
 
+	/**
+	 * @param x
+	 * @param y
+	 * @return maximum of x and y
+	 */
 	public static int max(int x, int y) {
 		if (x > y)
 			return x;
@@ -164,24 +225,60 @@ public final class Util {
 			return y;
 	}
 
+	/**
+	 * @param x
+	 * @return (int) (x + 0.5)
+	 */
 	public static int round(double x) {
+		assert x >= 0;
 		return (int) (x + 0.5);
 	}
 
-	public static float blend(float zeroToOne, float start, float end) {
-		return Math.round(start + zeroToOne * (end - start));
+	// public static float blend(float zeroToOne, float start, float end) {
+	// return Math.round(start + zeroToOne * (end - start));
+	// }
+
+	/**
+	 * @param x1
+	 * @param x2
+	 * @param zeroToOne
+	 * @return x + zeroToOne * (x2 - x)
+	 */
+	public static double interpolate(double x1, double x2, float zeroToOne) {
+		if (zeroToOne == 1.0f)
+			// avoid roundoff errors
+			return x2;
+		return x1 + zeroToOne * (x2 - x1);
 	}
 
+	/**
+	 * @param val
+	 * @param minv
+	 * @param maxv
+	 * @return the int in the range [minv, maxv] closest to val
+	 */
 	public static int constrain(int val, int minv, int maxv) {
 		assert minv <= maxv : minv + " " + maxv;
 		return Math.min(Math.max(val, minv), maxv);
 	}
 
+	/**
+	 * @param val
+	 * @param minv
+	 * @param maxv
+	 * @return the float in the range [minv, maxv] closest to val
+	 */
 	public static float constrain(float val, float minv, float maxv) {
 		assert minv <= maxv : minv + " " + maxv;
 		return Math.min(Math.max(val, minv), maxv);
 	}
 
+	/**
+	 * @param val
+	 * @param minv
+	 * @param maxv
+	 * @return the double in the range [minv, maxv] closest to val
+	 */
 	public static double constrain(double val, double minv, double maxv) {
 		assert minv <= maxv : minv + " " + maxv;
 		// print(val + " " + minv + "-" + maxv);
@@ -198,21 +295,26 @@ public final class Util {
 	private static final float colorComponentChangeFactor = 2.0f;
 
 	/**
-	 * Increases brightness. If factor < 1 it will get dimmer.
+	 * @param color
+	 * @return Increases brightness. If factor < 1 it will get dimmer.
 	 */
 	public static Color fade(Color color) {
 		return brighten(color, 1.0f / colorComponentChangeFactor);
 	}
 
 	/**
-	 * Increases brightness. If factor < 1 it will get dimmer.
+	 * @param color
+	 * @return Increases brightness. If factor < 1 it will get dimmer.
 	 */
 	public static Color brighten(Color color) {
 		return brighten(color, colorComponentChangeFactor);
 	}
 
 	/**
-	 * Multiplies brightness by factor. If factor < 1 it will get dimmer.
+	 * @param color
+	 * @param factor
+	 * @return Multiplies brightness by factor. If factor < 1 it will get
+	 *         dimmer.
 	 */
 	public static Color brighten(Color color, float factor) {
 		if (factor <= 0.0)
@@ -223,16 +325,19 @@ public final class Util {
 	}
 
 	/**
-	 * Increases brightness, and decreases saturation. If factor < 1 it will get
-	 * darker.
+	 * @param color
+	 * @return Increases brightness, and decreases saturation. If factor < 1 it
+	 *         will get darker.
 	 */
 	public static Color lighten(Color color) {
 		return lighten(color, colorComponentChangeFactor);
 	}
 
 	/**
-	 * Multiplies brightness by factor, and divides saturation by factor. If
-	 * factor < 1 it will get darker.
+	 * @param color
+	 * @param factor
+	 * @return Multiplies brightness by factor, and divides saturation by
+	 *         factor. If factor < 1 it will get darker.
 	 */
 	public static Color lighten(Color color, float factor) {
 		if (factor <= 0.0)
@@ -242,6 +347,10 @@ public final class Util {
 				.min(1.0f, hsb[2] * factor));
 	}
 
+	/**
+	 * @param s
+	 * @return nOccurrences(s, '\n') + 1
+	 */
 	public static int nLines(String s) {
 		return nOccurrences(s, '\n') + 1;
 	}
@@ -267,6 +376,10 @@ public final class Util {
 			return s;
 	}
 
+	/**
+	 * @param n
+	 * @return format n with commas separating thousands, millions, etc
+	 */
 	public static String addCommas(int n) {
 		// println("addCommas " + n);
 		String s = Integer.toString(n);
@@ -278,6 +391,10 @@ public final class Util {
 		return s;
 	}
 
+	/**
+	 * @param s
+	 * @return add s or es
+	 */
 	public static String pluralize(String s) {
 		// Util.print("pluraize " + s);
 		if (s.charAt(s.length() - 1) != 's')
@@ -287,6 +404,11 @@ public final class Util {
 		return s;
 	}
 
+	/**
+	 * add s or es
+	 * 
+	 * @param s
+	 */
 	public static void pluralize(StringBuffer s) {
 		if (s.charAt(s.length() - 1) != 's')
 			s.append("s");
@@ -294,9 +416,26 @@ public final class Util {
 			s.append("es");
 	}
 
-	public static final char[] vowels = { 'a', 'e', 'i', 'o', 'u', 'A', 'E', 'I', 'O',
-			'U' };
+	/**
+	 * @param alpha
+	 * @return c-A for A, etc
+	 */
+	public static char controlChar(char alpha) {
+		char result = (char) (alpha - 64);
+		assert Character.isISOControl(result) : alpha;
+		return result;
+	}
 
+	/**
+	 * {a, e, i, o, u, A, E, I, O, U}
+	 */
+	public static final char[] vowels = { 'a', 'e', 'i', 'o', 'u', 'A', 'E',
+			'I', 'O', 'U' };
+
+	/**
+	 * @param noun
+	 * @return "a" or "an"
+	 */
 	public static String indefiniteArticle(String noun) {
 		String result = " a ";
 		char c = noun.charAt(0);
@@ -308,6 +447,7 @@ public final class Util {
 
 	/**
 	 * @param a
+	 * @param connective
 	 * @return public static String (["sex", "lies", "videotape"], " and ")
 	 *         returns "sex, lies, and videotape".
 	 */
@@ -352,17 +492,30 @@ public final class Util {
 
 	static final Pattern semicolonPattern = Pattern.compile(";");
 
+	/**
+	 * @param s
+	 * @return more efficient than s.split(";")
+	 */
 	public static String[] splitSemicolon(String s) {
 		return semicolonPattern.split(s);
 	}
 
 	static final Pattern commaPattern = Pattern.compile(",");
 
+	/**
+	 * @param s
+	 * @return more efficient than s.split(",")
+	 */
 	public static String[] splitComma(String s) {
 		assert s != null;
 		return commaPattern.split(s);
 	}
 
+	/**
+	 * @param s
+	 * @param regExp
+	 * @return s.split(regExp) converted to int[]
+	 */
 	public static int[] splitInts(String s, String regExp) {
 		String[] strings = s.split(regExp);
 		int[] ints = new int[strings.length];
@@ -382,56 +535,62 @@ public final class Util {
 		return b.toString();
 	}
 
-	public static Object[] union(Object[] a1, Object[] a2, Class type) {
-		if (a1 == null || a1.length == 0)
-			return a2;
-		else if (a2 == null || a2.length == 0)
-			return a1;
-		else {
-			int n = 0;
-			for (int i = 0; i < a2.length; i++)
-				n += nOccurrences(a1, a2[i]);
-			if (n == 0) {
-				return append(a1, a2, type);
-			} else {
-				Object[] a = (Object[]) java.lang.reflect.Array.newInstance(
-						type, a1.length + a2.length - n);
-				int index = a1.length;
-				System.arraycopy(a1, 0, a, 0, index);
-				for (int i = 0; i < a2.length; i++) {
-					if (!isMember(a1, a2[i]))
-						a[index++] = a2[i];
-				}
-				return a;
-			}
-		}
-	}
+	// /**
+	// * @deprecated
+	// */
+	// public static Object[] union(Object[] a1, Object[] a2, Class type) {
+	// if (a1 == null || a1.length == 0)
+	// return a2;
+	// else if (a2 == null || a2.length == 0)
+	// return a1;
+	// else {
+	// int n = 0;
+	// for (int i = 0; i < a2.length; i++)
+	// n += nOccurrences(a1, a2[i]);
+	// if (n == 0) {
+	// return append(a1, a2, type);
+	// } else {
+	// Object[] a = (Object[]) java.lang.reflect.Array.newInstance(
+	// type, a1.length + a2.length - n);
+	// int index = a1.length;
+	// System.arraycopy(a1, 0, a, 0, index);
+	// for (int i = 0; i < a2.length; i++) {
+	// if (!isMember(a1, a2[i]))
+	// a[index++] = a2[i];
+	// }
+	// return a;
+	// }
+	// }
+	// }
+	//
+	// public static int[] union(int[] a1, int[] a2) {
+	// assert !hasDuplicates(a1);
+	// if (a1 == null || a1.length == 0)
+	// return a2;
+	// else if (a2 == null || a2.length == 0)
+	// return a1;
+	// else {
+	// int n = 0;
+	// for (int i = 0; i < a2.length; i++)
+	// n += nOccurrences(a1, a2[i]);
+	// if (n == 0) {
+	// return append(a1, a2);
+	// } else {
+	// int[] a = new int[a1.length + a2.length - n];
+	// int index = a1.length;
+	// System.arraycopy(a1, 0, a, 0, index);
+	// for (int i = 0; i < a2.length; i++) {
+	// if (!isMember(a1, a2[i]))
+	// a[index++] = a2[i];
+	// }
+	// return a;
+	// }
+	// }
+	// }
 
-	public static int[] union(int[] a1, int[] a2) {
-		assert !hasDuplicates(a1);
-		if (a1 == null || a1.length == 0)
-			return a2;
-		else if (a2 == null || a2.length == 0)
-			return a1;
-		else {
-			int n = 0;
-			for (int i = 0; i < a2.length; i++)
-				n += nOccurrences(a1, a2[i]);
-			if (n == 0) {
-				return append(a1, a2);
-			} else {
-				int[] a = new int[a1.length + a2.length - n];
-				int index = a1.length;
-				System.arraycopy(a1, 0, a, 0, index);
-				for (int i = 0; i < a2.length; i++) {
-					if (!isMember(a1, a2[i]))
-						a[index++] = a2[i];
-				}
-				return a;
-			}
-		}
-	}
-
+	/**
+	 * @deprecated
+	 */
 	public static Object[] append(Object[] a1, Object[] a2, Class type) {
 		if (a1 == null || a1.length == 0)
 			return a2;
@@ -446,6 +605,9 @@ public final class Util {
 		}
 	}
 
+	/**
+	 * @deprecated
+	 */
 	public static String[] append(String[] a1, String[] a2) {
 		if (a1 == null)
 			return a2;
@@ -459,6 +621,9 @@ public final class Util {
 		}
 	}
 
+	/**
+	 * @deprecated
+	 */
 	public static int[] append(int[] a1, int[] a2) {
 		if (a1 == null)
 			return a2;
@@ -472,6 +637,9 @@ public final class Util {
 		}
 	}
 
+	/**
+	 * @deprecated
+	 */
 	public static double[] append(double[] a1, double[] a2) {
 		if (a1 == null)
 			return a2;
@@ -523,21 +691,22 @@ public final class Util {
 		return false;
 	}
 
-	public static Object[] setIntersection(Object[] a1, Object[] p, Class type) {
-		int n = 0;
-		if (p != null && a1 != null) {
-			for (int i = 0; i < p.length; i++)
-				n += nOccurrences(a1, p[i]);
-		}
-		if (n == 0)
-			return null;
-		Object[] a = (Object[]) java.lang.reflect.Array.newInstance(type, n);
-		int j = 0;
-		for (int i = 0; i < a1.length; i++)
-			if (isMember(p, a1[i]))
-				Array.set(a, j++, a1[i]);
-		return a;
-	}
+	// public static Object[] setIntersection(Object[] a1, Object[] p, Class
+	// type) {
+	// int n = 0;
+	// if (p != null && a1 != null) {
+	// for (int i = 0; i < p.length; i++)
+	// n += nOccurrences(a1, p[i]);
+	// }
+	// if (n == 0)
+	// return null;
+	// Object[] a = (Object[]) java.lang.reflect.Array.newInstance(type, n);
+	// int j = 0;
+	// for (int i = 0; i < a1.length; i++)
+	// if (isMember(p, a1[i]))
+	// Array.set(a, j++, a1[i]);
+	// return a;
+	// }
 
 	public static int intersectionCardinalilty(int[] a1, int[] a2) {
 		int n = 0;
@@ -582,44 +751,47 @@ public final class Util {
 		return n;
 	}
 
-	public static boolean intersects(Object[] a1, Object[] a2) {
-		if (a2 != null && a1 != null) {
-			for (int i = 0; i < a2.length; i++)
-				if (isMember(a1, a2[i]))
-					return true;
-		}
-		return false;
-	}
+	// public static boolean intersects(Object[] a1, Object[] a2) {
+	// if (a2 != null && a1 != null) {
+	// for (int i = 0; i < a2.length; i++)
+	// if (isMember(a1, a2[i]))
+	// return true;
+	// }
+	// return false;
+	// }
+	//
+	// public static int[] setIntersection(int[] a1, int[] a2) {
+	// int n = intersectionCardinalilty(a1, a2);
+	// int[] a = new int[n];
+	// int j = 0;
+	// for (int i = 0; i < a1.length; i++)
+	// if (isMember(a2, a1[i]))
+	// a[j++] = a1[i];
+	// return a;
+	// }
+	//
+	// public static int[] setIntersectionSorted(int[] a1, int[] a2) {
+	// int n = intersectionCardinaliltySorted(a1, a2);
+	// int[] a = new int[n];
+	// int j = 0;
+	// int index = 0;
+	// int a1l = a1.length;
+	// int a2l = a2.length;
+	// for (int i = 0; i < a1l; i++) {
+	// int elt1 = a1[i];
+	// int elt2 = elt1 + 1;
+	// while (index < a2l && (elt2 = a2[index]) < elt1) {
+	// index++;
+	// }
+	// if (elt1 == elt2)
+	// a[j++] = elt1;
+	// }
+	// return a;
+	// }
 
-	public static int[] setIntersection(int[] a1, int[] a2) {
-		int n = intersectionCardinalilty(a1, a2);
-		int[] a = new int[n];
-		int j = 0;
-		for (int i = 0; i < a1.length; i++)
-			if (isMember(a2, a1[i]))
-				a[j++] = a1[i];
-		return a;
-	}
-
-	public static int[] setIntersectionSorted(int[] a1, int[] a2) {
-		int n = intersectionCardinaliltySorted(a1, a2);
-		int[] a = new int[n];
-		int j = 0;
-		int index = 0;
-		int a1l = a1.length;
-		int a2l = a2.length;
-		for (int i = 0; i < a1l; i++) {
-			int elt1 = a1[i];
-			int elt2 = elt1 + 1;
-			while (index < a2l && (elt2 = a2[index]) < elt1) {
-				index++;
-			}
-			if (elt1 == elt2)
-				a[j++] = elt1;
-		}
-		return a;
-	}
-
+	/**
+	 * @deprecated
+	 */
 	public static Object[] setDifference(Object[] a1, Object[] a2, Class type) {
 		if (a1 == null || a2 == null)
 			return a1;
@@ -649,38 +821,38 @@ public final class Util {
 		return a;
 	}
 
-	public static int[] setDifferenceSorted(int[] a1, int[] a2) {
-		if (a1 == null || a2 == null)
-			return a1;
-		int n = intersectionCardinaliltySorted(a1, a2);
-		if (n == 0)
-			return a1;
-		int j = 0;
-		int index = 0;
-		int a1l = a1.length;
-		int a2l = a2.length;
-		int[] a = new int[a1l - n];
-		for (int i = 0; i < a1l; i++) {
-			int elt1 = a1[i];
-			int elt2 = elt1 + 1;
-			while (index < a2l && (elt2 = a2[index]) < elt1) {
-				index++;
-			}
-			if (elt1 != elt2)
-				a[j++] = elt1;
-		}
-		return a;
-	}
-
-	public static int[] symmetricSetDifference(int[] a1, int[] a2) {
-		return append(setDifference(a1, a2), setDifference(a2, a1));
-	}
-
-	public static Object[] symmetricSetDifference(Object[] a1, Object[] a2,
-			Class type) {
-		return append(setDifference(a1, a2, type), setDifference(a2, a1, type),
-				type);
-	}
+	// public static int[] setDifferenceSorted(int[] a1, int[] a2) {
+	// if (a1 == null || a2 == null)
+	// return a1;
+	// int n = intersectionCardinaliltySorted(a1, a2);
+	// if (n == 0)
+	// return a1;
+	// int j = 0;
+	// int index = 0;
+	// int a1l = a1.length;
+	// int a2l = a2.length;
+	// int[] a = new int[a1l - n];
+	// for (int i = 0; i < a1l; i++) {
+	// int elt1 = a1[i];
+	// int elt2 = elt1 + 1;
+	// while (index < a2l && (elt2 = a2[index]) < elt1) {
+	// index++;
+	// }
+	// if (elt1 != elt2)
+	// a[j++] = elt1;
+	// }
+	// return a;
+	// }
+	//
+	// public static int[] symmetricSetDifference(int[] a1, int[] a2) {
+	// return append(setDifference(a1, a2), setDifference(a2, a1));
+	// }
+	//
+	// public static Object[] symmetricSetDifference(Object[] a1, Object[] a2,
+	// Class type) {
+	// return append(setDifference(a1, a2, type), setDifference(a2, a1, type),
+	// type);
+	// }
 
 	// public static int nOccurrences(Object[] a1, Object p) {
 	// int result = 0;
@@ -700,18 +872,21 @@ public final class Util {
 		return result;
 	}
 
-	public static int[] delete(int[] a1, int p) {
-		int n = nOccurrences(a1, p);
-		if (n == 0)
-			return a1;
-		int[] a = new int[a1.length - n];
-		int j = 0;
-		for (int i = 0; i < a1.length; i++)
-			if (a1[i] != p)
-				a[j++] = a1[i];
-		return a;
-	}
+	// public static int[] delete(int[] a1, int p) {
+	// int n = nOccurrences(a1, p);
+	// if (n == 0)
+	// return a1;
+	// int[] a = new int[a1.length - n];
+	// int j = 0;
+	// for (int i = 0; i < a1.length; i++)
+	// if (a1[i] != p)
+	// a[j++] = a1[i];
+	// return a;
+	// }
 
+	/**
+	 * @deprecated
+	 */
 	public static Object delete(Object[] a1, Object p, Class type) {
 		if (a1 == null)
 			return a1;
@@ -726,6 +901,9 @@ public final class Util {
 		return a;
 	}
 
+	/**
+	 * @deprecated
+	 */
 	public static Object deleteIndex(Object[] a1, int index, Class type) {
 		int oldN = a1.length;
 		assert index >= 0;
@@ -736,30 +914,33 @@ public final class Util {
 		return a;
 	}
 
-	public static int[] deleteIndex(int[] a1, int index) {
-		int oldN = a1.length;
-		assert index >= 0;
-		assert index < oldN;
-		int[] a = new int[oldN - 1];
-		System.arraycopy(a1, 0, a, 0, index);
-		System.arraycopy(a1, index + 1, a, index, oldN - index - 1);
-		return a;
-	}
+	// public static int[] deleteIndex(int[] a1, int index) {
+	// int oldN = a1.length;
+	// assert index >= 0;
+	// assert index < oldN;
+	// int[] a = new int[oldN - 1];
+	// System.arraycopy(a1, 0, a, 0, index);
+	// System.arraycopy(a1, index + 1, a, index, oldN - index - 1);
+	// return a;
+	// }
+	//
+	// public static Object deleteEquals(Object[] a1, Object p, Class type) {
+	// int n = nOccurrences(a1, p);
+	// if (n == 0)
+	// return a1;
+	// Object[] a = (Object[]) java.lang.reflect.Array.newInstance(type,
+	// a1.length - n);
+	// int j = 0;
+	// for (int i = 0; i < a1.length; i++) {
+	// if (!equalsNullOK(a1[i], p))
+	// Array.set(a, j++, a1[i]);
+	// }
+	// return a;
+	// }
 
-	public static Object deleteEquals(Object[] a1, Object p, Class type) {
-		int n = nOccurrences(a1, p);
-		if (n == 0)
-			return a1;
-		Object[] a = (Object[]) java.lang.reflect.Array.newInstance(type,
-				a1.length - n);
-		int j = 0;
-		for (int i = 0; i < a1.length; i++) {
-			if (!equalsNullOK(a1[i], p))
-				Array.set(a, j++, a1[i]);
-		}
-		return a;
-	}
-
+	/**
+	 * @deprecated
+	 */
 	public static Object push(Object[] a1, Object p, Class type) {
 		int a1_length = a1 == null ? 0 : a1.length;
 		Object a = java.lang.reflect.Array.newInstance(type, a1_length + 1);
@@ -769,6 +950,9 @@ public final class Util {
 		return a;
 	}
 
+	/**
+	 * @deprecated
+	 */
 	public static Object endPush(Object[] a1, Object p, Class type) {
 		int a1_length = a1 == null ? 0 : a1.length;
 		Object a = java.lang.reflect.Array.newInstance(type, a1_length + 1);
@@ -778,6 +962,9 @@ public final class Util {
 		return a;
 	}
 
+	/**
+	 * @deprecated
+	 */
 	public static int[] push(int[] a1, int n) {
 		int[] a;
 		if (a1 == null) {
@@ -790,37 +977,46 @@ public final class Util {
 		return a;
 	}
 
-	public static char[] push(char[] a1, char n) {
-		char[] a;
-		if (a1 == null) {
-			a = new char[1];
-		} else {
-			a = new char[a1.length + 1];
-			System.arraycopy(a1, 0, a, 1, a1.length);
-		}
-		a[0] = n;
-		return a;
-	}
+	// public static char[] push(char[] a1, char n) {
+	// char[] a;
+	// if (a1 == null) {
+	// a = new char[1];
+	// } else {
+	// a = new char[a1.length + 1];
+	// System.arraycopy(a1, 0, a, 1, a1.length);
+	// }
+	// a[0] = n;
+	// return a;
+	// }
+	//
+	// public static int[] endPush(int[] a1, int n) {
+	// if (a1 == null)
+	// return push(a1, n);
+	// int[] a = new int[a1.length + 1];
+	// a[a1.length] = n;
+	// System.arraycopy(a1, 0, a, 0, a1.length);
+	// return a;
+	// }
+	//
+	// public static char[] endPush(char[] a1, char n) {
+	// if (a1 == null)
+	// return push(a1, n);
+	// char[] a = new char[a1.length + 1];
+	// a[a1.length] = n;
+	// System.arraycopy(a1, 0, a, 0, a1.length);
+	// return a;
+	// }
+	//	
+	//
+	// public static int[] subArray(int[] a, int start) {
+	// return subArray(a, start, a.length - 1);
+	// }
 
-	public static int[] endPush(int[] a1, int n) {
-		if (a1 == null)
-			return push(a1, n);
-		int[] a = new int[a1.length + 1];
-		a[a1.length] = n;
-		System.arraycopy(a1, 0, a, 0, a1.length);
-		return a;
-	}
-
-	public static char[] endPush(char[] a1, char n) {
-		if (a1 == null)
-			return push(a1, n);
-		char[] a = new char[a1.length + 1];
-		a[a1.length] = n;
-		System.arraycopy(a1, 0, a, 0, a1.length);
-		return a;
-	}
-
-	// subArray includes the end'th element, so end should be less than a.length
+	/**
+	 * subArray includes the end'th element, so end should be less than a.length
+	 * 
+	 * @deprecated
+	 */
 	public static int[] subArray(int[] a, int start, int end) {
 		assert start <= end;
 		assert end < a.length;
@@ -829,20 +1025,28 @@ public final class Util {
 		return result;
 	}
 
-	// subArray includes the end'th element, so end should be less than a.length
-	public static float[] subArray(float[] a, int start, int end) {
-		assert start <= end;
-		assert end < a.length;
-		float[] result = new float[end - start + 1];
-		System.arraycopy(a, start, result, 0, end - start + 1);
-		return result;
-	}
+	// // subArray includes the end'th element, so end should be less than
+	// a.length
+	// public static float[] subArray(float[] a, int start, int end) {
+	// assert start <= end;
+	// assert end < a.length;
+	// float[] result = new float[end - start + 1];
+	// System.arraycopy(a, start, result, 0, end - start + 1);
+	// return result;
+	// }
 
+	/**
+	 * @deprecated
+	 */
 	public static Object[] subArray(Object[] a, int start, Class type) {
 		return subArray(a, start, a.length - 1, type);
 	}
 
-	// subArray includes the end'th element, so end should be less than a.length
+	/**
+	 * subArray includes the end'th element, so end should be less than a.length
+	 * 
+	 * @deprecated
+	 */
 	public static Object[] subArray(Object[] a, int start, int end, Class type) {
 		assert start <= end + 1 : start + " " + end;
 		assert end < a.length : end + " " + a.length;
@@ -863,7 +1067,7 @@ public final class Util {
 		return result;
 	}
 
-	public static int member(int[] a, int elt) {
+	private static int member(int[] a, int elt) {
 		if (a != null)
 			for (int i = 0; i < a.length; i++) {
 				if (a[i] == elt)
@@ -872,7 +1076,7 @@ public final class Util {
 		return -1;
 	}
 
-	public static int member(char[] a, char elt) {
+	private static int member(char[] a, char elt) {
 		if (a != null)
 			for (int i = 0; i < a.length; i++) {
 				if (a[i] == elt)
@@ -906,7 +1110,7 @@ public final class Util {
 		}
 		return -1;
 	}
-	
+
 	/**
 	 * @param arg1
 	 * @param arg2
@@ -1064,7 +1268,8 @@ public final class Util {
 			buf.append("]");
 		} else if (a instanceof Collection) {
 			buf.append("<");
-			for (Iterator iterator = ((Collection) a).iterator(); iterator.hasNext();) {
+			for (Iterator iterator = ((Collection) a).iterator(); iterator
+					.hasNext();) {
 				valueOfDeepInternal(iterator.next(), buf, separator);
 				if (iterator.hasNext())
 					buf.append(separator);
@@ -1075,7 +1280,7 @@ public final class Util {
 		}
 	}
 
-	static boolean isArray(Object target) {
+	private static boolean isArray(Object target) {
 		Class targetClass = target.getClass();
 		return targetClass.isArray();
 	}
@@ -1084,7 +1289,7 @@ public final class Util {
 	 * Save a few keystrokes.
 	 */
 	public static void print(Object o) {
-//		printStackTrace();
+		// printStackTrace();
 		if (o == null)
 			System.out.println("<null>");
 		else
@@ -1280,7 +1485,8 @@ public final class Util {
 		int originalH = image.getHeight(null);
 		w = min(w, originalW);
 		h = min(h, originalH);
-		if (alwaysCopy || w != originalW || h != originalH || !(image instanceof BufferedImage)) {
+		if (alwaysCopy || w != originalW || h != originalH
+				|| !(image instanceof BufferedImage)) {
 			BufferedImage resized = createCompatibleImage(w, h);
 			Graphics2D g = (Graphics2D) resized.getGraphics();
 			// g.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
@@ -1412,6 +1618,26 @@ public final class Util {
 		return out;
 	}
 
+	public static String commonPrefix(String s1, String s2,
+			boolean caseSensitive) {
+		String prefix = s1;
+		for (int i = 0; i < prefix.length(); i++) {
+			if (s2.length() >= i) {
+				char char1 = prefix.charAt(i);
+				char char2 = s2.charAt(i);
+				if (!caseSensitive) {
+					char1 = Character.toUpperCase(char1);
+					char2 = Character.toUpperCase(char2);
+				}
+				if (char1 == char2)
+					continue;
+			}
+			prefix = prefix.substring(0, i);
+			break;
+		}
+		return prefix;
+	}
+
 	public static Object[] reverse(Object[] b) {
 		for (int left = 0, right = b.length - 1; left < right; left++, right--) {
 			// exchange the first and last
@@ -1432,10 +1658,6 @@ public final class Util {
 		return result;
 	}
 
-	public static double interpolate(double x, double x2, float zeroToOne) {
-		return x + zeroToOne * (x2 - x);
-	}
-
 	public static boolean isControlDown(int modifiers) {
 		return (modifiers & InputEvent.CTRL_DOWN_MASK) != 0;
 	}
@@ -1448,8 +1670,8 @@ public final class Util {
 		return (modifiers & InputEvent.ALT_DOWN_MASK) != 0;
 	}
 
-	public static Iterator arrayIterator(Object[] array,
-			int start, int nElements) {
+	public static Iterator arrayIterator(Object[] array, int start,
+			int nElements) {
 		return new ArrayIterator(array, start, nElements);
 	}
 
@@ -1459,8 +1681,7 @@ public final class Util {
 		private int index;
 		private final int lastIndexPlusOne;
 
-		ArrayIterator(Object[] _array,
-				int start, int nElements) {
+		ArrayIterator(Object[] _array, int start, int nElements) {
 			array = _array;
 			index = start;
 			lastIndexPlusOne = start + nElements;

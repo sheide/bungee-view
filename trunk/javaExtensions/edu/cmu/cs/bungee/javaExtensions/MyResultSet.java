@@ -82,6 +82,10 @@ public class MyResultSet implements ResultSet, Serializable {
 			Column.IntegerType, Column.DoubleType, Column.PositiveIntegerType,
 			Column.PositiveIntegerType);
 
+	public static final List INT_STRING = makeColumnTypeList(
+			Column.IntegerType, Column.StringType, null, null,
+			null, null, null, null, null, null);
+
 	public static final List PINT_SINT_STRING_INT_INT_INT = makeColumnTypeList(
 			Column.PositiveIntegerType, Column.SortedIntegerType,
 			Column.StringType, Column.IntegerType, Column.IntegerType,
@@ -347,6 +351,34 @@ public class MyResultSet implements ResultSet, Serializable {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+		return result;
+	}
+
+	/**
+	 * @param in
+	 * @return value read from in, or false if there's an error.
+	 */
+	public static boolean readBoolean(DataInputStream in) {
+		boolean result = false;
+		try {
+			result = in.readBoolean();
+			// Util.print("readDouble => " + result);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		// String result = null;
+		// int nChars = readInt(in) - 1;
+		// if (nChars >= 0) {
+		// try {
+		// StringBuffer buf = new StringBuffer(nChars);
+		// for (int i = 0; i < nChars; i++) {
+		// buf.append(in.readChar());
+		// }
+		// result = buf.toString();
+		// } catch (IOException e) {
+		// e.printStackTrace();
+		// }
+		// }
 		return result;
 	}
 
