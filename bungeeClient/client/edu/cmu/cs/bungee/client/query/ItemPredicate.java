@@ -3,24 +3,25 @@ package edu.cmu.cs.bungee.client.query;
 import java.util.SortedSet;
 
 /**
- * @author mad
- * Generalization of Perspective and Cluster
+ * @author mad Generalization of Perspective and Cluster
  */
 public interface ItemPredicate {
 
 	/**
-	 * modifier flagging that user gesture adds a negated filter
-	 * choose a bit that isn't used by InputEvent (control, shift, etc)
+	 * modifier flagging that user gesture adds a negated filter choose a bit
+	 * that isn't used by InputEvent (control, shift, etc)
 	 */
 	public static final int EXCLUDE_ACTION = 16384;
 
 	/**
-	 * @return the number of items satisfying this predicate and the current query
+	 * @return the number of items satisfying this predicate and the current
+	 *         query
 	 */
 	public abstract int getOnCount();
 
 	/**
-	 * @return the number of items in the [possibly restricted] collection satisfying this predicate
+	 * @return the number of items in the [possibly restricted] collection
+	 *         satisfying this predicate
 	 */
 	public abstract int getTotalCount();
 
@@ -50,14 +51,18 @@ public interface ItemPredicate {
 	public abstract SortedSet allRestrictions();
 
 	/**
-	 * @param facet child perspective possibly involved in a filter
-	 * @param required look for facet as a positive or negative filter?
-	 * @return Does this perspective have a filter (of polarity required) on facet?
+	 * @param facet
+	 *            child perspective possibly involved in a filter
+	 * @param required
+	 *            look for facet as a positive or negative filter?
+	 * @return Does this perspective have a filter (of polarity required) on
+	 *         facet?
 	 */
 	public abstract boolean isRestriction(ItemPredicate facet, boolean required);
 
 	/**
-	 * @return Is this perspective one of its parent's filters (of any polarity)?
+	 * @return Is this perspective one of its parent's filters (of any
+	 *         polarity)?
 	 */
 	public abstract boolean isRestriction();
 
@@ -90,7 +95,8 @@ public interface ItemPredicate {
 	/**
 	 * @param modifiers -
 	 *            from InputEvent.
-	 * @return Description of what will happen if the mouse is clicked, e.g. 'add filter <parent> = <this>'
+	 * @return Description of what will happen if the mouse is clicked, e.g.
+	 *         'add filter <parent> = <this>'
 	 */
 	public abstract Markup facetDoc(int modifiers);
 
@@ -110,7 +116,8 @@ public interface ItemPredicate {
 	public abstract double percentOn();
 
 	/**
-	 * @return significance level of percentOn() compared to parant's percentOn()
+	 * @return significance level of percentOn() compared to parant's
+	 *         percentOn()
 	 */
 	public abstract double pValue();
 
@@ -121,14 +128,29 @@ public interface ItemPredicate {
 	 */
 	public abstract int chiColorFamily(double significanceThreshold);
 
+	/**
+	 * @param _redraw
+	 * @return the name of this ItemPredicate; if uncached, return null and call
+	 *         _redraw when cached.
+	 */
 	public abstract String getName(PerspectiveObserver _redraw);
 
+	/**
+	 * @param _redraw
+	 * @return the name of this ItemPredicate; if uncached, return null.
+	 */
 	public abstract String getNameIfPossible();
 
-//	public abstract ItemPredicate getParent();
+	// public abstract ItemPredicate getParent();
 
+	/**
+	 * @return do any of my child facets have non-zero total count?
+	 */
 	public abstract boolean isEffectiveChildren();
 
+	/**
+	 * @return is there a filter on one of this ItemPredicate's children.
+	 */
 	public abstract boolean isRestricted();
 
 	/**

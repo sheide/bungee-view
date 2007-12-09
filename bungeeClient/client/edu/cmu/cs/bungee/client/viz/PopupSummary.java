@@ -1525,7 +1525,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 
 	private double getRelativePercentOnDifference() {
 		Rectangle2D barBounds = ((Bar) anchor).visibleBounds();
-		double delta = anchor.getHeight() / 2 - barBounds.getHeight();
+		double delta = barBounds.getHeight() - anchor.getHeight() / 2;
 		return delta;
 	}
 

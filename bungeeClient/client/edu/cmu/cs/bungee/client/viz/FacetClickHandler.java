@@ -9,7 +9,7 @@ import edu.umd.cs.piccolo.util.PDimension;
 
 class FacetClickHandler extends MyInputEventHandler {
 
-	PerspectiveViz dragging;
+	FacetNode dragging;
 
 	FacetClickHandler() {
 		super(FacetNode.class);
@@ -51,7 +51,7 @@ class FacetClickHandler extends MyInputEventHandler {
 
 	protected boolean click(PNode node, PInputEvent e) {
 		FacetNode f = (FacetNode) node;
-		// Util.print("FacetClickHandler.click " + f);
+//		 System.out.println("FacetClickHandler.click " + f);
 		if (e.isRightMouseButton()
 				&& f.art().setSelectedForEdit(f.getFacet(), e.getModifiersEx()))
 			return true;
@@ -65,22 +65,24 @@ class FacetClickHandler extends MyInputEventHandler {
 	}
 
 	protected boolean press(PNode node, PInputEvent e) {
-		boolean result = node instanceof Bar;
-		if (result) {
-			PNode parent = node.getParent();
-			if (parent == null)
-				edu.cmu.cs.bungee.piccoloUtils.gui.Util.printDescendents(node);
-			assert parent != null;
-			// gui.Util.printDescendents(node);
-			PerspectiveViz pv = (PerspectiveViz) parent.getParent();
-			result = pv.front == parent;
-			if (result) {
-				Point2D x = e.getPosition();
-				dragging = pv;
-				pv.startDrag(x, e.getPositionRelativeTo(parent));
-			}
-		}
-		return result;
+		dragging = ((FacetNode) node).startDrag(node, e.getPositionRelativeTo(node));
+		return dragging != null;
+//		boolean result = node instanceof Bar;
+//		if (result) {
+//			PNode parent = node.getParent();
+//			if (parent == null)
+//				edu.cmu.cs.bungee.piccoloUtils.gui.Util.printDescendents(node);
+//			assert parent != null;
+//			// gui.Util.printDescendents(node);
+//			PerspectiveViz pv = (PerspectiveViz) parent.getParent();
+//			result = pv.front == parent;
+//			if (result) {
+//				Point2D x = e.getPosition();
+//				dragging = pv;
+//				pv.startDrag(x, e.getPositionRelativeTo(parent));
+//			}
+//		}
+//		return result;
 	}
 
 	protected boolean release(PNode ignore) {

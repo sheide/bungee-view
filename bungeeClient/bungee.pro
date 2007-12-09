@@ -1,6 +1,6 @@
 -injars 'C:\Documents and Settings\mad\workspace\bungeeClient\bungeeClient-non-shrunk.jar'
 #-injars 'C:\Documents and Settings\mad\workspace\mysql-connector-java-3.0.16-ga-bin.jar'
--outjars 'C:\Program Files\Apache Software Foundation\Tomcat 5.5\webapps\bungee\bungeeClient.jar'
+-outjars 'C:\Program Files\Apache Software Foundation\Tomcat 6.0\webapps\bungee\bungeeClient.jar'
 
 -libraryjars 'C:\Program Files\Java\j2re1.4.2_11\lib\rt.jar'
 #-libraryjars 'C:\Program Files\Java\jre1.5.0_06\lib\rt.jar'
