@@ -60,6 +60,19 @@ public class QueueThread extends Thread {
 		return result;
 	}
 
+	/**
+	 *  remove o from the queue
+	 * @param o
+	 * @return whether anything was removed from the queue.
+	 */
+	final public synchronized boolean remove(Object o) {
+		boolean result = queue.contains(o);
+		if (result) {
+			queue.remove(o);
+		}
+		return result;
+	}
+
 	 synchronized Object get() {
 		Object result = null;
 		while (isUpToDate()) {
