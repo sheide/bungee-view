@@ -353,7 +353,7 @@ public final class Perspective implements Comparable, ItemPredicate {
 	 */
 	public boolean isAlphabetic() {
 		boolean result = instantiatedPerspective.isAlphabetic;
-//		assert result == checkAlphabetic() : this + " " + result;
+		// assert result == checkAlphabetic() : this + " " + result;
 		return result;
 	}
 
@@ -456,10 +456,11 @@ public final class Perspective implements Comparable, ItemPredicate {
 		else
 			return getTotalCount();
 	}
-	
-	
+
 	/**
-	 * query() is surprisingly slow, so when it matters don't keep recomputing it.
+	 * query() is surprisingly slow, so when it matters don't keep recomputing
+	 * it.
+	 * 
 	 * @param isQueryRestricted
 	 * @return
 	 */
@@ -678,13 +679,16 @@ public final class Perspective implements Comparable, ItemPredicate {
 			return result;
 		}
 		assert redraw != null;
+		Query q = query();
 		if (!parent.isPrefetched()) {
-			query().queuePrefetch(getParent());
+			q.queuePrefetch(getParent());
 			// getQuery().prefetchData(parent);
 			// assert name != null;
 		}
-		query().nameGetter.add(this);
-		query().nameGetter.add(redraw);
+		NameGetter nameGetter = q.nameGetter;
+		assert nameGetter != null : q;
+		nameGetter.add(this);
+		nameGetter.add(redraw);
 		// Util.print("getName " + parent.isPrefetched() + " " + this);
 		return defaultName;
 	}
@@ -1320,8 +1324,8 @@ public final class Perspective implements Comparable, ItemPredicate {
 		// + isRestriction(facet, true) + " " + isRestricted() + " "
 		// + allRestrictions());
 		boolean result = true;
-		boolean require = (modifiers == 0 && isRestriction(facet, false)) ? false
-				: !isExcludeAction(modifiers);
+		boolean require = !(isExcludeAction(modifiers) || (modifiers == 0 && isRestriction(
+				facet, false)));
 		if (isRestriction(facet, require)) {
 			if (Util.isControlDown(modifiers) || isExcludeAction(modifiers)) {
 				deselectFacet(facet, require);
@@ -1373,7 +1377,7 @@ public final class Perspective implements Comparable, ItemPredicate {
 
 	void deselectAllFacets() {
 		// Util.print("p.deselectAllFacets " + this);
-		assert isRestricted() : "deselectAllFacets problem";
+		assert isRestricted() : this;
 		instantiatedPerspective.q.clearPerspective(this);
 	}
 
@@ -1603,7 +1607,8 @@ public final class Perspective implements Comparable, ItemPredicate {
 	 */
 	public int chiColorFamily(double p) {
 		int result = 0;
-		if (isBigDeal() && ensureInstantiatedPerspective().pValue() <= p) {
+		if (// isBigDeal() &&
+		ensureInstantiatedPerspective().pValue() <= p) {
 			result = ensureInstantiatedPerspective().pValueSign();
 		}
 		assert result == 0
@@ -1644,13 +1649,13 @@ public final class Perspective implements Comparable, ItemPredicate {
 		return warpPower;
 	}
 
-	void computeBigDeals() {
-		double expectedPercent = percentOn();
-		positiveBigDeal = unwarp(0.55, expectedPercent);
-		negativeBigDeal = unwarp(0.45, expectedPercent);
-		// Util.print("Big deals " + this + " " + negativeBigDeal + "-" +
-		// positiveBigDeal);
-	}
+	// void computeBigDeals() {
+	// double expectedPercent = percentOn();
+	// positiveBigDeal = unwarp(0.55, expectedPercent);
+	// negativeBigDeal = unwarp(0.45, expectedPercent);
+	// // Util.print("Big deals " + this + " " + negativeBigDeal + "-" +
+	// // positiveBigDeal);
+	// }
 
 	// static double warp(double observedPercent, double expectedPercent) {
 	// if (observedPercent == 0.0 || observedPercent == 1.0)
@@ -1666,29 +1671,29 @@ public final class Perspective implements Comparable, ItemPredicate {
 	// return result;
 	// }
 
-	private double positiveBigDeal;
-	private double negativeBigDeal;
-
-	boolean isBigDeal() {
-		// ItemPredicate expectationParent = parent != null ? parent
-		// : (ItemPredicate) getQuery();
-		// return Math.abs(warp(percentOn(), expectationParent.percentOn()) -
-		// 0.5) > 0.1;
-		boolean result = false;
-		if (query().isQueryValid() && getOnCount() >= 0 && totalCount > 0) {
-			// Deeply nested facets will have onCount < 0
-			if (parent == null)
-				result = query().isBigDeal(percentOn());
-			else
-				result = parent.isBigDeal(percentOn());
-		}
-		return result;
-	}
-
-	boolean isBigDeal(double obervedPercent) {
-		return obervedPercent > positiveBigDeal
-				|| obervedPercent < negativeBigDeal;
-	}
+	// private double positiveBigDeal;
+	// private double negativeBigDeal;
+	//
+	// boolean isBigDeal() {
+	// // ItemPredicate expectationParent = parent != null ? parent
+	// // : (ItemPredicate) getQuery();
+	// // return Math.abs(warp(percentOn(), expectationParent.percentOn()) -
+	// // 0.5) > 0.1;
+	// boolean result = false;
+	// if (query().isQueryValid() && getOnCount() >= 0 && totalCount > 0) {
+	// // Deeply nested facets will have onCount < 0
+	// if (parent == null)
+	// result = query().isBigDeal(percentOn());
+	// else
+	// result = parent.isBigDeal(percentOn());
+	// }
+	// return result;
+	// }
+	//
+	// boolean isBigDeal(double obervedPercent) {
+	// return obervedPercent > positiveBigDeal
+	// || obervedPercent < negativeBigDeal;
+	// }
 
 	// public int chiColorFamily(double p) {
 	// int result = 0;
@@ -1931,7 +1936,12 @@ public final class Perspective implements Comparable, ItemPredicate {
 		 *         c.cumCountExclusive <= maxCount
 		 */
 		Iterator cumCountChildIterator(int minCount, int maxCount) {
-			if (minCount == 0 && maxCount == getTotalChildTotalCount())
+			totalChildTotalCount = getTotalChildTotalCount();
+			if (minCount < 0)
+				minCount = 0;
+			if (maxCount > totalChildTotalCount)
+				maxCount = totalChildTotalCount;
+			if (minCount == 0 && maxCount == totalChildTotalCount)
 				// optimize common case
 				return getChildIterator();
 			synchronized (dummyCumCount) {
@@ -2168,7 +2178,14 @@ public final class Perspective implements Comparable, ItemPredicate {
 						try {
 							pValue = ChiSq2x2.signedPvalue(parentTotalCount,
 									parentOnCount, totalCount, onCount);
-							updateIndex = q.updateIndex;
+							if ("Commercial organizations"
+									.equals(getNameIfPossible()))
+								// Util.print("pvalue = "
+								// + Util.valueOfDeep(pValue) + " "
+								// + parentTotalCount + " "
+								// + parentOnCount + " " + totalCount + " " +
+								// onCount);
+								updateIndex = q.updateIndex;
 						} catch (OutOfRangeException e) {
 							// Keep going even if there are problems in
 							// ChiSq2x2.signedPvalue
@@ -2304,7 +2321,7 @@ public final class Perspective implements Comparable, ItemPredicate {
 		 */
 		public Perspective getNthChild(int n) {
 			assert n >= 0 : n;
-			assert n < nChildren : n + "/" + nChildren;
+			assert n < nChildren : this + " " + n + "/" + nChildren;
 
 			Perspective result = q.findPerspective(children_offset + n + 1);
 			assert result != null : this + " " + n + " " + nChildren;

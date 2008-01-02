@@ -66,8 +66,8 @@ public interface Markup extends List {
 	 * Colors used for facets significantly negatively associated with the
 	 * current filters
 	 */
-	public static final Color[] NEGATIVE_ASSOCIATION_COLORS = { new Color(0x662000),
-			new Color(0x662000), new Color(0xBB5000), new Color(0xFF6000) };
+	public static final Color[] NEGATIVE_ASSOCIATION_COLORS = { new Color(0x660000),
+			new Color(0x660000), new Color(0xBB0000), new Color(0xFF0000) };
 
 	/**
 	 * Colors used for facets in positive filters
@@ -426,7 +426,7 @@ final class MarkupImplementation extends ArrayList implements Markup {
 			} else if (o == Markup.NEWLINE_TAG) {
 				result.append("\n");
 			} else if (o instanceof String) {
-				assert !plural : this;
+				assert !plural : this + " '" + o + "' " + result;
 				result.append(o);
 			} else if (o instanceof ItemPredicate) {
 				ItemPredicate facet = (ItemPredicate) o;

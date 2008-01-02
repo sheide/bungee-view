@@ -50,7 +50,7 @@ import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
 
  final class MouseDocLine extends LazyPNode implements PerspectiveObserver {
 
-	private static final Color tipBG = Color.yellow;
+	private static final Color tipBG = Bungee.helpColor; //Color.yellow;
 
 	private TextNfacets clickDesc;
 
@@ -69,7 +69,7 @@ import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
 
 	 MouseDocLine(Bungee _art) {
 		art = _art;
-		facetDesc = new TextNfacets(art, Bungee.mouseDocFG, false);
+		facetDesc = new TextNfacets(art, Color.lightGray, false);
 		// facetDesc.setJustification(Component.CENTER_ALIGNMENT);
 		// RIGHT_ALIGNMENT);
 		facetDesc.setPaint(Util.lighten(Bungee.headerBG, 1.2f));
@@ -149,7 +149,8 @@ import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
 		assert s != null;
 		clickDesc.setContent(s);
 		// Allow room for facetDoc to at least say "mmmm (100% of nnnn) P=1E-10"
-		clickDesc.setWidth(getWidth() - art.lineH * 20);
+		double maxW = getWidth() - (art.isPopups ? 0 : art.lineH * 20);
+		clickDesc.setWidth(maxW);
 		clickDesc.layout();
 		// clickDesc.trim(20, 0);
 		clickDesc.setVisible(true);

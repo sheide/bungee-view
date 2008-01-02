@@ -96,7 +96,7 @@ final class Rank extends LazyPNode {
 				PerspectiveViz pv = perspectives[i];
 				if (pv.p.isDisplayed()) {
 					int childW = (int) (ratio * pv.p.getTotalCount());
-					assert childW > 0 : pv.p + " " + pv.p.getTotalCount();
+//					assert childW > 0 : pv.p + " " + pv.p.getTotalCount();
 					pv.setHeight(getHeight());
 					pv.setOffset(xOffset, 0.0);
 					pv.validate(childW, i == 0);
@@ -371,7 +371,7 @@ final class Rank extends LazyPNode {
 				// + f2.format(warpCorrelation(facet))
 				// + f2.format(warpMutInf(facet, false))
 				// + f2.format(warpMutInf(facet, true))
-				f2.format(warp(facet)));
+				f2.format(warp(oddsRatio(facet))));
 	}
 
 	// /**
@@ -478,29 +478,72 @@ final class Rank extends LazyPNode {
 
 	static final double logOddsRange = Math.log(100);
 
-	double warp(Perspective facet) {
-		double result = 0.5;
+	// facet ~facet
+	// _ a ____ b __ query
+	// _ c ____ d _ ~query
+	double oddsRatio(Perspective facet) {
 		int a = facet.getOnCount();
-		int aPlusb = facet.getTotalCount();
-		int aPlusc = totalChildOnCount();
+		int aPlusc = facet.getTotalCount();
+		int aPlusb = totalChildOnCount();
+		int b = aPlusb - a;
 		int aPlusbcd = totalChildTotalCount();
 		int bPlusd = aPlusbcd - aPlusc;
-		int cPlusd = aPlusbcd - aPlusb;
-		double denom = ((double) aPlusb) * aPlusc * bPlusd * cPlusd;
-		if (denom > 0) {
-			int b = aPlusb - a;
-			int c = aPlusc - a;
-			int d = bPlusd - b;
-			double logOdds = Util.constrain(Math.log(a * d / (double) b / c),
-					-logOddsRange, logOddsRange);
-			// Util.print((a*d/(double) b/c) + " " + logOdds);
-			result = (logOdds + logOddsRange) / (2 * logOddsRange);
-			// Util.print(aPlusb + " " + aPlusc + " " + bPlusd + " " + cPlusd);
-			// Util.print(a + " " + b + " " + c + " " + d + "\n");
-			assert result >= 0 && result <= 1 : a + " " + b + " " + c + " " + d
-					+ " " + facet + " " + logOdds + " " + result + " " + denom;
-		}
-		return result;
+
+		// Util.print(facet + " " + a + " " + b + " " + aPlusc + " " + bPlusd);
+
+		if (aPlusc == 0 || bPlusd == 0 || aPlusb == 0)
+			// make sure 0/0 == 1
+			return 1;
+		else if (b == 0)
+			return Double.POSITIVE_INFINITY;
+		else
+			return (a * bPlusd) / (double) (b * aPlusc);
+	}
+
+	// double warp(Perspective facet) {
+	// double result = 0.5;
+	// int a = facet.getOnCount();
+	// int aPlusb = facet.getTotalCount();
+	// int aPlusc = totalChildOnCount();
+	// int aPlusbcd = totalChildTotalCount();
+	// int bPlusd = aPlusbcd - aPlusc;
+	// int cPlusd = aPlusbcd - aPlusb;
+	// // double denom = ((double) aPlusb) * aPlusc * bPlusd * cPlusd;
+	// if (aPlusb > 0 && aPlusc > 0 && bPlusd > 0 && cPlusd > 0) {
+	// int b = aPlusb - a;
+	// int c = aPlusc - a;
+	// int bc = b * c;
+	// if (bc == 0) {
+	// result = 1.0;
+	// } else {
+	// int d = bPlusd - b;
+	// double logOdds = Math.log(a * d / (double) bc);
+	// // Util.print((a*d/(double) b/c) + " " + logOdds);
+	// result = warp(logOdds);
+	// // Util.print(aPlusb + " " + aPlusc + " " + bPlusd + " " +
+	// // cPlusd);
+	// // Util.print(a + " " + b + " " + c + " " + d + "\n");
+	// assert result >= 0 && result <= 1 : a + " " + b + " " + c + " "
+	// + d + " " + facet + " " + logOdds + " " + result;
+	// }
+	// }
+	// return result;
+	// }
+
+	static double warp(double oddsRatio) {
+		// Util.print("warp " + oddsRatio + " " + ((int) Math.round(oddsRatio))
+		// + " " + Util
+		// .constrain(Math.log(oddsRatio), -logOddsRange, logOddsRange));
+		return (constrainLogOdds(oddsRatio) + logOddsRange)
+				/ (2 * logOddsRange);
+	}
+
+	static double constrainLogOdds(double oddsRatio) {
+		return Util.constrain(Math.log(oddsRatio), -logOddsRange, logOddsRange);
+	}
+
+	static double constrainOddsRatio(double oddsRatio) {
+		return Math.exp(constrainLogOdds(oddsRatio));
 	}
 
 	// double warpPower() {
@@ -549,7 +592,7 @@ final class Rank extends LazyPNode {
 	 *            1-y-coordinate, so most positive association is 0
 	 * @return the odds ratio for this y value
 	 */
-	double unwarp(double y) {
+	static double unwarp(double y) {
 		double logOdds = (y - 0.5) * 2 * logOddsRange;
 		double odds = Math.exp(logOdds);
 		return odds;

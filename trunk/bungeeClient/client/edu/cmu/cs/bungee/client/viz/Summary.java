@@ -137,7 +137,8 @@ final class Summary extends LazyPNode implements MouseDoc {
 		addChild(summaryText);
 
 		clearMessage = art.oneLineLabel();
-		clearMessage.setPaint(Bungee.summaryFG);
+		// clearMessage.setPaint(Bungee.summaryFG);
+		clearMessage.setTextPaint(Bungee.helpColor);
 		clearMessage.setPickable(false);
 		clearMessage
 				.setText(" (To clear a single filter, click on the tag again.) ");
@@ -213,8 +214,8 @@ final class Summary extends LazyPNode implements MouseDoc {
 	}
 
 	void validateInternal(double _w, double _h, boolean recomputeQueryW) {
-//		Util.print("Summary.validateInternal " + _w + " " + _h + " " + queryW
-//				+ " " + recomputeQueryW + " " + minWidth(recomputeQueryW));
+		// Util.print("Summary.validateInternal " + _w + " " + _h + " " + queryW
+		// + " " + recomputeQueryW + " " + minWidth(recomputeQueryW));
 		assert _w == (int) _w;
 		assert _h == (int) _h;
 		w = _w;
@@ -232,25 +233,22 @@ final class Summary extends LazyPNode implements MouseDoc {
 			// labels running off the left edge of the window.
 			// But if something else constrains label height to be smaller, make
 			// queryW smaller, too.
-			double maxQueryW = 0;
 			if (recomputeQueryW) {
 				// double minW = clear.getWidth() + restrict.getWidth()
 				// + bookmark.getWidth() + 2 * BUTTON_MARGIN;
-				maxQueryW = _w - queryViz.maxWidth();
-				queryW = maxQueryW;
+				queryW = queryViz.maxWidth();
 			}
 			computeRankComponentHeights();
 			if (recomputeQueryW) {
 
 				// don't use constrain, because it will gag if _w * 0.22 > _w -
 				// minW
-				double updatedQueryW = Math
-						.round(Math.min(maxQueryW, Math.max(_w * 0.22,
-								rankComponentHeights.labelsH() - art.lineH)));
-				if (updatedQueryW != queryW) {
-					queryW = updatedQueryW;
-					computeRankComponentHeights();
-				}
+				queryW = Math.round(Math.min(queryW, Math.max(_w * 0.22,
+						rankComponentHeights.labelsH() - art.lineH)));
+				// if (updatedQueryW != queryW) {
+				// queryW = updatedQueryW;
+				// computeRankComponentHeights();
+				// }
 			}
 		}
 		label.setOffset(queryW, 0);
@@ -333,7 +331,12 @@ final class Summary extends LazyPNode implements MouseDoc {
 	}
 
 	public double minWidth() {
-		return minWidth(true);
+		return minWidth(false);
+	}
+
+	double widgetWidth() {
+		return clear.minWidth() + restrict.minWidth() + bookmark.minWidth() + 2
+				* BUTTON_MARGIN;
 	}
 
 	double minWidth(boolean recomputeQueryW) {
@@ -342,8 +345,7 @@ final class Summary extends LazyPNode implements MouseDoc {
 		// b = bookmark;
 		// if (restrict != null)
 		// b = restrict;
-		return clear.minWidth() + restrict.minWidth() + bookmark.minWidth() + 2
-				* BUTTON_MARGIN
+		return widgetWidth()
 				+ (recomputeQueryW ? queryViz.minWidth() : queryViz.getWidth());
 	}
 
@@ -759,7 +761,8 @@ final class Summary extends LazyPNode implements MouseDoc {
 	 */
 	void highlightFacet(Perspective facet) {
 		assert facet != null;
-		if (q.displaysPerspective(facet.getParent()) || q.displaysPerspective(facet)) {
+		if (q.displaysPerspective(facet.getParent())
+				|| q.displaysPerspective(facet)) {
 			updateSelections(facet);
 		}
 		if (perspectiveList != null)
@@ -1022,14 +1025,14 @@ final class Summary extends LazyPNode implements MouseDoc {
 	boolean expandSummary() {
 		art.printUserAction(Bungee.BUTTON, "Ellipsis", 0);
 		if (summaryText.getHeight() <= art.lineH && summaryText.isIncomplete()) {
-//			Util.print("expandSummary");
+			// Util.print("expandSummary");
 			summaryText.setWrapText(true);
 			summaryText.setWrapOnWordBoundaries(true);
-			summaryText.setTrim(-1, (int) (art.lineH/2));
-//			double summaryH = 
-				summaryText.layout(summaryText.getWidth(), h
+			summaryText.setTrim(-1, (int) (art.lineH / 2));
+			// double summaryH =
+			summaryText.layout(summaryText.getWidth(), h
 					- summaryText.getYOffset());
-//			summaryText.setHeight(summaryH + 10.0); // Easier to read with a
+			// summaryText.setHeight(summaryH + 10.0); // Easier to read with a
 			// little extra margin at
 			// the bottom
 			summaryText.moveToFront();
@@ -1044,7 +1047,7 @@ final class Summary extends LazyPNode implements MouseDoc {
 
 	boolean contractSummary() {
 		if (summaryText.getHeight() > art.lineH) {
-//			Util.print("contractSummary");
+			// Util.print("contractSummary");
 			summaryText.setTrim(-1, -1);
 			summaryText.setWrapText(false);
 			summaryText.setWrapOnWordBoundaries(false);
@@ -1079,6 +1082,9 @@ final class Summary extends LazyPNode implements MouseDoc {
 		queryViz.doHideTransients();
 	}
 
+	/**
+	 * Only called by replayOps
+	 */
 	void clickBar(Perspective facet, int modifiers) {
 		PerspectiveViz pv = findPerspective(facet.getParent());
 		pv.clickBar(facet, modifiers);
@@ -1143,12 +1149,12 @@ final class Summary extends LazyPNode implements MouseDoc {
 					if (pv != null) {
 						LazyPNode anchor = findPerspective(pvp).anchorForPopup(
 								barp);
-						if (anchor != null) {
-							// There a transient state where pvp has a pv, but
-							// it
-							// doesn't have any bars yet.
-							facetDesc.setFacet(facet, false, anchor);
-						}
+						// if (anchor != null) {
+						// There a transient state where pvp has a pv, but
+						// it
+						// doesn't have any bars yet.
+						facetDesc.setFacet(facet, false, anchor);
+						// }
 						break;
 					}
 				}
@@ -1240,6 +1246,13 @@ final class Summary extends LazyPNode implements MouseDoc {
 			// facetDesc.setAnchor(pv);
 			facetDesc.setFacet(facet, true, pv.medianArrow);
 		}
+	}
+
+	void togglePerspectiveList(Perspective _selected) {
+		if (perspectiveList == null || perspectiveList.isHidden())
+			// ensurePerspectiveList is slow so don't call it just to hide it
+			ensurePerspectiveList(_selected);
+		perspectiveList.toggle();
 	}
 
 	Perspective handleArrow(Perspective arrowFocus, int key, int modifiers) {
@@ -1598,7 +1611,7 @@ final class Summary extends LazyPNode implements MouseDoc {
 			// art.lineH /* / scale */+ 2, null, 1.8f, color,
 			// Bungee.summaryBG);
 			super(label1, color, Bungee.summaryBG, Summary.this.art);
-			mouseDoc = "Treat current results as if they were the entire database";
+			mouseDoc = "Explore within the current results";
 		}
 
 		public void doPick() {

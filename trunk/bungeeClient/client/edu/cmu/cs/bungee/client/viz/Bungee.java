@@ -36,9 +36,6 @@ package edu.cmu.cs.bungee.client.viz;
  * log interface: scatterplot of seesions by date and database; size shows # of
  * operations; clicking opens a window that replays the session.
  * 
- * Help for log odds: 1) add / _______ 1/23 2) expand pv 3) add connecting line
- * 4) magnify odds label 5) same message about significance
- * 
  * Tweedie-style bars showing expected, current, current except for us, current
  * except for 1 other.
  * 
@@ -52,17 +49,12 @@ package edu.cmu.cs.bungee.client.viz;
  * This file has way too much crap in it, which should be moved to
  * javaExtentions, FacetText, or it's own file.
  * 
- * Use effect size (percent of variance explained) instead of Chi2? Multiple
- * correlation?
- * 
  * Check out constant folding - if there is only one bar, skip that level (maybe
  * only if the bar count = parent count)
  * 
  * Rationalize startup: print start/end time for creating each frame, and its
  * "delayed init", and see whether we're really saving anything with the extra
  * complication. Also nest instantiatedPerspective inside Perspective.
- * 
- * For long alphabetized lists, put inital letter in scroll bar
  * 
  * Widget to limit cluster size (especially to 1)
  * 
@@ -191,11 +183,13 @@ import edu.cmu.cs.bungee.client.query.PerspectiveObserver;
 import edu.cmu.cs.bungee.client.query.Query;
 import edu.cmu.cs.bungee.client.query.Query.Item;
 import edu.cmu.cs.bungee.javaExtensions.QueueThread;
+import edu.cmu.cs.bungee.javaExtensions.URLQuery;
 import edu.cmu.cs.bungee.javaExtensions.UpdateNoArgsThread;
 import edu.cmu.cs.bungee.javaExtensions.Util;
 import edu.cmu.cs.bungee.piccoloUtils.gui.APText;
 import edu.cmu.cs.bungee.piccoloUtils.gui.Boundary;
 import edu.cmu.cs.bungee.piccoloUtils.gui.Button;
+import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
 import edu.cmu.cs.bungee.piccoloUtils.gui.Menu;
 import edu.cmu.cs.bungee.piccoloUtils.gui.MyInputEventHandler;
 import edu.umd.cs.piccolo.PCamera;
@@ -271,7 +265,9 @@ final class Bungee extends PFrame {
 
 	static final Color headerFG = new Color(0x669999);
 
-	static final Color mouseDocFG = new Color(0x99CCCC);
+	static final Color helpColor = Color.orange;
+
+	static final Color mouseDocFG = helpColor; //new Color(0x99CCCC);
 
 	static final Color summaryFG = new Color(0x666699);
 
@@ -336,7 +332,7 @@ final class Bungee extends PFrame {
 
 	double parentIndicatorWidth;
 
-	private boolean isPopups = true;
+	boolean isPopups = true;
 
 	/** ************* End of tweakable parameters *************** */
 
@@ -382,7 +378,7 @@ final class Bungee extends PFrame {
 
 	MouseDocLine mouseDoc;
 
-	APText help;
+	LazyPNode help;
 
 	Summary summary;
 
@@ -672,12 +668,9 @@ final class Bungee extends PFrame {
 			grid = new ResultsGrid(this);
 			summary = new Summary(this);
 
-			help = new APText(new Font(fontFamily, Font.ITALIC, textH));
-			help.scale(2.0);
-			help.setTextPaint(Color.white);
-			help.setPickable(false);
-			help
-					.setText("Click on a category,\nand then click on its tags\nto start diving\ninto the collection.");
+			help = new LazyPNode();
+
+			help = new InitialHelp();
 
 			layer.addChild(grid);
 			layer.addChild(selectedItem);
@@ -696,6 +689,44 @@ final class Bungee extends PFrame {
 		}
 		// Util.print("...setInternal returning");
 		handleCursor(false);
+	}
+
+	private class InitialHelp extends LazyPNode {
+		private APText meta;
+		private APText msg;
+
+		InitialHelp() {
+//			setPaint(Color.yellow);
+			scale(2.0);
+			setPickable(false);
+			setChildrenPickable(false);
+
+			meta = new APText(new Font(fontFamily, Font.ITALIC, textH));
+			meta.setTextPaint(Color.white);
+			meta.setText("New Users: Watch for\nusage tips in orange text.");
+			// If natural width set above is too big, positionHelp will fix it
+			meta.setConstrainWidthToTextWidth(false);
+			addChild(meta);
+
+			msg = new APText(new Font(fontFamily, Font.ITALIC, textH));
+			msg.setTextPaint(helpColor);
+			msg.setPickable(false);
+			msg
+					.setText("Click on a category,\nand then click on its tags\nto start diving into the collection.");
+			msg.setConstrainWidthToTextWidth(false);
+			addChild(msg);
+			
+			setWidth(w);
+		}
+		
+		public boolean setWidth(double w) {
+			w = Math.round(w / getScale());
+			meta.setWidth(w);
+			msg.setWidth(w);
+			msg.setOffset(0, meta.getHeight() + lineH);
+			setHeight(msg.getMaxY());
+			return super.setWidth(w);
+		}
 	}
 
 	// private int dbIndex(String name) {
@@ -749,9 +780,9 @@ final class Bungee extends PFrame {
 	int minWidth() {
 		int result = 1;
 		if (selectedItem != null)
-			return (int) (selectedItem.minWidth() + summary.minWidth() + grid
+			return (int) (selectedItem.minWidth() + summary.minWidth(true) + grid
 					.minWidth());
-		Util.print("minWidth " + result);
+//		Util.print("minWidth " + result);
 		return result;
 	}
 
@@ -787,7 +818,7 @@ final class Bungee extends PFrame {
 				double internalH = h - headerH - mouseDocH;
 
 				double selectedItemW = (int) (selectedItem.minWidth() * scaleRatio(0.5));
-				double summaryW = (int) (summary.minWidth() * scaleRatio(1.0));
+				double summaryW = (int) (summary.minWidth(true) * scaleRatio(1.0));
 				double gridW = (w - summaryW - selectedItemW - regionMargins);
 				// Util.print("gridW " + gridW + " summaryW " + summaryW
 				// + " selectedItemW " + selectedItemW);
@@ -807,12 +838,14 @@ final class Bungee extends PFrame {
 	}
 
 	void positionHelp() {
+//		Util.print("positionHelp ") + isShowingInitialHelp());
 		if (isShowingInitialHelp()) {
-			help.setOffset(summary.getMaxX() + lineH, headerH + 4 * lineH);
+			double xOffset = summary.getMaxX() + lineH;
+			help.setOffset(xOffset, headerH + 4 * lineH);
 			double helpRight = help.getMaxX();
 			if (helpRight > w) {
-				help.setConstrainWidthToTextWidth(false);
-				help.setWidth(w - helpRight - 5);
+				// help.setConstrainWidthToTextWidth(false);
+				help.setWidth(w - xOffset - lineH);
 			}
 		}
 	}
@@ -1193,7 +1226,7 @@ final class Bungee extends PFrame {
 			| InputEvent.SHIFT_DOWN_MASK | ItemPredicate.EXCLUDE_ACTION;
 
 	void toggleFacet(Perspective facet, int modifiers) {
-		// Util.print("Art.toggleFacet " + facet + " " + modifiers);
+//		 Util.print("Art.toggleFacet " + facet + " " + modifiers);
 		assert facet != null;
 		assert facet.getParent() != null : facet;
 		// arrowFocus = facet;
@@ -2041,6 +2074,7 @@ final class Bungee extends PFrame {
 		protected boolean keyPress(char key, PInputEvent e) {
 			// Util.print("keyPress " + key);
 			int modifiers = e.getModifiersEx();
+			char keyChar = e.getKeyChar();
 			if (Util.isMember(MyInputEventHandler.arrowKeys, key) || key == 'A'
 					&& Util.isControlDown(modifiers)) {
 				return handleArrow(key, modifiers);
@@ -2057,15 +2091,19 @@ final class Bungee extends PFrame {
 			} else if (editMenu != null
 					&& Character.digit(key, editMenu.nChoices()) > 0) {
 				editMenu.choose(key - '1');
-			} else if ((Character.isLetter(key) || key == '\b')
-					&& modifiers == 0) {
-				return summary.keyPress(key);
+			} else if (isNameChar(keyChar) || key == '\b') {
+				return summary.keyPress(keyChar);
 			} else {
 				// Bungee.this.mayHideTransients();
 				// artHideTransients();
 				return false;
 			}
 			return true;
+		}
+		
+		boolean isNameChar(char c) {
+//			Util.print("isNameChar " + c + (c >= 32 && c != 127));
+			return c >= 32 && c != 127;
 		}
 
 		protected void mayHideTransients(PNode ignore) {
@@ -2620,7 +2658,9 @@ final class Bungee extends PFrame {
 			break;
 		case FACET_ARROW:
 			Util.print("  Facet Arrow " + args[2] + " " + modifiers);
-			summary.clickBar(replayPerspective(args[2]), modifiers);
+			Perspective p = replayPerspective(args[2]);
+			summary.connectToPerspective(p.getParent());
+			summary.clickBar(p, modifiers);
 			break;
 		case SHOW_CLUSTERS:
 			Util.print("  find clusters");

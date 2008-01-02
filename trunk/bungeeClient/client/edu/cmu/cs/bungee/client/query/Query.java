@@ -96,10 +96,10 @@ public final class Query implements ItemPredicate {
 	public Query(String server, String dbName) {
 		db = new ServletInterface(server, dbName);
 		String[][] dbs = db.getDatabases();
-		for (int i = 0; i < dbs.length; i++) {
-			if (dbs[i][0].equalsIgnoreCase(dbName)) {
+		for (int i = 0; i < dbs.length && name == null; i++) {
+			if (dbName == null || dbName.length() == 0
+					|| dbs[i][0].equalsIgnoreCase(dbName)) {
 				name = dbs[i][1];
-				break;
 			}
 		}
 		assert name != null : dbName;
@@ -252,7 +252,8 @@ public final class Query implements ItemPredicate {
 	}
 
 	public String toString() {
-		return "<Query " + description().toText() + ">";
+		return "<Query " + description().compile(genericObjectLabel).toText()
+				+ ">";
 	}
 
 	/**
@@ -294,6 +295,7 @@ public final class Query implements ItemPredicate {
 	 *            include text search filters?
 	 * @param facet
 	 *            include filters on facets?
+	 * @param cluster include filters on clusters?
 	 * @return this query's number of filters
 	 */
 	public int nFilters(boolean text, boolean facet, boolean cluster) {
@@ -304,8 +306,10 @@ public final class Query implements ItemPredicate {
 			for (Iterator iterator = displayedPerspectives.iterator(); iterator
 					.hasNext();) {
 				Perspective p = (Perspective) iterator.next();
-				if (p.getParent() == null && p.isAnyRestrictions())
+				if (p.getParent() == null && p.isAnyRestrictions()) {
 					result++;
+//					Util.print("filter on " + p);
+				}
 			}
 		}
 		return result;
@@ -1113,7 +1117,7 @@ public final class Query implements ItemPredicate {
 			if (typeCounts != null)
 				close(typeCounts);
 			setQueryValid();
-			updateBigDeal();
+			// updateBigDeal();
 		}
 		// Util.print("...updateData return");
 	}
@@ -1168,23 +1172,23 @@ public final class Query implements ItemPredicate {
 		}
 	}
 
-	private double positiveBigDeal;
-	private double negativeBigDeal;
-
-	void updateBigDeal() {
-		double expectedPercent = percentOn();
-		positiveBigDeal = Perspective.unwarp(0.6, expectedPercent);
-		negativeBigDeal = Perspective.unwarp(0.4, expectedPercent);
-		for (Iterator it = displayedPerspectives.iterator(); it.hasNext();) {
-			Perspective facetType = (Perspective) it.next();
-			facetType.computeBigDeals();
-		}
-	}
-
-	boolean isBigDeal(double obervedPercent) {
-		return obervedPercent > positiveBigDeal
-				|| obervedPercent < negativeBigDeal;
-	}
+	// private double positiveBigDeal;
+	// private double negativeBigDeal;
+	//
+	// void updateBigDeal() {
+	// double expectedPercent = percentOn();
+	// positiveBigDeal = Perspective.unwarp(0.6, expectedPercent);
+	// negativeBigDeal = Perspective.unwarp(0.4, expectedPercent);
+	// for (Iterator it = displayedPerspectives.iterator(); it.hasNext();) {
+	// Perspective facetType = (Perspective) it.next();
+	// facetType.computeBigDeals();
+	// }
+	// }
+	//
+	// boolean isBigDeal(double obervedPercent) {
+	// return obervedPercent > positiveBigDeal
+	// || obervedPercent < negativeBigDeal;
+	// }
 
 	// void showHist(Map map, String label) {
 	// Util.print("\n" + label);
@@ -1508,6 +1512,7 @@ public final class Query implements ItemPredicate {
 		for (int i = 0; i < allPerspectives.length; i++) {
 			Perspective p = allPerspectives[i];
 			if (p != null) {
+				assert p.onCount >= 0 || !displaysPerspective(p.parent) : p;
 				p.totalCount = p.onCount;
 			}
 		}
@@ -2056,54 +2061,64 @@ final class NameGetter extends AccumulatingQueueThread {
 	}
 
 	public void process(Object perspectives) {
-		// Util.print("GetPerspectiveNames.process " + ((Perspective)
-		// facet).getName());
+		// Util.print("GetPerspectiveNames.process " + perspectives);
 		// q.waitForValidQuery(); // This can cause deadlock, because updateData
 		// waits for prefetching.
-		if (q != null) {
-			Object[] objects = (Object[]) perspectives;
-			int[] facets = new int[objects.length];
-			int facetIndex = 0;
-			for (int i = 0; i < objects.length; i++) {
-				if (objects[i] != null && objects[i] instanceof Perspective) {
-					Perspective p = (Perspective) objects[i];
-					if (p.getNameIfPossible() == null) {
-						int facet = p.getID();
-						facets[facetIndex++] = facet;
-					}
+		Object[] objects = (Object[]) perspectives;
+		Set facets = new TreeSet();
+		StringBuffer buf = new StringBuffer();
+		// int[] facets = new int[objects.length];
+		// int facetIndex = 0;
+		for (int i = 0; i < objects.length; i++) {
+			if (objects[i] != null && objects[i] instanceof Perspective) {
+				Perspective p = (Perspective) objects[i];
+				if (p.getNameIfPossible() == null) {
+					facets.add(p);
+					// int facet = p.getID();
+					// facets[facetIndex++] = facet;
+					if (buf.length() > 0)
+						buf.append(",");
+					buf.append(Integer.toString(p.getID()));
 				}
 			}
-			if (facetIndex > 0) {
-				facets = Util.subArray(facets, 0, facetIndex - 1);
-				Arrays.sort(facets);
-				ResultSet rs = q.getNames(Util.join(facets));
-				facetIndex = 0;
-				try {
-					while (rs.next()) {
-						Perspective p = q.findPerspective(facets[facetIndex++]);
-						p.setName(rs.getString(1));
-						// Util.print("nameGetter " + p);
-					}
-				} catch (SQLException e) {
-					e.printStackTrace();
-				}
-			}
-			javax.swing.SwingUtilities.invokeLater(new Redraw(objects));
 		}
+		if (!facets.isEmpty()) {
+			// facets = Util.subArray(facets, 0, facetIndex - 1);
+			// Arrays.sort(facets);
+			// Util.print(buf.toString());
+			ResultSet rs = q.getNames(buf.toString());
+			try {
+				for (Iterator it = facets.iterator(); it.hasNext();) {
+					rs.next();
+					Perspective p = (Perspective) it.next();
+					p.setName(rs.getString(1));
+					// Util.print("nameGetter " + p);
+				}
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+		}
+		javax.swing.SwingUtilities.invokeLater(new Redraw(objects, q));
 	}
 
 	final class Redraw implements Runnable {
 		final Object[] nodes;
 
-		Redraw(Object[] _nodes) {
+		final Query q;
+
+		Redraw(Object[] _nodes, Query _q) {
 			nodes = _nodes;
+			q = _q;
+			// Util.print("Redrawer " + Util.join(nodes));
 		}
 
 		public void run() {
-			for (int i = 0; i < nodes.length; i++) {
-				if (nodes[i] != null && nodes[i] instanceof PerspectiveObserver) {
-					((PerspectiveObserver) nodes[i]).redraw();
-					// Util.print("Redrawer " + nodes[i]);
+			if (q.nameGetter != null) {
+				for (int i = 0; i < nodes.length; i++) {
+					if (nodes[i] != null
+							&& nodes[i] instanceof PerspectiveObserver) {
+						((PerspectiveObserver) nodes[i]).redraw();
+					}
 				}
 			}
 		}
