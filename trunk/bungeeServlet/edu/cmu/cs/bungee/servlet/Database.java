@@ -1667,7 +1667,8 @@ class Database {
 		}
 	}
 
-	String dbDescs(String dbNameList) throws SQLException {
+	String dbDescs(String dbNameList) throws SQLException, ServletException {
+		myAssert(dbNameList!=null&&dbNameList.length()>0, "Empty db name list");
 		String[] dbNames = Util.splitComma(dbNameList);
 		String[] dbDescs = new String[dbNames.length];
 		for (int i = 0; i < dbDescs.length; i++) {
@@ -1675,6 +1676,7 @@ class Database {
 					+ dbNames[i] + ".globals");
 			dbDescs[i] = dbNames[i] + "," + desc;
 		}
+		log(Util.join(dbDescs, ";"));
 		return Util.join(dbDescs, ";");
 	}
 }
