@@ -9,14 +9,11 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Vector;
 
-import sun.net.www.content.image.png;
-
 import edu.cmu.cs.bungee.client.query.Cluster;
 import edu.cmu.cs.bungee.client.query.Markup;
 import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.cmu.cs.bungee.client.query.PerspectiveObserver;
 import edu.cmu.cs.bungee.client.query.Query;
-import edu.cmu.cs.bungee.client.viz.Summary.DesiredSize;
 import edu.cmu.cs.bungee.javaExtensions.Util;
 import edu.cmu.cs.bungee.piccoloUtils.gui.APText;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
@@ -32,6 +29,37 @@ import edu.umd.cs.piccolo.util.PUtil;
  * see <a href="C:\Projects\ArtMuseum\DesignSketches\popupColors.xcf">color key</a>
  */
 final class PopupSummary extends LazyPNode implements PerspectiveObserver {
+
+	private void actions() {
+		massActions();
+
+		totalCountActions();
+		totalDescActions();
+		nameActions();
+		namePrefixActions();
+
+		facetPercentActions();
+		facetCountActions();
+		facetDescActions();
+		facetNparentFadeActions();
+		parentInitActions();
+		ratioDescActions();
+
+		sigActions();
+
+		spacebarDescActions();
+
+		totalHeaderActions();
+		totalBGActions();
+		barBGActions();
+		summaryBGActions();
+
+		totalLinesActions();
+		ratioLinesActions();
+		// parentLinesActions();
+
+		globalActions();
+	}
 
 	private static final class Step implements Comparable {
 		private static int ordinalCounter = 0;
@@ -79,7 +107,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 
 		final static Step SCALE_FRONT = new Step("SCALE_FRONT");
 
-		final static Step TRANSLATE_POPUP = new Step("TRANSLATE_POPUP");
+		// final static Step TRANSLATE_POPUP = new Step("TRANSLATE_POPUP");
 
 		final static Step FADE_IN_TOTAL = new Step("FADE_FOR_TOTAL");
 
@@ -87,17 +115,17 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 
 		final static Step FADE_OUT_TOTAL = new Step("FADE_TOTAL");
 
-		final static Step FADE_IN_FACET = new Step("HELP_FACET");
+		final static Step FADE_IN_RATIO = new Step("HELP_RATIO");
 
-		final static Step HELP_FACET = new Step("HIGHLIGHT_FACET");
+		final static Step HELP_RATIO = new Step("HIGHLIGHT_RATIO");
 
-		final static Step FADE_OUT_FACET = new Step("FADE_FACET");
+		// final static Step FADE_OUT_RATIO = new Step("FADE_RATIO");
 
-		final static Step FADE_IN_PARENT = new Step("HELP_PARENT");
+		// final static Step FADE_IN_PARENT = new Step("HELP_PARENT");
 
-		final static Step HELP_PARENT = new Step("HIGHLIGHT_PARENT");
+		// final static Step HELP_PARENT = new Step("HIGHLIGHT_PARENT");
 
-		final static Step FADE_OUT_PARENT = new Step("HELP_PARENT");
+		// final static Step FADE_OUT_PARENT = new Step("HELP_PARENT");
 
 		final static Step UNFADE = new Step("UNFADE");
 
@@ -127,15 +155,21 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 	 */
 	private final APText totalCountDescNum;
 
-	private final TextNfacets totalCountDescText;
+	private final TextNfacets totalDesc;
 
-	private final APText facetCountDescPercent;
+	private final APText facetPercent;
 
-	private final APText facetCountDescNum;
+	private final APText facetCount;
 
-	private final TextNfacets facetCountDescText;
+	private final TextNfacets facetDesc;
 
-	private final APText parentPercentDesc;
+	private final APText siblingPercent;
+
+	private final APText parentDesc;
+
+	private final APText ratioNumber;
+
+	private final APText ratioDesc;
 
 	private final APText significanceDesc;
 
@@ -143,15 +177,15 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 
 	private final APText spacebarDesc;
 
-	private final LazyPPath totalLines;
+	private final LazyPPath totalLines1;
 
-	private final LazyPPath facetLines;
+	private final LazyPPath ratioLines;
 
-	private final LazyPPath parentLines;
+	private final LazyPPath totalLines2;
 
-	private final LazyPPath sigLines;
-
-	private final LazyPPath heavyLines;
+	// private final LazyPPath sigLines;
+	//
+	// private final LazyPPath heavyLines;
 
 	private final LazyPNode totalHeader = new LazyPNode();
 
@@ -165,6 +199,8 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 
 	private PNode anchor;
 
+	private PNode tempRatioLabel;
+
 	private static final double MARGIN = 5.0;
 
 	private static final double BIG_TEXT_SCALE = 1.4;
@@ -176,19 +212,19 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 
 	private static final float OPAQUE = 1;
 
-	private static final double LABEL_ANIMATION_SCALE = BIG_TEXT_SCALE;
+	private static final double LABEL_ANIMATION_SCALE = 3;
 
 	private final static int TRANSLATE_TO_CORNER_STEP = 400;
 
 	private final static int TRANSLATION_OPACITY_DELAY = TRANSLATE_TO_CORNER_STEP / 3;
 
-	private long scaleBarsDuration() {
-		return animationSpeed * 1000;
-	}
-
-	private long translateToBarDuration() {
-		return animationSpeed * 1000;
-	}
+	// private long scaleBarsDuration() {
+	// return animationSpeed * 1000;
+	// }
+	//
+	// private long translateToBarDuration() {
+	// return animationSpeed * 1000;
+	// }
 
 	private long fadeDuration() {
 		return animationSpeed * 1000;
@@ -234,13 +270,13 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 	/**
 	 * Color of the message "Press the spacebar for more information"
 	 */
-	private static final Color spaceBarDescTextColor = unimportantTextColor;
+	private static final Color spaceBarDescTextColor = Bungee.helpColor; //unimportantTextColor;
 
-	private static final Color facetPercentTextColor = Color.getHSBColor(0.15f,
+	private static final Color facetPercentColor = Color.getHSBColor(0.15f,
 			0.4f, 0.9f);
 
-	private static final Color parentPercentTextColor = facetPercentTextColor
-			.darker();
+	// private static final Color parentPercentTextColor = facetPercentColor
+	// .darker();
 
 	private static final Color significanceDescTextColor = unimportantTextColor;
 
@@ -254,20 +290,20 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 	PopupSummary(Bungee _art) {
 		art = _art;
 
-		totalLines = new LazyPPath();
-		totalLines.setStrokePaint(totalLinesColor);
+		totalLines1 = new LazyPPath();
+		totalLines1.setStrokePaint(totalLinesColor);
 
-		facetLines = new LazyPPath();
-		facetLines.setStrokePaint(facetPercentTextColor);
+		ratioLines = new LazyPPath();
+		ratioLines.setStrokePaint(facetPercentColor);
 
-		parentLines = new LazyPPath();
-		parentLines.setStrokePaint(parentPercentTextColor);
+		totalLines2 = new LazyPPath();
+		totalLines2.setStrokePaint(totalLinesColor);
 
-		sigLines = new LazyPPath();
-		sigLines.setStrokePaint(significanceLineColor);
-
-		heavyLines = new LazyPPath();
-		heavyLines.setStrokePaint(significanceLineColor);
+		// sigLines = new LazyPPath();
+		// sigLines.setStrokePaint(significanceLineColor);
+		//
+		// heavyLines = new LazyPPath();
+		// heavyLines.setStrokePaint(significanceLineColor);
 
 		name = new TextNfacets(art, Color.darkGray, false);
 		name.setScale(BIG_TEXT_SCALE);
@@ -284,27 +320,37 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 		totalCountDescNum = newAPText();
 		totalCountDescNum.setTextPaint(countTextColor);
 
-		totalCountDescText = new TextNfacets(art, unimportantTextColor, false);
-		totalCountDescText.setWrapText(true);
-		totalCountDescText.setWrapOnWordBoundaries(true);
-		totalCountDescText.setTrim(-1, 0);
-		totalCountDescText.setRedrawer(this);
+		totalDesc = new TextNfacets(art, unimportantTextColor, false);
+		totalDesc.setWrapText(true);
+		totalDesc.setWrapOnWordBoundaries(true);
+		totalDesc.setTrim(-1, 0);
+		totalDesc.setRedrawer(this);
 
-		facetCountDescPercent = newAPText();
-		facetCountDescPercent.setTextPaint(facetPercentTextColor);
+		facetPercent = newAPText();
+		facetPercent.setTextPaint(facetPercentColor);
 
-		facetCountDescNum = newAPText();
-		facetCountDescNum.setTextPaint(countTextColor);
+		facetCount = newAPText();
+		facetCount.setTextPaint(countTextColor);
 
-		facetCountDescText = new TextNfacets(art, unimportantTextColor, false);
-		facetCountDescText.setWrapText(true);
-		facetCountDescText.setWrapOnWordBoundaries(true);
-		facetCountDescText.setTrim(-1, 0);
-		facetCountDescText.setRedrawer(this);
+		facetDesc = new TextNfacets(art, unimportantTextColor, false);
+		facetDesc.setWrapText(true);
+		facetDesc.setWrapOnWordBoundaries(true);
+		facetDesc.setTrim(-1, 0);
+		facetDesc.setRedrawer(this);
 
-		parentPercentDesc = newAPText();
-		parentPercentDesc.setTextPaint(unimportantTextColor);
-		parentPercentDesc.setConstrainWidthToTextWidth(false);
+		siblingPercent = newAPText();
+		siblingPercent.setTextPaint(facetPercentColor);
+
+		parentDesc = newAPText();
+		parentDesc.setTextPaint(unimportantTextColor);
+		parentDesc.setConstrainWidthToTextWidth(false);
+
+		ratioNumber = newAPText();
+		ratioNumber.setTextPaint(facetPercentColor);
+
+		ratioDesc = newAPText();
+		ratioDesc.setTextPaint(unimportantTextColor);
+		ratioDesc.setConstrainWidthToTextWidth(false);
 
 		significanceDesc = newAPText();
 		significanceDesc.setTextPaint(significanceDescTextColor);
@@ -317,7 +363,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 
 		spacebarDesc = newAPText();
 		spacebarDesc.setTextPaint(spaceBarDescTextColor);
-		spacebarDesc.setScale(0.75);
+//		spacebarDesc.setScale(0.75);
 
 		totalHeader.setPaint(no_helpHeaderBGColor);
 		significanceHeader.setPaint(significanceHeaderBGColor);
@@ -341,25 +387,29 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 		addChild(namePrefix);
 		addChild(totalCountDescNum); // E.g. "1,001" or "55 / 99 = 66% (p =
 		// 0.03)"
-		addChild(totalCountDescText);
+		addChild(totalDesc);
 
-		addChild(facetCountDescPercent); // E.g. "25%"
-		addChild(facetCountDescNum); // E.g. "499"
-		addChild(facetCountDescText); // " of them satisfy all 1
+		addChild(facetPercent); // E.g. "25%"
+		addChild(facetCount); // E.g. "499"
+		addChild(facetDesc); // " of them satisfy all 1
 		// filters, compared with"
-		addChild(parentPercentDesc); // E.g. "13% for all Dates" or
+		addChild(siblingPercent); // E.g. "25%"
+		addChild(parentDesc); // E.g. "13% for all Dates" or
 		// "5% of all works"
+		addChild(ratioNumber); // E.g. "1 / 23"
+		addChild(ratioDesc); // E.g. "times as likely to satisfy filters, as
+		// shown by the bar height"
 
 		addChild(significanceHeader);
 		addChild(significanceDesc); // E.g. ""
 		addChild(significanceTypeDesc); // E.g. ""
-		addChild(sigLines);
-		addChild(heavyLines);
+		// addChild(sigLines);
+		// addChild(heavyLines);
 
 		addChild(spacebarDesc);
-		addChild(totalLines);
-		addChild(facetLines);
-		addChild(parentLines);
+		addChild(totalLines1);
+		addChild(ratioLines);
+		addChild(totalLines2);
 	}
 
 	private void fade(PNode[] nodes, float transparency) {
@@ -389,11 +439,11 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 			nodes[i].setWidth((int) (w / nodes[i].getScale()));
 		}
 	}
-	
+
 	private void setFont(PNode[] nodes) {
 		for (int i = 0; i < nodes.length; i++) {
 			((APText) nodes[i]).setFont(art.font);
-		}		
+		}
 	}
 
 	private void visibility(PNode[] nodes, boolean isVisible) {
@@ -454,31 +504,35 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 	// instead of making them transparent.
 	private void massActions() {
 		if (showHelp == Step.NO_FRAME) {
-			setFont(nodes(totalCountDescNum, facetCountDescPercent, facetCountDescNum));
-			setFont(nodes(parentPercentDesc, significanceDesc, significanceTypeDesc, spacebarDesc));
-			
+			setFont(nodes(totalCountDescNum, facetPercent, facetCount,
+					ratioDesc));
+			setFont(nodes(siblingPercent, parentDesc, significanceDesc,
+					significanceTypeDesc, spacebarDesc));
+
 			// Turn most everything off initially
 			visibility(nodes(namePrefix, significanceTypeDesc,
-					significanceDesc, significanceHeader), false);
-			visibility(nodes(sigLines, heavyLines, spacebarDesc, totalLines),
+					significanceDesc, significanceHeader, ratioDesc), false);
+			visibility(nodes(// sigLines, heavyLines,
+					spacebarDesc, totalLines1), false);
+			visibility(nodes(ratioLines, totalLines2, summaryBG, ratioNumber),
 					false);
-			visibility(nodes(facetLines, parentLines, summaryBG), false);
 
 			boolean isVis = !isAnchorable();
-			visibility(nodes(barBG, totalHeader, totalCountDescNum,
-					facetCountDescNum), isVis);
-			visibility(nodes(facetCountDescPercent, facetCountDescText,
-					parentPercentDesc), isVis);
+			visibility(
+					nodes(barBG, totalHeader, totalCountDescNum, facetCount),
+					isVis);
+			visibility(nodes(facetPercent, facetDesc, siblingPercent,
+					parentDesc), isVis);
 
 			// Turn 2 things on
-			visibility(nodes(name, totalCountDescText), true);
+			visibility(nodes(name, totalDesc), true);
 
 			// These widths won't change during popup
 			setWidth(nodes(name), maxW());
 
 		} else if (showHelp == Step.START_FRAME) {
 
-			setWidth(nodes(name, namePrefix, parentPercentDesc), maxW());
+			setWidth(nodes(name, namePrefix, parentDesc, ratioDesc), maxW());
 
 		} else if (showHelp == Step.HELP_SIG) {
 
@@ -503,30 +557,33 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 		} else if (showHelp == Step.NO_HELP) {
 			waitForUserInput();
 		} else if (showHelp == Step.SCALE_FRONT) {
-			double newFrontH = summary().selectedFrontH()
-					+ summary().selectedLabelH();
-			double foldH = summary().selectedFoldH();
-			double marginH = summary().marginH();
-			summary().computeRankComponentHeights(
-					new DesiredSize(foldH, foldH, 1),
-					new DesiredSize(newFrontH, newFrontH, 1),
-					new DesiredSize(0, 0, 1),
-					new DesiredSize(marginH, marginH, 1));
-			summary().flagConnectedRank(rank());
-			summary().layoutChildrenWhenNeeded(scaleBarsDuration());
-			addAnimationJob(summary().rankAnimator);
-		} else if (showHelp == Step.TRANSLATE_POPUP) {
-
-			// animateToAlignment(this, ...) depends on anchor layout
-			// Should only be a problem when animationSpeed == 0, but
-			// shouldn't count on timings to work out.
-			pv().layoutChildren();
-
-			animateToAlignment(this, 16, anchor, 2, 10 * MARGIN, art.lineH / 2,
-					translateToBarDuration());
-		} else if (showHelp == Step.FADE_IN_TOTAL) {
-			animateBarTransparencies(FADED_TRANSPARENCY, 0, fadeDuration());
-		} else if (showHelp == Step.FADE_IN_FACET) {
+			rank().connect();
+			delay(Bungee.rankAnimationMS);
+			// double newFrontH = summary().selectedFrontH()
+			// + summary().selectedLabelH();
+			// double foldH = summary().selectedFoldH();
+			// double marginH = summary().marginH();
+			// summary().computeRankComponentHeights(
+			// new DesiredSize(foldH, foldH, 1),
+			// new DesiredSize(newFrontH, newFrontH, 1),
+			// new DesiredSize(0, 0, 1),
+			// new DesiredSize(marginH, marginH, 1));
+			// summary().flagConnectedRank(rank());
+			// summary().layoutChildrenWhenNeeded(scaleBarsDuration());
+			// addAnimationJob(summary().rankAnimator);
+			// } else if (showHelp == Step.TRANSLATE_POPUP) {
+			//
+			// // animateToAlignment(this, ...) depends on anchor layout
+			// // Should only be a problem when animationSpeed == 0, but
+			// // shouldn't count on timings to work out.
+			// pv().layoutChildren();
+			//
+			// animateToAlignment(this, 16, anchor, 2, 10 * MARGIN, art.lineH /
+			// 2,
+			// translateToBarDuration());
+//		} else if (showHelp == Step.FADE_IN_TOTAL) {
+//			animateBarTransparencies(FADED_TRANSPARENCY, 0, fadeDuration());
+		} else if (showHelp == Step.FADE_IN_RATIO) {
 			fade(nodes(anchor), OPAQUE);
 		} else if (showHelp == Step.UNFADE) {
 			// animateBarTransparencies(OPAQUE, 0, fadeDuration());
@@ -535,15 +592,15 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 		}
 	}
 
-	private void totalCountDescNumActions() {
+	private void totalCountActions() {
 		if (showHelp == Step.START_FRAME) {
 			totalCountDescNum.setText(totalCountString());
 			align(totalCountDescNum, 16, this, 0);
 
 			// Have to interleave facet- and total- alignment
-			facetCountDescPercent.setText(percentOn(null).toString());
-			align(facetCountDescPercent, 0, totalCountDescNum, 0);
-			align(totalCountDescNum, 0, facetCountDescPercent, 2, MARGIN, 0);
+			facetPercent.setText(percentOn(null).toString());
+			align(facetPercent, 0, totalCountDescNum, 0);
+			align(totalCountDescNum, 0, facetPercent, 2, MARGIN, 0);
 
 			fade(nodes(totalCountDescNum), TRANSLATION_OPACITY_DELAY,
 					TRANSLATE_TO_CORNER_STEP, OPAQUE);
@@ -554,29 +611,32 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 		}
 	}
 
-	private void totalCountDescTextActions() {
+	private void totalDescActions() {
 		if (showHelp == Step.NO_FRAME) {
 			// need to set text first, or global bounds will be empty
-			setWidth(nodes(totalCountDescText), maxW());
-			totalCountDescText.setContent(noFrameDesc());
-			layout(totalCountDescText, 0, 0);
-			align(totalCountDescText, 16, this, 0);
+			setWidth(nodes(totalDesc), maxW());
+			totalDesc.setContent(noFrameDesc());
+			layout(totalDesc, 0, 0);
+			align(totalDesc, 16, this, 0);
 		} else if (showHelp == Step.START_FRAME && totalCount() >= 0) {
 			// totalCount = -1 for deeply nested facets when isDataRestricted
 
 			// Our width is smaller than the others
-			setWidth(nodes(totalCountDescText), maxW()
-					- totalCountDescNum.getMaxX());
+			setWidth(nodes(totalDesc), maxW() - totalCountDescNum.getMaxX());
 
-			totalCountDescText.setContent(totalCountDesc());
-			layout(totalCountDescText, -1, 0);
+			totalDesc.setContent(totalCountDesc(false));
+			layout(totalDesc, -1, 0);
 
 			// We use spaces in the text for separation rather than margins
-			align(totalCountDescText, 0, totalCountDescNum, 2);
+			align(totalDesc, 0, totalCountDescNum, 2);
+		} else if (showHelp == Step.HELP_TOTAL) {
+			totalDesc.setContent(totalCountDesc(true));
+			layout(totalDesc, -1, 0);
+			delay(scaleDuration() * 4);
 		} else if (showHelp == Step.FADE_OUT_TOTAL) {
-			fade(nodes(totalCountDescText), FADED_TRANSPARENCY);
+			fade(nodes(totalDesc), FADED_TRANSPARENCY);
 		} else if (showHelp == Step.UNFADE) {
-			fade(nodes(totalCountDescText), OPAQUE);
+			fade(nodes(totalDesc), OPAQUE);
 		}
 	}
 
@@ -584,7 +644,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 		if (showHelp == Step.NO_FRAME) {
 			name.setContent(nameContents());
 			layout(name, 0, 0);
-			align(name, 16, totalCountDescText, 0, 0, -MARGIN);
+			align(name, 16, totalDesc, 0, 0, -MARGIN);
 			visibility(nodes(name), !isFacetType());
 		} else if (showHelp == Step.START_FRAME) {
 			fade(nodes(name), TRANSLATION_OPACITY_DELAY,
@@ -617,9 +677,8 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 		if (showHelp == Step.START_FRAME) {
 
 			spacebarDesc.setText("Press the spacebar for more explanation");
-			align(spacebarDesc, 2,
-					isShowFacetInfo() ? (PNode) parentPercentDesc
-							: totalCountDescText, 18, 0, MARGIN);
+			align(spacebarDesc, 2, isShowFacetInfo() ? (PNode) parentDesc
+					: totalDesc, 18, 0, MARGIN);
 			fade(nodes(spacebarDesc), TRANSLATION_OPACITY_DELAY,
 					TRANSLATE_TO_CORNER_STEP, transparency);
 		} else if (showHelp == Step.GOLD_OVERLAY) {
@@ -627,6 +686,9 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 		} else if (showHelp == Step.FADE_IN_TOTAL) {
 			fade(nodes(spacebarDesc), canHelp() ? FADED_TRANSPARENCY
 					: TRANSPARENT);
+		} else if (showHelp == Step.FADE_IN_RATIO) {
+			align(spacebarDesc, 2, isShowFacetInfo() ? (PNode) ratioDesc
+					: totalDesc, 18, 0, MARGIN);
 		} else if (showHelp == Step.UNFADE) {
 			fade(nodes(spacebarDesc), transparency);
 		} else if (showHelp == Step.HELP_SIG) {
@@ -643,13 +705,16 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 	private void totalBGActions() {
 		if (showHelp == Step.NO_FRAME) {
 			totalBG.setTransparency(unconditionalMedian != null ? 1 : 0.5f);
-			fitToNodes(nodes(totalBG), nodes(name, totalCountDescText), 0);
+			fitToNodes(nodes(totalBG), nodes(name, totalDesc), 0);
 		} else if (showHelp == Step.START_FRAME) {
 			totalBG.setTransparency(isAnchorable() ? TRANSPARENT : OPAQUE);
 			fade(nodes(totalBG), TRANSLATION_OPACITY_DELAY,
 					TRANSLATE_TO_CORNER_STEP, OPAQUE);
-			fitToNodes(nodes(totalBG), nodes(totalHeader, totalCountDescText,
-					parentPercentDesc, spacebarDesc, facetCountDescText), 0);
+			fitToNodes(nodes(totalBG), nodes(totalHeader, totalDesc,
+					parentDesc, spacebarDesc, facetDesc), 0);
+		} else if (showHelp == Step.FADE_IN_RATIO) {
+			fitToNodes(nodes(totalBG), nodes(totalHeader, totalDesc,
+					parentDesc, spacebarDesc, facetDesc), 0);
 		}
 	}
 
@@ -685,7 +750,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 			fitToNodes(nodes(summaryBG), nodes(art.header, art.mouseDoc),
 					MARGIN);
 
-			fade(nodes(summaryBG), 0.8f);
+			fade(nodes(summaryBG), 0.9f);
 		}
 	}
 
@@ -696,89 +761,106 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 		}
 	}
 
-	private void facetCountDescFadeActions() {
+	private void facetNparentFadeActions() {
 		if (showHelp == Step.START_FRAME) {
-			fade(nodes(facetCountDescPercent, facetCountDescNum,
-					facetCountDescText), TRANSLATION_OPACITY_DELAY,
+			fade(nodes(facetPercent, facetCount, facetDesc, siblingPercent,
+					parentDesc), TRANSLATION_OPACITY_DELAY,
 					TRANSLATE_TO_CORNER_STEP, OPAQUE);
 		} else if (showHelp == Step.FADE_IN_TOTAL) {
-			fade(nodes(facetCountDescPercent, facetCountDescNum,
-					facetCountDescText), FADED_TRANSPARENCY);
-		} else if (showHelp == Step.FADE_IN_FACET) {
-			fade(nodes(facetCountDescPercent, facetCountDescNum,
-					facetCountDescText), OPAQUE);
-		} else if (showHelp == Step.FADE_OUT_FACET) {
-			fade(nodes(facetCountDescPercent, facetCountDescNum,
-					facetCountDescText), FADED_TRANSPARENCY);
+			fade(nodes(facetPercent, facetCount, facetDesc, siblingPercent,
+					parentDesc), FADED_TRANSPARENCY);
+		} else if (showHelp == Step.FADE_IN_RATIO) {
+			fade(nodes(siblingPercent, facetPercent /*
+													 * , facetCountDescNum,
+													 * facetCountDescText
+													 */), OPAQUE);
+			// } else if (showHelp == Step.FADE_OUT_RATIO) {
+			// fade(nodes(/* facetCountDescPercent, */ facetCountDescNum,
+			// facetCountDescText), FADED_TRANSPARENCY);
 		} else if (showHelp == Step.UNFADE) {
-			fade(nodes(facetCountDescPercent, facetCountDescNum,
-					facetCountDescText), OPAQUE);
+			fade(nodes(facetPercent, facetCount, facetDesc, siblingPercent,
+					parentDesc), OPAQUE);
 		}
 	}
 
-	private void facetCountDescPercentActions() {
-		if (showHelp == Step.START_FRAME) {
-			align(facetCountDescPercent, 4, totalCountDescText, 20, 0, MARGIN);
-		}
+	private void facetPercentActions() {
+		// if (showHelp == Step.START_FRAME)
+		align(facetPercent, 4, totalDesc, 20, 0, MARGIN);
 	}
 
-	private void facetCountDescNumActions() {
-		if (showHelp == Step.START_FRAME) {
-			facetCountDescNum.setText(onCountString());
+	private void facetCountActions() {
+		// if (showHelp == Step.START_FRAME) {
+		facetCount.setText(onCountString());
 
-			// right align
-			align(facetCountDescNum, 34, totalCountDescNum, 34);
+		// right align
+		align(facetCount, 34, totalCountDescNum, 34);
 
-			// top align
-			align(facetCountDescNum, 4, facetCountDescPercent, 4);
-		}
+		// top align
+		align(facetCount, 4, facetPercent, 4);
+		// }
 	}
 
-	private void facetCountDescTextActions() {
-		if (showHelp == Step.START_FRAME) {
-			// Our width is smaller than the others
-			setWidth(nodes(facetCountDescText), maxW()
-					- facetCountDescNum.getMaxX());
+	private void facetDescActions() {
+		// if (showHelp == Step.START_FRAME) {
+		// Our width is smaller than the others
+		setWidth(nodes(facetDesc), maxW() - facetCount.getMaxX());
 
-			facetCountDescText.setContent(facetCountDesc());
-			layout(facetCountDescText, -1, 0);
+		facetDesc.setContent(facetCountDesc());
+		layout(facetDesc, -1, 0);
 
-			// We use spaces in the text for separation rather than margins
-			align(facetCountDescText, 0, facetCountDescNum, 2);
-		}
+		// We use spaces in the text for separation rather than margins
+		align(facetDesc, 0, facetCount, 2);
+		// }
 	}
 
-	private void parentPercentDescActions() {
+	private void parentInitActions() {
 		if (showHelp == Step.START_FRAME) {
 			// Text never changes, plus we're using attributes to have the
 			// percentage in a different color
-			setParentDesc();
+			setParentDesc("");
+		}
+
+		// left align
+		align(siblingPercent, 32, facetPercent, 32);
+
+		// align below
+		align(siblingPercent, 4, facetDesc, 20, 0, MARGIN);
+
+		align(parentDesc, 0, siblingPercent, 2, MARGIN, 0);
+		setWidth(nodes(parentDesc), maxW() - siblingPercent.getMaxX() - MARGIN);
+	}
+
+	private void ratioDescActions() {
+		if (showHelp == Step.FADE_IN_TOTAL) {
+			fade(nodes(ratioNumber, ratioDesc), TRANSPARENT);
+		} else if (showHelp == Step.FADE_IN_RATIO) {
+			setRatioDesc();
+			ratioDesc.setWidth(maxW() - ratioNumber.getWidth() - MARGIN);
 
 			// left align
-			align(parentPercentDesc, 32, facetCountDescPercent, 32);
+			align(ratioNumber, 32, siblingPercent, 32);
 
 			// align below
-			align(parentPercentDesc, 4, facetCountDescText, 20, 0, MARGIN);
+			align(ratioNumber, 4, parentDesc, 20, 0, MARGIN);
 
-			fade(nodes(parentPercentDesc), TRANSLATION_OPACITY_DELAY,
-					TRANSLATE_TO_CORNER_STEP, OPAQUE);
+			align(ratioDesc, 0, ratioNumber, 2, MARGIN, 0);
 
-		} else if (showHelp == Step.FADE_IN_TOTAL) {
-			fade(nodes(parentPercentDesc), FADED_TRANSPARENCY);
-		} else if (showHelp == Step.FADE_IN_PARENT) {
-			fade(nodes(parentPercentDesc), OPAQUE);
+			fade(nodes(ratioNumber, ratioDesc), 0, 2 * fadeDuration(), OPAQUE);
 
+			setParentDesc("\u00F7 ");
+			align(parentDesc, 0, siblingPercent, 2, MARGIN, 0);
 		}
+
 	}
 
 	private void sigActions() {
 		if (showHelp == Step.HELP_SIG) {
 			visibility(nodes(significanceDesc, significanceTypeDesc,
 					significanceHeader), true);
-			fade(nodes(sigLines), 0, 2 * fadeDuration(), 0.3f);
-			fade(nodes(heavyLines), 0, 2 * fadeDuration(), OPAQUE);
-			sigLines.setStroke(LazyPPath.getStrokeInstance(2));
-			heavyLines.setStroke(LazyPPath.getStrokeInstance(3));
+			// fade(nodes(sigLines), 0, 2 * fadeDuration(), 0.3f);
+			// fade(nodes(heavyLines), 0, 2 * fadeDuration(), OPAQUE);
+			// sigLines.setStroke(LazyPPath.getStrokeInstance(2));
+			// heavyLines.setStroke(LazyPPath.getStrokeInstance(3));
 
 			significanceTypeDesc.setTextPaint(art.facetTextColor(facet));
 			significanceTypeDesc.setText(sigSummary());
@@ -793,133 +875,129 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 			setBoundsFromNodes(significanceHeader, nodes(significanceDesc,
 					significanceTypeDesc), MARGIN);
 
-			Rectangle2D barBounds = ((Bar) anchor).visibleBounds();
-			double delta = barBounds.getY() - 0.5;
-			PBounds sigBounds = new PBounds(barBounds.getCenterX() - MARGIN,
-					Math.min(barBounds.getY(), 0.5), 2 * MARGIN, Math
-							.abs(delta));
-			Rectangle2D globalDeltaBounds = anchor.getParent().localToGlobal(
-					sigBounds);
-			heavyLines.setBounds(heavyLines.getParent().globalToLocal(
-					globalDeltaBounds));
-			iBeam(heavyLines);
-			stretchLine(sigLines, heavyLines, 9, significanceDesc, 8,
-					4 * MARGIN);
-			int point = delta < 0 ? 17 : 1;
-			scaleAboutPoint(heavyLines, point, 0.1, 0);
-			scaleAboutPoint(heavyLines, point, 1, 2 * fadeDuration());
+			// Rectangle2D barBounds = ((Bar) anchor).visibleBounds();
+			// double top = barBounds.getY();
+			// double bottom = barBounds.getMaxY();
+			// boolean isUpward = top < 0.5;
+			// PBounds sigBounds = new PBounds(barBounds.getCenterX() - MARGIN,
+			// top, 2 * MARGIN, bottom - top);
+			// Rectangle2D globalDeltaBounds = anchor.getParent().localToGlobal(
+			// sigBounds);
+			// heavyLines.setBounds(heavyLines.getParent().globalToLocal(
+			// globalDeltaBounds));
+			// iBeam(heavyLines);
+			// stretchLine(sigLines, heavyLines, 9, significanceDesc, 8,
+			// 4 * MARGIN);
+			// int point = isUpward ? 17 : 1;
+			// scaleAboutPoint(heavyLines, point, 0.1, 0);
+			// scaleAboutPoint(heavyLines, point, 1, 2 * fadeDuration());
 
 			summary().expandColorKey();
-//			summary().colorKey.moveToFront();
+			// summary().colorKey.moveToFront();
 		}
 	}
 
 	private void totalLinesActions() {
 		if (showHelp == Step.FADE_IN_TOTAL) {
-			totalLines.setTransparency(TRANSPARENT);
-			fade(nodes(totalLines), OPAQUE);
-			totalLines.setStroke(LazyPPath.getStrokeInstance(1));
+			totalLines1.setTransparency(TRANSPARENT);
+			fade(nodes(totalLines1), OPAQUE);
+			totalLines1.setStroke(LazyPPath.getStrokeInstance(1));
+			totalLines2.setTransparency(TRANSPARENT);
+			fade(nodes(totalLines2), OPAQUE);
+			totalLines2.setStroke(LazyPPath.getStrokeInstance(1));
 
-			PNode label = pv().percentLabels[2];
-			stretchLine(totalLines, totalCountDescNum, 8, label, 10, 0);
+			Rectangle2D localBarBounds = anchor.getBounds();
+			// Rectangle2D localBarBounds = ((Bar) anchor).visibleBounds();
+			// localBarBounds.setRect(0, localBarBounds.y, localBarBounds.x
+			// + localBarBounds.width, localBarBounds.height);
+			Rectangle2D barBounds = anchor.localToGlobal(localBarBounds);
+			stretchLine(totalLines1, barBounds, 1, totalCountDescNum
+					.getGlobalBounds(), 8, 0);
+			stretchLine(totalLines2, barBounds, 0, barBounds, 2, 0);
+
 		} else if (showHelp == Step.HELP_TOTAL) {
-			totalLines.setStroke(LazyPPath.getStrokeInstance(3));
+			// totalLines1.setStroke(LazyPPath.getStrokeInstance(3));
+			totalLines2.setStroke(LazyPPath.getStrokeInstance(3));
 
-			PNode label = pv().percentLabels[2];
-			scaleAboutPoint(label, 9, LABEL_ANIMATION_SCALE, scaleDuration());
-			scaleAboutPoint(totalCountDescNum, 9, LABEL_ANIMATION_SCALE,
-					scaleDuration());
-			delay(scaleDuration() * 2);
+			// PNode label = pv().percentLabels[2];
+			// scaleAboutPoint(label, 9, LABEL_ANIMATION_SCALE,
+			// scaleDuration());
+			// scaleAboutPoint(totalCountDescNum, 9, LABEL_ANIMATION_SCALE,
+			// scaleDuration());
+			// delay(scaleDuration() * 2);
 		} else if (showHelp == Step.FADE_OUT_TOTAL) {
-			fade(nodes(totalLines), 0.5f);
+			fade(nodes(totalLines1), 0.5f);
+			fade(nodes(totalLines2), 0.5f);
 
-			PNode label = pv().percentLabels[2];
-			scaleAboutPoint(label, 9, PerspectiveViz.PERCENT_LABEL_SCALE,
-					scaleDuration());
-			scaleAboutPoint(totalCountDescNum, 9, 1, scaleDuration());
-		} else if (showHelp == Step.FADE_IN_FACET) {
+			// PNode label = pv().percentLabels[2];
+			// scaleAboutPoint(label, 9, PerspectiveViz.PERCENT_LABEL_SCALE,
+			// scaleDuration());
+			// scaleAboutPoint(totalCountDescNum, 9, 1, scaleDuration());
+			// } else if (showHelp == Step.FADE_IN_RATIO) {
 			// totalLines.setStroke(LazyPPath.getStrokeInstance(1));
 		}
 	}
 
-	private void facetLinesActions() {
-		if (showHelp == Step.FADE_IN_FACET) {
-			facetLines.setTransparency(TRANSPARENT);
-			fade(nodes(facetLines), OPAQUE);
-			facetLines.setStroke(LazyPPath.getStrokeInstance(1));
+	private void ratioLinesActions() {
+		if (showHelp == Step.FADE_IN_RATIO) {
+			ratioLines.setTransparency(TRANSPARENT);
+			fade(nodes(ratioLines), OPAQUE);
+			ratioLines.setStroke(LazyPPath.getStrokeInstance(1));
 
-			Rectangle2D localBarBounds = ((Bar) anchor).visibleBounds();
-			// localBarBounds.setRect(0, localBarBounds.y, localBarBounds.x
-			// + localBarBounds.width, localBarBounds.height);
-			Rectangle2D barBounds = anchor.localToGlobal(localBarBounds);
-			stretchLine(facetLines, facetCountDescPercent.getGlobalBounds(), 8,
-					barBounds, 0, -2 * MARGIN);
-		} else if (showHelp == Step.HELP_FACET) {
-			facetLines.setStroke(LazyPPath.getStrokeInstance(3));
-			delay(scaleDuration() * 2);
-		} else if (showHelp == Step.FADE_OUT_FACET) {
-			fade(nodes(facetLines), 0.5f);
-		} else if (showHelp == Step.FADE_IN_PARENT) {
+			double ratio = rank().oddsRatio(facet);
+			tempRatioLabel = pv()
+					.tempRatioLabel(Rank.constrainOddsRatio(ratio));
+			tempRatioLabel.moveToFront();
+
+			// Rectangle2D localBarBounds = ((Bar) anchor).visibleBounds();
+			// Rectangle2D barBounds = anchor.localToGlobal(localBarBounds);
+			// int barPoint = ratio > 1 ? 0 : 16;
+			PNode label = pv().percentLabels[1];
+			stretchLine(ratioLines, ratioNumber, 8, label, 10, -8 * MARGIN);
+
+		} else if (showHelp == Step.HELP_RATIO) {
+			ratioLines.setStroke(LazyPPath.getStrokeInstance(3));
+
+			scaleAboutPoint(tempRatioLabel, 9, LABEL_ANIMATION_SCALE,
+					scaleDuration());
+
+			delay(scaleDuration() * 5);
+		} else if (showHelp == Step.UNFADE) {
+			fade(nodes(ratioLines), 0.5f);
+
+			scaleAboutPoint(tempRatioLabel, 9, 1, scaleDuration());
+
+			// } else if (showHelp == Step.FADE_IN_PARENT) {
 			// facetLines.setStroke(LazyPPath.getStrokeInstance(1));
 		}
 	}
 
-	private void parentLinesActions() {
-		if (showHelp == Step.FADE_IN_PARENT) {
-			parentLines.setTransparency(TRANSPARENT);
-			fade(nodes(parentLines), OPAQUE);
-			parentLines.setStroke(LazyPPath.getStrokeInstance(1));
-
-			PNode label = pv().percentLabels[1];
-			stretchLine(parentLines, parentPercentDesc, 8, label, 10, -4
-					* MARGIN);
-		} else if (showHelp == Step.HELP_PARENT) {
-			parentLines.setStroke(LazyPPath.getStrokeInstance(3));
-
-			PNode label = pv().percentLabels[1];
-			label.moveToFront();
-			scaleAboutPoint(label, 9, LABEL_ANIMATION_SCALE, scaleDuration());
-			delay(scaleDuration() * 2);
-		} else if (showHelp == Step.FADE_OUT_PARENT) {
-			fade(nodes(parentLines), 0.5f);
-
-			PNode label = pv().percentLabels[1];
-			scaleAboutPoint(label, 9, PerspectiveViz.PERCENT_LABEL_SCALE,
-					scaleDuration());
-		} else if (showHelp == Step.UNFADE) {
-			// parentLines.setStroke(LazyPPath.getStrokeInstance(1));
-		}
-	}
-
-	private void actions() {
-		massActions();
-
-		totalCountDescNumActions();
-		totalCountDescTextActions();
-		nameActions();
-		namePrefixActions();
-
-		facetCountDescPercentActions();
-		facetCountDescNumActions();
-		facetCountDescTextActions();
-		facetCountDescFadeActions();
-		parentPercentDescActions();
-
-		sigActions();
-
-		spacebarDescActions();
-
-		totalHeaderActions();
-		totalBGActions();
-		barBGActions();
-		summaryBGActions();
-
-		totalLinesActions();
-		facetLinesActions();
-		parentLinesActions();
-
-		globalActions();
-	}
+	// private void parentLinesActions() {
+	// if (showHelp == Step.FADE_IN_PARENT) {
+	// totalLines2.setTransparency(TRANSPARENT);
+	// fade(nodes(totalLines2), OPAQUE);
+	// totalLines2.setStroke(LazyPPath.getStrokeInstance(1));
+	//
+	// PNode label = pv().percentLabels[1];
+	// stretchLine(totalLines2, parentPercentDesc, 8, label, 10, -4
+	// * MARGIN);
+	// } else if (showHelp == Step.HELP_PARENT) {
+	// totalLines2.setStroke(LazyPPath.getStrokeInstance(3));
+	//
+	// PNode label = pv().percentLabels[1];
+	// label.moveToFront();
+	// scaleAboutPoint(label, 9, LABEL_ANIMATION_SCALE, scaleDuration());
+	// delay(scaleDuration() * 2);
+	// } else if (showHelp == Step.FADE_OUT_PARENT) {
+	// fade(nodes(totalLines2), 0.5f);
+	//
+	// PNode label = pv().percentLabels[1];
+	// scaleAboutPoint(label, 9, PerspectiveViz.PERCENT_LABEL_SCALE,
+	// scaleDuration());
+	// } else if (showHelp == Step.UNFADE) {
+	// // parentLines.setStroke(LazyPPath.getStrokeInstance(1));
+	// }
+	// }
 
 	void performNextStep() {
 		if (!animationFinished() && !finishingAnimation) {
@@ -1126,6 +1204,10 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 		return (direction & 32) == 0;
 	}
 
+	// 00 01 02 04
+	// 08 09 10 12
+	// 16 17 18 20
+	// 32 33 34 36
 	private static int oppositeDirection(int direction) {
 		switch (direction) {
 		case 0:
@@ -1231,19 +1313,19 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 				local.getHeight(), duration);
 	}
 
-	private static void iBeam(LazyPPath node) {
-		Rectangle2D bounds = node.getBoundsReference();
-		float midX = (int) node.getBoundsReference().getCenterX();
-		float top = (int) bounds.getY();
-		float bottom = (int) bounds.getMaxY();
-		node.reset();
-		node.moveTo(midX - 5, top);
-		node.lineTo(midX + 5, top);
-		node.moveTo(midX, top);
-		node.lineTo(midX, bottom);
-		node.moveTo(midX - 5, bottom);
-		node.lineTo(midX + 5, bottom);
-	}
+	// private static void iBeam(LazyPPath node) {
+	// Rectangle2D bounds = node.getBoundsReference();
+	// float midX = (int) node.getBoundsReference().getCenterX();
+	// float top = (int) bounds.getY();
+	// float bottom = (int) bounds.getMaxY();
+	// node.reset();
+	// node.moveTo(midX - 5, top);
+	// node.lineTo(midX + 5, top);
+	// node.moveTo(midX, top);
+	// node.lineTo(midX, bottom);
+	// node.moveTo(midX - 5, bottom);
+	// node.lineTo(midX + 5, bottom);
+	// }
 
 	private Markup namePrefixContents() {
 		Markup v;
@@ -1282,12 +1364,15 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 
 	private StringBuffer percentOn(StringBuffer buf) {
 		if (isShowFacetInfo()) {
-			buf = ResultsGrid.formatPercent(onCount() / (double) totalCount(),
-					buf);
+			buf = ResultsGrid.formatPercent(facetPercent(), buf);
 		} else if (buf == null) {
 			buf = new StringBuffer(" ");
 		}
 		return buf;
+	}
+
+	private double facetPercent() {
+		return onCount() / (double) totalCount();
 	}
 
 	private int parentOnCount() {
@@ -1304,14 +1389,30 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 			return facet.getParent().getTotalCount();
 	}
 
-	private StringBuffer parentPercentOn(StringBuffer buf) {
-		return ResultsGrid.formatPercent(parentOnCount()
-				/ (double) parentTotalCount(), buf);
+	private int siblingTotalCount() {
+		return parentTotalCount() - totalCount();
 	}
 
-	private Markup totalCountDesc() {
+	private int siblingOnCount() {
+		return parentOnCount() - onCount();
+	}
+
+	private double siblingPercentOn() {
+		return siblingOnCount() / (double) siblingTotalCount();
+	}
+
+	private StringBuffer siblingPercentOn(StringBuffer buf) {
+		if (isShowFacetInfo()) {
+			buf = ResultsGrid.formatPercent(siblingPercentOn(), buf);
+		} else if (buf == null) {
+			buf = new StringBuffer(" ");
+		}
+		return buf;
+	}
+
+	private Markup totalCountDesc(boolean isHelp) {
 		Markup medianDesc = medianContent(false);
-		medianDesc.add(0, collectionDescription());
+		medianDesc.add(0, collectionDescription(isHelp));
 		// Util.print(TextNfacets.toText(medianDesc));
 		return medianDesc;
 	}
@@ -1325,6 +1426,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 			if (conditionalMedian != null) {
 				// pValueString(buf);
 			} else {
+				if (siblingTotalCount() > 0)
 				buf.append(", compared with");
 			}
 			medianDesc.add(0, buf.toString());
@@ -1371,24 +1473,65 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 		return query().markupToText(markup, this);
 	}
 
-	private void setParentDesc() {
+	private void setParentDesc(String prefix) {
 		if (isShowFacetInfo() && unconditionalMedian == null) {
+			if (siblingTotalCount() > 0) {
 			StringBuffer buf = new StringBuffer();
-			parentPercentOn(buf);
-			int parentPercentStringLength = buf.length();
-			buf.append(" for all ").append(Util.addCommas(parentTotalCount()))
-					.append(" ").append(parentDescString());
-			pValueString(buf);
-			parentPercentDesc.setWidth(maxW());
-			parentPercentDesc.setText(buf.toString());
+			buf.append(prefix);
+			siblingPercent.setText(siblingPercentOn(buf).toString());
 
-			parentPercentDesc.clearAttributes();
-			parentPercentDesc.addAttribute(TextAttribute.FOREGROUND,
-					parentPercentTextColor, 0, parentPercentStringLength);
+			parentDesc.setWidth(maxW() - siblingPercent.getWidth() - MARGIN);
+			buf = new StringBuffer();
+			buf.append("for the other ").append(
+					Util.addCommas(siblingTotalCount())).append(" ").append(
+					parentDescString());
+			pValueString(buf);
+			parentDesc.setText(buf.toString());
+
+			siblingPercent.clearAttributes();
+			if (prefix.length() > 0) {
+				// hack to show a division result
+				siblingPercent.addAttribute(TextAttribute.UNDERLINE,
+						TextAttribute.UNDERLINE_ON);
+			}
+			} else {
+				siblingPercent.setText("");
+				parentDesc.setText("");				
+			}
 		} else {
 			// Use many spaces to avoid out-of-range error for color attribute
-			parentPercentDesc.setText("           ");
+			siblingPercent.setText("");
+			parentDesc.setText("");
 		}
+	}
+
+	private void setRatioDesc() {
+		double ratio = rank().oddsRatio(facet);
+		String ratioLabel = PerspectiveViz.formatOddsRatio(ratio);
+		// Util.print(ratio + " " + ratioLabel);
+		String desc = "as likely to satisfy the filters, as shown by the bar height. "
+				+ "(Height scale is non-linear; move the mouse over the scale to see.)";
+		double limit = Math.exp(Rank.logOddsRange);
+		switch (ratioLabel.charAt(0)) {
+		case '*':
+			ratioLabel = ratioLabel.substring(2);
+			if (ratio > limit)
+				ratioLabel = "> " + ((int) limit);
+			desc = "times " + desc;
+			break;
+		case '/':
+			ratioLabel = "1 " + ratioLabel;
+			if (ratio < 1.0 / limit)
+				ratioLabel = "< 1 / " + ((int) limit);
+			break;
+		case '=':
+			desc = "about as likely to satisfy the filters";
+			break;
+		default:
+			assert false;
+		}
+		ratioNumber.setText("  " + ratioLabel);
+		ratioDesc.setText(desc);
 	}
 
 	private void schedulePerformStep(long delay) {
@@ -1408,34 +1551,34 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 		}
 	}
 
-	private void animateBarTransparencies(final float newTransparency,
-			long delay, long duration) {
-		final Rank rank = rank();
-		if (rank != null) {
-			if (duration == 0 && delay == 0) {
-				rank.setBarTransparencies(newTransparency);
-				// anchor.setTransparency(1);
-			} else {
-				// final PNode _node = anchor;
-				// final Rank _rank = rank;
-				final float oldTransparency = anchor.getTransparency();
-
-				PActivity ta = new PInterpolatingActivity(duration,
-						PUtil.DEFAULT_ACTIVITY_STEP_RATE, delay
-								+ System.currentTimeMillis(), 1,
-						PInterpolatingActivity.SOURCE_TO_DESTINATION) {
-
-					public void setRelativeTargetValue(float zeroToOne) {
-						rank.setBarTransparencies((float) lerp(zeroToOne,
-								oldTransparency, newTransparency));
-						// _node.setTransparency(1);
-					}
-				};
-				addActivity(ta);
-				addAnimationJob(ta);
-			}
-		}
-	}
+//	private void animateBarTransparencies(final float newTransparency,
+//			long delay, long duration) {
+//		final Rank rank = rank();
+//		if (rank != null) {
+//			if (duration == 0 && delay == 0) {
+//				rank.setBarTransparencies(newTransparency);
+//				// anchor.setTransparency(1);
+//			} else {
+//				// final PNode _node = anchor;
+//				// final Rank _rank = rank;
+//				final float oldTransparency = anchor.getTransparency();
+//
+//				PActivity ta = new PInterpolatingActivity(duration,
+//						PUtil.DEFAULT_ACTIVITY_STEP_RATE, delay
+//								+ System.currentTimeMillis(), 1,
+//						PInterpolatingActivity.SOURCE_TO_DESTINATION) {
+//
+//					public void setRelativeTargetValue(float zeroToOne) {
+//						rank.setBarTransparencies((float) lerp(zeroToOne,
+//								oldTransparency, newTransparency));
+//						// _node.setTransparency(1);
+//					}
+//				};
+//				addActivity(ta);
+//				addAnimationJob(ta);
+//			}
+//		}
+//	}
 
 	private PerspectiveViz pv() {
 		return (PerspectiveViz) anchor.getParent().getParent();
@@ -1484,11 +1627,17 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 		return result;
 	}
 
-	private String collectionDescription() {
+	private String collectionDescription(boolean isHelp) {
+		StringBuffer buf = new StringBuffer();
 		if (query().isRestrictedData())
-			return " in restricted set";
+			buf.append(" in restricted set");
 		else
-			return " in collection";
+			buf.append(" in collection");
+		if (isHelp) {
+			buf.append(", as shown by the bar's width");
+			// buf.append(query().markupToText(facet.facetDescription(), this));
+		}
+		return buf.toString();
 	}
 
 	private int maxW() {
@@ -1523,11 +1672,11 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 		return result;
 	}
 
-	private double getRelativePercentOnDifference() {
-		Rectangle2D barBounds = ((Bar) anchor).visibleBounds();
-		double delta = barBounds.getHeight() - anchor.getHeight() / 2;
-		return delta;
-	}
+	// private double getRelativePercentOnDifference() {
+	// Rectangle2D barBounds = ((Bar) anchor).visibleBounds();
+	// double delta = barBounds.getHeight() - anchor.getHeight() / 2;
+	// return delta;
+	// }
 
 	private String sigSummary() {
 		String relationTypeString = null;
@@ -1543,65 +1692,26 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 		return relationTypeString;
 	}
 
-	private static double PRACTICAL_SIGNIFICANCE_THRESDHOLD = 0.17;
+	// private static double PRACTICAL_SIGNIFICANCE_THRESDHOLD = 0.17;
 
 	private String sigExplanation() {
-		String facetDesc = query().markupToText(facet.facetDescription(), this);
-		double delta = getRelativePercentOnDifference();
+		// String desc = query().markupToText(facet.facetDescription(), this);
+		// double delta = getRelativePercentOnDifference();
 		StringBuffer sigStringBuf = new StringBuffer();
-		Color[] chiColorFamily = art.chiColorFamily(facet);
+		Object chiColorFamily = art.chiColorFamily(facet);
 		if (chiColorFamily == Markup.UNASSOCIATED_COLORS) {
-			if (delta < -PRACTICAL_SIGNIFICANCE_THRESDHOLD
-					|| delta > PRACTICAL_SIGNIFICANCE_THRESDHOLD) {
-				sigStringBuf.append("Even though the percentage of");
-				sigStringBuf.append(facetDesc);
-				sigStringBuf.append(" that satisfy the filters is much ");
-				if (delta < -PRACTICAL_SIGNIFICANCE_THRESDHOLD)
-					sigStringBuf.append("lower");
-				else
-					sigStringBuf.append("higher");
-				sigStringBuf.append(" than that for other ");
-				sigStringBuf.append(parentDescString());
-				sigStringBuf
-						.append(", the numbers are so small that the difference is not statistically significant");
-			} else {
-				sigStringBuf.append(facetDesc);
-				sigStringBuf
-						.append(" are about as likely to satisfy the filters as other ");
-				sigStringBuf.append(parentDescString());
-			}
-			sigStringBuf.append(", so this tag is colored gray.");
-		} else {
-			if (delta > -PRACTICAL_SIGNIFICANCE_THRESDHOLD
-					&& delta < PRACTICAL_SIGNIFICANCE_THRESDHOLD) {
-				sigStringBuf.append("Even though the percentage of");
-				sigStringBuf.append(facetDesc);
-				sigStringBuf.append(" that satisfy the filters is not much ");
-				if (chiColorFamily == Markup.NEGATIVE_ASSOCIATION_COLORS)
-					sigStringBuf.append("lower");
-				else
-					sigStringBuf.append("higher");
-				sigStringBuf.append(" than that for other ");
-				sigStringBuf.append(parentDescString());
-				sigStringBuf
-						.append(", the numbers are so large that the difference is statistically significant");
-			} else {
-				sigStringBuf.append(facetDesc);
-				sigStringBuf.append(" are significantly ");
-				if (chiColorFamily == Markup.POSITIVE_ASSOCIATION_COLORS)
-					sigStringBuf.append("more");
-				else
-					sigStringBuf.append("less");
-				sigStringBuf
-						.append(" likely to satisfy the filters than other ");
-				sigStringBuf.append(parentDescString());
-			}
 			sigStringBuf
-					.append(", so this tag is colored ")
+					.append("The difference is percentage is not statistically significant, "
+							+ "so this tag is colored gray");
+		} else {
+			sigStringBuf
 					.append(
-							chiColorFamily == Markup.NEGATIVE_ASSOCIATION_COLORS ? "orange."
-									: "green.");
+							"The difference is percentage is statistically significant, so this tag is colored ")
+					.append(
+							chiColorFamily == Markup.NEGATIVE_ASSOCIATION_COLORS ? "orange"
+									: "green");
 		}
+		sigStringBuf.append(" (see Color Key).");
 		pValueString(sigStringBuf);
 		return sigStringBuf.toString();
 	}
@@ -1690,7 +1800,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 	// reset
 	void setFacet(Perspective _facet, boolean _showMedian, PNode _anchor) {
 		assert _facet != null;
-		assert _anchor != null;
+//		assert _anchor != null;
 		anchor = _anchor;
 		facet = _facet;
 		if (_showMedian) {
@@ -1716,10 +1826,11 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 				performNextStep();
 			}
 		} else if (showHelp == Step.HELP_SIG) {
-			showHelp = Step.TRANSLATE_POPUP;
+			showHelp = Step.FADE_IN_TOTAL.previous(); // TRANSLATE_POPUP;
 			animationSpeed = 2;
-			visibility(nodes(sigLines, heavyLines, totalLines), false);
-			visibility(nodes(facetLines, parentLines), false);
+			visibility(nodes(// sigLines, heavyLines,
+					totalLines1), false);
+			visibility(nodes(ratioLines, totalLines2), false);
 			visibility(nodes(significanceDesc, significanceTypeDesc,
 					significanceHeader), false);
 			performNextStep();
@@ -1740,10 +1851,12 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 			summaryBG.removeFromParent();
 			if (isHelp) {
 				art.summary.computeRankComponentHeights(0);
-				animateBarTransparencies(1, 0, 0);
+//				animateBarTransparencies(1, 0, 0);
 				totalCountDescNum.setScale(1);
-				facetCountDescNum.setScale(1);
+				facetCount.setScale(1);
 				summary().doHideTransients();
+				pv().loseHotZone();
+				siblingPercent.clearAttributes();
 			}
 			anchor = null;
 			facet = null;

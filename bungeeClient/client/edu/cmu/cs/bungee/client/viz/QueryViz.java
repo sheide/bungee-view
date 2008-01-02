@@ -254,7 +254,7 @@ final class QueryViz extends LazyPNode implements MouseDoc {
 	}
 
 	public double maxWidth() {
-		return getWidth() + summary.getWidth() - summary.minWidth(false);
+		return summary.getWidth() - summary.widgetWidth();
 	}
 
 	void doSearch() {

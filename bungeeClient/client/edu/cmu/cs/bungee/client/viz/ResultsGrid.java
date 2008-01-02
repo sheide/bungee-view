@@ -34,7 +34,6 @@ package edu.cmu.cs.bungee.client.viz;
 import java.io.InputStream;
 import java.lang.ref.SoftReference;
 import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Hashtable;
 import java.util.Map;

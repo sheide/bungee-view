@@ -19,6 +19,8 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 
+import sun.rmi.log.LogOutputStream;
+
 /**
  * @author mad y-coordinates range from 0 if observedPercent = 1.0 to 1 if
  *         observedPercent = 0.0, except that rect extends an extra
@@ -28,13 +30,13 @@ import java.util.List;
 final class Bar extends LazyPNode implements FacetNode {
 
 	private static final double MIN_BAR_HEIGHT = 0.02;
-	
+
 	// PERCENT: 0, 1; ELSE 0.5, 0.5
 	/**
 	 * Initial y-coordinate of coding end of bar
 	 */
 	private static final double y0 = 0.5;
-	
+
 	/**
 	 * y-coordinate of non-coding end of bar
 	 */
@@ -53,20 +55,21 @@ final class Bar extends LazyPNode implements FacetNode {
 	private double startY;
 
 	private double goalY;
-	
+
 	private double currentY;
-	
+
 	private static List barCache = new LinkedList();
-	
+
 	static Bar getBar(PerspectiveViz _pv, double x, double w, Perspective _facet) {
 		Bar result = null;
 		if (barCache.isEmpty()) {
 			result = new Bar();
-			result.rect = new Rectangle2D.Double(x, y0, w, 1-y1);
+			result.rect = new Rectangle2D.Double(x, y0, w, 1 - y1);
 		} else {
-			result = (Bar) barCache.remove(0);			
+			result = (Bar) barCache.remove(0);
+			assert result != null;
 		}
-		
+
 		result.pv = _pv;
 		result.facet = _facet;
 		assert result.checkXparam(x);
@@ -78,43 +81,53 @@ final class Bar extends LazyPNode implements FacetNode {
 		result.goalY = y1;
 		result.currentY = result.startY;
 		result.setBounds(x, 0, w, 1);
-		result.rect.setFrame(x, y0, w, 1-y1);
+		result.rect.setFrame(x, y0, w, 1 - y1);
 		// addInputEventListener(Art.facetClickHandler);
 
 		result.updateSelection();
 		return result;
 	}
-	
+
 	static void release(Collection toRelease) {
-			barCache.addAll(toRelease);
+		assert noNulls(toRelease);
+		barCache.addAll(toRelease);
 	}
 	
-	static void release(Bar bar) {
-			barCache.add(bar);
+	static boolean noNulls(Collection c) {
+		for (Iterator it = c.iterator(); it.hasNext();) {
+			Object o = it.next();
+			assert o != null;
+		}
+		return true;
 	}
 
-//	/**
-//	 * This is where we are, allowing that we don't repaint if we're within a
-//	 * few pixels.
-//	 */
-//	// private double sloppyY;
-//	Bar(PerspectiveViz _pv, double x, double w, Perspective _facet) {
-//		pv = _pv;
-//		facet = _facet;
-//		assert checkXparam(x);
-//		assert checkXparam(w);
-//		assert checkXparam(x + w);
-//		assert _pv.p == _facet.getParent() : _facet;
-//		startY = y0;
-//		// sloppyY = startY;
-//		goalY = y1;
-//		currentY = startY;
-//		setBounds(x, 0, w, 1);
-//		rect = new Rectangle2D.Double(x, y0, w, 1-y1);
-//		// addInputEventListener(Art.facetClickHandler);
-//
-//		updateSelection();
-//	}
+	static void release(Bar bar) {
+		assert bar != null;
+		barCache.add(bar);
+	}
+
+	// /**
+	// * This is where we are, allowing that we don't repaint if we're within a
+	// * few pixels.
+	// */
+	// // private double sloppyY;
+	// Bar(PerspectiveViz _pv, double x, double w, Perspective _facet) {
+	// pv = _pv;
+	// facet = _facet;
+	// assert checkXparam(x);
+	// assert checkXparam(w);
+	// assert checkXparam(x + w);
+	// assert _pv.p == _facet.getParent() : _facet;
+	// startY = y0;
+	// // sloppyY = startY;
+	// goalY = y1;
+	// currentY = startY;
+	// setBounds(x, 0, w, 1);
+	// rect = new Rectangle2D.Double(x, y0, w, 1-y1);
+	// // addInputEventListener(Art.facetClickHandler);
+	//
+	// updateSelection();
+	// }
 
 	private boolean checkXparam(double param) {
 		assert !Double.isInfinite(param) && !Double.isNaN(param);
@@ -151,9 +164,11 @@ final class Bar extends LazyPNode implements FacetNode {
 
 	void updateData() {
 		startY = rect.getY();
-//		goalY = expectedPercentOn == 1 ? 0.5 : 1 - pv.rank.warp(facet
-//				.percentOn());
-		goalY = 1 - pv.rank.warp(facet);
+		// goalY = expectedPercentOn == 1 ? 0.5 : 1 - pv.rank.warp(facet
+		// .percentOn());
+		goalY = 1 - Rank.warp(pv.rank.oddsRatio(facet));
+		// Util.print("Bar.updateData " + facet + " " + pv.rank.oddsRatio(facet)
+		// + " " + Rank.warp(pv.rank.oddsRatio(facet)));
 		// if (observedPercentOn == expectedPercentOn)
 		// // speed up for common case
 		// colorIndex = 0;
@@ -163,8 +178,8 @@ final class Bar extends LazyPNode implements FacetNode {
 
 	void animateData(double zeroToOne) {
 		double minH = MIN_BAR_HEIGHT; // 1.0 / pv.rank.frontH; We're not
-										// always called when frontH changes, so
-										// this doesn't work
+		// always called when frontH changes, so
+		// this doesn't work
 		double y = lerp(zeroToOne, startY, goalY) - minH / 2.0;
 		double slop = zeroToOne == 1.0 ? 0.0 : 0.1;
 		if (Math.abs(y - currentY) > slop) {
@@ -181,24 +196,24 @@ final class Bar extends LazyPNode implements FacetNode {
 		assert false : "FacetPNode.paint ignores paint";
 	}
 
-//	private Color color() {
-//		return art().facetTextColor(facet, facet.guessOnCount());
-//	}
+	// private Color color() {
+	// return art().facetTextColor(facet, facet.guessOnCount());
+	// }
 
 	protected void paint(PPaintContext paintContext) {
-//		 if (pv.p.getName().equals("Genre"))
-//		 Util.print("fpn.paint " + facet + " " + rect);
+		// if (pv.p.getName().equals("Genre"))
+		// Util.print("fpn.paint " + facet + " " + rect);
 		Graphics2D g2 = paintContext.getGraphics();
 		int onCount = facet.guessOnCount();
-//		g2.setPaint(Markup.UNASSOCIATED_COLORS[fadeIndex]);
-//		g2.fill(getBoundsReference());
+		// g2.setPaint(Markup.UNASSOCIATED_COLORS[fadeIndex]);
+		// g2.fill(getBoundsReference());
 		g2.setPaint(art().facetTextColor(facet, onCount)); // getColor(1));
 		g2.fill(rect);
-//		if (rect.height > 2.0 / pv.rank.frontH()) {
-			g2.setPaint(Color.black);
-			g2.setStroke(LazyPPath.getStrokeInstance(0));
-			g2.draw(getBoundsReference());
-//		}
+		// if (rect.height > 2.0 / pv.rank.frontH()) {
+		g2.setPaint(Color.black);
+		g2.setStroke(LazyPPath.getStrokeInstance(0));
+		g2.draw(getBoundsReference());
+		// }
 	}
 
 	public boolean pick(PInputEvent e) {
@@ -207,6 +222,7 @@ final class Bar extends LazyPNode implements FacetNode {
 
 	boolean pick(int modifiers) {
 		art().printUserAction(Bungee.BAR, facet, modifiers);
+		// Util.print("Bar.pick " + facet + " " + pv.isConnected());
 		if (pv.isConnected()) {
 			art().toggleFacet(facet, modifiers);
 			// p.summary.art.printUserAction("FacetPNode.picked: " +
@@ -236,18 +252,18 @@ final class Bar extends LazyPNode implements FacetNode {
 	public Bungee art() {
 		return pv.summary.art;
 	}
-	
+
 	public String toString() {
 		return "<Bar " + facet + ">";
 	}
 
 	public void drag(Point2D position, PDimension delta) {
-		assert false;		
+		assert false;
 	}
 
 	public FacetNode startDrag(PNode node, Point2D positionRelativeTo) {
 		// TODO Auto-generated method stub
-//		return pv.startDrag(node, positionRelativeTo);
+		// return pv.startDrag(node, positionRelativeTo);
 		return null;
 	}
 }

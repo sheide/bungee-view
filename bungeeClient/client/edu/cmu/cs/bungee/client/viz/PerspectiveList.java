@@ -287,7 +287,7 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 	}
 
 	void init(Perspective _selected) {
-		// Util.print("maybeInit() " + isHidden() + " " + _selected);
+//		 Util.print("PL.init() " + isHidden() + " " + _selected);
 		assert _selected != null;
 		Perspective _selectedParent = _selected.getParent();
 		assert _selectedParent != null : _selected;
@@ -347,6 +347,7 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 		label.setText(Util.addCommas(size()) + " " + _selectedParent.getName()
 				+ " tags");
 		// }
+//		 Util.print(" PL.init return ");
 	}
 
 	double longestNameLength() {
@@ -404,6 +405,7 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 		}
 		int sortIndex = getSortIndex(selected);
 		int delta = 0;
+		boolean zeroCountOK = false;
 		switch (key) {
 		case java.awt.event.KeyEvent.VK_KP_LEFT:
 		case java.awt.event.KeyEvent.VK_LEFT:
@@ -419,9 +421,11 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 			break;
 		case java.awt.event.KeyEvent.VK_HOME:
 			delta = -sortIndex;
+			zeroCountOK = true;
 			break;
 		case java.awt.event.KeyEvent.VK_END:
 			delta = size() - 1 - sortIndex;
+			zeroCountOK = true;
 			break;
 		case java.awt.event.KeyEvent.VK_A:
 			if (Util.isControlDown(modifiers)) {
@@ -438,6 +442,7 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 					}
 				}
 				modifiers = InputEvent.SHIFT_DOWN_MASK;
+				zeroCountOK = true;
 			}
 			break;
 		}
@@ -448,7 +453,7 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 				// Util.print("handleArrow " + selected + " " + sortIndex + " "
 				// + delta + " " + index + " " + p + " "
 				// + counts[p.whichChild()]);
-				if (counts[p.whichChild()] > 0) {
+				if (counts[p.whichChild()] > 0 || zeroCountOK) {
 					selected = p;
 					art.toggleFacet(selected, modifiers);
 					art.setClickDesc((Markup) null);
@@ -498,7 +503,7 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 	}
 
 	void showList(int lineOffset) {
-		// Util.print("PL.showList " + lineOffset);
+//		 Util.print("PL.showList " + lineOffset);
 		assert !isHidden();
 		if (size() != selected.nSiblings()) {
 			// In case we've added or removed facets
@@ -560,6 +565,7 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 		if (longestNamedFacet != initialLongName) {
 			showList(lineOffset);
 		}
+//		 Util.print(" PL.showList return");
 	}
 
 	void highlightFacet(Perspective facet) {
