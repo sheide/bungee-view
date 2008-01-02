@@ -1618,6 +1618,41 @@ public final class Util {
 		return out;
 	}
 
+	public static String readFile(File f) {
+		String result = null;
+		BufferedReader in = getReader(f);
+		if (in != null) {
+			StringBuffer buf = new StringBuffer();
+			String line;
+			try {
+				while ((line = in.readLine()) != null) {
+					if (buf.length() > 0)
+						buf.append("\n");
+					buf.append(line);
+				}
+				in.close();
+				result = buf.toString();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+		return result;
+	}
+
+	public static boolean writeFile(File f, String s) {
+		BufferedWriter out = getWriter(f);
+		if (out != null) {
+			try {
+				out.write(s);
+				out.close();
+				return true;
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+		return false;
+	}
+
 	public static String commonPrefix(String s1, String s2,
 			boolean caseSensitive) {
 		String prefix = s1;
