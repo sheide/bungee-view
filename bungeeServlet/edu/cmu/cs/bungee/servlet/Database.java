@@ -1406,6 +1406,7 @@ class Database {
 	@SuppressWarnings("unchecked")
 	void opsSpec(int session, DataOutputStream out) throws SQLException,
 			ServletException, IOException {
+		// order by timestamp for sessions before we recorded action_numbers
 		ResultSet rs = jdbc
 				.SQLquery("SELECT CONCAT_WS(',',"
 						+ " TIMESTAMPDIFF(SECOND, (SELECT MIN(timestamp) FROM user_actions WHERE session = "
@@ -1413,7 +1414,7 @@ class Database {
 						+ "),"
 						+ " timestamp),"
 						+ " location, object, modifiers) FROM user_actions WHERE session = "
-						+ session + " ORDER BY action_number");
+						+ session + " ORDER BY action_number, timestamp");
 		sendResultSet(rs, MyResultSet.STRING, out);
 	}
 
