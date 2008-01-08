@@ -33,9 +33,6 @@ package edu.cmu.cs.bungee.client.viz;
 /**
  * ToDo:
  * 
- * log interface: scatterplot of seesions by date and database; size shows # of
- * operations; clicking opens a window that replays the session.
- * 
  * Tweedie-style bars showing expected, current, current except for us, current
  * except for 1 other.
  * 
@@ -1173,6 +1170,7 @@ final class Bungee extends PFrame {
 			// if (opsSpec.length() == 0) {
 			String replay = argURLQuery.getArgument("session");
 			if (replay.length() > 0) {
+				Util.print("Replaying session " + replay);
 				replayer = new Replayer(this, query.opsSpec(replay));
 				replayer.start();
 				replayer.update();

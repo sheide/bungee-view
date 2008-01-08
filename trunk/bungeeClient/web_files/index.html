@@ -38,16 +38,22 @@ href="http://www.cs.cmu.edu/~mad/Bungee/LoC/AmericanMemory.mov">mov</a> (<a href
 
 <h2>News</h2>
 <table border="0">
+
+
+<tr><td>
+January 2008
+</td><td>
+New version released.  1) Bars now go up for positive tag associations and down for negative associations. 2) There is now support for alphabetic tag selection by clicking, dragging, or typing.
+</td></tr>
+
 <tr>
 <td>
 November 2007
 </td><td>
 Bungee View wins award at the <a href="http://www.apl.jhu.edu/Misc/Visualization/">2007 Information Visualization Symposium</a>, based on this <a href="http://www.cs.cmu.edu/~mad/2007InfoVisContest/BungeeView.avi">eight-minute video</a> showing expert-level use on a database of movies.
-</td></tr><tr><td>
-November 2007
-</td><td>
-New version released.  Thanks to all who suggested improvements.
-</td></tr><tr><td>
+</td></tr>
+
+<tr><td>
 November 2007
 </td><td>
 There is now a <a href="http://code.google.com/p/bungee-view/">project page</a> for Bungee View Administrators and Developers.
@@ -80,34 +86,21 @@ Java</a> 1.4 or later, which includes the Java Web Start plug-in. </p>
 
 <h2><a name=mining>Data-Mining with Bungee View</a></h2>
 
-<p><img src=AsiaQuery2.jpg><br>
+<p><img src=AsiaQuery3.jpg><br>
 <b>Bungee View</b> lets you <b><i>search, browse, and data-mine</i></b> image
 collections. It shows an overview of the entire collection, in addition to the
 familiar result list and item details of other search interfaces. </p>
 
 <h3>Bar charts provide collection overviews</h3>
 
-<p>For each metadata category, vertical bars show the distribution of images in
-the collection that match your query. In the screenshot above, the query is for
+<p>For each metadata category, vertical bars show tags associated with your query. In the screenshot above, the query is for
 images that show Places in Asia. The bottom
-row of bars shows the resulting distribution for various Kinds of People. Wide
+row of bars shows tags for the category Kinds of People. Wide
 bars represent Kinds of People that appear in many images in the collection.
-Tall bars represent Kinds of People a large fraction of which appear in images
-that match the query. For instance, 38% of images that show
-Educators &amp; Communicators also show Places in Asia,
-while only 1% of those that show Manual Laborers do. The curve
-superimposed on the percent labels shows the non-linear scale. It distorts the
-bar heights so that the average value (8% for Kinds of People) is half as high
-as 100%. The blue-gray background indicates this average value. </p>
+Tall bars represent Kinds of People associated with your query, either positively if the bar goes up, or negatively if the bar goes down. For instance, images that show Educators &amp; Communicators are six times as likely to show Places in Asia as images that show other Kinds of People, while those that show Manual Laborers are only one tenth as likely. The vertical scale ranges from 1/100th to 100 times the likelihood of other tags in the category, and is non-linear.
 
-<p>In data-mining terms, there is a positive association between Asia and
-Communicators &amp; Educators, while there is a negative association between Asia and Manual Laborers. Any bar that extends above the
-blue-gray background represents a positive association, and vice versa. The bar
-color indicates whether the association is statistically significant. Gray bars
-stand for values that are not significantly associated with the query. Muted
-green bars are positive significant associations (at a significance level of
-one in ten thousand, using a Chi Squared Test, or for small expected values a
-Fisher Exact Test). Orange bars are negative significant associations. Both the
+<p> The bar
+color indicates whether the association is statistically significant. Dull green bars show significant positive associations. Dull red bars show significant negative associations. Gray bars show associations that are not significant. Both the
 Communicators &amp; Educators association and the Manual Laborers association
 are significant. Saturated green and red bars (such as Asia)
 are for values that are part of the query. </p>
@@ -145,7 +138,7 @@ document.write('ma' + 'd@c' + 's.cmu.e' + 'du' + '<\/a>');
 //-->
 </script>)
 <br>
-<i> Last update: 7 November 2007 </i>
+<i> Last update: 3 January 2008 </i>
 </div>
 
 </body>
