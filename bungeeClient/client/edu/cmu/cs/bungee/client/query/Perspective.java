@@ -380,7 +380,8 @@ public final class Perspective implements Comparable, ItemPredicate {
 	 */
 	public void prefetchData() {
 		if (!isPrefetched()) {
-			assert nChildren() > 0 : this;
+			assert nChildren() > 0 : this
+					+ " doesn't have any tags. You should give it a negative value for sort in the raw_facet_types table.";
 			synchronized (this) {
 				if (!isPrefetched()) {
 					ensureInstantiatedPerspective();
@@ -1941,27 +1942,36 @@ public final class Perspective implements Comparable, ItemPredicate {
 				minCount = 0;
 			if (maxCount > totalChildTotalCount)
 				maxCount = totalChildTotalCount;
-			if (minCount == 0 && maxCount == totalChildTotalCount)
+			if (minCount <= 1 && maxCount >= totalChildTotalCount-1)
 				// optimize common case
 				return getChildIterator();
 			synchronized (dummyCumCount) {
 				dummyCumCount.cumCount = minCount;
 				int minWhichChild = Arrays.binarySearch(dataIndex,
 						dummyCumCount, cumCountInclusiveComparator);
+				minWhichChild = childIndexFromBinarySearch(
+						minWhichChild, false);
+				Perspective minChild = getNthChild(minWhichChild);
+				while (minChild.totalCount == 0) {
+					// This can happen when restrictedData
+					minChild = getNthChild(--minWhichChild);
+				}
 				// Util.print(minCount + " " + minWhichChild + " "
 				// + childIndexFromBinarySearch(minWhichChild, false));
 				dummyCumCount.cumCount = maxCount;
 				int maxWhichChild = Arrays.binarySearch(dataIndex,
 						dummyCumCount, cumCountExclusiveComparator);
-				Perspective minChild = getNthChild(childIndexFromBinarySearch(
-						minWhichChild, false));
-				Perspective maxChild = getNthChild(childIndexFromBinarySearch(
-						maxWhichChild, true));
-				// Util.print("cumCountChildIterator " + minCount + "-" +
-				// maxCount
-				// + "/" + getTotalChildTotalCount() + " " +
-				// minChild.toStringWithCumCount()
-				// + " -- " + maxChild.toStringWithCumCount());
+				maxWhichChild = childIndexFromBinarySearch(
+						maxWhichChild, true);
+				Perspective maxChild = getNthChild(maxWhichChild);
+				while (maxChild.totalCount == 0) {
+					maxChild = getNthChild(++maxWhichChild);
+				}
+//				 Util.print("cumCountChildIterator " + minCount + "-" +
+//				 maxCount
+//				 + "/" + getTotalChildTotalCount() + " " +
+//				 minChild.toStringWithCumCount()
+//				 + " -- " + maxChild.toStringWithCumCount());
 				assert minChild.cumCountInclusive() >= minCount
 						&& minChild.cumCountExclusive() <= minCount
 						&& maxChild.cumCountInclusive() >= maxCount

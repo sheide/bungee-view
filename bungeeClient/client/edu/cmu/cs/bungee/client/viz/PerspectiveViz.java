@@ -1851,16 +1851,16 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 		if (iVisibleWidth > 0) {
 			barXs = new Perspective[iVisibleWidth + 1];
 			double divisor = barWidthRatio();
-			// Util.print("computebars " + p + " " + p.getTotalChildTotalCount()
-			// + " " + logicalWidth);
+//			 Util.print("computebars " + p + " " + p.getTotalChildTotalCount()
+//			 + " " + logicalWidth);
 			for (Iterator it = slowVisibleChildIterator(); it.hasNext();) {
 				Perspective child = (Perspective) it.next();
 				int totalCount = child.getTotalCount();
 				if (totalCount > 0) {
 					int iMaxX = maxBarPixel(child, divisor);
 					int iMinX = minBarPixel(child, divisor);
-					// if (p.getID() == 8)
-					// printBar(child, iMinX, iMaxX, "bar");
+//					 if (p.getID() == 3)
+//					 printBar(child, iMinX, iMaxX, "bar");
 					if (iMaxX >= 0 && iMinX <= iVisibleWidth) {
 						assert iMaxX >= 0
 								&& iMinX <= iVisibleWidth
@@ -2702,11 +2702,11 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 		// int minCount = (int) (leftEdge * (factor + fudgeFactor));
 		// int maxCount = (int) Math.ceil((leftEdge + visibleWidth())
 		// * (factor - fudgeFactor));
-		// Util.print("slowVisibleChildIterator " + p + " " + leftEdge + "/"
-		// + logicalWidth + " => (ceil("
-		// + ((leftEdge + epsilon) * divisor) + "}-(floor("
-		// + ((leftEdge + visibleWidth() - epsilon) * divisor)
-		// + "))/" + p.getTotalChildTotalCount());
+//		 Util.print("slowVisibleChildIterator " + p + " " + leftEdge + "/"
+//		 + logicalWidth + " => (ceil("
+//		 + ((leftEdge + epsilon) / divisor) + "}-(floor("
+//		 + ((leftEdge + visibleWidth() - epsilon) / divisor)
+//		 + "))/" + p.getTotalChildTotalCount());
 		return p.cumCountChildIterator(minCount, maxCount);
 	}
 
