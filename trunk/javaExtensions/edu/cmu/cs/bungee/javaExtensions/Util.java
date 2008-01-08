@@ -45,6 +45,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.lang.reflect.Array;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
 
@@ -1617,10 +1618,23 @@ public final class Util {
 		}
 		return out;
 	}
+	
+	public static String readFile(String filename) {
+		return readFile(new File(filename));
+	}
 
 	public static String readFile(File f) {
+		return ReaderToString(getReader(f));
+	}
+
+	public static String readURL(String URL) throws IOException {
+		URL url = new URL(URL);
+		BufferedReader in = new BufferedReader(new InputStreamReader(url.openStream()));
+		return ReaderToString(in);
+	}
+
+	static String ReaderToString(BufferedReader in) {
 		String result = null;
-		BufferedReader in = getReader(f);
 		if (in != null) {
 			StringBuffer buf = new StringBuffer();
 			String line;
