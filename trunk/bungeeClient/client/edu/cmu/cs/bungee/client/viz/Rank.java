@@ -28,6 +28,8 @@
 package edu.cmu.cs.bungee.client.viz;
 
 import java.text.DecimalFormat;
+import java.util.Arrays;
+import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
@@ -36,22 +38,35 @@ import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.cmu.cs.bungee.client.query.Query;
 import edu.cmu.cs.bungee.client.viz.Summary.RankComponentHeights;
 import edu.cmu.cs.bungee.javaExtensions.Util;
+import edu.cmu.cs.bungee.piccoloUtils.gui.LazyContainer;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
 import edu.umd.cs.piccolo.PNode;
 
-final class Rank extends LazyPNode {
+final class Rank extends LazyContainer {
 
+	/**
+	 * Margin between multiple PVs in a rank
+	 */
 	private static final double margin = 5.0;
 
 	// private double queryW;
 
-	private static final double labelMargin = 3.0;
+	/**
+	 * Margin before the rank label
+	 */
+	static final double LABEL_LEFT_MARGIN = 2;
+
+	/**
+	 * Margin between the rank label and the bars or, if connected, the 100%
+	 * label
+	 */
+	static final double LABEL_RIGHT_MARGIN = 10;
 
 	Rank parentRank;
 
 	private Summary summary;
 
-	double w = 0.0;
+	// double w = 0.0;
 
 	PerspectiveViz[] perspectives = {};
 
@@ -68,7 +83,7 @@ final class Rank extends LazyPNode {
 
 	void validate(double _w) {
 		// Util.print("r.validate " + _w + " " + _queryW);
-		w = _w - 5.0; // Leave room for rightmost rotated label
+		w = _w;
 		// queryW = _queryW;
 		// This happens in layoutChildren;
 		// for (int i = 0; i < children.length; i++) {
@@ -96,7 +111,7 @@ final class Rank extends LazyPNode {
 				PerspectiveViz pv = perspectives[i];
 				if (pv.p.isDisplayed()) {
 					int childW = (int) (ratio * pv.p.getTotalCount());
-//					assert childW > 0 : pv.p + " " + pv.p.getTotalCount();
+					// assert childW > 0 : pv.p + " " + pv.p.getTotalCount();
 					pv.setHeight(getHeight());
 					pv.setOffset(xOffset, 0.0);
 					pv.validate(childW, i == 0);
@@ -108,7 +123,7 @@ final class Rank extends LazyPNode {
 			TextNfacets label = perspectives[0].rankLabel;
 			// if (label.getWidth() != rankLabelWdith()) {
 			perspectives[0].layoutRankLabel(false);
-			label.setOffset(labelMargin - summary.queryW, 0);
+			label.setOffset(LABEL_LEFT_MARGIN - summary.queryW, 0);
 		}
 	}
 
@@ -128,7 +143,8 @@ final class Rank extends LazyPNode {
 	}
 
 	double rankLabelWdith() {
-		return summary.queryW - 2.0 * labelMargin;
+		return summary.queryW - LABEL_LEFT_MARGIN - LABEL_RIGHT_MARGIN
+				- (isConnected ? perspectives[0].percentLabelW() : 0);
 	}
 
 	int nBars() {
@@ -146,13 +162,14 @@ final class Rank extends LazyPNode {
 			PerspectiveViz pv = perspectives[i];
 			result = Util.append(result, pv.pValues());
 		}
+		assert result != null : this + " " + perspectives.length;
 		return result;
 	}
 
 	void updateData() {
 		// Util.print("rank.updateData: " + this + " " +
 		// perspectives[0].query().isQueryValid());
-		decacheTotalChildOnCount();
+		// decacheTotalChildOnCount();
 		for (int i = 0; i < perspectives.length; i++) {
 			PerspectiveViz p = perspectives[i];
 			p.updateData();
@@ -241,7 +258,6 @@ final class Rank extends LazyPNode {
 
 	void setConnected(boolean connected) {
 		// Util.print("setConnected " + getName() + " " + connected);
-		summary.hidePerspectiveList();
 		isConnected = connected;
 		for (int i = 0; i < perspectives.length; i++) {
 			perspectives[i].setConnected(connected);
@@ -287,8 +303,14 @@ final class Rank extends LazyPNode {
 
 	// private double maxChildPercentOn = -1;
 
+	/**
+	 * Used to determine whether totalChildOnCount is up to date
+	 */
+	private int updateIndex = 0;
+
 	int totalChildOnCount() {
-		if (totalChildOnCount < 0) {
+		assert query().isQueryValid();
+		if (updateIndex != query().updateIndex) {
 			totalChildOnCount = 0;
 			for (int i = 0; i < perspectives.length; i++) {
 				PerspectiveViz p = perspectives[i];
@@ -324,8 +346,9 @@ final class Rank extends LazyPNode {
 	// }
 
 	void decacheTotalChildOnCount() {
-		// Util.print("Rank.decacheTotalChildOnCount " + getName());
-		totalChildOnCount = -1;
+		// Util.print("Rank.decacheTotalChildOnCount " + this);
+		updateIndex = 0;
+		// totalChildOnCount = -1;
 		// maxChildPercentOn = -1;
 		// warpPower = -1.0;
 	}
@@ -476,28 +499,37 @@ final class Rank extends LazyPNode {
 	// return result;
 	// }
 
-	static final double logOddsRange = Math.log(100);
+	static final double LOG_ODDS_RANGE = Math.log(100);
 
 	// facet ~facet
 	// _ a ____ b __ query
 	// _ c ____ d _ ~query
 	double oddsRatio(Perspective facet) {
+		if (!query().isQueryValid())
+			return 1;
 		int a = facet.getOnCount();
 		int aPlusc = facet.getTotalCount();
 		int aPlusb = totalChildOnCount();
 		int b = aPlusb - a;
 		int aPlusbcd = totalChildTotalCount();
 		int bPlusd = aPlusbcd - aPlusc;
+		if (!(a >= 0 && b >= 0 && bPlusd >= 0 && aPlusc >= 0))
+			assert a >= 0 && b >= 0 && bPlusd >= 0 && aPlusc >= 0 : facet + " "
+					+ a + " " + b + " " + bPlusd + " " + aPlusc;
 
 		// Util.print(facet + " " + a + " " + b + " " + aPlusc + " " + bPlusd);
-
+		double result;
 		if (aPlusc == 0 || bPlusd == 0 || aPlusb == 0)
 			// make sure 0/0 == 1
-			return 1;
+			result = 1;
 		else if (b == 0)
-			return Double.POSITIVE_INFINITY;
+			result = Double.POSITIVE_INFINITY;
 		else
-			return (a * bPlusd) / (double) (b * aPlusc);
+			// cast to double to avoid overflow
+			result = (a * (double) bPlusd) / (b * (double) aPlusc);
+		assert result >= 0 : facet + " " + a + " " + b + " " + bPlusd + " "
+				+ aPlusc;
+		return result;
 	}
 
 	// double warp(Perspective facet) {
@@ -530,16 +562,22 @@ final class Rank extends LazyPNode {
 	// return result;
 	// }
 
+	/**
+	 * @param oddsRatio
+	 *            ranges from 0 to +infinity
+	 * @return ranges from 0 to 1
+	 */
 	static double warp(double oddsRatio) {
 		// Util.print("warp " + oddsRatio + " " + ((int) Math.round(oddsRatio))
 		// + " " + Util
 		// .constrain(Math.log(oddsRatio), -logOddsRange, logOddsRange));
-		return (constrainLogOdds(oddsRatio) + logOddsRange)
-				/ (2 * logOddsRange);
+		return (constrainLogOdds(oddsRatio) + LOG_ODDS_RANGE)
+				/ (2 * LOG_ODDS_RANGE);
 	}
 
 	static double constrainLogOdds(double oddsRatio) {
-		return Util.constrain(Math.log(oddsRatio), -logOddsRange, logOddsRange);
+		return Util.constrain(Math.log(oddsRatio), -LOG_ODDS_RANGE,
+				LOG_ODDS_RANGE);
 	}
 
 	static double constrainOddsRatio(double oddsRatio) {
@@ -593,7 +631,7 @@ final class Rank extends LazyPNode {
 	 * @return the odds ratio for this y value
 	 */
 	static double unwarp(double y) {
-		double logOdds = (y - 0.5) * 2 * logOddsRange;
+		double logOdds = (y - 0.5) * 2 * LOG_ODDS_RANGE;
 		double odds = Math.exp(logOdds);
 		return odds;
 	}
@@ -676,15 +714,14 @@ final class Rank extends LazyPNode {
 	}
 
 	// Update name and restrictionName labels
-	void updatePerspectiveSelections(Perspective facet) {
-		// Util.print("Rank.updatePerspectiveSelections " + getName() + " "
-		// + mousedFacet + " " + isRestricted() + " " + parentRank + " "
+	void updatePerspectiveSelections(Set facets) {
+		// Util.print("Rank.updatePerspectiveSelections " + parentRank + " "
 		// + perspectives[0].p);
-		perspectives[0].rankLabel.updateSelections(facet);
+		perspectives[0].rankLabel.updateSelections(facets);
 
 		// Update bars
 		for (int i = 0; i < perspectives.length; i++)
-			perspectives[i].updateSelection(facet);
+			perspectives[i].updateSelection(facets);
 	}
 
 	void updateNameLabels() {
@@ -770,9 +807,13 @@ final class Rank extends LazyPNode {
 	// }
 	// }
 
-	// private Bungee art() {
-	// return summary.art;
-	// }
+	private Bungee art() {
+		return summary.art;
+	}
+
+	private Query query() {
+		return summary.art.query;
+	}
 
 	// void mayHideTransients() {
 	// summary.mayHideTransients();
@@ -847,12 +888,7 @@ final class Rank extends LazyPNode {
 	}
 
 	public String toString() {
-		if (perspectives.length == 0)
-			return "<empty Rank>";
-		else
-			return "<Rank "
-					+ (perspectives[0] != null ? perspectives[0].p : null)
-					+ ">";
+			return "<Rank " + Arrays.asList(perspectives) + ">";
 	}
 
 	boolean keyPress(char key) {

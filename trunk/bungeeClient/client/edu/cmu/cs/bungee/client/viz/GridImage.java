@@ -1,15 +1,21 @@
 package edu.cmu.cs.bungee.client.viz;
 
+import java.awt.Color;
 import java.awt.Image;
 import java.awt.image.BufferedImage;
+import java.util.HashSet;
 
 import edu.cmu.cs.bungee.javaExtensions.Util;
 import edu.cmu.cs.bungee.piccoloUtils.gui.MyInputEventHandler;
+import edu.cmu.cs.bungee.piccoloUtils.gui.SolidBorder;
 import edu.umd.cs.piccolo.PNode;
 import edu.umd.cs.piccolo.event.PInputEvent;
 import edu.umd.cs.piccolo.nodes.PImage;
+import edu.umd.cs.piccolo.util.PBounds;
 
 final class GridImage extends PImage /* implements FacetNode */{
+
+	SolidBorder border;
 
 	int offset;
 
@@ -19,6 +25,10 @@ final class GridImage extends PImage /* implements FacetNode */{
 	 * anyway, for the grid and the selectedItem).
 	 */
 	ItemImage itemImage;
+
+	private float prevBorderTransparency = 0;
+
+	private float goalBorderTransparency = 0;
 
 	static final GridImageHandler gridImageHandler = new GridImageHandler();
 
@@ -31,16 +41,27 @@ final class GridImage extends PImage /* implements FacetNode */{
 	// }
 
 	GridImage(ItemImage im) {
+		assert im != null;
 		itemImage = im;
+
+		Color color = Bungee.gridFG.brighter();
+		border = new SolidBorder(color);
+		// setPaint(Bungee.gridFG);
+		// Need to have non-zero size in order to be painted. paint will set the
+		// real border.
+		// border.setBounds(0, 0, 10, 10);
+		border.setTransparency(0);
+		addChild(border);
 		addInputEventListener(gridImageHandler);
+//		border.strokeW = 2;
+		select();
 	}
 
 	public Image getImage() {
 		Image result = super.getImage();
-		Image rawImage = itemImage.getRawImage();
 		if (result == null) { // || rawImage.getWidth(null) >
 			// result.getWidth(null)) {
-			result = rawImage;
+			result = itemImage.getRawImage();
 			// Util.print("getImage is setting image");
 			// Util.printStackTrace();
 			setImage(result);
@@ -48,10 +69,15 @@ final class GridImage extends PImage /* implements FacetNode */{
 		return result;
 	}
 
+	public void setImage(Image image) {
+		super.setImage(image);
+		select();
+	}
+
 	// If cached value is the right size, or as big as possible, do nothing.
 	// Otherwise recompute from itemImage
 	void scale(int w, int h) {
-		// Util.print("Enter scale");
+		// Util.print("Enter scale "+this+" " + w + "x"+h);
 		if (!correctSize(w, h)) {
 			int rawW = itemImage.currentW();
 			int rawH = itemImage.currentH();
@@ -73,6 +99,8 @@ final class GridImage extends PImage /* implements FacetNode */{
 		// + itemImage.getRawImage().getWidth(null) + "*"
 		// + itemImage.getRawImage().getHeight(null));
 		// Util.print(" Exit scale");
+		border.borderBounds = new PBounds((getWidth() - w) / 2,
+				(getHeight() - h) / 2, w, h);
 	}
 
 	boolean correctSize(int w, int h) {
@@ -131,51 +159,76 @@ final class GridImage extends PImage /* implements FacetNode */{
 		return itemImage.art.grid;
 	}
 
+	Bungee art() {
+		return itemImage.art;
+	}
+
+	public String toString() {
+		return "<GridImage " + itemImage + ">";
+	}
+
 	// public boolean pick(PInputEvent e) {
 	// return pick(e.getModifiersEx());
 	// }
 
-	 boolean pick(boolean middleButton, boolean rightButton) {
+	boolean pick(boolean middleButton, boolean rightButton) {
 		// parentGrid.art.printUserAction("GridImage pick");
-		if (!((middleButton || rightButton) &&
-			grid().art.itemMiddleMenu(itemImage.item, rightButton))) {
+		if (!((middleButton || rightButton) && art().itemMiddleMenu(
+				itemImage.item, rightButton))) {
 			assert offset >= 0;
-			assert offset < grid().onCount;
+			assert offset < grid().onCount : offset + " " + grid().onCount;
 			grid().computeSelectedItemFromSelectedOffset(offset, -1);
 		}
 		return true;
 	}
 
-	String mouseDoc = "Select this item";
+	String mouseDoc = "Select this result";
 
 	private String getMouseDoc() {
 		// if (mouseDoc == null) {
-		// mouseDoc = "Select this item"; // +
+		// mouseDoc = "Select this result"; // +
 		// // parentGrid.art.query.genericObjectLabel;
 		// }
 		return mouseDoc;
 	}
 
-	 boolean highlight(boolean state) {
+	boolean highlight(boolean state) {
+		art().highlightFacets(new HashSet(itemImage.facets), state);
+		select();
+		animateSelection(1f);
 		if (!state) {
-			grid().art.setClickDesc((String) null);
-			
+			art().setClickDesc((String) null);
+
 			// buttons don't make sense for highlight
-//		} else if (Query.isEditable && (middleButton || rightButton)) {
-//				grid().art.setClickDesc("Open edit menu");	
-			
+			// } else if (Query.isEditable && (middleButton || rightButton)) {
+			// grid().art.setClickDesc("Open edit menu");
+
 		} else if (itemImage.item != grid().selectedItem) {
-			grid().art.setClickDesc(getMouseDoc());
+			art().setClickDesc(getMouseDoc());
 		} else
 			return false;
 		return true;
 	}
 
-	 void mayHideTransients(PNode ignore) {
+	boolean select() {
+		// Util.print("kk " + itemImage.item + " " + itemImage.facets);
+		prevBorderTransparency = border.getTransparency();
+		goalBorderTransparency = Util.intersects(itemImage.facets,
+				art().highlightedFacets) ? 1 : 0;
+		return goalBorderTransparency != prevBorderTransparency;
+	}
+
+	void animateSelection(float zeroToOne) {
+		// border.bevelType = isSelected ? BevelBorder.RAISED
+		// : BevelBorder.LOWERED;
+		border.setTransparency(Util.interpolate(prevBorderTransparency,
+				goalBorderTransparency, zeroToOne));
+	}
+
+	void mayHideTransients(PNode ignore) {
 		assert Util.ignore(ignore);
 		grid().mayHideTransients();
 	}
-
 }
 
 final class GridImageHandler extends MyInputEventHandler {

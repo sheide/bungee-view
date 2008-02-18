@@ -261,11 +261,10 @@ class FacetText extends APText implements FacetNode, PerspectiveObserver {
 		assert treeObject != null;
 		List texts = treeObject == null ? null : art
 				.lookupFacetText(treeObject);
-		assert texts != null : "'" + treeObject + "' "
-				+ treeObject.equals(getText());
-		assert texts.contains(this) : this + " " + treeObject;
-		if (texts != null)
+		if (texts != null) {
+			// the lookup table is a SoftReference, so there's no guarantee that this is in it
 			texts.remove(this);
+		}
 	}
 
 	// underline = isPickable
@@ -427,27 +426,28 @@ class FacetText extends APText implements FacetNode, PerspectiveObserver {
 
 	double checkboxOffset() {
 		return Math.ceil(art.lineH * 0.6);
-
 	}
 
 	void updateCheckBox() {
 		// Util.print("updateCheckBox " + facet + " " + showCheckBox);
 		if (showCheckBox && facet != null && facet.getParent() != null) {
 			double checkXoffset = checkboxOffset();
-			double size = Math.ceil(checkXoffset * 0.6666666);
+			double size = Math.ceil(checkXoffset * 0.7 /* 0.9 */);
 			double textYoffset = Math.round(art.lineH / 8);
 			if (checkBox == null) {
 				double y = (art.lineH - size) / 2;
-				float fadeFactor = 0.8f;
+				float fadeFactor = 0;//.8f;
 
 				checkBox = new Button(checkXoffset, y, size, size, null,
 						fadeFactor, Bungee.checkFG);
 				checkBox.setPickable(false);
+				checkBox.setState(false);
 				addChild(checkBox);
 
 				xBox = new Button(0, y, size, size, null, fadeFactor,
 						Bungee.xFG);
 				xBox.setPickable(false);
+				xBox.setState(false);
 				addChild(xBox);
 			}
 			boolean isFacetRequired = facet.isRestriction(true);
@@ -530,7 +530,7 @@ class FacetText extends APText implements FacetNode, PerspectiveObserver {
 	}
 
 	boolean highlight(boolean state, int modifiers) {
-		// Util.print("FT.highlight " + getText());
+//		 Util.print("FT.highlight " + state + " " + getText());
 		if (pickFacetTextNotifier != null
 				&& pickFacetTextNotifier.highlight(this, state, modifiers)) {
 			return true;
@@ -561,7 +561,7 @@ class FacetText extends APText implements FacetNode, PerspectiveObserver {
 				&& pickFacetTextNotifier.pick(this, modifiers)) {
 			// already handled - don't do anything here.
 		} else if (facet != null && facet.getParent() != null) {
-			art.printUserAction(Bungee.FACET_TREE, facet, modifiers);
+			printUserAction(modifiers);
 			art.toggleFacet(facet, modifiers);
 			// highlight(true, modifiers);
 		} else if (cluster != null) {
@@ -569,6 +569,10 @@ class FacetText extends APText implements FacetNode, PerspectiveObserver {
 		} else
 			return false;
 		return true;
+	}
+	
+	void printUserAction(int modifiers) {
+		art.printUserAction(Bungee.FACET_TREE, facet, modifiers);
 	}
 
 	public void mayHideTransients(PNode ignore) {

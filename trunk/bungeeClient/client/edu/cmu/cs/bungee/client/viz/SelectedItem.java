@@ -31,22 +31,22 @@
 
 package edu.cmu.cs.bungee.client.viz;
 
+import java.awt.geom.AffineTransform;
 import java.io.InputStream;
 import java.lang.ref.SoftReference;
 import java.sql.ResultSet;
 import java.util.Hashtable;
 import java.util.Map;
+import java.util.Set;
 
 import edu.cmu.cs.bungee.client.query.DisplayTree;
 import edu.cmu.cs.bungee.client.query.FacetTree;
-import edu.cmu.cs.bungee.client.query.ItemPredicate;
-import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.cmu.cs.bungee.client.query.Query;
 import edu.cmu.cs.bungee.client.query.Query.Item;
 import edu.cmu.cs.bungee.javaExtensions.*;
 import edu.cmu.cs.bungee.piccoloUtils.gui.APText;
+import edu.cmu.cs.bungee.piccoloUtils.gui.LazyContainer;
 import edu.cmu.cs.bungee.piccoloUtils.gui.Boundary;
-import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPPath;
 import edu.cmu.cs.bungee.piccoloUtils.gui.MouseDoc;
 import edu.cmu.cs.bungee.piccoloUtils.gui.MyInputEventHandler;
@@ -55,11 +55,9 @@ import edu.umd.cs.piccolo.PNode;
 import edu.umd.cs.piccolo.event.PInputEvent;
 import edu.umd.cs.piccolo.nodes.PImage;
 
-final class SelectedItem extends LazyPNode implements MouseDoc {
+final class SelectedItem extends LazyContainer implements MouseDoc {
 
 	private final static double leftMargin = 5.0;
-
-	double w;
 
 	double minTextBoxH;
 
@@ -95,7 +93,7 @@ final class SelectedItem extends LazyPNode implements MouseDoc {
 
 		// separatorW = art.getStringWidth(" > ");
 		setPickable(false);
-		setPaint(Bungee.selectedItemBG);
+		// setPaint(Bungee.selectedItemBG);
 	}
 
 	void init() {
@@ -105,11 +103,12 @@ final class SelectedItem extends LazyPNode implements MouseDoc {
 
 		// setPaint(Art.selectedItemBG);
 
-		outline = (LazyPPath) LazyPPath.createRectangle(0, 0, 1, 1, LazyPPath
-				.getStrokeInstance(1));
-		outline.setStrokePaint(Bungee.selectedItemOutlineColor);
+		outline = new LazyPPath();
 		outline.setVisible(false);
+		outline.setStrokePaint(Bungee.selectedItemOutlineColor);
 		outline.setPickable(false);
+		outline.setStroke(LazyPPath.getStrokeInstance(1));
+		outline.setPathToRectangle(0, 0, 1, 1);
 		// outline.setPaint(null);
 		addChild(outline);
 
@@ -118,7 +117,7 @@ final class SelectedItem extends LazyPNode implements MouseDoc {
 		facetTreeViz = new FacetTreeViz(art);
 		// facetTree.setOffset(leftMargin, 0);
 		addChild(facetTreeViz);
-		validate(w, getHeight());
+		validate(w, h);
 	}
 
 	private boolean isInitted() {
@@ -126,18 +125,18 @@ final class SelectedItem extends LazyPNode implements MouseDoc {
 	}
 
 	void validate(double _w, double _h) {
-//		 Util.print("SI.validate " + isInitted() + " " + w);
+		// Util.print("SI.validate " + isInitted() + " " + w);
 		assert _w >= minWidth() : _w;
 		w = _w;
-		// h = _h;
+		h = _h;
 		minTextBoxH = _h / 5;
-		setBounds(0, 0, w, _h);
+		// setBounds(0, 0, w, _h);
 		if (isInitted()) {
 			outline.setBounds(0, 0, w - 1, _h);
 			// if (selectionTreeScrollBar != null)
 			// removeChild(selectionTreeScrollBar);
 			label.setFont(art.font);
-//			label.setHeight(art.lineH);
+			// label.setHeight(art.lineH);
 			label.setOffset(Math.round((w - labelWidth()) / 2.0), 0.0);
 
 			facetTreeViz.validate(getTreeW(), _h);
@@ -160,17 +159,18 @@ final class SelectedItem extends LazyPNode implements MouseDoc {
 	}
 
 	double labelWidth() {
-		return art.getStringWidth(label.getText()) * label.getScale();
+		// return art.getStringWidth(label.getText()) * label.getScale();
+		return label.getWidth() * label.getScale();
 	}
 
 	public double minWidth() {
-//		assert Util.ignore(boundary1);
-//		Util.print("SI.minWidth " + labelWidth());
+		// assert Util.ignore(boundary1);
+		// Util.print("SI.minWidth " + labelWidth());
 		return labelWidth();
 	}
 
 	public double minHeight() {
-//		assert boundary1 == boundary;
+		// assert boundary1 == boundary;
 		double minH = art.lineH * 3;
 		if (selectedItemSummaryTextBox != null) {
 			minH += selectedItemSummaryTextBox.getYOffset();
@@ -179,7 +179,7 @@ final class SelectedItem extends LazyPNode implements MouseDoc {
 	}
 
 	public double maxHeight() {
-//		assert boundary1 == boundary;
+		// assert boundary1 == boundary;
 		return facetTreeViz.getYOffset() + facetTreeViz.getHeight() - art.lineH
 				* 4;
 	}
@@ -193,7 +193,7 @@ final class SelectedItem extends LazyPNode implements MouseDoc {
 				outline.moveToFront();
 				outline.setVisible(true);
 				outline.setBounds(x, y, rectW, rectH);
-				outline.animateToBounds(0, 0, w - 1, getHeight(), 500);
+				outline.animateToBounds(0, 0, w - 1, h, 500);
 			}
 			currentItem = item;
 			// Util.print("animateOutline " + currentItem + " " +
@@ -242,11 +242,11 @@ final class SelectedItem extends LazyPNode implements MouseDoc {
 	// private IntHashtable foo;
 
 	int maxImageW() {
-		return (int) (getWidth() - art.lineH);
+		return (int) (w - art.lineH);
 	}
 
 	int maxImageH() {
-		return (int) (getHeight() / 2.0);
+		return (int) (h / 2.0);
 	}
 
 	double maybeAddImage() {
@@ -263,29 +263,34 @@ final class SelectedItem extends LazyPNode implements MouseDoc {
 			// imageH));
 			// imageW *= scale;
 			// imageH *= scale;
-			ItemImage ii = art.lookupItemImage((Item) ft.treeObject());
-			gridImage = new GridImage(ii);
-			// Util.print("SI.maybeAddImage calling scale");
-			gridImage.scale(maxImageW(), maxImageH());
-			gridImage.mouseDoc = query().itemURLdoc;
-			gridImage.removeInputEventListener(GridImage.gridImageHandler);
-			gridImage.addInputEventListener(itemClickHandler);
-			// image.setImage(ScaleDescriptor.create(raw, new Float(scale),
-			// new Float(scale), new Float(0),
-			// new Float(0), Interpolation
-			// .getInstance(Interpolation.INTERP_NEAREST),
-			// null).getAsBufferedImage());
+			Item item = (Item) ft.treeObject();
+			ItemImage ii = art.lookupItemImage(item);
+			if (ii == null) {
+				setter.set(item);
+			} else {
+				gridImage = new GridImage(ii);
+				// Util.print("SI.maybeAddImage calling scale");
+				gridImage.scale(maxImageW(), maxImageH());
+				gridImage.mouseDoc = query().itemURLdoc;
+				gridImage.removeInputEventListener(GridImage.gridImageHandler);
+				gridImage.addInputEventListener(itemClickHandler);
+				// image.setImage(ScaleDescriptor.create(raw, new Float(scale),
+				// new Float(scale), new Float(0),
+				// new Float(0), Interpolation
+				// .getInstance(Interpolation.INTERP_NEAREST),
+				// null).getAsBufferedImage());
 
-			// image.setScale(scale);
+				// image.setScale(scale);
 
-			int x = (int) Math.round((w - gridImage.getWidth()) / 2.0);
-			// image.setBounds(x, y, imageW, imageH);
-			gridImage.setOffset(x, y);
-			y += gridImage.getHeight() + art.lineH / 2;
-			// Util.print("max: " + maxW + "x" + maxH);
-			// Util.print(" " + imageW + "x" + imageH + " " + scale + " " +
-			// image.getBounds());
-			addChild(gridImage);
+				int x = (int) Math.round((w - gridImage.getWidth()) / 2.0);
+				// image.setBounds(x, y, imageW, imageH);
+				gridImage.setOffset(x, y);
+				y += gridImage.getHeight() + art.lineH / 2;
+				// Util.print("max: " + maxW + "x" + maxH);
+				// Util.print(" " + imageW + "x" + imageH + " " + scale + " " +
+				// image.getBounds());
+				addChild(gridImage);
+			}
 		}
 		return y;
 	}
@@ -294,17 +299,18 @@ final class SelectedItem extends LazyPNode implements MouseDoc {
 		return selectedItemSummaryTextBox == null;
 	}
 
-	void hide(boolean state) {
+	void setVisibility() {
+		boolean hide = query().getOnCount() == 0;
 		// Util.print("Selected.hide " + state + " " + (state != isHidden()));
-		if (state != isHidden()) {
-			outline.setVisible(!state);
-			if (state)
+		if (hide != isHidden()) {
+			outline.setVisible(!hide);
+			if (hide)
 				removeTree();
 			else {
 				redraw();
 				if (label.getParent() == null) {
 					addChild(label);
-					moveInFrontOf(art.grid); // Make outline animation
+					moveAheadOf(art.grid); // Make outline animation
 					// visible.
 					// setPaint(Art.selectedItemBG);
 				}
@@ -360,10 +366,10 @@ final class SelectedItem extends LazyPNode implements MouseDoc {
 				addChild(label);
 				addChild(facetTreeViz);
 				double descY = Math.ceil(maybeAddImage());
-//				double descY = labelH + imageH + 20.0;
+				// double descY = labelH + imageH + 20.0;
 				double usableW = w - leftMargin * 2.0;
-				double usableH = getHeight() - descY - 12.0; // for desc &
-																// tree
+				double usableH = h - descY - 12.0; // for desc &
+				// tree
 
 				facetTreeViz.validate(getTreeW(), usableH);
 				int nSelectedItemTreeMinLines = facetTreeViz.drawTree();
@@ -384,7 +390,7 @@ final class SelectedItem extends LazyPNode implements MouseDoc {
 					addChild(selectedItemSummaryTextBox);
 					double treeY = descY
 							+ selectedItemSummaryTextBox.getHeight() + 10.0;
-					double availableH = getHeight() - treeY - 2.0;
+					double availableH = h - treeY - 2.0;
 					facetTreeViz.setOffset(leftMargin, treeY);
 					facetTreeViz.validate(getTreeW(), availableH);
 					boundary.setCenter(treeY);
@@ -408,20 +414,20 @@ final class SelectedItem extends LazyPNode implements MouseDoc {
 		}
 	}
 
-	void highlightFacet(ItemPredicate facet) {
+	void highlightFacet(Set facets) {
 		if (facetTreeViz != null)
-			facetTreeViz.highlightFacet(facet);
+			facetTreeViz.highlightFacet(facets);
 	}
 
-	void synchronizeWithQuery() {
+	void updateColors() {
 		if (facetTreeViz != null)
-			facetTreeViz.synchronizeWithQuery();
+			facetTreeViz.updateColors();
 	}
 
-	void clickText(Perspective facet, int modifiers) {
-		if (facetTreeViz != null)
-			facetTreeViz.clickText(facet, modifiers);
-	}
+	// void clickText(Perspective facet, int modifiers) {
+	// if (facetTreeViz != null)
+	// facetTreeViz.clickText(facet, modifiers);
+	// }
 
 	public void setMouseDoc(PNode source, boolean state) {
 		art.setMouseDoc(source, state);
@@ -469,9 +475,14 @@ final class SelectedItem extends LazyPNode implements MouseDoc {
 		art.setClickDesc(desc);
 	}
 
+	/**
+	 * Only called by replayOp
+	 * 
+	 * @param i
+	 */
 	void clickImage(Item i) {
-		assert i == currentItem;
-		showItemInNewWindow();
+		if (i == currentItem)
+			showItemInNewWindow();
 	}
 
 	private transient Runnable edit;
@@ -564,7 +575,8 @@ final class ItemSetter extends UpdateThread {
 				art.ensureItemImage(item, rs.getInt(3), rs.getInt(4),
 						Bungee.ImageQuality, blobStream);
 				description = rs.getString(1);
-				if (query.isEditable() && (description == null || description.length() == 0))
+				if (query.isEditable()
+						&& (description == null || description.length() == 0))
 					description = "click to add a description";
 			}
 		} catch (Throwable e) {
@@ -597,7 +609,10 @@ final class ItemClickHandler extends MyInputEventHandler {
 	}
 
 	SelectedItem getSelectedItem(PNode node) {
-		return (SelectedItem) node.getParent();
+		PNode maybeSelectedItem = node.getParent();
+		if (maybeSelectedItem instanceof GridImage)
+			maybeSelectedItem = maybeSelectedItem.getParent();
+		return (SelectedItem) maybeSelectedItem;
 	}
 
 	protected boolean enter(PNode node) {

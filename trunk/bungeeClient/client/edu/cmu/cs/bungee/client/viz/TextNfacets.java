@@ -36,10 +36,13 @@ import java.awt.Component;
 import java.awt.Font;
 import java.awt.Paint;
 import java.util.Iterator;
+import java.util.Set;
+import java.util.regex.Pattern;
 
 import edu.cmu.cs.bungee.client.query.Cluster;
 import edu.cmu.cs.bungee.client.query.ItemPredicate;
 import edu.cmu.cs.bungee.client.query.Markup;
+import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.cmu.cs.bungee.client.query.PerspectiveObserver;
 import edu.cmu.cs.bungee.client.query.Query;
 import edu.cmu.cs.bungee.javaExtensions.Util;
@@ -127,14 +130,24 @@ final class TextNfacets extends LazyPNode implements PerspectiveObserver {
 	// content.clear();
 	// }
 
-	void setContent(Markup v) {
+	/**
+	 * @param v
+	 * @return whether the content changed
+	 */
+	boolean setContent(Markup v) {
 		// Util.print("TNF.setContent input: " + v);
+		boolean result = false;
 		assert v != null;
 		assert art != null;
 		if (query() != null) {
 			assert query().genericObjectLabel != null;
-			content = v.compile(query().genericObjectLabel);
+			Markup newV = v.compile(query().genericObjectLabel);
+			if (!newV.equals(content)) {
+				content = newV;
+				result = true;
+			}
 		}
+		return result;
 	}
 
 	boolean isIncomplete() {
@@ -304,41 +317,21 @@ final class TextNfacets extends LazyPNode implements PerspectiveObserver {
 		}
 	}
 
-	APText myWrap(String s, ItemPredicate facet, double x, double y, double w,
-			double h, Paint paint, int style, ItemPredicate[] restrictions,
-			boolean isFirstLine) {
-		// Util.print("myWrap '" + s + "' " + x + " " + y + " " + w + " "
-		// + wrapOnWordBoundaries + " " + isFirstLine);
+	APText myWrap(final String s, ItemPredicate facet, double x, double y,
+			double w, double h, Paint paint, int style,
+			ItemPredicate[] restrictions, boolean isFirstLine) {
+		// Util.print("myWrap '" + s + "' x=" + x + " y=" + y + " w=" + w + "
+		// wrapOnWordBoundaries="
+		// + wrapOnWordBoundaries + " isFirstLine=" + isFirstLine + " " +
+		// facet);
 		APText result = null;
 		if (s.length() > 0) {
 			if (y + art.lineH <= h) {
-				// String prefix = s;
-				// int index = 9999;
-				// if (wrapText)
-				// while (index > 0 && x + art.getStringWidth(prefix) > w) {
-				// index = prefix.lastIndexOf(' ');
-				// if (index > 0)
-				// prefix = prefix.substring(0, index);
-				// }
-				// else if (x + art.getStringWidth(s.substring(0, 1)) > w) {
-				// index = 0;
-				// // justifyLine(w);
-				// // incomplete = true;
-				// // return result;
-				// }
-				// if (index < 1) {
-				// justifyLine(w);
-				// // Nothing more will fit on this line.
-				// result = myWrap(s, facet, 0, y + art.lineH, w, h, paint,
-				// style,
-				// restrictions);
-				// } else {
 				FacetText text;
 				// on recursive calls, s is just the tail end of the facet name,
 				// possibly with checkbox prefix and childindicator suffix
 				if (facet != null && isFirstLine
 						&& strip(s).equals(strip(facet.getNameIfPossible()))) {
-
 					// // if we break the text, second part shouldn't show check
 					// // box
 					// boolean reallyShowCheckBox =
@@ -362,13 +355,9 @@ final class TextNfacets extends LazyPNode implements PerspectiveObserver {
 					text.setPermanentTextPaint(facetPermanentTextPaint);
 					text.setColor();
 				} else {
-					// text = art.oneLineLabel();
-					// text.setTextPaint(paint);
-					// text.setText(prefix);
 					text = FacetText.getFacetText(s, art, -1, w - x, false,
 							false, 0, getRedrawer(), underline);
 					text.setPermanentTextPaint(paint);
-					// text.setPaint(Art.summaryBG);
 				}
 				addChild(text);
 
@@ -376,61 +365,61 @@ final class TextNfacets extends LazyPNode implements PerspectiveObserver {
 				// text.setFont(art.italicFont);
 				text.setOffset(x, y);
 				String textString = text.getText();
-				// Util.print("___" + textString + " " + x + ", " + y);
+//				Util.print("___ '" + textString + "' " + x + ", " + y + " '"
+//						+ s + "' " + textString.equals(s));
 				if (!textString.equals(s)) {
-					assert textString.length() < s.length() : textString + " "
-							+ s + " " + facet;
-					// if (x + text.getWidth() > w) {
-					// text.setConstrainWidthToTextWidth(false);
-					// // assert w > x : "'" + prefix + "' " + x + " " + w;
-					// text.setWidth(w - x);
-					// prefix = text.getBrokenText();
+					assert textString.length() < s.length() : textString + " '"
+							+ s + "' " + facet;
+					if (textString.endsWith(Bungee.childIndicatorSuffix)) {
+						// getFacetText will truncate the name and add
+						// childIndicatorSuffix.
+						// We're going to add the rest of the name on the next
+						// line, so undo the suffix.
+						textString = textString.substring(0, textString
+								.length() - 1);
+						text.setTextAndDecache(textString,
+								facet != null ? facet : (Object) s);
+					}
 					if (wrapOnWordBoundaries
 							&& s.charAt(textString.length()) != ' '
 							&& !s.startsWith(Bungee.childIndicatorSuffix)) {
 						int index = textString.lastIndexOf(' ');
+						if (s.startsWith(Bungee.checkBoxPrefix)
+								&& index == Bungee.checkBoxPrefix.length() - 1)
+							index = -1;
 						if (index > 0) {
-							if (x > 0
-									&& s
-											.startsWith(Bungee.childIndicatorSuffix)) {
-								// Don't break on childPrefix spaces
-								textString = "";
-							} else {
-								textString = s.substring(0, index);
-								// Util.print("FT.st " + textString);
-								assert textString.trim().length() > 0;
-								// text.setConstrainWidthToTextWidth(true);
-								text.setTextAndDecache(textString,
-										facet != null ? facet : (Object) s);
-							}
-							// text.setPaint(Color.red);
-							// Util.print("... " + prefix);
-							// Util.print(">>> " + text.getWidth() + " "
-							// + art.getStringWidth(text.getText()) + " "
-							// + text.getText());
-							// Util.print(s.substring(index));
+							textString = s.substring(0, index);
+							
+							// If a facet name has a lot of spaces in it, go
+							// ahead and treat them as normal characters.
+//							assert textString.trim().length() > 0;
+							
+							text.setTextAndDecache(textString,
+									facet != null ? facet : (Object) s);
+						} else if (x > 0) {
+							textString = "";
 						}
 					}
-					// if (x > 0)
-					// incomplete = true;
-					// }
-					// addChild(text);
-
-					// if (prefix != s) {
 					if (textString.length() == 0) {
 						removeChild(text);
 						text = null;
 					}
 					justifyLine(w);
-					// int i = textString.length();
-					// if (s.charAt(i) == ' ')
-					// i++;
-					// Util.print("cc '" + textString + "'");
-					String suffix = s.substring(textString.length());
-					if (!s.startsWith(Bungee.checkBoxPrefix))
-						suffix = suffix.trim();
-					result = myWrap(suffix, facet, 0, y + art.lineH, w, h,
-							paint, style, restrictions, false);
+					if (s.length() > textString.length()) {
+						// optimize common case since substring is slow
+						int index = textString.length();
+						if (!s.startsWith(Bungee.checkBoxPrefix)) {
+							while (index < s.length() && s.charAt(index) == ' ')
+								index++;
+						}
+						String suffix = s;
+						if (index > 0)
+							suffix = s.substring(index);
+
+						result = myWrap(suffix, facet, 0, y + art.lineH, w, h,
+								paint, style, restrictions, isFirstLine
+										&& textString.length() == 0);
+					}
 				}
 				if (result == null)
 					result = text;
@@ -442,11 +431,14 @@ final class TextNfacets extends LazyPNode implements PerspectiveObserver {
 		return result;
 	}
 
+	private static final Pattern CHILD_INDICATOR_PATTERN = Pattern
+			.compile(Bungee.childIndicatorSuffix);
+
 	private String strip(String embroderedName) {
 		if (embroderedName == null)
 			return null;
 		String result = embroderedName.trim();
-		result = result.split(Bungee.childIndicatorSuffix)[0];
+		result = CHILD_INDICATOR_PATTERN.split(result)[0];
 		return result;
 	}
 
@@ -509,11 +501,12 @@ final class TextNfacets extends LazyPNode implements PerspectiveObserver {
 		}
 	}
 
-	void updateSelections(ItemPredicate facet) {
+	void updateSelections(Set facets) {
 		for (int i = 0; i < getChildrenCount(); i++) {
 			if (getChild(i) instanceof FacetText) {
 				FacetText child = (FacetText) getChild(i);
-				if (child.getFacet() == facet) {
+				Perspective childFacet = child.getFacet();
+				if (childFacet != null && facets.contains(childFacet)) {
 					child.highlightFacet();
 					// prevSelection = facet;
 					// } else if (child.facet == prevSelection) {

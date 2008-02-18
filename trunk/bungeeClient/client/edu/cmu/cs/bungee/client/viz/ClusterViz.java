@@ -2,6 +2,7 @@ package edu.cmu.cs.bungee.client.viz;
 
 import java.util.Iterator;
 import java.util.ListIterator;
+import java.util.Set;
 import java.util.SortedSet;
 
 import edu.cmu.cs.bungee.client.query.DisplayTree;
@@ -21,6 +22,9 @@ final class ClusterViz extends LazyPNode implements MouseDoc,
 
 	final static int nClusters = 50;
 
+	/**
+	 * Space to the left and right of the facetTreeViz
+	 */
 	private static final double margin = 5;
 
 	private final APText label;
@@ -152,9 +156,9 @@ final class ClusterViz extends LazyPNode implements MouseDoc,
 				|| "finding clusters...".equals(displayTree.treeObject());
 	}
 
-	void highlightFacet(Object highlightFacet) {
+	void highlightFacet(Set highlightFacets) {
 		if (facetTreeViz != null)
-			facetTreeViz.highlightFacet(highlightFacet);
+			facetTreeViz.highlightFacet(highlightFacets);
 	}
 
 	public void setMouseDoc(PNode source, boolean state) {
@@ -171,6 +175,7 @@ final class ClusterViz extends LazyPNode implements MouseDoc,
 
 	void hide() {
 		removeFromParent();
+		art.selectedItem.setVisibility();
 	}
 
 	boolean isHidden() {

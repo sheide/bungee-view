@@ -2,169 +2,19 @@ package edu.cmu.cs.bungee.client.viz;
 
 import java.awt.Image;
 import java.lang.ref.SoftReference;
+import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.Map;
+import java.util.Set;
 
 import edu.cmu.cs.bungee.client.query.Query.Item;
+import edu.cmu.cs.bungee.javaExtensions.Util;
 
-
-
-//final class ItemImageOuter {
-//	private final Art art;
-//	private final Map items = new Hashtable();
-//	ItemImageOuter(Art _art) {
-//		art = _art;
-//	}
-//
-//	 ItemImage lookupItem(Item item) {
-//		return (ItemImage) items.get(item);
-//	}
-//
-//	 ItemImage ensureItem(Item _item, int _rawW, int _rawH, int _quality,
-//			Image bi) {
-//		ItemImage result = (ItemImage) items.get(_item);
-//		if (result == null) {
-//			result = new ItemImage(_item, _rawW, _rawH, _quality,
-//					bi);
-//		}
-//		return result;
-//	}
-//	final class ItemImage {
-//	  final Item item;
-//
-//		/**
-//		 * This is the size of the image in the database
-//		 */
-//		 final int rawW;
-//
-//		 final int rawH;
-//
-//		// quality of the cached image, from 0 to 100
-//		 private int quality;
-//
-//		/**
-//		 * This is the image as read from the database, which may have downconverted 
-//		 * the size or quality.
-//		 */
-//		private Image rawImage;
-//
-//	private ItemImage(Item _item, int _rawW, int _rawH, int _quality,
-//			Image bi) {
-//		// Util.print("init itemImage " + _item + " " + w + "x" + h);
-//		// if (im != null)
-//		// Util.print(im.getWidth() + "x" + im.getHeight());
-//		assert lookupItem(_item) == null;
-//		item = _item;
-//		rawW = _rawW;
-//		rawH = _rawH;
-//		quality = _quality;
-//		if (bi != null)
-//			setRawImage(bi, _quality);
-//		items.put(_item, this);
-//	}
-//
-//	boolean bigEnough(Image bi, int _quality) {
-//		return bigEnough(bi.getWidth(null), bi.getHeight(null), _quality);
-//	}
-//
-//	 boolean bigEnough(int w, int h, int _quality) {
-//		int actualW = rawImage.getWidth(null);
-//		int actualH = rawImage.getHeight(null);
-//		boolean result = (actualW >= w || rawW == actualW || actualH >= h || rawH == actualH)
-//				&& quality * actualW * actualH >= _quality * w * h;
-////		Util
-////				.print("bigEnough "
-////						+ item
-////						+ " "
-////						+ w
-////						+ " "
-////						+ rawW
-////						+ " "
-////						+ actualW
-////						+ " "
-////						+ h
-////						+ " "
-////						+ rawH
-////						+ " "
-////						+ actualH
-////						+ " "
-////						+ result);
-//		return result;
-//	}
-//
-//	 int currentW() {
-//		return getRawImage().getWidth(null);
-//	}
-//
-//	 int currentH() {
-//		return getRawImage().getHeight(null);
-//	}
-//
-//	 void setRawImage(Image bi, int _quality) {
-//		// System.out.println("setRawImage " + bi.getWidth(null) + "x" +
-//		// bi.getHeight(null));
-//		rawImage = bi;
-//		quality = _quality;
-//	}
-//
-//		private transient BufferedImage missingImage;
-//
-//		BufferedImage getMissingImage() {
-//			if (missingImage == null) {
-//				String where = art.codeBase() + "missing.gif";
-//				// Util.print(where);
-//				try {
-//					missingImage = ImageIO.read(new URL(where));
-//				} catch (MalformedURLException e) {
-//					e.printStackTrace();
-//				} catch (IOException e) {
-//					e.printStackTrace();
-//				}
-//			}
-//			return missingImage;
-//		}
-//
-//		 Image getRawImage() {
-//			Image result = rawImage;
-//				if (result == null) {
-//				result = getMissingImage();
-//			}
-//			return result;
-//		}
-//
-//		transient SoftReference itemImages;
-//
-//		public synchronized ItemImage ensureItemImage(int item, int rawW, int rawH,
-//				int quality, InputStream blobStream) {
-//			ItemImage result = lookupItem(item);
-//			if (blobStream == null) {
-//				if (result == null) {
-//					BufferedImage missing = getMissingImage();
-//					rawW = missing.getWidth();
-//					rawH = missing.getHeight();
-//					result = new ItemImage(this, item, rawW, rawH, 100, missing);
-//				}
-//			} else {
-//				Image bi = Util.readCompatibleImage(blobStream);
-//				if (result == null)
-//					result =  ;
-//				else if (!result.bigEnough(bi, quality)) {
-//					assert quality >= result.quality
-//							|| bi.getWidth(null) > result.rawImage.getWidth(null)
-//							|| bi.getHeight(null) > result.rawImage.getHeight(null);
-//					result.setRawImage(bi, quality);
-//				}
-//			}
-//			return result;
-//		}
-//
-//}
-
- final class ItemImage {
+final class ItemImage {
 
 	Bungee art;
 
-	 Item item;
+	Item item;
 
 	/**
 	 * This is the size of the image in the database
@@ -179,10 +29,12 @@ import edu.cmu.cs.bungee.client.query.Query.Item;
 	// boolean rawLoaded;
 
 	/**
-	 * This is the image as read from the database, which may have downconverted 
+	 * This is the image as read from the database, which may have downconverted
 	 * the size or quality.
 	 */
 	Image rawImage;
+
+	Set facets = new HashSet();
 
 	// static BufferedImage compatibleImage = Util.createCompatibleImage(1, 1);
 	//
@@ -195,7 +47,7 @@ import edu.cmu.cs.bungee.client.query.Query.Item;
 	// init(_art, _item, 0, 0, null);
 	// }
 
-	 ItemImage(Bungee art1, Item item1, int rawW1, int rawH1, int quality1,
+	ItemImage(Bungee art1, Item item1, int rawW1, int rawH1, int quality1,
 			Image bi) {
 		init(art1, item1, rawW1, rawH1, quality1, bi);
 	}
@@ -211,7 +63,8 @@ import edu.cmu.cs.bungee.client.query.Query.Item;
 	// init(_art, _item, 0, 0, im);
 	// }
 
-	private void init(Bungee _art, Item _item, int w, int h, int _quality, Image bi) {
+	private void init(Bungee _art, Item _item, int w, int h, int _quality,
+			Image bi) {
 		// Util.print("init itemImage " + _item + " " + w + "x" + h);
 		// if (im != null)
 		// Util.print(im.getWidth() + "x" + im.getHeight());
@@ -226,37 +79,41 @@ import edu.cmu.cs.bungee.client.query.Query.Item;
 		Map table = art.getItemImagesTable();
 		if (table == null) {
 			table = new Hashtable();
+			// Util.print("new lookupItemImage");
 			art.itemImages = new SoftReference(table);
 		}
+		// Util.print("lookupii table size " + table.size());
 		table.put(item, this);
 	}
 
-	 boolean bigEnough(Image bi, int _quality) {
+	boolean bigEnough(Image bi, int _quality) {
 		return bigEnough(bi.getWidth(null), bi.getHeight(null), _quality);
 	}
 
-	 boolean bigEnough(int w, int h, int _quality) {
+	/**
+	 * If either rawImage width >= w OR rawImage height >= h, the rawImage is at
+	 * least as big as the scaled thumbnail from an infinitely big original
+	 * would be. If it is as big as the original, we use it as is, too.
+	 * 
+	 * @param w
+	 * @param h
+	 * @param _quality
+	 * @return whether to use the cached rawImage
+	 */
+	boolean bigEnough(int w, int h, int _quality) {
+		if (rawImage == null)
+			// Use the "missing" image
+			return true;
 		int actualW = rawImage.getWidth(null);
 		int actualH = rawImage.getHeight(null);
+
+		// could allow for lower quality if the image is to be reduced. Would
+		// need to compute the real amount of reduction, which isn't just
+		// (actualH * actualW) / (w * h).
 		boolean result = (actualW >= w || rawW == actualW || actualH >= h || rawH == actualH)
-				&& quality * actualW * actualH >= _quality * w * h;
-//		Util
-//				.print("bigEnough "
-//						+ item
-//						+ " "
-//						+ w
-//						+ " "
-//						+ rawW
-//						+ " "
-//						+ actualW
-//						+ " "
-//						+ h
-//						+ " "
-//						+ rawH
-//						+ " "
-//						+ actualH
-//						+ " "
-//						+ result);
+				&& quality >= _quality;
+		// Util.print("bigEnough " + item + " " + w + " " + rawW + " " + actualW
+		// + " " + h + " " + rawH + " " + actualH + " " + result);
 		return result;
 	}
 
@@ -272,15 +129,15 @@ import edu.cmu.cs.bungee.client.query.Query.Item;
 	// return rawH;
 	// }
 
-	 int currentW() {
+	int currentW() {
 		return getRawImage().getWidth(null);
 	}
 
-	 int currentH() {
+	int currentH() {
 		return getRawImage().getHeight(null);
 	}
 
-	 void setRawImage(Image bi, int _quality) {
+	void setRawImage(Image bi, int _quality) {
 		// System.out.println("setRawImage " + bi.getWidth(null) + "x" +
 		// bi.getHeight(null));
 		rawImage = bi;
@@ -304,11 +161,14 @@ import edu.cmu.cs.bungee.client.query.Query.Item;
 		// e.printStackTrace();
 		// }
 		// }
-		if (rawImage == null) {
-			rawImage = art.getMissingImage();
-			quality = 100;
-		}
-		return rawImage;
+		if (rawImage == null)
+			return art.getMissingImage();
+		else
+			return rawImage;
+	}
+
+	public String toString() {
+		return "<ItemImage for " + item + ">";
 	}
 
 }
