@@ -22,7 +22,7 @@ import sun.jdbc.odbc.JdbcOdbc;
 import edu.cmu.cs.bungee.javaExtensions.Util;
 
 enum Command {
-	CONNECT, CLOSE, getCountsIgnoringFacet, ABOUT_COLLECTION, getFilteredCounts, updateOnItems, prefetch, offsetItems, getThumbs, cluster, getDescAndImage, getItemInfo, ITEM_URL, itemIndex, itemIndexFromURL, restrict, baseFacets, getFilteredCountTypes, addItemsFacet, addChildFacet, removeItemFacet, reparent, addItemFacet, writeback, rotate, rename, removeItemsFacet, getNames, reorderItems, setItemDescription, opsSpec
+	CONNECT, CLOSE, getCountsIgnoringFacet, ABOUT_COLLECTION, getFilteredCounts, updateOnItems, prefetch, offsetItems, getThumbs, cluster, getDescAndImage, getItemInfo, ITEM_URL, itemIndex, itemIndexFromURL, restrict, baseFacets, getFilteredCountTypes, addItemsFacet, addChildFacet, removeItemFacet, reparent, addItemFacet, writeback, rotate, rename, removeItemsFacet, getNames, reorderItems, setItemDescription, opsSpec, getLetterOffsets
 }
 
 public class Servlet extends HttpServlet {
@@ -194,6 +194,7 @@ public class Servlet extends HttpServlet {
 	private void doPostInternal(Integer xsession, Command command,
 			DataOutputStream out, HttpServletRequest request)
 			throws IOException, ServletException, SQLException {
+		handleUserActions(xsession, request);
 		Database db = sessions.get(xsession);
 		switch (command) {
 		case CONNECT:
@@ -232,6 +233,10 @@ public class Servlet extends HttpServlet {
 		case prefetch:
 			db.prefetch(getIntParameter(request, "arg1"), getIntParameter(
 					request, "arg2"), out);
+			break;
+		case getLetterOffsets:
+			db.getLetterOffsets(getIntParameter(request, "arg1"), request
+					.getParameter("arg2"), out);
 			break;
 		case getNames:
 			db.getNames(request.getParameter("arg1"), out);
@@ -362,8 +367,14 @@ public class Servlet extends HttpServlet {
 		default:
 			throw (new ServletException("Unknown command: " + command));
 		}
+		// log("...doPost " + command + " writing");
+	}
+
+	private void handleUserActions(Integer xsession, HttpServletRequest request)
+			throws ServletException, SQLException {
 		String actionsString = request.getParameter("userActions");
 		if (actionsString != null) {
+			Database db = sessions.get(xsession);
 			String[] actions = Util.splitSemicolon(actionsString);
 			for (int i = 0; i < actions.length; i++) {
 				String[] actionString = Util.splitComma(actions[i]);
@@ -374,10 +385,10 @@ public class Servlet extends HttpServlet {
 				String object = actionString[2];
 				int modifiers = Integer.parseInt(actionString[3]);
 				db.printUserAction(request.getRemoteHost(),
-						xsession.intValue(), actionIndex, location, object, modifiers);
+						xsession.intValue(), actionIndex, location, object,
+						modifiers);
 			}
 		}
-		// log("...doPost " + command + " writing");
 	}
 
 	private static int getIntParameter(HttpServletRequest request,
