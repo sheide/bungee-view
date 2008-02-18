@@ -123,9 +123,25 @@ public class ChiSq2x2 {
 		}
 		return p;
 	}
+	
+	public static class SignedPValue {
+		public double magnitude = 1.0;
+		public boolean sign = true;
+		
+		public String toString() {
+			return "<SignedPValue " + (sign ? "+":"-") + " " + magnitude + ">";
+		}
+	}
 
-	public static double[] signedPvalue(int total, int row0, int col0, int table00) {
-		double[] result = {pValue(total, row0, col0, table00), row0 * col0 < table00 * total ? 1 : -1};
+//	public static double[] signedPvalue(int total, int row0, int col0, int table00) {
+//		double[] result = {pValue(total, row0, col0, table00), row0 * col0 < table00 * total ? 1 : -1};
+//		return result;
+//	}
+
+	public static SignedPValue signedPvalue(int total, int row0, int col0, int table00) {
+		SignedPValue result = new SignedPValue();
+		result.magnitude = pValue(total, row0, col0, table00);
+		result.sign = row0 * (long) col0 < table00 * (long) total;
 		return result;
 	}
 }
