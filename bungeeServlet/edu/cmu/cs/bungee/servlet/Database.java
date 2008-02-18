@@ -41,7 +41,9 @@ import java.io.OutputStream;
 import java.sql.Blob;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -162,6 +164,10 @@ class Database {
 
 		printUserActionStmt = jdbc
 				.prepareStatement("INSERT INTO user_actions VALUES(NOW(), ?, ?, ?, ?, ?, ?)");
+
+		getLetterOffsetsQuery = jdbc
+				.prepareStatement("SELECT ORD(UPPER(SUBSTRING(name, LENGTH(?) + 1, 1))) letter, MAX(facet_id) "
+						+ "FROM facet WHERE parent_facet_id = ? AND LOCATE(?, name) = 1 GROUP BY letter");
 	}
 
 	void close() throws SQLException {
@@ -252,7 +258,7 @@ class Database {
 			jdbc.SQLupdate("TRUNCATE TABLE item_order_heap;");
 			jdbc.SQLupdate("INSERT INTO item_order_heap "
 					+ "SELECT * FROM item_order");
-			updateUsageCounts();
+//			updateUsageCounts();
 		}
 	}
 
@@ -297,9 +303,12 @@ class Database {
 	void reorderItems(int facetType) throws SQLException, ServletException {
 		String columnToSortBy = facetType < 0 ? "random_ID"
 				: facetType == 0 ? "record_num" : "col" + facetType;
-		offsetItemsQuery = new PreparedStatement[3];
-		itemOffsetQuery1 = new PreparedStatement[offsetItemsQuery.length];
-		itemOffsetQuery2 = new PreparedStatement[offsetItemsQuery.length];
+		if (offsetItemsQuery == null) {
+			offsetItemsQuery = new PreparedStatement[3];
+			itemOffsetQuery1 = new PreparedStatement[offsetItemsQuery.length];
+			itemOffsetQuery2 = new PreparedStatement[offsetItemsQuery.length];			
+		}
+		synchronized (offsetItemsQuery) {
 		for (int i = 1; i < offsetItemsQuery.length; i++) {
 			offsetItemsQuery[i] = jdbc
 					.prepareStatement("SELECT o.record_num FROM "
@@ -331,7 +340,7 @@ class Database {
 		itemOffsetQuery2[0] = jdbc
 				.prepareStatement("SELECT COUNT(*)-1 FROM item_order_heap "
 						+ " WHERE " + columnToSortBy + " <= ?");
-	}
+	}}
 
 	int getItemFromURL(String URL) throws SQLException {
 		synchronized (itemURLPS) {
@@ -468,11 +477,10 @@ class Database {
 				.SQLqueryInt("SELECT first_child_offset FROM facet WHERE facet_id = "
 						+ facet_id);
 		writeInt(children_offset, out);
-		int isAlphabetic = jdbc.SQLqueryInt("SELECT is_alphabetic FROM facet WHERE facet_id = "
+		int isAlphabetic = jdbc
+				.SQLqueryInt("SELECT is_alphabetic FROM facet WHERE facet_id = "
 						+ facet_id);
-		writeInt(isAlphabetic, out);
 
-		String message = "getting initial counts and names of facet children";
 		PreparedStatement ps;
 		List<Object> types;
 		switch (args) {
@@ -505,8 +513,30 @@ class Database {
 		synchronized (ps) {
 			// try {
 			ps.setInt(1, facet_id);
-			ResultSet rs = jdbc.SQLquery(ps, message);
+			ResultSet rs = jdbc.SQLquery(ps,
+					"getting initial counts and names of facet children");
 			sendResultSet(rs, types, out);
+		}
+
+		writeInt(isAlphabetic, out);
+		if (isAlphabetic > 0)
+			getLetterOffsets(facet_id, "", out);
+	}
+
+	private PreparedStatement getLetterOffsetsQuery;
+
+	@SuppressWarnings("unchecked")
+	void getLetterOffsets(int facet_id, String prefix, DataOutputStream out)
+			throws SQLException, ServletException, IOException {
+		synchronized (getLetterOffsetsQuery) {
+			getLetterOffsetsQuery.setString(1, prefix);
+			getLetterOffsetsQuery.setInt(2, facet_id);
+			getLetterOffsetsQuery.setString(3, prefix);
+			ResultSet rs = jdbc.SQLquery(getLetterOffsetsQuery,
+					"Getting letter offsets.");
+
+			// Needs to be SNMINT because character could be 0
+			sendResultSet(rs, MyResultSet.SNMINT_SINT, out);
 		}
 	}
 
@@ -553,7 +583,7 @@ class Database {
 	}
 
 	@SuppressWarnings("unchecked")
-	ResultSet getThumbs(String items, int imageW, int imageH, int quality,
+	void getThumbs(String items, int imageW, int imageH, int quality,
 			DataOutputStream out) throws SQLException, ServletException,
 			IOException {
 		ResultSet rs = jdbc
@@ -561,7 +591,12 @@ class Database {
 						+ items + ") ORDER BY record_num");
 		sendResultSet(rs, MyResultSet.SINT_IMAGE_INT_INT, imageW, imageH,
 				quality, out);
-		return rs;
+		rs = jdbc
+				.SQLquery("SELECT * FROM item_facet_heap WHERE record_num IN("
+						+ items
+						+ ") UNION SELECT * FROM item_facet_type_heap WHERE record_num IN("
+						+ items + ") ORDER BY record_num");
+		sendResultSet(rs, MyResultSet.SNMINT_PINT, out);
 	}
 
 	private String imageQuery;
@@ -1527,11 +1562,56 @@ class Database {
 			// if (imageW > 0
 			// && (result.getInt(colIndex + 1) > imageW || result
 			// .getInt(colIndex + 2) > imageH))
-			writeBlob(result.getBlob(colIndex), imageW, imageH, quality, result
-					.getInt(colIndex + 1), result.getInt(colIndex + 2), out);
+			try {
+				writeBlob(result.getBlob(colIndex), imageW, imageH, quality,
+						result.getInt(colIndex + 1), result
+								.getInt(colIndex + 2), out);
+			} catch (IllegalArgumentException e) {
+				// Java may barf "IllegalArgumentException: Invalid ICC Profile
+				// Data"
+				// on images that other applications handle fine. See
+				// http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=6404011
+				writeInt(0, out);
+			} catch (Exception e) {
+				throw new ServletException("Got exception " + e
+						+ " while writing blob on row " + result.getRow()
+						+ " col " + colIndex + " " + currentRowToString(result));
+			}
 			// else
 			// writeBlob(result.getBlob(colIndex), -1, -1, out);
 		}
+	}
+
+	static String currentRowToString(ResultSet rs) throws SQLException {
+		StringBuffer buf = new StringBuffer();
+		ResultSetMetaData meta = rs.getMetaData();
+		for (int col = 1; col <= meta.getColumnCount(); col++) {
+			buf.append(" Col ").append(col).append("=");
+			int type = meta.getColumnType(col);
+			switch (type) {
+			case Types.INTEGER:
+			case Types.SMALLINT:
+			case Types.TINYINT:
+			case Types.BIT:
+			case Types.BOOLEAN:
+			case Types.DECIMAL:
+				buf.append(rs.getInt(col));
+				break;
+			case Types.CHAR:
+			case Types.VARCHAR:
+				buf.append(rs.getString(col));
+				break;
+			case Types.CLOB:
+			case Types.BLOB:
+				buf.append("<BLOB>");
+				break;
+			default:
+				buf.append("<Unhandled Type ").append(type).append(">");
+				break;
+			}
+			buf.append(";");
+		}
+		return buf.toString();
 	}
 
 	static void writeString(String s, DataOutputStream out) throws IOException {
@@ -1638,11 +1718,13 @@ class Database {
 			throws SQLException, IOException, ServletException {
 		InputStream blobStream = blob.getBinaryStream();
 		double ratio = Math.min(desiredW / actualW, desiredH / actualH);
-		desiredW = (int) (actualW * ratio);
-		desiredH = (int) (actualH * ratio);
+		int newW = (int) Math.round(actualW * ratio);
+		int newH = (int) Math.round(actualH * ratio);
+		myAssert(newW == desiredW || newH == desiredH, "WARNING: bad resize: "
+				+ desiredW + "x" + desiredH + " " + newW + "x" + newH);
 
-		BufferedImage resized = Util.resize(ImageIO.read(blobStream), desiredW,
-				desiredH, false);
+		BufferedImage resized = Util.resize(ImageIO.read(blobStream), newW,
+				newH, false);
 		ByteArrayOutputStream byteArrayStream = null;
 		try {
 			byteArrayStream = new ByteArrayOutputStream();
@@ -1660,8 +1742,7 @@ class Database {
 				writeInt(len + 1, out);
 				byteArrayStream.writeTo(out);
 			} else {
-				writeBlob(blob, desiredW, desiredH, quality, desiredW,
-						desiredH, out);
+				writeBlob(blob, newW, newH, quality, newW, newH, out);
 			}
 		} finally {
 			byteArrayStream.close();
@@ -1669,7 +1750,8 @@ class Database {
 	}
 
 	String dbDescs(String dbNameList) throws SQLException, ServletException {
-		myAssert(dbNameList!=null&&dbNameList.length()>0, "Empty db name list");
+		myAssert(dbNameList != null && dbNameList.length() > 0,
+				"Empty db name list");
 		String[] dbNames = Util.splitComma(dbNameList);
 		String[] dbDescs = new String[dbNames.length];
 		for (int i = 0; i < dbDescs.length; i++) {
@@ -1677,7 +1759,7 @@ class Database {
 					+ dbNames[i] + ".globals");
 			dbDescs[i] = dbNames[i] + "," + desc;
 		}
-		log(Util.join(dbDescs, ";"));
+		// log(Util.join(dbDescs, ";"));
 		return Util.join(dbDescs, ";");
 	}
 }
