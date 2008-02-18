@@ -387,11 +387,12 @@ final class SaxWFMovieHandler extends HTMLEditorKit.ParserCallback {
 		String filename = directory + filenames[filenames.length - 2];
 		int w = 0;
 		int h = 0;
-		if ((new File(filename + ParseOAIhandler.imageFileExtension)).exists()) {
-			filename += ParseOAIhandler.imageFileExtension;
+		if ((new File(filename //+ ParseOAIhandler.imageFileExtension
+				)).exists()) {
+//			filename += ParseOAIhandler.imageFileExtension;
 			Util.print("Using existing file " + filename);
 		} else {
-			Vector info = ParseOAIhandler.download(base, thumbURL, filename);
+			Vector info = null; //ParseOAIhandler.download(base, thumbURL, filename);
 			if (info != null) {
 				filename = (String) info.get(0);
 				w = ((Integer) info.get(1)).intValue();

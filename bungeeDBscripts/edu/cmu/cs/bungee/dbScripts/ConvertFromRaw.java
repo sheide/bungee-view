@@ -1007,6 +1007,9 @@ public class ConvertFromRaw {
 			table[0][1] = y1 - table[1][1];
 			table[1][0] = x1 - table[1][1];
 			table[0][0] = nItems - table[0][1] - table[1][0] - table[1][1];
+			if (table[0][0] < 0) {
+				Util.print(facet1 + " " + facet2 + " " + x1 + " " + y1 + " " + table[1][1] + " " + nItems);
+			}
 			float p = (float) ChiSqr.pValue(table);
 			// if (table[1][1] > 20)
 			// jdbc.print(facet1 + " " + facet2 + " " + x1 + " " + y1 + " " +

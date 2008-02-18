@@ -21,7 +21,7 @@ public class Chartres {
 
 	public static void main(String[] args) throws ImageFormatException,
 			SQLException, InterruptedException {
-		ParseOAIhandler handler = ParseOAIhandler.getHandler(args[1]);
+		ParseOAIhandler handler = ParseOAIhandler.getHandler(args[1], null);
 		String directory = args[0];
 		String[] spreadsheets = { "visuals.tab" };
 
@@ -40,10 +40,10 @@ public class Chartres {
 		// handler.useTGM();
 		handler
 				.db("UPDATE raw_facet_type SET name = 'Photographer' WHERE name = 'Creator'");
-		handler.collectDescriptions();
+//		handler.collectDescriptions();
 		handler.convertFromRaw().fixMissingItemFacets(0);
 
-		handler.loadDRLimages(directory + "\\thumbs\\");
+//		handler.loadDRLimages(directory + "\\thumbs\\");
 	}
 
 	Chartres(ParseOAIhandler _handler, BufferedReader in) {

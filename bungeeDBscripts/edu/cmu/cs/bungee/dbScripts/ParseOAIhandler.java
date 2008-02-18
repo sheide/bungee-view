@@ -8,27 +8,19 @@ import java.awt.RenderingHints;
 import java.awt.Toolkit;
 import java.awt.image.BufferedImage;
 import java.io.BufferedOutputStream;
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileOutputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.net.MalformedURLException;
 import java.net.URL;
-import java.net.URLConnection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Hashtable;
+import java.util.Iterator;
 import java.util.Map;
-import java.util.Vector;
+import java.util.Set;
+import java.util.Map.Entry;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import javax.xml.parsers.SAXParser;
-import javax.xml.parsers.SAXParserFactory;
 
 import org.xml.sax.Attributes;
 import org.xml.sax.helpers.DefaultHandler;
@@ -47,9 +39,11 @@ import edu.cmu.cs.bungee.javaExtensions.Util;
  */
 final class ParseOAIhandler extends DefaultHandler {
 
-	static final String imageFileExtension = ".jpeg";
+	boolean verbose;
 
-	private static final String imageMIMEtype = "jpeg";
+	// static final String imageFileExtension = ".jpeg";
+	//
+	// private static final String imageMIMEtype = "jpeg";
 
 	private ConvertFromRaw converter;
 
@@ -67,80 +61,99 @@ final class ParseOAIhandler extends DefaultHandler {
 
 	private Hashtable subFacetTable = new Hashtable();
 
-	private final static String[] attrTables = { "title", "description"
+	// private final static String[] attrTables = { "title", "description"
 	// "series", "summary", "note"
-	};
+	// };
 
-	private final static String[] attrSeparators = { "\\n", "; ", "\\n", "\\n",
-			"\\n" };
+	// private final static String[] attrSeparators = { "\\n", "; ", "\\n",
+	// "\\n",
+	// "\\n" };
 
-	private final static String[] places = { "downtown", "pittsburgh",
-			"homestead", "oakland", "hill district", "south side",
-			"north side", "east liberty", "o'hara township", "fifth avenue",
-			"shadyside", "penn avenue", "mckees rocks", "rankin",
-			"lawrenceville", "highland park", "forbes avenue",
-			"mount washington", "harmony", "squirrel hill", "schenley park",
-			"washington, dc", "washington, d.c.", "washington, d.c" };
+	// /**
+	// * This helps recognize tags that would otherwise be classified as
+	// 'Subject'
+	// * to be 'Places'.
+	// */
+	// private final static String[] places = { "downtown", "pittsburgh",
+	// "homestead", "oakland", "hill district", "south side",
+	// "north side", "east liberty", "o'hara township", "fifth avenue",
+	// "shadyside", "penn avenue", "mckees rocks", "rankin",
+	// "lawrenceville", "highland park", "forbes avenue",
+	// "mount washington", "harmony", "squirrel hill", "schenley park",
+	// "washington, dc", "washington, d.c.", "washington, d.c" };
+	//
+	// private final static String[] toPromote = {
+	// "Subject -- Places;Places",
+	// "Subject -- jpeg;Type -- image -- jpeg",
+	// "Subject -- Color;Format -- Color",
+	// "Subject -- Maps;Format -- Maps",
+	// "Subject -- Hand-colored;Format -- Color -- Hand-colored",
+	// "Subject -- Cartoons;Format -- Cartoons",
+	// "Subject -- Maps, Manuscript;Format -- Maps -- Maps, Manuscript",
+	// // "Subject -- Pictures;Format -- Pictures",
+	// "Subject -- Pictures;Format",
+	// "Subject -- Albums;Format -- Albums",
+	// "Subject -- Reproductions;Format -- Reproductions",
+	// "Subject -- Stereographs;Format -- Stereographs",
+	// "Subject -- Design drawings;Format -- Design drawings",
+	// "Subject -- Cityscapes;Format -- Cityscapes",
+	// "Subject -- People;Kinds of People",
+	// // "Subject -- Organizations;Kinds of Organizations",
+	// "Subject -- Objects -- Built environment -- Architectural & site
+	// components;Built environment",
+	// "Subject -- Objects -- Built environment -- Facilities;Built
+	// environment",
+	// "Subject -- Bands;Subject -- Music -- Bands",
+	// "Subject -- Towboats -- Interiors;Subject -- Towboats",
+	//
+	// "Places -- North America -- United States;Places",
+	// "Places -- North America;Places",
+	//
+	// "Subject -- Baseball team -- St. Louise Cardinals -- Uniforms;Subject --
+	// Objects -- Clothing & dress -- Uniforms",
+	// "Subject -- Equitable Gas Company -- Disasters;Subject -- Disasters",
+	// "Subject -- Railroads -- Accidents;Subject -- Accidents",
+	// "Subject -- World War, 1939-1945 -- Women;Subject -- People -- Women",
+	// "Subject -- World War, 1939 -- Women;Subject -- People -- Women",
+	// "Subject -- Employment -- Economic & social conditions -- Women;Subject
+	// -- People -- Women",
+	// "Subject -- Backyards;Subject -- Sites -- Yards -- Backyards",
+	// "Subject -- Festive decorations;Subject -- Objects -- Decorations --
+	// Festive decorations",
+	// "Subject -- Veterans -- Education;Subject -- Disciplines -- Education",
+	// "Subject -- Communication -- Advertising -- Food;Subject -- Objects --
+	// Food",
+	// "Subject -- Buildings -- Cleaning;Subject -- Activities -- Cleaning",
+	// "Subject -- Places -- Pennsylvania -- Pittsburgh -- Cleaning;Subject --
+	// Activities -- Cleaning",
+	// "Subject -- World War, 1935-1945 -- War work -- Schools;Subject --
+	// Educational facilities -- Schools",
+	// "Subject -- Places -- Pennsylvania -- Pittsburgh -- Interiors;Subject --
+	// Buildings -- Interiors",
+	// "Subject -- Atomic power-plants -- Models;Subject -- Objects -- Models",
+	// "Subject -- Open-hearth furnaces -- Models;Subject -- Objects -- Models",
+	// "Subject -- Blast furnaces -- Models;Subject -- Objects -- Models",
+	// "Subject -- Aircraft -- Airplanes -- Engines;Subject -- Engines",
+	// "Subject -- Objects -- Food -- Transportation;Subject -- Transportation",
+	// "Subject -- Natural phenomena -- Air -- Pollution;Subject -- Pollution",
+	// "Subject -- Indians of North America -- Dance;Subject -- Art -- Dance",
+	// "Subject -- West Mifflin (Pa.) -- Aerial views;Subject -- Aerial views",
+	// "Subject -- Point State Park (Pittsburgh, Pa.) -- Aerial views;Subject --
+	// Aerial views",
+	// "Subject -- Sharpsburg (Pa.) -- Aerial views;Subject -- Aerial views",
+	// "Subject -- Etna (Pa.) -- Aerial views;Subject -- Aerial views",
+	// "Subject -- H.J. Heinz Company (Pittsburgh, Pa.) -- Aerial views;Subject
+	// -- Aerial views",
+	// "Subject -- Aliquippa (Pa.) -- Aerial views;Subject -- Aerial views",
+	//
+	// "Places -- Pennsylvania -- Pittsburgh -- Design and Construction;Built
+	// environment -- Design and Construction"
+	//
+	// };
 
-	private final static String[] toPromote = {
-			"Subject -- Places;Places",
-			"Subject -- jpeg;Type -- image -- jpeg",
-			"Subject -- Color;Format -- Color",
-			"Subject -- Maps;Format -- Maps",
-			"Subject -- Hand-colored;Format -- Color -- Hand-colored",
-			"Subject -- Cartoons;Format -- Cartoons",
-			"Subject -- Maps, Manuscript;Format -- Maps -- Maps, Manuscript",
-			// "Subject -- Pictures;Format -- Pictures",
-			"Subject -- Pictures;Format",
-			"Subject -- Albums;Format -- Albums",
-			"Subject -- Reproductions;Format -- Reproductions",
-			"Subject -- Stereographs;Format -- Stereographs",
-			"Subject -- Design drawings;Format -- Design drawings",
-			"Subject -- Cityscapes;Format -- Cityscapes",
-			"Subject -- People;Kinds of People",
-			// "Subject -- Organizations;Kinds of Organizations",
-			"Subject -- Objects -- Built environment -- Architectural & site components;Built environment",
-			"Subject -- Objects -- Built environment -- Facilities;Built environment",
-			"Subject -- Bands;Subject -- Music -- Bands",
-			"Subject -- Towboats -- Interiors;Subject -- Towboats",
-
-			"Places -- North America -- United States;Places",
-			"Places -- North America;Places", };
-
-	private final static String[] toPromoteDoublingItems = {
-
-			"Subject -- Baseball team -- St. Louise Cardinals -- Uniforms;Subject -- Objects -- Clothing & dress -- Uniforms",
-			"Subject -- Equitable Gas Company -- Disasters;Subject -- Disasters",
-			"Subject -- Railroads -- Accidents;Subject -- Accidents",
-			"Subject -- World War, 1939-1945 -- Women;Subject -- People -- Women",
-			"Subject -- World War, 1939 -- Women;Subject -- People -- Women",
-			"Subject -- Employment -- Economic & social conditions -- Women;Subject -- People -- Women",
-			"Subject -- Backyards;Subject -- Sites -- Yards -- Backyards",
-			"Subject -- Festive decorations;Subject -- Objects -- Decorations -- Festive decorations",
-			"Subject -- Veterans -- Education;Subject -- Disciplines -- Education",
-			"Subject -- Communication -- Advertising -- Food;Subject -- Objects -- Food",
-			"Subject -- Buildings -- Cleaning;Subject -- Activities -- Cleaning",
-			"Subject -- Places -- Pennsylvania -- Pittsburgh -- Cleaning;Subject -- Activities -- Cleaning",
-			"Subject -- World War, 1935-1945 -- War work -- Schools;Subject -- Educational facilities -- Schools",
-			"Subject -- Places -- Pennsylvania -- Pittsburgh -- Interiors;Subject -- Buildings -- Interiors",
-			"Subject -- Atomic power-plants -- Models;Subject -- Objects -- Models",
-			"Subject -- Open-hearth furnaces -- Models;Subject -- Objects -- Models",
-			"Subject -- Blast furnaces -- Models;Subject -- Objects -- Models",
-			"Subject -- Aircraft -- Airplanes -- Engines;Subject -- Engines",
-			"Subject -- Objects -- Food -- Transportation;Subject -- Transportation",
-			"Subject -- Natural phenomena -- Air -- Pollution;Subject -- Pollution",
-			"Subject -- Indians of North America -- Dance;Subject -- Art -- Dance",
-			"Subject -- West Mifflin (Pa.) -- Aerial views;Subject -- Aerial views",
-			"Subject -- Point State Park (Pittsburgh, Pa.) -- Aerial views;Subject -- Aerial views",
-			"Subject -- Sharpsburg (Pa.) -- Aerial views;Subject -- Aerial views",
-			"Subject -- Etna (Pa.) -- Aerial views;Subject -- Aerial views",
-			"Subject -- H.J. Heinz Company (Pittsburgh, Pa.) -- Aerial views;Subject -- Aerial views",
-			"Subject -- Aliquippa (Pa.) -- Aerial views;Subject -- Aerial views",
-
-			"Places -- Pennsylvania -- Pittsburgh -- Design and Construction;Built environment -- Design and Construction"
-
-	};
-
+	/**
+	 * These are use for place fields only
+	 */
 	private String[] abbrevs = { "Alabama;al:ala", "Alaska;ak",
 			"American Samoa;as", "Arizona;az:ariz", "Arkansas;ar:ark",
 			"British Columbia;bc", "California;ca:cal:calif",
@@ -174,77 +187,74 @@ final class ParseOAIhandler extends DefaultHandler {
 	// private final static String[] promotePlaces = {
 	// "North America -- United States;Places", "North America;Places" };
 
-	private final static String[][] rename = {
-			{ "People associated with Agriculture",
-					"Agriculture-associated people" },
-			{ "People associated with commercial activities",
-					"Commercial activity -associated people" },
-			{ "People associated with education & communication",
-					"Educators & Communicators" },
-			{ "People associated with entertainment & sports",
-					"Entertainment & Sports -associated people" },
-			{ "People associated with health & safety",
-					"Health & Safety -associated people" },
-			{ "People associated with manual labor", "Manual Laborers" },
-			{ "People associated with military activities",
-					"Military Activity -associated people" },
-			{ "People associated with politics & government",
-					"Politics & Government -associated people" },
-			{ "People associated with religion", "Religion-associated people" },
-			{ "People associated with transportation",
-					"Transportation-associated people" },
-			{ "People with disabilities", "Disabled people" },
-			{ "Clothing and dress", "Clothing & dress" },
-			{ "Pittsubrgh", "Pittsburgh" }, { "Pittsburhgh", "Pittsburgh" },
-			{ "Pittsurgh", "Pittsburgh" }, { "Pittsbu", "Pittsburgh" },
-			{ "Pittsburhgh", "Pittsburgh" }, { "Pittsubrgh", "Pittsburgh" },
-			{ "Pittsurgh", "Pittsburgh" }, { "Pennylvania", "Pennsylvania" },
-			{ "Pennsyvlania", "Pennsylvania" },
-			{ "Pennsylvnaia", "Pennsylvania" },
-			{ "Pennsylvnia", "Pennsylvania" },
-			{ "Pennslyvania", "Pennsylvania" },
-			{ "Pennsylvaania", "Pennsylvania" },
-			{ "Pennsyvlanis", "Pennsylvania" },
-			{ "Pennslvania", "Pennsylvania" },
-			{ "Pennsyvania", "Pennsylvania" }, { "Pennsylva", "Pennsylvania" },
-			{ "Pennsylvani", "Pennsylvania" }, { "Penns", "Pennsylvania" },
-			{ "Pennsylv", "Pennsylvania" }, { "Pennsylania", "Pennsylvania" },
-			{ "Pennsylavnia", "Pennsylvania" },
-			{ "Pennsylvaia", "Pennsylvania" },
-			{ "Pennsylvania.", "Pennsylvania" },
-			{ "Pennsyvlvania", "Pennsylvania" }, { "Pa.)", "Pennsylvania" },
-			{ "Pennsylva nia", "Pennsylvania" },
-
-	};
-
-	private Hashtable renames = renames();
-
-	private Hashtable renames() {
-		if (renames == null) {
-			renames = new Hashtable();
-			for (int i = 0; i < rename.length; i++) {
-				renames.put(rename[i][0], rename[i][1]);
-			}
-		}
-		return renames;
-	}
+	// private final static String[][] rename = {
+	// { "People associated with Agriculture",
+	// "Agriculture-associated people" },
+	// { "People associated with commercial activities",
+	// "Commercial activity -associated people" },
+	// { "People associated with education & communication",
+	// "Educators & Communicators" },
+	// { "People associated with entertainment & sports",
+	// "Entertainment & Sports -associated people" },
+	// { "People associated with health & safety",
+	// "Health & Safety -associated people" },
+	// { "People associated with manual labor", "Manual Laborers" },
+	// { "People associated with military activities",
+	// "Military Activity -associated people" },
+	// { "People associated with politics & government",
+	// "Politics & Government -associated people" },
+	// { "People associated with religion", "Religion-associated people" },
+	// { "People associated with transportation",
+	// "Transportation-associated people" },
+	// { "People with disabilities", "Disabled people" },
+	// { "Clothing and dress", "Clothing & dress" },
+	// { "Pittsubrgh", "Pittsburgh" }, { "Pittsburhgh", "Pittsburgh" },
+	// { "Pittsurgh", "Pittsburgh" }, { "Pittsbu", "Pittsburgh" },
+	// { "Pittsburhgh", "Pittsburgh" }, { "Pittsubrgh", "Pittsburgh" },
+	// { "Pittsurgh", "Pittsburgh" }, { "Pennylvania", "Pennsylvania" },
+	// { "Pennsyvlania", "Pennsylvania" },
+	// { "Pennsylvnaia", "Pennsylvania" },
+	// { "Pennsylvnia", "Pennsylvania" },
+	// { "Pennslyvania", "Pennsylvania" },
+	// { "Pennsylvaania", "Pennsylvania" },
+	// { "Pennsyvlanis", "Pennsylvania" },
+	// { "Pennslvania", "Pennsylvania" },
+	// { "Pennsyvania", "Pennsylvania" }, { "Pennsylva", "Pennsylvania" },
+	// { "Pennsylvani", "Pennsylvania" }, { "Penns", "Pennsylvania" },
+	// { "Pennsylv", "Pennsylvania" }, { "Pennsylania", "Pennsylvania" },
+	// { "Pennsylavnia", "Pennsylvania" },
+	// { "Pennsylvaia", "Pennsylvania" },
+	// { "Pennsylvania.", "Pennsylvania" },
+	// { "Pennsyvlvania", "Pennsylvania" }, { "Pa.)", "Pennsylvania" },
+	// { "Pennsylva nia", "Pennsylvania" },
+	//
+	// };
 
 	private String rename(String s) {
-		String result = (String) renames.get(s);
+		// Util.print("rename " + renames);
+		String result = renames == null ? null : (String) renames.get(s);
 		if (result == null)
 			result = s;
 		return result;
 	}
 
+	/**
+	 * Rename facets according to the explicit list 'rename'. This can correct
+	 * common spelling errors, for instance.
+	 * 
+	 * @throws SQLException
+	 */
 	private void rename() throws SQLException {
-		for (int i = 0; i < rename.length; i++) {
-			String old = truncateName(rename[i][0], false);
-			String gnu = truncateName(rename[i][1], false);
-			db("UPDATE raw_facet SET name = '" + gnu + "' WHERE name = '" + old
-					+ "'");
-			// db("UPDATE facet SET name = '" + rename[i][1]
-			// + "' WHERE name = '" + rename[i][0] + "'");
-		}
+		if (renames != null)
+			for (Iterator it = renames.entrySet().iterator(); it.hasNext();) {
+				Entry entry = (Entry) it.next();
+				String from = truncateName((String) entry.getKey(), false);
+				String to = truncateName((String) entry.getValue(), false);
+				db("UPDATE raw_facet SET name = '" + to + "' WHERE name = '"
+						+ from + "'");
+				// db("UPDATE facet SET name = '" + rename[i][1]
+				// + "' WHERE name = '" + rename[i][0] + "'");
+			}
 	}
 
 	private String set;
@@ -256,14 +266,26 @@ final class ParseOAIhandler extends DefaultHandler {
 	private Hashtable setNames = new Hashtable();
 
 	private String dbName;
-	
-	private Map use;
-	private Map bt;
 
-	ParseOAIhandler(JDBCSample jdbc, Map _use, Map _bt) {
-		use = _use;
-		bt = _bt;
-		
+	private Map moves;
+
+	private Map renames;
+
+	/**
+	 * Places within states that help recognize place names in the subject
+	 * hierarchy. Applies to the pattern "<city> ([<place>,] <state abbrev>)"
+	 */
+	private Set cities;
+
+	ParseOAIhandler(JDBCSample _jdbc, String db, boolean _verbose,
+			Map _renames, Map _moves, Set _places) {
+		renames = _renames;
+		jdbc = _jdbc;
+		dbName = db;
+		verbose = _verbose;
+		moves = _moves;
+		cities = _places;
+
 		// parseTGM();
 		// parse043codes();
 		// checkMultipleParents("places_hierarchy");
@@ -271,19 +293,23 @@ final class ParseOAIhandler extends DefaultHandler {
 
 		try {
 			recordNum = jdbc.SQLqueryInt("SELECT MAX(record_num) FROM item");
-		facetID = Math
-				.max(
-						jdbc.SQLqueryInt("SELECT MAX(facet_id) FROM raw_facet"),
-						jdbc
-								.SQLqueryInt("SELECT MAX(facet_type_id) FROM raw_facet_type") + 100);
+			facetID = Math
+					.max(
+							jdbc
+									.SQLqueryInt("SELECT MAX(facet_id) FROM raw_facet"),
+							jdbc
+									.SQLqueryInt("SELECT MAX(facet_type_id) FROM raw_facet_type") + 100);
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
 	}
 
-	public static ParseOAIhandler getHandler(String connectString) {
+	static ParseOAIhandler getHandler(String connectString, String db) {
 		JDBCSample jdbc = ParseOAI.createJDBC(connectString);
-		return new ParseOAIhandler(jdbc,new Hashtable(), new Hashtable());
+		// return new ParseOAIhandler(jdbc, new Hashtable(), new Hashtable(),
+		// db,
+		// false);
+		return null;
 	}
 
 	void copyImages(String copyFrom) throws SQLException {
@@ -295,6 +321,22 @@ final class ParseOAIhandler extends DefaultHandler {
 				+ "INNER JOIN " + copyFrom + ".images him ON him.uri = it.uri	"
 				+ "WHERE im.image is NULL");
 		Util.print("...done");
+	}
+
+	void copyImagesNoURI(String copyFrom) throws SQLException {
+		Util.print("\nCopying images from " + copyFrom);
+		convertFromRaw().ensureIndex("item", "URI", "URI(500)");
+		convertFromRaw().ensureIndex(copyFrom + ".item", "URI", "URI(500)");
+		int n = db("REPLACE INTO images	"
+				+ "SELECT it.record_num, copy_im.image, copy_im.w, copy_im.h "
+				+ "FROM item it "
+				+ "LEFT JOIN images im ON it.record_num = im.record_num "
+				+ "INNER JOIN " + copyFrom
+				+ ".item copy_it ON copy_it.uri = it.uri	" + "INNER JOIN "
+				+ copyFrom
+				+ ".images copy_im ON copy_it.record_num = copy_im.record_num "
+				+ "WHERE im.image is NULL");
+		Util.print("..." + n + " images copied");
 	}
 
 	int db(String sql) {
@@ -316,6 +358,11 @@ final class ParseOAIhandler extends DefaultHandler {
 		if (converter == null)
 			converter = new ConvertFromRaw(jdbc);
 		return converter;
+	}
+
+	void log(String s) {
+		if (verbose)
+			Util.print(s);
 	}
 
 	// private void parseTGM() {
@@ -444,8 +491,15 @@ final class ParseOAIhandler extends DefaultHandler {
 
 	private String[] renumberTables = { "images", "item", "raw_item_facet" };
 
+	/**
+	 * Re-assigns record numbers to items so that they are consecutive starting
+	 * at 1.
+	 * 
+	 * @throws SQLException
+	 */
 	void renumber() throws SQLException {
-		String[] tables = Util.append(attrTables, renumberTables);
+		String[] tables = renumberTables; // Util.append(attrTables,
+		// renumberTables);
 		int first = jdbc.SQLqueryInt("SELECT MIN(record_num) FROM item");
 		for (int i = 1; i < first; i++) {
 			int old = jdbc
@@ -475,48 +529,104 @@ final class ParseOAIhandler extends DefaultHandler {
 	// return result;
 	// }
 
+	private String ancestorString(int facet) throws SQLException {
+		return Util.join(ancestors(facet, false), " -- ");
+	}
+
 	private String[] ancestors(int facet, boolean showID) throws SQLException {
 		// int parent = getParentFacet(facet);
 		if (facet > 0) {
 			return (String[]) Util.push(
-					ancestors(getParentFacet(facet), showID),
-					(facet < 100 ? getFacetTypeName(facet)
-							: getFacetName(facet))
+					ancestors(getParentFacet(facet), showID), getName(facet)
 							+ (showID ? " (" + facet + ")" : ""), String.class);
 		} else
 			return null;
 	}
 
-	private void promote(String[] promotions) {
-		for (int i = 0; i < promotions.length; i++) {
-			try {
-				String[] x = promotions[i].split(";");
-				String[] olds = x[0].split(" -- ");
-				String[] news = x[1].split(" -- ");
-				int parentFacet = facetType(olds[0]);
+	private int[] ancestors(int facet) throws SQLException {
+		// int parent = getParentFacet(facet);
+		if (facet > 0) {
+			return (int[]) Util.push(ancestors(getParentFacet(facet)), facet);
+		} else
+			return null;
+	}
 
-				for (int j = 1; j < olds.length && parentFacet > 0; j++)
-					parentFacet = lookupFacet(olds[j], parentFacet);
-				if (parentFacet > 0) {
-					int type = facetType(news[0]);
-					int newParent = type;
-					for (int j = 1; j < news.length; j++) {
-						int childType = lookupFacet(news[j], newParent);
-						if (childType < 0) {
-							childType = newFacet(news[j], newParent, type);
-						}
-						newParent = childType;
-					}
-					assert newParent > 0 : x[1];
-					promoteInternal(parentFacet, newParent);
-				} else {
-					// Util.print("promote: Can't find " + x[0]
-					// + " to promote");
-				}
-			} catch (SQLException e) {
-				Util.err("Can't promote: " + promotions[i] + e);
+	void printDuplicates() throws SQLException {
+		Util.print("Listing duplicate facet names...");
+		ResultSet rs = jdbc
+				.SQLquery("SELECT GROUP_CONCAT(facet_id) FROM raw_facet GROUP BY name HAVING COUNT(*) > 1");
+		while (rs.next()) {
+			String[] facets = Util.splitComma(rs.getString(1));
+			for (int i = 0; i < facets.length; i++) {
+				int facet1 = Integer.parseInt(facets[i]);
+				// int[] ancestors1 = ancestors(facet1);
+				// for (int j = 0; j < facets.length; j++) {
+				// if (i != j) {
+				// int facet2 = Integer.parseInt(facets[j]);
+				// if (getName(facet1) != null && getName(facet2) != null) {
+				// int facetType1 = getFacetType(facet1);
+				// int facetType2 = getFacetType(facet2);
+				// if (facetType1 > 0 && facetType2 > 0
+				// && getName(facetType1).equals("Date")
+				// && getName(facetType2).equals("Subject")) {
+				// merge(facet2, facet1);
+				// }
+				// }
+				// int[] ancestors2 = ancestors(facet2);
+				// if (Util.isMember(ancestors1,
+				// getParentFacet(facet2)))
+				// merge(facet2, facet1);
+				// }
+				// }
+				Util.print(Util.join(ancestors(facet1, false)));
 			}
+			Util.print("");
 		}
+		Util.print("\nListing duplicate facet names...done");
+	}
+
+	/**
+	 * Change the facet hierarchy by moving the subtrees explicitly listed in
+	 * 'toPromote'. All children of the old lineage are reparented to the new
+	 * lineage, which is created if nececssary. The now-childless old parent is
+	 * then deleted.
+	 */
+	private void promote() {
+		boolean change = false;
+		if (moves != null)
+			for (Iterator it = moves.entrySet().iterator(); it.hasNext();) {
+				Entry entry = (Entry) it.next();
+				try {
+					String key = (String) entry.getKey();
+					String value = (String) entry.getValue();
+					String[] olds = key.split(" -- ");
+					String[] news = value.split(" -- ");
+					int parentFacet = facetType(olds[0]);
+
+					for (int j = 1; j < olds.length && parentFacet > 0; j++)
+						parentFacet = lookupFacet(olds[j], parentFacet);
+					if (parentFacet > 0) {
+						int type = facetType(news[0]);
+						int newParent = type;
+						for (int j = 1; j < news.length; j++) {
+							int childType = lookupFacet(news[j], newParent);
+							if (childType < 0) {
+								childType = newFacet(news[j], newParent);
+							}
+							newParent = childType;
+						}
+						assert newParent > 0 : value;
+						promoteInternal(parentFacet, newParent);
+						change = true;
+					} else {
+						// log("promote: Can't find " + key + " to promote");
+					}
+				} catch (SQLException e) {
+					Util.err("Can't promote: " + entry + e);
+				}
+			}
+		if (change)
+			promote();
 	}
 
 	private void promoteInternal(int oldParent, int newParent)
@@ -528,7 +638,7 @@ final class ParseOAIhandler extends DefaultHandler {
 		while (rs.next()) {
 			int child = rs.getInt(1);
 			setParent(child, newParent);
-			// Util.print("setParent " + Util.join(ancestors(child, false)));
+			log(getFacetName(child) + " => " + getName(newParent));
 		}
 		db("REPLACE INTO raw_item_facet SELECT record_num, " + newParent
 				+ " FROM raw_item_facet WHERE facet_id = " + oldParent);
@@ -538,26 +648,37 @@ final class ParseOAIhandler extends DefaultHandler {
 
 	void useTGM() throws SQLException {
 		rename();
-		useTGMinternal("loc.tgm", facetType("Subject"));
+		// useTGMinternal("loc.tgm", facetType("Subject"));
 		// useTGMinternal("places_hierarchy",
 		// facetType("Location of Publication"));
-		useTGMinternal("loc.places_hierarchy", facetType("Places"));
-		rename();
+		// useTGMinternal("loc.places_hierarchy", facetType("Places"));
+		// rename();
 		convertFromRaw().fixDuplicates();
 
-		promote(toPromote);
+		promote();
 		convertFromRaw().fixMissingItemFacets(0);
-		promote(toPromoteDoublingItems);
+		// promote(toPromoteDoublingItems);
 
 		// fixFacetTypes();
 		convertFromRaw().fixDuplicates();
 		convertFromRaw().fixMissingItemFacets(0);
 		convertFromRaw().findBrokenLinks(true, 0);
 
-		promoteSingletons();
+		if (moves != null)
+			promoteSingletons();
 		convertFromRaw().findBrokenLinks(true, 0);
 	}
 
+	/**
+	 * For every combination of
+	 * 
+	 * grandparent -- parent -- child
+	 * 
+	 * where parent has no other children and every item that is a parent is
+	 * also a child, delete parent and make child a direct child of grandparent.
+	 * 
+	 * @throws SQLException
+	 */
 	void promoteSingletons() throws SQLException {
 		convertFromRaw().fixMissingItemFacets(0);
 		ResultSet rs = jdbc
@@ -569,20 +690,20 @@ final class ParseOAIhandler extends DefaultHandler {
 			int singleton = rs.getInt(3);
 			int parent = rs.getInt(1);
 			int grandparent = rs.getInt(2);
-			if (getFacetName(singleton) != null
-					&& (getFacetName(grandparent) != null || getFacetTypeName(grandparent) != null)
+			if (getFacetName(singleton) != null && getName(grandparent) != null
 					&& nItems(singleton) == nItems(parent)) {
+				// Name check ensures previous promotions haven't deleted any of
+				// the facets involved.
 				change = true;
-				// Util.print("Promoting singleton "
-				// + Util.join(ancestors(singleton, false)));
+				log("Promoting singleton " + getFacetName(singleton) + " from "
+						+ getFacetName(parent) + " to " + getName(grandparent));
 				setParent(singleton, grandparent);
 				db("DELETE FROM raw_facet WHERE facet_id = " + parent);
+			} else {
+				// log("Can't promote singleton "
+				// + Util.join(ancestors(singleton, false)) + "\n"
+				// + nItems(singleton) + " " + nItems(parent));
 			}
-			// else
-			// Util.print("Can't promote singleton "
-			// + Util.join(ancestors(singleton, false)) + "\n"
-			// + Util.join(ancestors(parent, false)) + "\n"
-			// + Util.join(ancestors(grandparent, false)));
 		}
 		if (change) {
 			convertFromRaw().fixDuplicates();
@@ -604,8 +725,8 @@ final class ParseOAIhandler extends DefaultHandler {
 							+ "INNER JOIN raw_item_facet i ON f.facet_id = i.facet_id "
 							+ "WHERE f.parent_facet_id = " + singleton)) {
 				change = true;
-				// Util.print("Promoting singleton "
-				// + Util.join(ancestors(singleton, false)));
+				log("Promoting singleton "
+						+ Util.join(ancestors(singleton, false)));
 				int type = rs.getInt(2);
 				db("UPDATE raw_facet set parent_facet_id = " + type
 						+ " WHERE parent_facet_id = " + singleton);
@@ -680,6 +801,7 @@ final class ParseOAIhandler extends DefaultHandler {
 			}
 			parents = pickParent(parents);
 			int nParents = parents == null ? 0 : parents.length;
+			// Use a separator not likely to occur in a term
 			String[] terms = rs.getString(1).split(" -- ");
 			String broader = rs.getString(2);
 			if (nParents > 1) {
@@ -696,13 +818,16 @@ final class ParseOAIhandler extends DefaultHandler {
 				for (int i = 0; i < terms.length; i++) {
 					String term = terms[i];
 					int facet = lookupFacet(term, facetTypeID);
-					// Util.print(term + " => " + broader + " " + facet + "
-					// "
-					// + parent);
+					// log(term + " => " + broader + " " + facet + " " +
+					// parent);
 					if (facet > 0)
 						setParent(facet, parent);
-					else
+					else {
+						// term occurs multiple times in TGM table and we've
+						// already processed one of them. Add a duplicate to
+						// this parent, copying over all children and items.
 						addDuplicateFacet(term, parent, facetTypeID);
+					}
 				}
 			}
 		}
@@ -712,22 +837,28 @@ final class ParseOAIhandler extends DefaultHandler {
 
 	int[] pickParent(int[] parents) throws SQLException {
 		int[] result = parents;
-		if (parents != null && parents.length > 1) {
-			for (int i = 0; i < parents.length && result == parents; i++) {
-				String path = Util.join(
-						Util.reverse(ancestors(parents[i], false)), " -- ")
-						.toLowerCase();
-				String[] known = Util.append(toPromote, toPromoteDoublingItems);
-				for (int j = 0; j < known.length && result == parents; j++) {
-					if (known[j].toLowerCase().indexOf(path) >= 0) {
-						result = new int[1];
-						result[0] = parents[i];
-						// Util.print("Found parent " + path);
-						// Util.print(toPromote[j]);
+		if (moves != null)
+			if (parents != null && parents.length > 1) {
+				for (int i = 0; i < parents.length && result == parents; i++) {
+					String path = Util.join(
+							Util.reverse(ancestors(parents[i], false)), " -- ")
+							.toLowerCase();
+					for (Iterator it = moves.entrySet().iterator(); it
+							.hasNext()
+							&& result == parents;) {
+						Entry entry = (Entry) it.next();
+						String key = (String) entry.getKey();
+						String value = (String) entry.getValue();
+						if (key.toLowerCase().indexOf(path) >= 0
+								|| value.toLowerCase().indexOf(path) >= 0) {
+							result = new int[1];
+							result[0] = parents[i];
+							// Util.print("Found parent " + path);
+							// Util.print(toPromote[j]);
+						}
 					}
 				}
 			}
-		}
 		return result;
 	}
 
@@ -785,9 +916,10 @@ final class ParseOAIhandler extends DefaultHandler {
 				Util.err(facet + " " + parent);
 				e.printStackTrace();
 			}
-		} else
+		} else {
 			Util.print("UPDATE raw_facet SET parent_facet_id = " + parent
 					+ " WHERE facet_id = " + facet);
+		}
 	}
 
 	private int lookupSomeFacet(String name, int facetType) throws SQLException {
@@ -858,20 +990,19 @@ final class ParseOAIhandler extends DefaultHandler {
 	private void addDuplicateFacet(String term, int parent, int facetType)
 			throws SQLException {
 		int old = lookupSomeFacet(term, facetType);
-		// Util
-		// .print("addDuplicateFacet "
-		// + term
-		// + ", "
-		// + jdbc
-		// .SQLqueryString("SELECT name FROM raw_facet WHERE facet_id = "
-		// + parent)
-		// + ", "
-		// + jdbc
-		// .SQLqueryString("SELECT p.name FROM raw_facet r "
-		// + "INNER JOIN raw_facet p ON r.parent_facet_id = p.facet_id "
-		// + "WHERE r.facet_id = " + old));
+		log("addDuplicateFacet "
+				+ term
+				+ ", "
+				+ jdbc
+						.SQLqueryString("SELECT name FROM raw_facet WHERE facet_id = "
+								+ parent)
+				+ ", "
+				+ jdbc
+						.SQLqueryString("SELECT p.name FROM raw_facet r "
+								+ "INNER JOIN raw_facet p ON r.parent_facet_id = p.facet_id "
+								+ "WHERE r.facet_id = " + old));
 		assert old > 0 : term + " " + parent + " " + facetType;
-		parent = newFacet(term, parent, facetType);
+		parent = newFacet(term, parent);
 
 		ResultSet rs = itemFacets(old);
 		while (rs.next()) {
@@ -889,6 +1020,16 @@ final class ParseOAIhandler extends DefaultHandler {
 				addDuplicateFacet(childNames[i], parent, facetType);
 			}
 		}
+	}
+
+	private void merge(int from, int to) throws SQLException {
+		log("merging " + ancestorString(from) + " into " + ancestorString(to));
+		db("UPDATE raw_facet SET parent_facet_id = " + to
+				+ " WHERE parent_facet_id = " + from);
+		db("REPLACE INTO raw_item_facet SELECT record_num, " + to
+				+ " FROM raw_item_facet WHERE facet_id = " + from);
+		db("DELETE FROM raw_item_facet WHERE facet_id = " + from);
+		db("DELETE FROM raw_facet WHERE facet_id = " + from);
 	}
 
 	private ResultSet childFacets(int parent) {
@@ -916,6 +1057,7 @@ final class ParseOAIhandler extends DefaultHandler {
 	}
 
 	private void addItemFacet(int record_num, int facet_id) {
+		// Util.print("addItemFacet " + facet_id);
 		if (!dontUpdate) {
 			try {
 				PreparedStatement itemFacet = lookupPS("REPLACE INTO raw_item_facet VALUES(?, ?)");
@@ -932,8 +1074,7 @@ final class ParseOAIhandler extends DefaultHandler {
 
 	int maxNameLength = -1;
 
-	private int newFacet(String name, int parent, int facetType)
-			throws SQLException {
+	private int newFacet(String name, int parent) throws SQLException {
 		// if (name.startsWith("Pearce, James Alfred")) {
 		// Util.print(name + " '" + data.toString() + "' " + tag
 		// + subfield);
@@ -952,8 +1093,7 @@ final class ParseOAIhandler extends DefaultHandler {
 				jdbc.SQLupdate(newFacet, "Add new facet");
 			} catch (SQLException e) {
 				Util.err("Problem creating facet: name='" + name + "'; parent="
-						+ getFacetName(parent) + "; facetType="
-						+ getFacetTypeName(facetType));
+						+ getFacetName(parent));
 				e.printStackTrace();
 			}
 		} else
@@ -964,13 +1104,14 @@ final class ParseOAIhandler extends DefaultHandler {
 
 	private String truncateName(String name, boolean noWarn)
 			throws SQLException {
-		if (maxNameLength < 0)
+		if (maxNameLength < 0) {
 			maxNameLength = jdbc
-					.SQLqueryInt("SELECT CHARACTER_OCTET_LENGTH FROM INFORMATION_SCHEMA.COLUMNS "
+					.SQLqueryInt("SELECT CHARACTER_MAXIMUM_LENGTH FROM INFORMATION_SCHEMA.COLUMNS "
 							+ "WHERE table_name = 'raw_facet' AND column_name = 'name'"
 							+ " AND table_schema = '" + dbName + "'");
+			log("Setting maxNameLength to " + maxNameLength);
+		}
 		if (name.length() > maxNameLength) {
-			// Util.print(maxNameLength + " " + name.length());
 			String tName = name.substring(0, maxNameLength - 1);
 			if (!noWarn)
 				Util.err("Truncating facet name '" + name + "' to '" + tName
@@ -980,16 +1121,16 @@ final class ParseOAIhandler extends DefaultHandler {
 		return name;
 	}
 
-	void collectDescriptions() {
-		for (int i = 0; i < attrTables.length; i++) {
-			db("UPDATE item i set " + attrTables[i]
-					+ " = (select GROUP_CONCAT(value SEPARATOR '"
-					+ attrSeparators[i] + "') FROM " + attrTables[i]
-					+ " a WHERE a.record_num = i.record_num AND i."
-					+ attrTables[i] + " IS NULL GROUP BY a.record_num)");
-			// db("TRUNCATE TABLE " + attrTables[i]);
-		}
-	}
+	// void collectDescriptions() {
+	// for (int i = 0; i < attrTables.length; i++) {
+	// db("UPDATE item i set " + attrTables[i]
+	// + " = (select GROUP_CONCAT(value SEPARATOR '"
+	// + attrSeparators[i] + "') FROM " + attrTables[i]
+	// + " a WHERE a.record_num = i.record_num AND i."
+	// + attrTables[i] + " IS NULL GROUP BY a.record_num)");
+	// // db("TRUNCATE TABLE " + attrTables[i]);
+	// }
+	// }
 
 	// private void loadImages(String directory) throws SQLException,
 	// ImageFormatException, InterruptedException {
@@ -1055,188 +1196,98 @@ final class ParseOAIhandler extends DefaultHandler {
 	// }
 	// }
 
-	void loadDRLimages(String directory) throws SQLException,
-			ImageFormatException, InterruptedException {
-		int nToLoad = jdbc.SQLqueryInt("SELECT COUNT(*) "
-				+ "FROM item it LEFT JOIN images im "
-				+ "ON it.record_num = im.record_num WHERE im.image IS NULL");
+	void loadImages(String URLexpr, String pattern, int maxDimension,
+			int quality) throws SQLException, ImageFormatException,
+			InterruptedException {
+		int nToLoad = jdbc
+				.SQLqueryInt("SELECT COUNT(*) "
+						+ "FROM item LEFT JOIN images "
+						+ "ON item.record_num = images.record_num WHERE images.image IS NULL");
 		Util.print(nToLoad + " images to load");
 		if (nToLoad > 0) {
+			Pattern cPattern = null;
+			if (pattern != null)
+				cPattern = Pattern.compile(pattern);
 			ResultSet rs = jdbc
-					.SQLquery("SELECT it.URI, it.record_num "
-							+ "FROM item it LEFT JOIN images im "
-							+ "ON it.record_num = im.record_num WHERE im.image IS NULL");
-			URL base = null;
+					.SQLquery("SELECT "
+							+ URLexpr
+							+ ", item.record_num "
+							+ "FROM item LEFT JOIN images "
+							+ "ON item.record_num = images.record_num WHERE images.image IS NULL");
 			try {
-				base = new URL("http://images.library.pitt.edu/");
-			} catch (MalformedURLException e1) {
-				Util.err(e1);
-			}
-			while (rs.next()) {
-				String loc = rs.getString(1);
-				int record = rs.getInt(2);
-				Util.print("\n" + loc);
-				URL url;
-				try {
-					url = new URL(loc);
-					BufferedReader reader = new BufferedReader(
-							new InputStreamReader(url.openStream()));
-					int state = 0; // 0 - seen nothing; 1 - seen "click on
-					// picture"; 2 - found image; 3 - seen <p>
-					while (state < 2) {
-						String s = reader.readLine();
-						if (s == null)
-							state = 3;
-						else {
-							int start = s.indexOf("src=\"/cgi-bin");
-							if (start >= 0) {
-								int end = s.indexOf("\"", start + 8);
-								if (end > start) {
-									state = 2;
-									String thumbURL = s.substring(start + 5,
-											end);
-									thumbURL = thumbURL.replaceAll(
-											"quality=\\w*", "quality=3");
-									loadImageInternal(directory, thumbURL,
-											base, record, loc);
-								} else {
-									state = 3;
-									Util.print("Bad end index");
-								}
-							}
+				while (rs.next()) {
+					String loc = rs.getString(1);
+					int record = rs.getInt(2);
+					Util.print("\n" + loc);
+					URL thumbURL = new URL(loc);
+					if (cPattern != null) {
+						Matcher matcher = cPattern.matcher(Util.readURL(loc));
+						if (matcher.find()) {
+							loc = matcher.group(1);
+						} else {
+							Util.err("Can't find pattern in " + loc);
 						}
+						thumbURL = new URL(thumbURL, loc);
 					}
-				} catch (IOException e) {
-					e.printStackTrace();
+					loadImageInternal(thumbURL, record, maxDimension, quality);
 				}
+			} catch (IOException e) {
+				e.printStackTrace();
 			}
 		}
 	}
 
-	void loadImageInternal(String directory, String thumbURL, URL base,
-			int record, String loc) throws ImageFormatException,
-			InterruptedException, IOException {
-		Util.print(thumbURL);
-		String[] filenames = loc.split("=");
-		String filename = directory
-				+ filenames[filenames.length - 1].split("\\.")[0];
-		int w = 0;
-		int h = 0;
-		if ((new File(filename + imageFileExtension)).exists()) {
-			filename += imageFileExtension;
-			Util.print("Using existing file " + filename);
-		} else {
-			Vector info = download(base, thumbURL, filename);
-			filename = (String) info.get(0);
-			w = ((Integer) info.get(1)).intValue();
-			h = ((Integer) info.get(2)).intValue();
-		}
-		setImage(record, filename, loc, Math.max(0, w), Math.max(0, h));
-	}
-
-	private void setImage(int record_num, String filename, String URI, int w,
-			int h) {
-		try {
-			PreparedStatement setImage = lookupPS("INSERT INTO images VALUES(?, LOAD_FILE(?), ?, ?, ?)");
-			setImage.setInt(1, record_num);
-			setImage.setString(2, filename);
-			setImage.setString(3, URI);
-			setImage.setInt(4, w);
-			setImage.setInt(5, h);
-			jdbc.SQLupdate(setImage, "Set image");
-		} catch (SQLException e) {
-			e.printStackTrace();
-		}
-	}
-
-	static Vector download(URL base, String address, String localFilename)
-			throws ImageFormatException, InterruptedException, IOException {
-		Vector result = null;
-		OutputStream out = null;
-		URLConnection conn = null;
-		InputStream in = null;
-		String type = null;
-		String dst = null;
-		try {
-			URL url = new URL(base, address);
-			// Util.print(url);
-			conn = url.openConnection();
-			in = conn.getInputStream();
-			String[] types = conn.getContentType().split("/");
-			type = types[types.length - 1];
-			dst = localFilename + "." + type;
-			out = new BufferedOutputStream(new FileOutputStream(dst));
-			byte[] buffer = new byte[1024];
-			int numRead;
-			long numWritten = 0;
-			while ((numRead = in.read(buffer)) != -1) {
-				out.write(buffer, 0, numRead);
-				numWritten += numRead;
+	void loadImageInternal(URL url, int record_num, int maxDimension,
+			int quality) throws ImageFormatException, InterruptedException,
+			IOException {
+		Util.print(url);
+		Image image = Toolkit.getDefaultToolkit().createImage(url);
+		MediaTracker mediaTracker = new MediaTracker(new Container());
+		mediaTracker.addImage(image, 0);
+		mediaTracker.waitForID(0);
+		// Util.print("errors? => " + mediaTracker.isErrorAny());
+		// determine thumbnail size from WIDTH and HEIGHT
+		int imageWidth = image.getWidth(null);
+		int imageHeight = image.getHeight(null);
+		int max = Math.max(imageWidth, imageHeight);
+		if (max > 0) {
+			if (max > maxDimension) {
+				double ratio = maxDimension / (double) max;
+				imageWidth = (int) Math.round(imageWidth * ratio);
+				imageHeight = (int) Math.round(imageHeight * ratio);
 			}
-			System.out.println(dst + "\t" + numWritten);
-		} catch (Exception exception) {
-			exception.printStackTrace();
-		} finally {
-			try {
-				if (in != null) {
-					in.close();
-				}
-				if (out != null) {
-					out.close();
-				}
-			} catch (IOException ioe) {
-				Util.err(base + address + " " + ioe);
-			}
-		}
-		if (imageMIMEtype.equals(type)) {
-			result = convertImage(dst, dst, -1);
-		} else {
-			result = convertImage(dst, localFilename + imageFileExtension, 80);
-		}
-		return result;
-	}
-
-	static Vector convertImage(String inFile, String outFile, int quality)
-			throws InterruptedException, ImageFormatException, IOException {
-		Vector result = null;
-		if (inFile != null) {
-			Image image = Toolkit.getDefaultToolkit().createImage(inFile);
-			MediaTracker mediaTracker = new MediaTracker(new Container());
-			mediaTracker.addImage(image, 0);
-			mediaTracker.waitForID(0);
-			// Util.print("errors? => " + mediaTracker.isErrorAny());
-			// determine thumbnail size from WIDTH and HEIGHT
-			int imageWidth = image.getWidth(null);
-			int imageHeight = image.getHeight(null);
 			// assert imageWidth > 0 && imageHeight > 0 : imageWidth + "x" +
 			// imageHeight;
-			if (inFile != outFile) {
-				BufferedImage thumbImage = new BufferedImage(imageWidth,
-						imageHeight, BufferedImage.TYPE_INT_RGB);
-				Graphics2D graphics2D = thumbImage.createGraphics();
-				graphics2D.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
-						RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-				graphics2D
-						.drawImage(image, 0, 0, imageWidth, imageHeight, null);
-				// save thumbnail image to OUTFILE
-				BufferedOutputStream out = new BufferedOutputStream(
-						new FileOutputStream(outFile));
-				JPEGImageEncoder encoder = JPEGCodec.createJPEGEncoder(out);
-				JPEGEncodeParam param = encoder
-						.getDefaultJPEGEncodeParam(thumbImage);
-				quality = Math.max(0, Math.min(quality, 100));
-				param.setQuality(quality / 100.0f, false);
-				encoder.setJPEGEncodeParam(param);
-				encoder.encode(thumbImage);
-				out.close();
+			BufferedImage thumbImage = new BufferedImage(imageWidth,
+					imageHeight, BufferedImage.TYPE_INT_RGB);
+			Graphics2D graphics2D = thumbImage.createGraphics();
+			graphics2D.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
+					RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+			graphics2D.drawImage(image, 0, 0, imageWidth, imageHeight, null);
+			// save thumbnail image to OUTFILE
+			ByteArrayOutputStream blobStream = new ByteArrayOutputStream();
+			BufferedOutputStream out = new BufferedOutputStream(blobStream);
+			JPEGImageEncoder encoder = JPEGCodec.createJPEGEncoder(out);
+			JPEGEncodeParam param = encoder
+					.getDefaultJPEGEncodeParam(thumbImage);
+			quality = Math.max(0, Math.min(quality, 100));
+			param.setQuality(quality / 100.0f, false);
+			encoder.setJPEGEncodeParam(param);
+			encoder.encode(thumbImage);
+			out.close();
+			try {
+				PreparedStatement setImage = lookupPS("INSERT INTO images VALUES(?, ?, ?, ?)");
+				setImage.setInt(1, record_num);
+				setImage.setBytes(2, blobStream.toByteArray());
+				setImage.setInt(3, imageWidth);
+				setImage.setInt(4, imageHeight);
+				jdbc.SQLupdate(setImage, "Set image");
+			} catch (SQLException e) {
+				e.printStackTrace();
 			}
-			result = new Vector(3);
-			result.add(outFile);
-			result.add(new Integer(imageWidth));
-			result.add(new Integer(imageHeight));
+		} else {
+			Util.err("Error getting image from " + url);
 		}
-		// Util.print("convertImage return " + result);
-		return result;
 	}
 
 	// static Vector convertImageJ2K(String inFile, String outFile, int quality)
@@ -1349,15 +1400,17 @@ final class ParseOAIhandler extends DefaultHandler {
 			Attributes attrs) {
 		if (qName.equals("record")) {
 			newItem();
-			assert set != null;
-			try {
-				Field field = Field.getField("Collection", Field.FACET);
-				int[] facets = getFacets(field, set);
-				assert dontUpdate || facets != null : field + " '" + set + "'";
-				assert facets.length == 1 : "'" + set + "'";
-				setCollection(facets[0]);
-			} catch (Exception e) {
-				e.printStackTrace();
+			if (set != null) {
+				try {
+					Field field = Field.getField("Collection", Field.FACET);
+					int[] facets = getFacets(field, set);
+					assert dontUpdate || facets != null : field + " '" + set
+							+ "'";
+					assert facets.length == 1 : "'" + set + "'";
+					setCollection(facets[0]);
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
 			}
 		} else if (qName.equals("marc:datafield")) {
 			subFacetTable.clear();
@@ -1385,6 +1438,7 @@ final class ParseOAIhandler extends DefaultHandler {
 	public void endElement(String uri, String localName, String qName) {
 		if (data != null && data.length() > 1) {
 			String value = trim(data.toString());
+			// Util.print(qName + " " + value);
 			if (qName.equals("setSpec")) {
 				setSpec = value;
 			} else if (qName.equals("setName")) {
@@ -1399,7 +1453,9 @@ final class ParseOAIhandler extends DefaultHandler {
 					field = Field.getField(qName, Field.FACET);
 				if (field != null) {
 					try {
-						if (field.type == Field.FUNCTIONAL_ATTRIBUTE) {
+						switch (field.type) {
+						case Field.ATTRIBUTE:
+						case Field.FUNCTIONAL_ATTRIBUTE:
 							if (field.name.equals("URI")) {
 								// handleURI(value);
 								ResultSet duplicates = lookupItem(value);
@@ -1411,27 +1467,24 @@ final class ParseOAIhandler extends DefaultHandler {
 										db("DELETE FROM " + tables[i]
 												+ " WHERE record_num = "
 												+ duplicate);
-									for (int i = 0; i < attrTables.length; i++)
-										db("DELETE FROM " + attrTables[i]
-												+ " WHERE record_num = "
-												+ duplicate);
+									// for (int i = 0; i < attrTables.length;
+									// i++)
+									// db("DELETE FROM " + attrTables[i]
+									// + " WHERE record_num = "
+									// + duplicate);
 									updateImageID(duplicate);
 								}
 							}
 							db("UPDATE item SET " + field.name + " = "
 									+ JDBCSample.quote(value)
 									+ " WHERE record_num = " + recordNum + ";");
-						} else if (field.type == Field.ATTRIBUTE) {
-							db("REPLACE INTO " + field.name + " VALUES("
-									+ recordNum + "," + JDBCSample.quote(value)
-									+ ", '');")
-
-							// .append("
-							//
-							// [").append(tag).append(subfield).append("]")
-
-							;
-						} else {
+							break;
+						// case Field.ATTRIBUTE:
+						// db("REPLACE INTO " + field.name + " VALUES("
+						// + recordNum + "," + JDBCSample.quote(value)
+						// + ", '');");
+						// break;
+						case Field.FACET:
 							int[] facets = getFacets(field, value);
 							if (facets != null) {
 								for (int i = 0; i < facets.length; i++) {
@@ -1439,6 +1492,10 @@ final class ParseOAIhandler extends DefaultHandler {
 									addItemFacet(recordNum, facet);
 								}
 							}
+							break;
+						default:
+							assert false : field.type;
+							break;
 						}
 					} catch (SQLException e) {
 						e.printStackTrace();
@@ -1721,9 +1778,11 @@ final class ParseOAIhandler extends DefaultHandler {
 	}
 
 	/**
-	 * @param value facet name
-	 * @param key either "z" for Places or "corp" for Specific Organizations
-	 * @return 
+	 * @param value
+	 *            facet name
+	 * @param key
+	 *            either "z" for Places or "corp" for Specific Organizations
+	 * @return
 	 */
 	private String[] hierValuesInternal(String value, String key) {
 		String[] result = (String[]) subFacetTable.get(key);
@@ -1737,8 +1796,15 @@ final class ParseOAIhandler extends DefaultHandler {
 		return result;
 	}
 
+	private static final Pattern yearPattern = Pattern.compile("\\d{4}");
+
+	private boolean isYear(String s) {
+		return yearPattern.matcher(s).matches();
+	}
+
 	/**
-	 * @param value arbitrary string representing a date
+	 * @param value
+	 *            arbitrary string representing a date
 	 * @return ["20th century", "1990s", "1996", "12", "31"]
 	 * @throws SQLException
 	 */
@@ -1771,8 +1837,7 @@ final class ParseOAIhandler extends DefaultHandler {
 						parentName = date[0] + "/" + year;
 				}
 			}
-		} else if (date.length == 2 && date[0].length() == 4
-				&& date[1].length() == 4) {
+		} else if (date.length == 2 && isYear(date[0]) && isYear(date[1])) {
 			if (date[0].substring(0, 3).equals(date[1].substring(0, 3))) {
 				parentName = date[0].substring(0, 3) + "0s";
 			} else if (date[0].substring(0, 2).equals(date[1].substring(0, 2))) {
@@ -1900,6 +1965,13 @@ final class ParseOAIhandler extends DefaultHandler {
 	// }
 	// }
 
+	private String getName(int facet) throws SQLException {
+		String result = getFacetName(facet);
+		if (result == null)
+			result = getFacetTypeName(facet);
+		return result;
+	}
+
 	private String getFacetName(int facet_id) throws SQLException {
 		return jdbc
 				.SQLqueryString("SELECT name FROM raw_facet WHERE facet_id = "
@@ -2007,8 +2079,10 @@ final class ParseOAIhandler extends DefaultHandler {
 	}
 
 	/**
-	 * @param field raw field from XML file
-	 * @param value raw string from XML file
+	 * @param field
+	 *            raw field from XML file
+	 * @param value
+	 *            raw string from XML file
 	 * @return [<ancestor facets alternetive 1>, ...]
 	 * @throws SQLException
 	 */
@@ -2093,8 +2167,10 @@ final class ParseOAIhandler extends DefaultHandler {
 					String s = result[i][j];
 					s = rename(s);
 					if (s.length() == 0) {
-						Util.err("Ignoring zero length facet name: ["
-								+ Util.join(result[i]) + "] " + value);
+						Util.err("Ignoring zero length facet name in '"
+								+ result[i][j] + "' in '"
+								+ Util.join(result[i], " -- ") + "' in '"
+								+ value + "'");
 						result[i] = null;
 						break;
 					} else if (s.charAt(0) == '-'
@@ -2103,8 +2179,10 @@ final class ParseOAIhandler extends DefaultHandler {
 							|| s.indexOf("-penns") >= 0
 							|| (s.indexOf("enns") != s.indexOf("ennsylvania"))
 							|| (s.indexOf("itts") != s.indexOf("ittsburgh"))) {
-						Util.print("WARNING ignoring suspicious facet name: "
-								+ s + " in " + Util.join(result[i], ","));
+						Util.print("WARNING ignoring suspicious facet name '"
+								+ s + "' in '" + result[i][j] + "' in '"
+								+ Util.join(result[i], " -- ") + "' in '"
+								+ value + "'");
 						result[i] = null;
 						break;
 					}
@@ -2116,8 +2194,10 @@ final class ParseOAIhandler extends DefaultHandler {
 							result[i] = (String[]) Util.deleteIndex(result[i],
 									k, String.class);
 						} else {
-							Util.print("WARNING repeated facet name: ["
-									+ Util.join(result[i], ",") + "] " + value);
+							Util.print("WARNING repeated facet name '"
+									+ result[i][j] + "' in '"
+									+ Util.join(result[i], " -- ") + "' in '"
+									+ value + "'");
 							result[i] = (String[]) Util.subArray(result[i], 0,
 									j, String.class);
 							Util.print("...treating as: ["
@@ -2138,9 +2218,7 @@ final class ParseOAIhandler extends DefaultHandler {
 							result[i] = place;
 					}
 
-					Pattern p = Pattern
-							.compile("\\s*(.*?)\\s*\\((\\w*?)\\.?,?\\s*(\\w+)\\.?\\)\\z");
-					Matcher m = p.matcher(s);
+					Matcher m = cityState.matcher(s);
 					if (m.find()) {
 						String state = (String) getPlaceAbbrevs().get(
 								m.group(3).toLowerCase());
@@ -2149,10 +2227,13 @@ final class ParseOAIhandler extends DefaultHandler {
 							String city = m.group(2);
 							if (city != null && city.length() > 0)
 								state += "--" + city;
-							if (Util.isMember(places, m.group(1).toLowerCase())) {
+							if (cities != null
+									&& cities
+											.contains(m.group(1).toLowerCase())) {
 								state += "--" + m.group(1);
 								result[i] = state.split("--");
 							} else {
+								result[i][j] = m.group(1);
 								result = (String[][]) Util.endPush(result,
 										state.split("--"), String[].class);
 							}
@@ -2189,6 +2270,13 @@ final class ParseOAIhandler extends DefaultHandler {
 		// + Util.join(result, " -- "));
 		return result;
 	}
+
+	/**
+	 * E.g. "Downtown (Pittsburgh, Pa.)" where Pa is in abbrevs. Only adds
+	 * Downtown if it is in cities.
+	 */
+	Pattern cityState = Pattern
+			.compile("\\s*(.*?)\\,?\\s*\\((\\w*?)\\.?,?\\s*(\\w+)\\.?\\)\\z");
 
 	private String trimDate() {
 		return trimDate(data.toString());
@@ -2372,7 +2460,7 @@ final class ParseOAIhandler extends DefaultHandler {
 			// Alfred") >= 0)
 			// Util.print("getFacets adding " + value + " " + parent + "["
 			// + facetType + "] " + Util.join(foo, " -- "));
-			int theResult = newFacet(value, parent, facetType);
+			int theResult = newFacet(value, parent);
 			result = Util.push(result, theResult);
 			// }
 			// else
@@ -2418,8 +2506,9 @@ final class ParseOAIhandler extends DefaultHandler {
 		// Util.print("code 045 " + code + " => " + result);
 		return result;
 	}
-	
+
 	private Map preparedStatements = new Hashtable();
+
 	private PreparedStatement lookupPS(String SQL) throws SQLException {
 		PreparedStatement ps = (PreparedStatement) preparedStatements.get(SQL);
 		if (ps == null) {
@@ -2430,7 +2519,8 @@ final class ParseOAIhandler extends DefaultHandler {
 	}
 
 	/**
-	 * @param name known to be a place name
+	 * @param name
+	 *            known to be a place name
 	 * @return <ancestor hierarchy>
 	 */
 	private String[] lookupGAC(String name) {
@@ -2454,7 +2544,7 @@ final class ParseOAIhandler extends DefaultHandler {
 			PreparedStatement facetTypeQuery = lookupPS("SELECT facet_type_id FROM raw_facet_type WHERE name = ?");
 			facetTypeQuery.setString(1, name);
 			result = jdbc.SQLqueryInt(facetTypeQuery, "Lookup facet type");
-			assert result > 0 : name;
+			assert result > 0 : "Can't find '" + name + "' in raw_facet_type";
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
@@ -2465,9 +2555,9 @@ final class ParseOAIhandler extends DefaultHandler {
 	// return newFacet(name, field.getFacetType(this));
 	// }
 
-	private int newFacet(String name, int facetType) throws SQLException {
-		return newFacet(name, facetType, facetType);
-	}
+	// private int newFacet(String name, int facetType) throws SQLException {
+	// return newFacet(name, facetType, facetType);
+	// }
 
 	Field getDCfield(String tag1) {
 		Field result = null;
@@ -2494,6 +2584,8 @@ final class ParseOAIhandler extends DefaultHandler {
 				result = Field.getField("Language", Field.FACET);
 			} else if (tag1.equals("dc:creator")) {
 				result = Field.getField("Creator", Field.FACET);
+			} else if (tag1.equals("dc:source")) {
+				result = Field.getField("Source", Field.FACET);
 			} else {
 				Util.print("Ignoring " + tag1 + " " + data.toString());
 			}
