@@ -67,6 +67,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.Hashtable;
 import java.util.Iterator;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 import javax.imageio.ImageIO;
@@ -253,6 +254,19 @@ public final class Util {
 	}
 
 	/**
+	 * @param x1
+	 * @param x2
+	 * @param zeroToOne
+	 * @return x + zeroToOne * (x2 - x)
+	 */
+	public static float interpolate(float x1, float x2, float zeroToOne) {
+		if (zeroToOne == 1.0f)
+			// avoid roundoff errors
+			return x2;
+		return x1 + zeroToOne * (x2 - x1);
+	}
+
+	/**
 	 * @param val
 	 * @param minv
 	 * @param maxv
@@ -346,6 +360,12 @@ public final class Util {
 		float[] hsb = getHSBcomponents(color);
 		return Color.getHSBColor(hsb[0], Math.min(1.0f, hsb[1] / factor), Math
 				.min(1.0f, hsb[2] * factor));
+	}
+	public static Color desaturate(Color color, float factor) {
+		if (factor <= 0.0)
+			factor = colorComponentChangeFactor;
+		float[] hsb = getHSBcomponents(color);
+		return Color.getHSBColor(hsb[0], hsb[1] / factor, hsb[2] );
 	}
 
 	/**
@@ -752,6 +772,32 @@ public final class Util {
 		return n;
 	}
 
+	/**
+	 * @param s1
+	 * @param s2
+	 * @return whether s1 and s2 have an item in common
+	 */
+	public static boolean intersects(Set s1, Set s2) {
+		for (Iterator it = s2.iterator(); it.hasNext();) {
+			if (s1.contains(it.next()))
+				return true;
+		}
+		return false;
+	}
+	
+	/**
+	 * @param s1
+	 * @param s2
+	 * @return elements in s1 or s2 but not both.  Destroys s1 and s2.
+	 */
+	public static Set symmetricDifference(Set s1, Set s2) {
+		boolean isIntersects = s1.removeAll(s2);
+		if (isIntersects)
+			s2.removeAll(s1);
+		s1.addAll(s2);
+		return s1;
+	}
+	
 	// public static boolean intersects(Object[] a1, Object[] a2) {
 	// if (a2 != null && a1 != null) {
 	// for (int i = 0; i < a2.length; i++)
@@ -1290,7 +1336,8 @@ public final class Util {
 	 * Save a few keystrokes.
 	 */
 	public static void print(Object o) {
-		// printStackTrace();
+//		if (o.toString().startsWith("MD"))
+//		 printStackTrace();
 		if (o == null)
 			System.out.println("<null>");
 		else
@@ -1329,10 +1376,12 @@ public final class Util {
 		System.out.println(Boolean.toString(o));
 	}
 
-	public static void printStackTrace() {
+	// Return a string so we can be printed in an assert statement
+	public static String printStackTrace() {
 		(new RuntimeException(
 				"Relax.  There's no error, we're just printing the stack trace"))
 				.printStackTrace();
+		return null;
 	}
 
 	public static void err(Object o) {

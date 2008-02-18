@@ -41,15 +41,24 @@ public class MyResultSet implements ResultSet, Serializable {
 			Object col9, Object col10) {
 		List temp = new ArrayList();
 		addCol(col1, temp);
-		if (col2 != null) addCol(col2, temp);
-		if (col3 != null) addCol(col3, temp);
-		if (col4 != null) addCol(col4, temp);
-		if (col5 != null) addCol(col5, temp);
-		if (col6 != null) addCol(col6, temp);
-		if (col7 != null) addCol(col7, temp);
-		if (col8 != null) addCol(col8, temp);
-		if (col9 != null) addCol(col9, temp);
-		if (col10 != null) addCol(col10, temp);
+		if (col2 != null)
+			addCol(col2, temp);
+		if (col3 != null)
+			addCol(col3, temp);
+		if (col4 != null)
+			addCol(col4, temp);
+		if (col5 != null)
+			addCol(col5, temp);
+		if (col6 != null)
+			addCol(col6, temp);
+		if (col7 != null)
+			addCol(col7, temp);
+		if (col8 != null)
+			addCol(col8, temp);
+		if (col9 != null)
+			addCol(col9, temp);
+		if (col10 != null)
+			addCol(col10, temp);
 		return Collections.unmodifiableList(temp);
 	}
 
@@ -83,8 +92,8 @@ public class MyResultSet implements ResultSet, Serializable {
 			Column.PositiveIntegerType);
 
 	public static final List INT_STRING = makeColumnTypeList(
-			Column.IntegerType, Column.StringType, null, null,
-			null, null, null, null, null, null);
+			Column.IntegerType, Column.StringType, null, null, null, null,
+			null, null, null, null);
 
 	public static final List PINT_SINT_STRING_INT_INT_INT = makeColumnTypeList(
 			Column.PositiveIntegerType, Column.SortedIntegerType,
@@ -108,6 +117,10 @@ public class MyResultSet implements ResultSet, Serializable {
 			Column.SortedIntegerType, Column.PositiveIntegerType, null, null,
 			null, null, null, null, null, null);
 
+	public static final List SINT_INT = makeColumnTypeList(
+			Column.SortedIntegerType, Column.IntegerType, null, null, null,
+			null, null, null, null, null);
+
 	public static final List SINT_INT_INT = makeColumnTypeList(
 			Column.SortedIntegerType, Column.IntegerType, Column.IntegerType,
 			null, null, null, null, null, null, null);
@@ -117,9 +130,9 @@ public class MyResultSet implements ResultSet, Serializable {
 			Column.IntegerType, Column.IntegerType, null, null, null, null,
 			null);
 
-	public static final List STRING_IMAGE_INT_INT = makeColumnTypeList(
-			Column.StringType, Column.ImageType, Column.IntegerType,
-			Column.IntegerType, null, null, null, null, null, null);
+	public static final List SNMINT_SINT = makeColumnTypeList(
+			Column.SortedNMIntegerType, Column.SortedIntegerType, null, null,
+			null, null, null, null, null, null);
 
 	public static final List SNMINT_PINT = makeColumnTypeList(
 			Column.SortedNMIntegerType, Column.PositiveIntegerType, null, null,
@@ -127,6 +140,10 @@ public class MyResultSet implements ResultSet, Serializable {
 
 	public static final List STRING = makeColumnTypeList(Column.StringType,
 			null, null, null, null, null, null, null, null, null);
+
+	public static final List STRING_IMAGE_INT_INT = makeColumnTypeList(
+			Column.StringType, Column.ImageType, Column.IntegerType,
+			Column.IntegerType, null, null, null, null, null, null);
 
 	public static final List STRING_INT_INT = makeColumnTypeList(
 			Column.StringType, Column.IntegerType, Column.IntegerType, null,
@@ -167,7 +184,8 @@ public class MyResultSet implements ResultSet, Serializable {
 				} else if (type == Column.IntegerType) {
 					columns[i] = new IntColumn(s, nRows, sorted, positive);
 				} else if (type == Column.SortedNMIntegerType) {
-					columns[i] = new IntColumn(s, nRows, true, false);
+					sorted = true;
+					columns[i] = new IntColumn(s, nRows, sorted, positive);
 				} else if (type == Column.StringType) {
 					columns[i] = new StringColumn(s, nRows);
 				} else if (type == Column.DoubleType) {
@@ -448,20 +466,32 @@ public class MyResultSet implements ResultSet, Serializable {
 
 	public static abstract class Column implements Serializable {
 
+		/**
+		 * This column type contains integers from 0 to about 1,073,741,824
+		 */
 		public final static Object IntegerType = "INTEGER";
 
 		public final static Object StringType = "STRING";
 
 		public final static Object ImageType = "IMAGE";
 
-		// each value must be at least 1 greater than previous value. Encode as
-		// n - prev - 1.
+		/**
+		 * This column type contains integers from 1 to about 1,073,741,824 Each
+		 * value must be at least 1 greater than previous value. Encode as n -
+		 * prev - 1.
+		 */
 		public final static Object SortedIntegerType = "SORTED_INTEGER";
 
+		/**
+		 * This column type contains integers from 1 to about 1,073,741,824
+		 */
 		public final static Object PositiveIntegerType = "POSITIVE_INTEGER";
 
-		// each value must be at least as large as previous value. Encode as
-		// n - prev.
+		/**
+		 * This column type contains integers from 0 to about 1,073,741,824 each
+		 * value must be at least as large as previous value. Encode as n -
+		 * prev.
+		 */
 		public final static Object SortedNMIntegerType = "SORTED_NM_INTEGER";
 
 		public final static Object DoubleType = "DOUBLE";
