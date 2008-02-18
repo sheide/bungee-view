@@ -146,7 +146,7 @@ final class ServletInterface {
 	}
 
 	void close() {
-		doCommand("CLOSE");
+		dontGetStream("CLOSE", null);
 		// sessionID = null;
 	}
 
@@ -241,18 +241,18 @@ final class ServletInterface {
 	// return getInt(command, args);
 	// }
 
-	void doCommand(String command) {
-		doCommand(command, null);
-	}
-
-	void doCommand(String command, String[] args) {
-		try {
-			DataInputStream s = getStream(command, args);
-			s.close();
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-	}
+	// void doCommand(String command) {
+	// doCommand(command, null);
+	// }
+	//
+	// void doCommand(String command, String[] args) {
+	// try {
+	// DataInputStream s = getStream(command, args);
+	// s.close();
+	// } catch (IOException e) {
+	// e.printStackTrace();
+	// }
+	// }
 
 	String getString(String command, String[] args) {
 		DataInputStream in = getStream(command, args);
@@ -429,10 +429,12 @@ final class ServletInterface {
 	int updateOnItems(String subQuery, int item, int table, int nNeighbors) {
 		decacheOffsets();
 		if (subQuery != null) {
+//			Util.print(subQuery);
 			String[] args = { subQuery, Integer.toString(item),
 					Integer.toString(table), Integer.toString(nNeighbors) };
 			DataInputStream in = getStream("updateOnItems", args);
 			int onCount = MyResultSet.readInt(in);
+//			Util.print("updateOnItems " + onCount + " " + subQuery);
 			if (onCount > 0 && nNeighbors > 1) {
 				itemIndexInternal(in, item, nNeighbors);
 			}
@@ -443,40 +445,17 @@ final class ServletInterface {
 		}
 	}
 
-	// facet's children_offset and isAlphabetic is written before rs
-	// Field order count, nChildren, childrenOffset, name
-	// Passing in facet breaks abstraction, to allow "returning" children_offset
-	// with a side-effect as well as ResultSet
-	ResultSet prefetch(Perspective facet, int type) {
+	DataInputStream prefetch(Perspective facet, int type) {
 		int facetID = facet.getID();
-		List types = null;
-		switch (type) {
-		case 1:
-		case 5:
-			types = MyResultSet.INT_INT_STRING;
-			break;
-		case 2:
-		case 6:
-			types = MyResultSet.INT_INT;
-			break;
-		case 3:
-			types = MyResultSet.INT_STRING;
-			break;
-		case 4:
-			types = MyResultSet.INT;
-			break;
-		default:
-			assert false : "prefetch args=" + type;
-		}
 		String[] args = { Integer.toString(facetID), Integer.toString(type) };
 		DataInputStream in = getStream("prefetch", args);
-		facet.setChildrenOffset(MyResultSet.readInt(in));
-		facet.setIsAlphabetic(MyResultSet.readInt(in) > 0);
-//		Util.print("offset " + facet + " " + facet.childrenOffset() + " "
-//				+ facet.isAlphabetic());
-		ResultSet rs = new MyResultSet(in, types);
-		closeNcatch(in, "prefetch");
-		return rs;
+		return in;
+	}
+
+	ResultSet getLetterOffsets(Perspective facet, String prefix) {
+		int facetID = facet.getID();
+		String[] args = { Integer.toString(facetID), prefix };
+		return getResultSet("getLetterOffsets", args, MyResultSet.SNMINT_SINT);
 	}
 
 	ResultSet init() {
@@ -501,12 +480,14 @@ final class ServletInterface {
 		return result;
 	}
 
-	ResultSet getThumbs(String items, int imageW, int imageH, int quality) {
-		// long start = new Date().getTime();
-		ResultSet result = getResultSet("getThumbs",
-				MyResultSet.SINT_IMAGE_INT_INT, items, imageW, imageH, quality);
-		// System.out.println("getThumbs took " + (new Date().getTime() - start)
-		// + " ms");
+	ResultSet[] getThumbs(String items, int imageW, int imageH, int quality) {
+		String[] args = { items, Integer.toString(imageW),
+				Integer.toString(imageH), Integer.toString(quality) };
+		DataInputStream in = getStream("getThumbs", args);
+		ResultSet[] result = new ResultSet[2];
+		result[0] = new MyResultSet(in, MyResultSet.SINT_IMAGE_INT_INT);
+		result[1] = new MyResultSet(in, MyResultSet.SNMINT_PINT);
+		closeNcatch(in, "getThumbs");
 		return result;
 	}
 

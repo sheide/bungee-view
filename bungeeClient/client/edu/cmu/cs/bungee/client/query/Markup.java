@@ -46,7 +46,7 @@ public interface Markup extends List {
 	public static final Object ITALIC_STRING_TAG = new Character('i');
 
 	/**
-	 * insert 'image' or 'work' or whatever, as specified in
+	 * insert 'images' or 'works' or whatever, as specified in
 	 * globals.genericObjectLabel
 	 */
 	public static final Object GENERIC_OBJECT_LABEL = "Generic Object Label";
@@ -55,38 +55,67 @@ public interface Markup extends List {
 	 */
 	public static final String parentIndicatorPrefix = "\u2192"; // '\u2023'
 
+	static final Color INCLUDED_COLOR = new //Color(0xdfc27d);
+	Color(0x00ff00); //Color(0xbd0000);
+
+	static final Color POSITIVE_ASSOCIATION_COLOR = new //Color(0xa6611a);
+	Color(0x509950); //Color(0xc15151);
+
+	static final Color EXCLUDED_COLOR = new //Color(0x80cdc1);
+	Color(0xac9200); //Color(0x4a0183);
+
+	static final Color NEGATIVE_ASSOCIATION_COLOR = new //Color(0x018571);
+	Color(0x8e784f); //Color(0x663e85);
+
+	static final Color UNASSOCIATED_COLOR = new Color(0x707070); 
+
 	/**
 	 * Colors used for facets significantly positively associated with the
 	 * current filters
 	 */
-	public static final Color[] POSITIVE_ASSOCIATION_COLORS = { new Color(0x003320),
-			new Color(0x006640), new Color(0x00BB70), new Color(0x00FF90) };
+	public static final Color[] POSITIVE_ASSOCIATION_COLORS =
+	// { new Color(0x003320),
+	// new Color(0x006640), new Color(0x00BB70), new Color(0x00FF90) };
+	{ POSITIVE_ASSOCIATION_COLOR,
+			POSITIVE_ASSOCIATION_COLOR.brighter().brighter() };
 
 	/**
 	 * Colors used for facets significantly negatively associated with the
 	 * current filters
 	 */
-	public static final Color[] NEGATIVE_ASSOCIATION_COLORS = { new Color(0x660000),
-			new Color(0x660000), new Color(0xBB0000), new Color(0xFF0000) };
+	public static final Color[] NEGATIVE_ASSOCIATION_COLORS =
+	// { new Color(0x660000),
+	// new Color(0x660000), new Color(0xBB0000), new Color(0xFF0000) };
+	{ NEGATIVE_ASSOCIATION_COLOR,
+		NEGATIVE_ASSOCIATION_COLOR.brighter().brighter() };
 
 	/**
 	 * Colors used for facets in positive filters
 	 */
-	public static final Color[] INCLUDED_COLORS = { new Color(0x003300),
-			new Color(0x006600), new Color(0x00BB00), new Color(0x00FF00) };
+	public static final Color[] INCLUDED_COLORS =
+	// { new Color(0x003300),
+	// new Color(0x006600), new Color(0x00BB00), new Color(0x00FF00) };
+	{ INCLUDED_COLOR,
+		new Color(0xc4ffc4) };
 
 	/**
 	 * Colors used for facets in negative filters
 	 */
-	public static final Color[] EXCLUDED_COLORS = { new Color(0x330000),
-			new Color(0x660000), new Color(0xBB0000), new Color(0xFF0000) };
+	public static final Color[] EXCLUDED_COLORS =
+	// { new Color(0x330000),
+	// new Color(0x660000), new Color(0xBB0000), new Color(0xFF0000) };
+	{ EXCLUDED_COLOR,
+		EXCLUDED_COLOR.brighter().brighter() };
 
 	/**
 	 * Colors used for facets not significantly associated with the current
 	 * filters
 	 */
-	public static final Color[] UNASSOCIATED_COLORS = { new Color(0x555555),
-			new Color(0x999999), new Color(0xFFFFFF) };
+	public static final Color[] UNASSOCIATED_COLORS = 
+//	{ new Color(0x555555),
+//			new Color(0x999999), new Color(0xFFFFFF) };
+	{ UNASSOCIATED_COLOR,
+		UNASSOCIATED_COLOR.brighter().brighter() };
 
 	/**
 	 * @param genericObjectLabel
@@ -166,7 +195,6 @@ final class MarkupImplementation extends ArrayList implements Markup {
 						if (nPolaritiesUsed == 1 && polarity == 1
 								&& tag.equals("object")) {
 							// negative restrictions only
-							result.add(PLURAL_TAG);
 							result.add(GENERIC_OBJECT_LABEL);
 							nPolaritiesUsed++;
 						}
@@ -233,6 +261,7 @@ final class MarkupImplementation extends ArrayList implements Markup {
 	// }
 
 	static void descriptionNounPhrase(List phrases, Markup result) {
+//		Util.print("descriptionNounPhrase '" + phrases + "' '" + result+"'");
 		for (Iterator it = phrases.iterator(); it.hasNext();) {
 			Markup phrase = (Markup) it.next();
 			if (phrase.get(0).equals("object")) {
@@ -244,18 +273,17 @@ final class MarkupImplementation extends ArrayList implements Markup {
 			}
 		}
 		if (result.size() == 0) {
-			result.add(Markup.PLURAL_TAG);
 			result.add(Markup.GENERIC_OBJECT_LABEL);
 		}
 		// if (onCount != 1)
 		// for (int i = 0; i < objects.size(); i++)
 		// objects[i] = Util.pluralize(objects[i]);
 		// result.add(Util.toEnglish(result, " and "));
-		// Util.print("descriptionNounPhrase: " + result);
+//		 Util.print("  descriptionNounPhrase: " + result);
 	}
 
-	static void descriptionClauses(List phrases, Markup result,
-			Set searches, Set clusters) {
+	static void descriptionClauses(List phrases, Markup result, Set searches,
+			Set clusters) {
 		// Util.print("\nq.descriptionClauses "
 		// + Util.valueOfDeep(phrases));
 		// Util.printDeep(result);
@@ -301,7 +329,7 @@ final class MarkupImplementation extends ArrayList implements Markup {
 			} else
 				result.add(" and ");
 			result.add(s);
-			result.add(Markup.INCLUDED_COLORS[2]);
+			result.add(Markup.INCLUDED_COLORS[0]);
 			result.add(search);
 			result.add(Markup.DEFAULT_COLOR_TAG);
 			result.add("'");
@@ -358,12 +386,12 @@ final class MarkupImplementation extends ArrayList implements Markup {
 	// }
 
 	static Markup restrictionsDescription(SortedSet restrictions) {
-		Perspective aRestriction = (Perspective) restrictions.first();
-		Perspective parent = aRestriction.getParent();
 		Markup content = Query.emptyMarkup();
-		String prefix = parent != null ? parent.namePrefix() : "";
-		if (prefix.length() > 0)
-			content.add(prefix);
+		Perspective aRestriction = (Perspective) restrictions.first();
+		// Perspective parent = aRestriction.getParent();
+		// String prefix = parent != null ? parent.namePrefix() : "";
+		// if (prefix.length() > 0)
+		content.add(aRestriction.namePrefix());
 		Query.toEnglish(restrictions, " and ", content);
 
 		Markup[] descriptions = new Markup[2];

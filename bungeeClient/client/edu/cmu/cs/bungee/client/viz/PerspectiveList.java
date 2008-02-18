@@ -41,6 +41,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 import java.util.SortedSet;
 
 import edu.cmu.cs.bungee.client.query.ItemPredicate;
@@ -109,9 +110,15 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 
 	private double h;
 
+	/**
+	 * Column separation, and also vertical separation below buttons
+	 */
 	private double margin = 5;
 
-	private double sortButtonMargin = 2;
+	/**
+	 * Offset of this PerspectiveList
+	 */
+	private double sortButtonMargin = 8;
 
 	final VScrollbar scrollbar;
 
@@ -190,7 +197,7 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 
 	private double nameXoffset() {
 		// For some reason things line up better adding 1 space instead of 2
-		return sortByOnCount.getMaxX() + art.getStringWidth(" ");
+		return sortByOnCount.getMaxX() + art.spaceWidth;
 	}
 
 	/**
@@ -217,10 +224,12 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 		// 0.7 let's us line up more exactly with the boxes.
 		sortBySelection.setWidth(art.checkBoxWidth * 0.7);
 		sortBySelection.setOffset(margin, y);
+		sortBySelection.positionChild();
 		addChild(sortBySelection);
 
 		sortByOnCount.setWidth((int) (numW));
 		sortByOnCount.setOffset(countXoffset(), y);
+		sortByOnCount.positionChild();
 		addChild(sortByOnCount);
 
 		double rightMargin = margin
@@ -234,6 +243,7 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 
 		sortByNatural.setWidth((int) (w - nameXoffset() - rightMargin));
 		sortByNatural.setOffset(nameXoffset(), y);
+		sortByNatural.positionChild();
 		addChild(sortByNatural);
 
 		// setWidth(w);
@@ -287,7 +297,7 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 	}
 
 	void init(Perspective _selected) {
-//		 Util.print("PL.init() " + isHidden() + " " + _selected);
+		// Util.print("PL.init() " + isHidden() + " " + _selected);
 		assert _selected != null;
 		Perspective _selectedParent = _selected.getParent();
 		assert _selectedParent != null : _selected;
@@ -347,7 +357,7 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 		label.setText(Util.addCommas(size()) + " " + _selectedParent.getName()
 				+ " tags");
 		// }
-//		 Util.print(" PL.init return ");
+		// Util.print(" PL.init return ");
 	}
 
 	double longestNameLength() {
@@ -371,9 +381,12 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 	}
 
 	void updateData() {
-		init(selected);
-		validate(); // in case offset needs to change due to change in displayed
-		// pv's
+		if (!isHidden()) {
+			init(selected);
+			validate(); // in case offset needs to change due to change in
+						// displayed
+			// pv's
+		}
 	}
 
 	void setSelected(Perspective _selected) {
@@ -503,7 +516,7 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 	}
 
 	void showList(int lineOffset) {
-//		 Util.print("PL.showList " + lineOffset);
+		// Util.print("PL.showList " + lineOffset);
 		assert !isHidden();
 		if (size() != selected.nSiblings()) {
 			// In case we've added or removed facets
@@ -565,20 +578,17 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 		if (longestNamedFacet != initialLongName) {
 			showList(lineOffset);
 		}
-//		 Util.print(" PL.showList return");
+		// Util.print(" PL.showList return");
 	}
 
-	void highlightFacet(Perspective facet) {
-		if (!isHidden() && facet.getParent() == listedPerspective()) {
+	void highlightFacet(Set facets) {
+		if (!isHidden()) {
 			// Util.print("PL.showFacet " + facet);
 			for (Iterator it = getChildrenIterator(); it.hasNext();) {
 				PNode n = (PNode) it.next();
 				if (n instanceof FacetText) {
 					FacetText f = (FacetText) n;
-					if (f.getFacet() == facet) {
-						f.setColor(counts[facet.whichChild()]);
-						break;
-					}
+					f.setColor(counts[f.getFacet().whichChild()]);
 				}
 			}
 		}

@@ -32,6 +32,7 @@
 package edu.cmu.cs.bungee.client.viz;
 
 import java.awt.Color;
+import java.awt.Graphics2D;
 import java.text.DecimalFormat;
 import java.text.FieldPosition;
 import java.text.NumberFormat;
@@ -44,13 +45,12 @@ import edu.cmu.cs.bungee.client.query.Query;
 import edu.cmu.cs.bungee.javaExtensions.*;
 import edu.cmu.cs.bungee.piccoloUtils.gui.APText;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
+import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPPath;
+import edu.umd.cs.piccolo.util.PPaintContext;
 
+final class MouseDocLine extends LazyPNode implements PerspectiveObserver {
 
-
-
- final class MouseDocLine extends LazyPNode implements PerspectiveObserver {
-
-	private static final Color tipBG = Bungee.helpColor; //Color.yellow;
+	private static final Color tipBG = Bungee.helpColor; // Color.yellow;
 
 	private TextNfacets clickDesc;
 
@@ -60,19 +60,21 @@ import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
 
 	private TextNfacets facetDesc;
 
-	 void validate(double w, double h) {
+	void validate(double w, double h) {
 		// Util.print("MouseDoc.validate: " + _w + " x " + _h);
 		setBounds(0, 0, w, h);
 		clickDesc.setBounds(0, 0, w, h);
 		tip.setBounds(0, 0, w, h);
 	}
 
-	 MouseDocLine(Bungee _art) {
+	MouseDocLine(Bungee _art) {
 		art = _art;
 		facetDesc = new TextNfacets(art, Color.lightGray, false);
 		// facetDesc.setJustification(Component.CENTER_ALIGNMENT);
 		// RIGHT_ALIGNMENT);
+
 		facetDesc.setPaint(Util.lighten(Bungee.headerBG, 1.2f));
+
 		// facetDesc.setWrapText(true);
 		// facetDesc.facetTextPaint = Color.white;
 		// addChild(facetDesc);
@@ -89,11 +91,10 @@ import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
 		addChild(facetDesc);
 
 		clickDesc = new TextNfacets(art, Bungee.mouseDocFG, false);
-		clickDesc.setPaint(Bungee.headerBG.brighter());
+		// clickDesc.setPaint(Bungee.headerBG.brighter());
 		clickDesc.setVisible(false);
 		clickDesc.facetPermanentTextPaint = Color.white;
 		// clickDesc.setWrapText(true);
-		clickDesc.setTrim(20, 0);
 		addChild(clickDesc);
 
 		tip = art.oneLineLabel();
@@ -110,7 +111,11 @@ import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
 		setPaint(Bungee.headerBG);
 	}
 
-	 void setTip(String s) {
+	public double minHeight() {
+		return art.lineH;
+	}
+
+	void setTip(String s) {
 		if (s != null) {
 			tip.setText(s);
 			tip.setVisible(true);
@@ -123,62 +128,49 @@ import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
 		}
 	}
 
-	 void setClickDesc(String s) {
-		// Util.print("setClickDesc " + s);
-		if (s == null)
-			defaultClickDesc();
-		else {
-			Markup v = Query.emptyMarkup();
+	void setClickDesc(String s) {
+		// Util.print("MD.setClickDesc " + s);
+		Markup v = null;
+		if (s != null) {
+			v = Query.emptyMarkup();
 			v.add(s);
-			setClickDesc(v);
 		}
+		setClickDesc(v);
 	}
 
-	 void setClickDesc(Markup s) {
-		// Util.print("setClickDesc " + s);
+	void setClickDesc(Markup s) {
+//		Util.print("setClickDesc " + s);
+		art.getCanvas().paintImmediately();
 		if (s == null)
-			defaultClickDesc();
+			s = art.defaultClickDesc();
 		else {
 			s.add(0, "Clicking will: ");
-			setClickDescInternal(s);
 		}
+		if (s == null)
+			clickDesc.setVisible(false);
+		else
+			setClickDescInternal(s);
+		repaintNow();
+		art.getCanvas().paintImmediately();
 	}
 
 	private void setClickDescInternal(Markup s) {
-//		 Util.print("setClickDesc " + s);
+		// Util.print("setClickDescInternal " + s);
 		assert s != null;
-		clickDesc.setContent(s);
-		// Allow room for facetDoc to at least say "mmmm (100% of nnnn) P=1E-10"
-		double maxW = getWidth() - (art.isPopups ? 0 : art.lineH * 20);
-		clickDesc.setWidth(maxW);
-		clickDesc.layout();
-		// clickDesc.trim(20, 0);
-		clickDesc.setVisible(true);
-	}
-
-	/**
-	 * The mouse doc to display when the mouse isn't over something you can click on.
-	 */
-	private void defaultClickDesc() {
-		// if (clickDesc.content != null) {
-		// for (Iterator it=clickDesc.content.iterator(); it.hasNext(); ) {
-		// if (it.next() instanceof Cluster)
-		// Util.printStackTrace();
-		// }
-		// }
-		if (art.arrowFocus == null
-				&& (art.grid == null || art.grid.onCount <= 1)) {
-			clickDesc.setVisible(false);
-		} else {
-			Markup v = Query.emptyMarkup();
-			v.add("Arrow keys will move through: ");
-			if (art.arrowFocus == null) {
-				v.add(Bungee.gridFG);
-				v.add("Results");
-			} else
-				v.add(art.arrowFocus.getParent());
-			setClickDescInternal(v);
+		if (clickDesc.setContent(s)) {
+			// Allow room for facetDoc to at least say "mmmm (100% of nnnn)
+			// P=1E-10"
+			if (art.isPopups) {
+				clickDesc.setWidth(getWidth());
+				clickDesc.setTrim(-1, -1);
+			} else {
+				clickDesc.setWidth(getWidth() - art.lineH * 20);
+				clickDesc.setTrim(20, 0);
+			}
+			clickDesc.layout();
+			// clickDesc.trim(20, 0);
 		}
+		clickDesc.setVisible(true);
 	}
 
 	static final DecimalFormat pValueFormat = new DecimalFormat("0E0");
@@ -188,7 +180,7 @@ import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
 	static final FieldPosition stupid = new FieldPosition(
 			NumberFormat.FRACTION_FIELD);
 
-	 void showObjectDesc(Markup desc, Object facet) {
+	void showObjectDesc(Markup desc, Object facet) {
 		// Util.print("showObjectDesc " + desc);
 		if (desc == null || facet == null) {
 			facetDesc.setVisible(false);
@@ -201,13 +193,13 @@ import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
 		// gui.Util.printDescendents(facetDesc);
 	}
 
-	 void showPopup(Perspective facet) {
+	void showPopup(Perspective facet) {
 		// Util.print("MouseDoc.showFacet " + state + " " + facet);
 		Markup desc = null;
 		if (facet != null) {
 			desc = Query.emptyMarkup();
 			if (facet.getParent() == null) {
-				desc.add(Util.pluralize(art.query.genericObjectLabel));
+				desc.add(art.query.genericObjectLabel);
 				desc.add(" having ");
 			}
 			desc.add(facet);
@@ -216,21 +208,24 @@ import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
 		showObjectDesc(desc, facet);
 	}
 
-	 public void redraw() {
+	public void redraw() {
 		if (facetDesc.getVisible()) {
 			facetDesc.layout(getWidth(), getHeight());
-//			Util.print("MD.redraw " + facetDesc.getWidth() + " " + facetDesc.toText());
+			// Util.print("MD.redraw " + facetDesc.getWidth() + " " +
+			// facetDesc.toText());
 			facetDesc.setXoffset(getWidth() - facetDesc.getWidth());
 		}
 	}
 
 	String facetInfo(Perspective facet) {
 		// Util.printDeep(facet.setChiSqTable());
-		return facetInfo(facet.guessOnCount(), facet.getTotalCount(), facet.pValue());
+		return facetInfo(facet.guessOnCount(), facet.getTotalCount(), facet
+				.pValue());
 	}
 
 	String facetInfo(Cluster facet) {
-		return facetInfo(facet.getOnCount(), facet.getTotalCount(), facet.pValue());
+		return facetInfo(facet.getOnCount(), facet.getTotalCount(), facet
+				.pValue());
 	}
 
 	String facetInfo(int onCount, int count, double pValue) {
@@ -273,6 +268,12 @@ import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
 				pValueFormat.format(pValue, buf, stupid);
 		}
 		return buf;
+	}
+
+	protected void paint(PPaintContext paintContext) {
+		// Util.print("MD.paint " + clickDesc);
+		// Util.printStackTrace();
+		super.paint(paintContext);
 	}
 
 }

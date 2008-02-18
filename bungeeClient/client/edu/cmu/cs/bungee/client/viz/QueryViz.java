@@ -37,6 +37,7 @@ import edu.cmu.cs.bungee.client.query.Query;
 import edu.cmu.cs.bungee.javaExtensions.Util;
 import edu.cmu.cs.bungee.piccoloUtils.gui.APText;
 import edu.cmu.cs.bungee.piccoloUtils.gui.Boundary;
+import edu.cmu.cs.bungee.piccoloUtils.gui.LazyContainer;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
 import edu.cmu.cs.bungee.piccoloUtils.gui.MouseDoc;
 import edu.cmu.cs.bungee.piccoloUtils.gui.TextButton;
@@ -55,6 +56,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Set;
 import java.util.Vector;
 
 import javax.swing.AbstractAction;
@@ -65,9 +67,9 @@ import javax.swing.text.BadLocationException;
 import javax.swing.text.Document;
 import javax.swing.text.JTextComponent;
 
-final class QueryViz extends LazyPNode implements MouseDoc {
+final class QueryViz extends LazyContainer implements MouseDoc {
 
-	// private double h;
+//	 private double w,h;
 
 	private final Summary summary;
 
@@ -147,7 +149,9 @@ final class QueryViz extends LazyPNode implements MouseDoc {
 		inputMap.put(key, new KeypressEnterAction(this));
 
 		boundary = new Boundary(this, false);
+		boundary.margin = -Rank.LABEL_RIGHT_MARGIN/2;
 		addChild(boundary);
+		boundary.validate();
 
 		isInitted = true;
 		positionSearchBox();
@@ -169,10 +173,13 @@ final class QueryViz extends LazyPNode implements MouseDoc {
 
 	void validate(double _w, double _h) {
 		// Util.print("qv.validate " + _w);
+		w = _w;
+		h = _h;
 		assert _w == Math.round(_w);
-		setBounds(0, 0, _w, _h);
-		if (boundary != null)
+//		setBounds(0, 0, _w, _h);
+		if (boundary != null) {
 			boundary.validate();
+		}
 		// positionSearchBox();
 		synchronizeWithQuery();
 	}
@@ -199,7 +206,7 @@ final class QueryViz extends LazyPNode implements MouseDoc {
 
 	double positionSearchBox() {
 		// h = _h;
-		double y = getHeight() - getBottomMargin();
+		double y = h - getBottomMargin();
 		if (isInitted) {
 			// Util.print("positionSearchBox " + y);
 			// setBounds(0, 0, w, h);
@@ -209,13 +216,13 @@ final class QueryViz extends LazyPNode implements MouseDoc {
 			// 0);
 			// textLabel.setOffset(2, y);
 			// y += textLabel.getScale() * textLabel.getHeight() * 1.2;
-			double x = 2;
+			double x = Rank.LABEL_LEFT_MARGIN;
 			searchLabel.setFont(font());
 			searchLabel.setOffset(x, y);
 			x += Math.ceil(searchLabel.getWidth());
 //			searchBox.setHeight(lineH() - 2);
-			searchBox.setOffset(x + 10, y);
-			searchBox.setWidth(10 * lineH());
+			searchBox.setOffset(w, y); //x + 10, y);
+			searchBox.setWidth(summary.w - w); //10 * lineH());
 			if (searchBox.getParent() == null)
 				addChild(searchBox); // If edited string is empty and you
 			// click
@@ -254,7 +261,7 @@ final class QueryViz extends LazyPNode implements MouseDoc {
 	}
 
 	public double maxWidth() {
-		return summary.getWidth() - summary.widgetWidth();
+		return summary.w - summary.widgetWidth();
 	}
 
 	void doSearch() {
@@ -351,7 +358,7 @@ final class QueryViz extends LazyPNode implements MouseDoc {
 			// summary.updateQueryH(0);
 			// Util.print("synchronizeWithQuery " );
 			List desiredSearches = new LinkedList(query().getSearches());
-			double y = getHeight() - getBottomMargin() + lineH();
+			double y = h - getBottomMargin() + lineH();
 			ListIterator nodeIt = searches.listIterator();
 			// Out with the old Strings
 			while (nodeIt.hasNext()) {
@@ -461,14 +468,14 @@ final class QueryViz extends LazyPNode implements MouseDoc {
 		return result;
 	}
 
-	void highlightCluster(Cluster cluster) {
+	void highlightCluster(Set clusters) {
 		// Util.print("highlightCluster " + cluster.toString());
 		if (clusterLabel.getVisible()) {
 			for (Iterator nodeIt = searches.iterator(); nodeIt.hasNext();) {
 				nodeIt.next();
 				FacetText label = (FacetText) nodeIt.next();
-				if (cluster.equals(label.cluster)) {
-					label.setTextPaint(art().clusterTextColor(cluster));
+				if (clusters.contains(label.cluster)) {
+					label.setTextPaint(art().clusterTextColor(label.cluster));
 				}
 			}
 		}

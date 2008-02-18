@@ -37,6 +37,8 @@ import java.util.Arrays;
 import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
+import java.util.Map.Entry;
 
 import javax.swing.SwingUtilities;
 
@@ -49,10 +51,12 @@ import edu.cmu.cs.bungee.client.viz.Summary.RankComponentHeights;
 import edu.cmu.cs.bungee.javaExtensions.Util;
 import edu.cmu.cs.bungee.piccoloUtils.gui.APText;
 import edu.cmu.cs.bungee.piccoloUtils.gui.Arrow;
+import edu.cmu.cs.bungee.piccoloUtils.gui.LazyContainer;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPPath;
 import edu.cmu.cs.bungee.piccoloUtils.gui.MyInputEventHandler;
 import edu.umd.cs.piccolo.PNode;
+import edu.umd.cs.piccolo.activities.PActivity;
 import edu.umd.cs.piccolo.activities.PInterpolatingActivity;
 import edu.umd.cs.piccolo.event.PBasicInputEventHandler;
 import edu.umd.cs.piccolo.event.PInputEvent;
@@ -60,7 +64,7 @@ import edu.umd.cs.piccolo.nodes.PPath;
 import edu.umd.cs.piccolo.util.PBounds;
 import edu.umd.cs.piccolo.util.PDimension;
 
-final class PerspectiveViz extends LazyPNode implements FacetNode,
+final class PerspectiveViz extends LazyContainer implements FacetNode,
 		PickFacetTextNotifier {
 
 	Summary summary;
@@ -101,16 +105,14 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 	 * Our logical width, of which floor(leftEdge) - floor(leftEdge +
 	 * visibleWidth) is visible. logicalWidth>=visibleWidth();
 	 * 
-	 * visibleWidth = getWidth() - epsilon bars are placed at floor(0 -
+	 * visibleWidth = w - epsilon bars are placed at floor(0 -
 	 * logicalWidth)
 	 */
 	double logicalWidth = 0;
 
-	double visibleWidth = 0;
-
 	/**
 	 * offset into logicalWidth of the leftmost visible pixel. Rightmost visible
-	 * pixel is leftEdge + getWidth() - epsilon 0<=leftEdge<logicalWidth-visibleWidth;
+	 * pixel is leftEdge + w - epsilon 0<=leftEdge<logicalWidth-visibleWidth;
 	 */
 	double leftEdge = 0;
 
@@ -126,13 +128,15 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 		// Util.print("setLogicalBounds " + x + " " + w);
 		assert x >= 0 && x + visibleWidth() <= w : x + "/" + w + " "
 				+ visibleWidth();
-		leftEdge = x;
-		logicalWidth = w;
-		revalidate();
+		if (x != leftEdge || w != logicalWidth) {
+			leftEdge = x;
+			logicalWidth = w;
+			revalidate();
+		}
 	}
 
 	double visibleWidth() {
-		return visibleWidth;
+		return w-epsilon;
 		// return getWidth() - 1.0e-12;
 	}
 
@@ -173,7 +177,7 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 	PerspectiveViz(Perspective _p, Summary _summary) {
 		p = _p;
 		summary = _summary;
-		parentPV = summary.findPerspective(p.getParent());
+		parentPV = summary.lookupPV(p.getParent());
 		setPickable(false);
 
 		// Bungee art = art();
@@ -182,7 +186,7 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 
 		front = new SqueezablePNode();
 		front.setPaint(pvBG);
-		// front.setStroke(LazyPPath.getStrokeInstance(0));
+//		 front.setStroke(LazyPPath.getStrokeInstance(0));
 		front.setHeight(1);
 		// front.clip = new PBounds(-1000, 0.5, 2000, 0.5);
 		addChild(front);
@@ -235,11 +239,11 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 				front.addChild(percentLabels[i]);
 			}
 			percentLabels[0].setText(formatOddsRatio(Math
-					.exp(-Rank.logOddsRange))
+					.exp(-Rank.LOG_ODDS_RANGE))
 					+ "+");
 			percentLabels[1].setText(formatOddsRatio(Math.exp(0)));
 			percentLabels[2].setText(formatOddsRatio(Math
-					.exp(Rank.logOddsRange))
+					.exp(Rank.LOG_ODDS_RANGE))
 					+ "+");
 
 			percentLabelHotZone = new LazyPNode();
@@ -273,23 +277,29 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 	}
 
 	void updateData() {
-		// Util.print("PV.updateData " + p);
-		assert rank.expectedPercentOn() >= 0;
-		if (query().isQueryValid()) {
-			for (Iterator it = barTable.values().iterator(); it.hasNext();) {
-				Bar bar = ((Bar) it.next());
-				bar.updateData();
+		// Util.print("PV.updateData " + p+" "+p.getTotalChildTotalCount()+"
+		// "+query().isQueryValid());
+		if (p.getTotalChildTotalCount() == 0) {
+			query().removeRestrictionInternal(p);
+			summary.synchronizeWithQuery();
+		} else {
+			assert rank.expectedPercentOn() >= 0;
+			if (query().isQueryValid()) {
+				for (Iterator it = barTable.values().iterator(); it.hasNext();) {
+					Bar bar = ((Bar) it.next());
+					bar.updateData();
+				}
 			}
-		}
-		if (medianArrow != null) {
-			if (p.getOnCount() > 0) {
-				front.addChild(medianArrow);
-				layoutMedianArrow();
-			} else {
-				medianArrow.removeFromParent();
+			if (medianArrow != null) {
+				if (p.getOnCount() > 0) {
+					front.addChild(medianArrow);
+					layoutMedianArrow();
+				} else {
+					medianArrow.removeFromParent();
+				}
 			}
+			drawLabels();
 		}
-		drawLabels();
 	}
 
 	void animateData(double zeroToOne) {
@@ -299,14 +309,22 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 		}
 	}
 
+	PActivity zoomer;
+
 	void animatePanZoom(final double goalLeftEdge, final double goalLogicalWidth) {
 		// Util.print("animatePanZoom " + goalLeftEdge + " " +
 		// goalLogicalWidth);
+		finishPanZoom();
 
-		PInterpolatingActivity zoomer = new PInterpolatingActivity(
-				Bungee.rankAnimationMS, Bungee.rankAnimationStep) {
+		zoomer = new PInterpolatingActivity(Bungee.rankAnimationMS,
+				Bungee.rankAnimationStep) {
 			final double startLeftEdge = leftEdge;
 			final double startLogicalWidth = logicalWidth;
+
+			public void activityFinished() {
+				zoomer = null;
+				super.activityFinished();
+			}
 
 			public void setRelativeTargetValue(float zeroToOne) {
 				// Util.print("animatePanZoom " + zeroToOne);
@@ -320,6 +338,11 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 		addActivity(zoomer);
 	}
 
+	void finishPanZoom() {
+		if (zoomer != null)
+			zoomer.terminate(0);
+	}
+
 	void setBarTransparencies(float zeroToOne) {
 		for (Iterator it = barTable.values().iterator(); it.hasNext();) {
 			Bar bar = ((Bar) it.next());
@@ -331,31 +354,22 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 	void validate(int _visibleWidth, boolean isShowRankLabels) {
 		// Util.print("pv.validate " + p + " " + p.isPrefetched());
 		if (p.isPrefetched() || p.getParent() == null) {
+			if (p.getTotalChildTotalCount() == 0)
+				// We're in the process of removing this perspective,
+				// which will be done by updateData.
+				return;
+
 			// Util.print("pv.validate " + p + " " + visibleWidth + " "
 			// + p.getTotalCount() + " " + p.getTotalChildTotalCount());
-			// loseLabels();
-			// layoutPercentLabels();
 			setPercentLabelVisible();
 
-			// need to redraw for the sake of labels if queryW changed (and
-			// therefore labels height changed), even if our width didn't
-			// change.
-			//
-			// boolean changeW = _w != w;
-			// if (changeW) {
 			front.setWidth(_visibleWidth);
-			front.reset();
-			front.moveTo(0, 1);
-			front.lineTo(0, 0);
-			front.lineTo(_visibleWidth, 0);
-			front.lineTo(_visibleWidth, 1);
-			// parentRect.setWidth(_visibleWidth);
-			setWidth(_visibleWidth);
-			visibleWidth = _visibleWidth - epsilon;
+//			setWidth(_visibleWidth);
+			w = _visibleWidth;
+//			visibleWidth = _visibleWidth - epsilon;
 			resetLogicalBounds();
 			layoutLightBeam();
 			rankLabel.setVisible(isShowRankLabels);
-			// }
 			if (!p.isPrefetched()) {
 				queueDrawLetters();
 			}
@@ -365,7 +379,7 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 	}
 
 	void revalidate() {
-		// Util.print("pv.revalidate " + p + " " + leftEdge + " " + getWidth()
+		// Util.print("pv.revalidate " + p + " " + leftEdge + " " + w
 		// + "/" + logicalWidth);
 		if (visibleWidth() > 0) {
 			assert logicalWidth > 0 : p + " " + leftEdge + "/" + logicalWidth;
@@ -377,7 +391,7 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 				// offsets
 				double logicalVisibleOffset = logicalWidth / 2 - leftEdge;
 				if (logicalVisibleOffset >= 0
-						&& logicalVisibleOffset < getWidth())
+						&& logicalVisibleOffset < w)
 					medianArrow.setOffset(logicalVisibleOffset, 1.0);
 				else
 					medianArrow.removeFromParent();
@@ -544,7 +558,7 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 		hotLine.moveToFront();
 		hotLine.setScale(1 / frontH);
 		hotLine.setBounds(0, (int) (y * frontH), (int) ((percentLabelHotZone
-				.getWidth() + getWidth()) * frontH), 1);
+				.getWidth() + w) * frontH), 1);
 		hotZonePopup.setVisible(true);
 		String msg = (oddsRatio > 0.666666666) ? Math.round(oddsRatio)
 				+ " times as likely as others" : "1 / "
@@ -587,7 +601,7 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 
 	public void layoutChildren() {
 		if (logicalWidth > 0) { // Make sure we've been initialized.
-			double h = getHeight();
+//			double h = getHeight();
 			if (!rank.componentHeights.equals(prevComponentHeights) /*
 																	 * ||
 																	 * Math.abs(h -
@@ -653,6 +667,7 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 					rankLabel.getXOffset(), 0.0));
 			if (contentChanged || boundsChanged) {
 				rankLabel.setHeight(labelH);
+				rankLabel.setWrapOnWordBoundaries(labelH > lineH);
 				rankLabel.layoutBestFit();
 				// Noone else should call layout, because notifier will be
 				// lost!!!
@@ -741,7 +756,7 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 							rank.addChild(lightBeam);
 						} else {
 							lightBeam.reset();
-							lightBeam.moveToFront();
+//							lightBeam.moveToFront();
 						}
 						float[] Xs = { newCoords[4], newCoords[2],
 								newCoords[3], newCoords[5], newCoords[4] };
@@ -835,7 +850,7 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 			labelHprojectionW = projectionW;
 
 			if (percentLabels != null) {
-				double percentLabelW = art().getStringWidth("0.001%");
+				double percentLabelW = art().getStringWidth("/ 100+");
 				double percentLabelScaledW = percentLabelW
 						* PERCENT_LABEL_SCALE;
 				double x = Math.round(-percentLabelScaledW);
@@ -853,6 +868,13 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 						- 1.5 * hotZonePopup.getHeight());
 			}
 		}
+	}
+
+	double percentLabelW() {
+		if (percentLabels == null)
+			return 0;
+		else
+			return percentLabels[0].getWidth() * percentLabels[0].getScale();
 	}
 
 	private void drawBars() {
@@ -878,8 +900,9 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 	}
 
 	int maybeDrawBar(Perspective facet, double divisor, boolean forceDraw) {
-		if (forceDraw)
-//			Util.print("maybeDrawBar " + facet + " " + lookupBar(facet));
+		// if (forceDraw) {
+		// Util.print("maybeDrawBar " + facet + " " + lookupBar(facet));
+		// }
 		assert facet.getParent() == p;
 		int barW = 0;
 		if (visibleWidth() > 0 && facet.getTotalCount() > 0
@@ -895,7 +918,7 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 					* divisor)
 					- leftEdge;
 			maxX = Math.min(visibleWidth(), maxX - leftEdge);
-			assert minX >= 0 && maxX < getWidth() && maxX >= minX : "shouldn't try to draw this bar "
+			assert minX >= 0 && maxX < w && maxX >= minX : "shouldn't try to draw this bar "
 					+ facet
 					+ " "
 					+ minX
@@ -904,13 +927,13 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 					+ " "
 					+ leftEdge
 					+ " "
-					+ getWidth() + "/" + logicalWidth;
+					+ w + "/" + logicalWidth;
 			// if (maxX > minX) {
 			int iMaxX = (int) maxX;
 			int iMinX = (int) minX;
-			// if (p.getID() == 8)
-			// Util.print("maybe draw bar " + p + "." + facet + " "
-			// + iMinX + "-" + iMaxX + " " + forceDraw);
+			// if (facet.getID() == 157990)
+			// Util.print("maybe draw bar " + p + "." + facet + " " + iMinX
+			// + "-" + iMaxX + " " + forceDraw);
 			assert facet.cumCountInclusive() <= p.getTotalChildTotalCount() : facet
 					+ " "
 					+ facet.cumCountInclusive()
@@ -962,12 +985,12 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 					Bar.release(oldBar);
 					barTable.remove(oldFacet);
 					barXs[iMinX] = facet;
-//					Util.print("Removing bar " + oldFacet);
+					// Util.print("Removing bar " + oldFacet);
 				}
 			}
 			if (iMinX <= iMaxX) {
 				barW = iMaxX - iMinX + 1;
-//				Util.print("add bar " + facet + " " + iMinX + "-" + iMaxX);
+				// Util.print("add bar " + facet + " " + iMinX + "-" + iMaxX);
 				Bar bar = Bar.getBar(this, iMinX, barW, facet);
 				front.addChild(bar);
 				if (query().isQueryValid()) {
@@ -1035,21 +1058,25 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 
 	private FacetPText mouseNameLabel;
 
-	void updateSelection(Perspective facet) {
+	void updateSelection(Set facets) {
 		updateLightBeamTransparency();
 
 		drawMouseLabel();
 
-		Bar bar = lookupBar(facet);
-		if (bar != null) {
-			bar.updateSelection();
-			// drawLabels();
-			if (labels != null && labels.getVisible()) {
-				for (int i = 0; i < labels.getChildrenCount(); i++) {
-					FacetPText label = (FacetPText) labels.getChild(i);
-					if (label.getFacet() == facet)
-						label.setColor();
-				}
+		for (Iterator it = facets.iterator(); it.hasNext();) {
+			Perspective facet = (Perspective) it.next();
+			Bar bar = lookupBar(facet);
+			if (bar != null) {
+				bar.updateSelection();
+				// drawLabels();
+			}
+		}
+		if (labels != null && labels.getVisible()) {
+			for (int i = 0; i < labels.getChildrenCount(); i++) {
+				FacetPText label = (FacetPText) labels.getChild(i);
+				Perspective labelFacet = label.getFacet();
+				if (labelFacet != null && facets.contains(labelFacet))
+					label.setColor();
 			}
 		}
 	}
@@ -1057,12 +1084,12 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 	void updateLightBeamTransparency() {
 		if (lightBeam != null) {
 			lightBeam
-					.setPaint(p.isRestriction(true) ? Markup.INCLUDED_COLORS[2]
+					.setPaint(p.isRestriction(true) ? Markup.INCLUDED_COLORS[0]
 							: Color.white);
-			if (art().highlightedFacet == p)
-				lightBeam.setTransparency(0.4f);
-			else
+			if (art().highlightedFacets.contains(p))
 				lightBeam.setTransparency(0.2f);
+			else
+				lightBeam.setTransparency(0.15f);
 		}
 	}
 
@@ -1089,7 +1116,8 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 		// p.getOnCount());
 
 		// even if we're not connected, make sure stale labels don't come back
-		// later
+		// later. labels.getVisible() is true when the labels SqueezablePNode
+		// goalYscale > 0
 		labels.removeAllChildren();
 		if (labels.getVisible() && barTable.size() > 0
 				&& query().isQueryValid()) {
@@ -1100,8 +1128,10 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 				// summary.q.prefetchData(p);
 				int maxCount = rank.maxCount();
 				numW = Math.round(art().numWidth(maxCount) + 10.0);
-				nameW = Math.floor(summary.selectedLabelH() * 1.4 - numW
-						- art().lineH / 2) - 10;
+
+				// The last term sets a margin between text and next Rank
+				nameW = Math.floor(summary.selectedLabelH() * 1.4 - numW - 2
+						* art().lineH);
 
 				// int freeLabelXs = w + 2;
 				// SortedSet allRestrictions = p.allRestrictions();
@@ -1157,24 +1187,28 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 	private int prevMidX;
 
 	private void drawMouseLabel() {
-		if (areLabelsInited()) {
-			Perspective mousedFacet = art().highlightedFacet;
-//			Util.print("drawMouseLabel " + p + " " + mousedFacet);
-			if (mousedFacet != null && mousedFacet.getParent() == p
-					&& isPerspectiveVisible(mousedFacet)) {
-				drawMouseLabelInternal(mousedFacet);
-			} else if (mouseNameLabel.getVisible()) {
-				drawMouseLabelInternal(null);
+		if (areLabelsInited() && labels.getVisible()) {
+			Perspective mousedFacet = null;
+			for (Iterator it = art().highlightedFacets.iterator(); it.hasNext()
+					&& mousedFacet == null;) {
+				Perspective facet = (Perspective) it.next();
+				if (facet.getParent() == p && isPerspectiveVisible(facet)) {
+					// There may be more than one. Tough.
+					mousedFacet = facet;
+				}
 			}
+			// Util.print("drawMouseLabel " + p + " " + mousedFacet);
+			drawMouseLabelInternal(mousedFacet);
 		}
 	}
 
 	private void drawMouseLabelInternal(Perspective v) {
 		boolean state = v != null;
-//		Util.print("drawMouseLabelInternal " + p + " " + v + " " + state);
 		int midX = state ? midLabelPixel(v, barWidthRatio()) : prevMidX;
 		int iVisibleWidth = (int) visibleWidth();
-		if (midX >= 0 && midX < iVisibleWidth) {
+		// Util.print("drawMouseLabelInternal " + p + " " + v + " " + state + "
+		// " + midX);
+		if (midX >= 0 && midX <= iVisibleWidth) {
 			prevMidX = midX;
 
 			int minX = Util.constrain(midX - labelHprojectionW, 0,
@@ -1206,9 +1240,9 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 				assert verifyBarTables();
 				mouseNameLabel.setFacet(v);
 				mouseNameLabel.setPTextOffset(midX, 0.0);
-				labels.moveToFront();
+				labels.moveAheadOf(front);
 			} else {
-				front.moveToFront();
+				front.moveAheadOf(labels);
 			}
 			mouseNameLabel.setVisible(state);
 			mouseNameLabel.setPickable(state);
@@ -1269,6 +1303,8 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 	}
 
 	void setConnected(boolean connected) {
+//		if (!connected)
+//			edu.cmu.cs.bungee.piccoloUtils.gui.Util.printDescendents(letters);
 		// Util.print("PV.setConnected " + p.getName() + " " + connected);
 		if (rankLabel.getVisible()) {
 			float transparency = connected ? 1 : 0;
@@ -1280,6 +1316,7 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 			// redraw100PercentLabel();
 			percentLabelHotZone.setPickable(connected);
 			rankLabel.setPickable(connected);
+			resetLogicalBounds();
 		}
 	}
 
@@ -1546,6 +1583,10 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 			return true;
 		}
 
+		void printUserAction(int modifiers) {
+			art.printUserAction(Bungee.BAR_LABEL, facet, modifiers);
+		}
+
 		public boolean highlight(boolean state, int modifiers, PInputEvent e) {
 			// Util.print("PV.FacetPText.highlight " + p + "."
 			// + facet + " " + state + " "
@@ -1556,16 +1597,17 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 			double x = mouseCoords.getX();
 			double _y = mouseCoords.getY();
 			modifiers = getModifiersInternal(modifiers, x);
+			boolean isHighlighted = art.highlightedFacets.contains(facet);
 			if (state) {
 				// Workaround Piccolo rotated-selection bug by
 				// skipping redundant calls and checking for erroneous ones.
-				if (art.highlightedFacet != facet) {
-					if (x >= -5.0 && x <= getWidth() + 5 && _y >= -5.0
+				if (!isHighlighted) {
+					if (x >= -5.0 && x <= w + 5 && _y >= -5.0
 							&& _y <= getHeight() + 5.0) {
 						highlight(state, modifiers);
 					}
 				}
-			} else if (art.highlightedFacet == facet) {
+			} else if (isHighlighted) {
 				highlight(state, modifiers);
 			}
 			return true;
@@ -1615,7 +1657,10 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 	void clickBar(Perspective facet, int modifiers) {
 		// Util.print("clickBar " + p + "." + facet);
 		maybeDrawBar(facet, barWidthRatio(), true);
-		lookupBar(facet).pick(modifiers);
+		Bar bar = lookupBar(facet);
+		assert bar != null : facet + " " + facet.getTotalCount() + " " + p
+				+ " " + p.getTotalChildTotalCount() + " " + visibleWidth() + " " + logicalWidth;
+		bar.pick(modifiers);
 	}
 
 	public String toString() {
@@ -1711,7 +1756,7 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 		}
 
 		void highlight(boolean state) {
-			highlighted = state ? 2 : 1;
+			highlighted = state ? 1 : 0;
 			redraw();
 		}
 
@@ -1768,7 +1813,7 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 		LazyPNode bar = null;
 		if (facet == p) {
 			bar = rankLabel;
-		} else if (isVisible(facet)) {
+		} else if (p.isPrefetched() && isVisible(facet)) {
 			if (areLabelsInited())
 				drawMouseLabelInternal(facet);
 			else if (barTable.size() > 0)
@@ -1796,7 +1841,7 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 		if (medianArrow != null) {
 			medianArrow.setVisible(false);
 		}
-		front.setStrokePaint(null);
+//		front.setStrokePaint(null);
 	}
 
 	void animate(float zeroToOne) {
@@ -1804,7 +1849,7 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 			if (medianArrow != null) {
 				medianArrow.setVisible(true);
 			}
-			front.setStrokePaint(Bungee.summaryFG.brighter());
+//			front.setStrokePaint(Bungee.summaryFG.brighter());
 		}
 	}
 
@@ -1842,7 +1887,7 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 	 * 
 	 */
 	private void computeBars() {
-		// Util.print("computeBars " + getWidth());
+		// Util.print("computeBars " + w);
 		Bar.release(barTable.values());
 		barTable.clear();
 		int iVisibleWidth = (int) visibleWidth();
@@ -1851,16 +1896,16 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 		if (iVisibleWidth > 0) {
 			barXs = new Perspective[iVisibleWidth + 1];
 			double divisor = barWidthRatio();
-//			 Util.print("computebars " + p + " " + p.getTotalChildTotalCount()
-//			 + " " + logicalWidth);
+			// Util.print("computebars " + p + " " + p.getTotalChildTotalCount()
+			// + " " + logicalWidth);
 			for (Iterator it = slowVisibleChildIterator(); it.hasNext();) {
 				Perspective child = (Perspective) it.next();
 				int totalCount = child.getTotalCount();
 				if (totalCount > 0) {
 					int iMaxX = maxBarPixel(child, divisor);
 					int iMinX = minBarPixel(child, divisor);
-//					 if (p.getID() == 3)
-//					 printBar(child, iMinX, iMaxX, "bar");
+					// if (p.getID() == 3)
+					// printBar(child, iMinX, iMaxX, "bar");
 					if (iMaxX >= 0 && iMinX <= iVisibleWidth) {
 						assert iMaxX >= 0
 								&& iMinX <= iVisibleWidth
@@ -2097,10 +2142,13 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 		return (minBarPixel(child, divisor) + maxBarPixel(child, divisor)) / 2;
 	}
 
-	private boolean isVisible(Perspective child) {
+	boolean isVisible(Perspective child) {
 		double divisor = barWidthRatio();
-		double minPixel = child.cumCountExclusive() * divisor - leftEdge;
-		double maxPixel = child.cumCountInclusive() * divisor - leftEdge;
+		// 0.5's round the result to the nearest integer
+		double minPixel = (child.cumCountExclusive() + 0.5) * divisor
+				- leftEdge;
+		double maxPixel = (child.cumCountInclusive() - 0.5) * divisor
+				- leftEdge;
 		return minPixel < visibleWidth() && maxPixel > 0;
 	}
 
@@ -2114,48 +2162,12 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 			redraw();
 		}
 
-		private char getLetter(Perspective facet, int charIndex) {
-			char result = 0;
-			String name = facet.getName(this, null);
-			if (name != null && name.length() > charIndex)
-				result = myToUpperCase(name.charAt(charIndex));
-			return result;
-		}
-
-		/**
-		 * Faster than Character.toUpperCase
-		 * 
-		 * @param c
-		 * @return upper case version of c
-		 */
-		char myToUpperCase(char c) {
-			if (c >= 'a' && c <= 'z')
-				c += 'A' - 'a';
-			return c;
-		}
-
-		/**
-		 * Called if we find an uncached perspective name. Pre-cache all needed
-		 * names
-		 * 
-		 * @param prefix
-		 * @param letter
-		 */
-		void predraw(String prefix, char letter) {
-			assert letter >= 'A' : letter;
-			// Util.print("predraw " + p + " " + prefix + " " + letter);
-			if (letter <= 'Z') {
-				lastWithLetter(prefix, letter, 0, this);
-				predraw(prefix, ++letter);
-			}
-		}
-
 		public void redraw() {
 			String prefix = prefix();
 			if (prefix != null) {
 				// removeAllChildren();
-				int iVisibleWidth = (int) pv.visibleWidth();
-				// Util.print("redraw " + iVisibleWidth + " " + p + " "
+				int iVisibleWidth = (int) visibleWidth();
+				// Util.print("redraw " + p + " '" + prefix + "' "
 				// + barTable.size());
 				setWidth(pv.getWidth());
 				// if size==1, prefix==name so getLetter returns 0 and you get
@@ -2166,239 +2178,47 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 						return;
 					}
 					double divisor = barWidthRatio();
-					int[] counts = new int[iVisibleWidth];
-					char[] letterXs = new char[iVisibleWidth];
-					int letterIndex = prefix.length();
+					int[] counts = new int[iVisibleWidth + 1];
+					char[] letterXs = new char[iVisibleWidth + 1];
+
 					Perspective firstWithLetter = firstVisiblePerspective();
-					if (prefix.equals(firstWithLetter.getName())) {
-						int firstIndex = firstWithLetter.whichChild() + 1;
-						firstWithLetter = p.getNthChild(firstIndex);
-					}
-					while (true) {
-						char letter = getLetter(firstWithLetter, letterIndex);
-						// Util.print("redraw " + p + " " + letter + " "
-						// + firstWithLetter);
-						if (letter > 0) {
-							Perspective lastWithLetter = lastWithLetter(prefix,
-									letter, firstWithLetter.whichChild(), this);
-							if (lastWithLetter != null) {
-								int iMidX = (minBarPixel(firstWithLetter,
-										divisor) + maxBarPixel(lastWithLetter,
-										divisor)) / 2;
-								letterXs[iMidX] = letter;
-								counts[iMidX] = (firstWithLetter == lastWithLetter) ? firstWithLetter
-										.getTotalCount()
-										: lastWithLetter.cumCountExclusive()
-												- firstWithLetter
-														.cumCountExclusive();
-								// Util.print(letter + " " + iMidX + " " +
-								// counts[iMidX]);
-								// Util.print(lastWithLetter + " "
-								// + lastWithLetter.whichChild() + "/"
-								// + p.nChildren());
-								int firstIndex = lastWithLetter.whichChild() + 1;
-								if (firstIndex < p.nChildren()) {
-									firstWithLetter = p.getNthChild(firstIndex);
-									double left = firstWithLetter
-											.cumCountExclusive()
-											* divisor - leftEdge;
-									if (left < iVisibleWidth)
-										// Do next letter
-										continue;
-								}
-								// Done computing; now draw
-								break;
-							} else {
-								// Util.print("lwl " + letter + " " +
-								// firstWithLetter);
-							}
-						} else {
-							// Util.print("fwl " + firstWithLetter);
+					Perspective lastVisiblePerspective = lastVisiblePerspective();
+					for (Iterator it = p.letterOffsetsIterator(prefix
+							.toUpperCase()); it.hasNext();) {
+						Entry entry = (Entry) it.next();
+						char letter = ((Character) entry.getKey()).charValue();
+						Perspective lastWithLetter = (Perspective) entry
+								.getValue();
+						if (lastWithLetter.compareTo(firstWithLetter) >= 0
+								&& firstWithLetter
+										.compareTo(lastVisiblePerspective) <= 0) {
+							// Util.print("redraw " + p + " " + letter + " "
+							// + firstWithLetter + "-" + lastWithLetter);
+							int iMidX = (minBarPixel(firstWithLetter, divisor) + maxBarPixel(
+									lastWithLetter, divisor)) / 2;
+							assert iMidX >= 0 : p + " " + prefix + " " + letter
+									+ " " + lastWithLetter + " "
+									+ minBarPixel(firstWithLetter, divisor)
+									+ "-"
+									+ maxBarPixel(lastWithLetter, divisor);
+							letterXs[iMidX] = letter;
+							counts[iMidX] = (firstWithLetter == lastWithLetter) ? firstWithLetter
+									.getTotalCount()
+									: lastWithLetter.cumCountExclusive()
+											- firstWithLetter
+													.cumCountExclusive();
+							// Util.print(letter + " " + iMidX + " " +
+							// counts[iMidX]);
+							// Util.print(lastWithLetter + " "
+							// + lastWithLetter.whichChild() + "/"
+							// + p.nChildren());
+							firstWithLetter = lastWithLetter.nextSibling();
 						}
-						// We'll be called again after name is cached
-						predraw(prefix,
-								(char) (letter < 'A' ? 'A' : letter + 1));
-						break;
-						// return;
 					}
 					removeAllChildren();
 					drawComputedLetter(-1, letterXs, counts, prefix);
 				}
 			}
-		}
-
-		private Perspective firstWithPrefix(String prefix,
-				PerspectiveObserver redraw) {
-			// Perspective xx = p.firstWithLetter(prefix, letter, redraw);
-			Perspective result = firstWithLetterX(prefix, 0, p.nChildren() - 1,
-					redraw);
-			// Util.print(" FWL: " + result + " == " + x);
-			// assert x == null || result == null || result == x;
-
-			// Util.print("firstWithLetter " + prefix + " => " + result);
-			return result;
-		}
-
-		/**
-		 * @param leftWhichChild
-		 *            child index <= index of first Perspective with this letter
-		 * @param rightWhichChild
-		 *            child index >= index of first Perspective with this letter
-		 * @return first Perspective starting with letter, or null if it can't
-		 *         be found due to uncached facet name
-		 */
-		private Perspective firstWithLetterX(String prefix, int leftWhichChild,
-				int rightWhichChild, PerspectiveObserver redraw) {
-			// Util.print("firstWithLetter " + prefix + " " + leftWhichChild +
-			// "-"
-			// + rightWhichChild + " ");
-			int midWhichChild = (leftWhichChild + rightWhichChild + 1) / 2;
-			assert midWhichChild < p.nChildren() : p + " " + leftWhichChild
-					+ "-" + rightWhichChild + " " + p.nChildren();
-			Perspective midPerspective = p.getNthChild(midWhichChild);
-			Perspective result = null;
-			int midLetterComparison = comparePrefix(midPerspective, prefix,
-					redraw);
-			// Util.print(" " + midWhichChild + " " + midPerspective + " " +
-			// midLetterComparison);
-			if (midLetterComparison != Integer.MIN_VALUE) {
-				if (leftWhichChild == rightWhichChild) {
-					result = midPerspective;
-				} else if (midLetterComparison < 0) {
-					result = midWhichChild == rightWhichChild ? midPerspective
-							: firstWithLetterX(prefix, midWhichChild + 1,
-									rightWhichChild, redraw);
-				} else if (midWhichChild < rightWhichChild) {
-					result = firstWithLetterX(prefix, leftWhichChild,
-							midWhichChild, redraw);
-				} else {
-					Perspective minPerspective = p.getNthChild(leftWhichChild);
-					int minLetterComparison = comparePrefix(minPerspective,
-							prefix, redraw);
-					if (minLetterComparison != Integer.MIN_VALUE) {
-						result = minLetterComparison == 0 ? minPerspective
-								: midPerspective;
-					}
-				}
-				// Util
-				// .print("firstWithLetter " + prefix + " " + midPerspective
-				// + " " + leftWhichChild + "_" + rightWhichChild
-				// + " => " + result);
-			}
-			assert result == null || result.getNameIfPossible() != null : prefix
-					+ " " + leftWhichChild + "-" + rightWhichChild;
-			return result;
-		}
-
-		/**
-		 * 
-		 * THIS DOESN'T ORDER UNICODE CORRECTLY, as compared to MySQL
-		 * 
-		 * @param facet
-		 * @param prefix
-		 * @return facet.getName().compareTo(prefix + c), except 0 if name
-		 *         starts with prefix, and Integer.MIN_VALUE if name is not
-		 *         available
-		 */
-		private int comparePrefix(Perspective facet, String prefix,
-				PerspectiveObserver redraw) {
-			int result = Integer.MIN_VALUE;
-			String name = facet.getName(redraw, null);
-			if (name != null) {
-				if (name.length() < prefix.length())
-					result = Util.sgn(name.compareToIgnoreCase(prefix));
-				else {
-					result = 0;
-					for (int i = 0; i < prefix.length() && result == 0; i++) {
-						char prefixChar = myToUpperCase(prefix.charAt(i));
-						char nameChar = myToUpperCase(name.charAt(i));
-						if (prefixChar != nameChar) {
-							result = nameChar > prefixChar ? 1 : -1;
-						}
-					}
-				}
-			}
-			// Util.print("comparePrefix " + facet + " " + prefix + " => " +
-			// result);
-			return result;
-		}
-
-		// /**
-		// * @param prefix
-		// * UPPER CASE string
-		// * @param s
-		// * @return
-		// */
-		// private boolean startsWithIgnoreCase(String prefix, String s) {
-		// boolean result = true;
-		// if (s.length() < prefix.length())
-		// result = false;
-		// else
-		// for (int i = 0; i < prefix.length() && result; i++) {
-		// if (prefix.charAt(i) != Character.toUpperCase(s.charAt(i))) {
-		// result = false;
-		// }
-		// }
-		// // Util.print("startsWithIgnoreCase " + prefix + " " + s + " => " +
-		// // result);
-		// return result;
-		// }
-
-		private Perspective lastWithLetter(String prefix, char letter,
-				int leftWhichChild, PerspectiveObserver redraw) {
-			// Perspective xx = p.lastWithLetter(prefix, letter, redraw);
-			Perspective x = lastWithLetterX(prefix + letter, leftWhichChild, p
-					.nChildren() - 1, redraw);
-			// Util.print(" LWL: " + result + " == " + x);
-			// assert x == null || result == null || result == x;
-			return x;
-		}
-
-		/**
-		 * @param leftWhichChild
-		 *            index <= child index of last Perspective with this letter
-		 * @param rightWhichChild
-		 *            index >= child index of last Perspective with this letter
-		 * @return last Perspective starting with letter, or null if it can't be
-		 *         found due to uncached facet name
-		 */
-		private Perspective lastWithLetterX(String prefix, int leftWhichChild,
-				int rightWhichChild, PerspectiveObserver redraw) {
-			int midWhichChild = (leftWhichChild + rightWhichChild) / 2;
-			Perspective midPerspective = p.getNthChild(midWhichChild);
-			Perspective result = null;
-			int midLetterComparison = comparePrefix(midPerspective, prefix,
-					redraw);
-			if (midLetterComparison != Integer.MIN_VALUE) {
-				// Util.print("lastWithLetter " + letter + " " + midPerspective
-				// + " " + leftWhichChild + "_" + rightWhichChild);
-				if (leftWhichChild == rightWhichChild) {
-					result = midPerspective;
-				} else if (midLetterComparison > 0) {
-					result = lastWithLetterX(prefix, leftWhichChild,
-							midWhichChild - 1, redraw);
-				} else if (midWhichChild > leftWhichChild) {
-					result = lastWithLetterX(prefix, midWhichChild,
-							rightWhichChild, redraw);
-				} else {
-					Perspective maxPerspective = p.getNthChild(rightWhichChild);
-
-					int maxLetterComparison = comparePrefix(maxPerspective,
-							prefix, redraw);
-					if (maxLetterComparison != Integer.MIN_VALUE) {
-						result = maxLetterComparison == 0 ? maxPerspective
-								: midPerspective;
-					}
-				}
-				// Util.print("lastWithLetter " + letter + " " + midPerspective
-				// + " " + leftWhichChild + "_" + rightWhichChild + " => "
-				// + result);
-			}
-			assert result == null || result.getNameIfPossible() != null
-					|| result.whichChild() == 0
-					|| result.whichChild() == p.nChildren() - 1 : prefix + " "
-					+ leftWhichChild + "-" + rightWhichChild;
-			return result;
 		}
 
 		private int drawComputedLetter(int leftCandidateX, char[] letterXs,
@@ -2441,7 +2261,7 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 			assert midX >= 0 : s;
 			assert midX < iVisibleWidth : s + " " + midX + " " + iVisibleWidth;
 			FacetPText label = (FacetPText) letterPTextCache.get(s);
-			if (label == null) {
+			if (label == null || label.getFont() != art().font) {
 				label = getFacetPText(null, 0.0, midX);
 				label.setPermanentTextPaint(Bungee.summaryFG.darker()); // Color.darkGray);
 				label.setPaint(Color.black);
@@ -2458,12 +2278,27 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 		}
 
 		/**
-		 * @return longest common prefix of p.children's names, or null if some
-		 *         names haven't been cached yet
+		 * @return longest common prefix of the names of p's children that would
+		 *         be displayed if bars were infinitesimally thin, or null if
+		 *         some names haven't been cached yet. I.e. consider children
+		 *         whose bar would be too small to draw, since letterOffsets
+		 *         consider them. Otherwise zooming to a prefix might zoom to a
+		 *         longer prefix because only one extension of it has visible
+		 *         bars.
 		 */
 		private String prefix() {
-			String name1 = firstVisiblePerspective().getName(this, null);
-			String name2 = lastVisiblePerspective().getName(this, null);
+			Perspective first = firstVisiblePerspective();
+			for (Perspective prev = first.previousSibling(); prev != null
+					&& isVisible(prev); prev = prev.previousSibling()) {
+				first = prev;
+			}
+			Perspective last = lastVisiblePerspective();
+			for (Perspective next = last.nextSibling(); next != null
+					&& isVisible(next); next = next.nextSibling()) {
+				last = next;
+			}
+			String name1 = first.getName(this, null);
+			String name2 = last.getName(this, null);
 			String result = (name1 != null && name2 != null) ? Util
 					.commonPrefix(name1, name2, false) : null;
 			// Util.print("prefix '" + name1 + "'-'" + name2 + "' => '" + result
@@ -2472,30 +2307,48 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 		}
 
 		boolean keyPress(char suffix) {
+			finishPanZoom();
 			String prefix = prefix();
 			// Util.print("keyPress '" + prefix + "' " + suffix);
-			if (prefix != null) {
+			if (prefix != null && p.isAlphabetic()) {
 				if (suffix == '\b') {
+					// Find the longest prefix that is shorter than prefix() and
+					// that will include at least one additional child.
 					if (prefix.length() > 0) {
-						int index1 = firstVisiblePerspective().whichChild();
-						String newPrefix1 = prefix.substring(0,
-								prefix.length() - 1);
-						String newPrefix2 = newPrefix1;
-						if (index1 > 0) {
-							Perspective candidate = p.getNthChild(index1 - 1);
-							newPrefix1 = backspacePrefix(candidate, newPrefix1);
-						} else
-							newPrefix1 = "";
-						int index2 = lastVisiblePerspective().whichChild();
-						if (index2 < p.nChildren() - 1) {
-							Perspective candidate = p.getNthChild(index2 + 1);
-							newPrefix2 = backspacePrefix(candidate, newPrefix2);
-						} else
-							newPrefix2 = "";
-						prefix = (newPrefix2.length() > newPrefix1.length()) ? newPrefix2
-								: newPrefix1;
-						// Util.print("backspace '" + prefix + "' " + newPrefix1
-						// + " " + newPrefix2);
+						prefix = prefix.toUpperCase();
+						while (prefix.length() > 0
+								&& p.getLetterOffsets(
+										prefix = prefix.substring(0, prefix
+												.length() - 1)).size() == 1) {
+							// As long as map size == 1, the only extension is
+							// this prefix,
+							// so there won't be any additional children
+						}
+
+						// int index1 = firstVisiblePerspective().whichChild();
+						// String newPrefix1 = prefix.substring(0,
+						// prefix.length() - 1);
+						// String newPrefix2 = newPrefix1;
+						// if (index1 > 0) {
+						// // Find the longest prefix that will include the
+						// preceding child.
+						// Perspective candidate = p.getNthChild(index1 - 1);
+						// newPrefix1 = backspacePrefix(candidate, newPrefix1);
+						// } else
+						// newPrefix1 = "";
+						// int index2 = lastVisiblePerspective().whichChild();
+						// if (index2 < p.nChildren() - 1) {
+						// // Find the longest prefix that will include the
+						// following child.
+						// Perspective candidate = p.getNthChild(index2 + 1);
+						// newPrefix2 = backspacePrefix(candidate, newPrefix2);
+						// } else
+						// newPrefix2 = "";
+						// prefix = (newPrefix2.length() > newPrefix1.length())
+						// ? newPrefix2
+						// : newPrefix1;
+
+						// Util.print("backspace '" + prefix);
 					} else if (!isZooming()) {
 						art().setTip(
 								p.getName() + " is fully zoomed out already");
@@ -2508,19 +2361,18 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 				return false;
 		}
 
-		private String backspacePrefix(Perspective candidate, String prefix) {
-			if (prefix.length() > 0) {
-				String name = candidate.getNameIfPossible();
-				if (name != null) {
-					// Util.print("backspacePrefix " + prefix + " " + name + "
-					// => "
-					// + Util.commonPrefix(prefix, name));
-					// prefix = prefix.substring(0, prefix.length() - 1);
-					prefix = Util.commonPrefix(prefix, name, false);
-				}
-			}
-			return prefix;
-		}
+		// private String backspacePrefix(Perspective candidate, String prefix)
+		// {
+		// if (prefix.length() > 0) {
+		// String name = candidate.getNameIfPossible();
+		// if (name != null) {
+		// Util.print("backspacePrefix " + prefix + " " + name
+		// + " => " + Util.commonPrefix(prefix, name, false));
+		// prefix = Util.commonPrefix(prefix, name, false);
+		// }
+		// }
+		// return prefix;
+		// }
 
 		public boolean highlight(FacetText node, boolean state, int modifiers) {
 			// Util.print("Letters.highlight " + node.getText());
@@ -2536,9 +2388,11 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 					if (newPrefixLength == 1)
 						unzoomPrefix = "any letter.";
 					else
-						unzoomPrefix = prefix.substring(0, newPrefixLength - 1);
-					msg += ";  backspace zooms out to tags starting with '"
-							+ unzoomPrefix + "'.";
+						unzoomPrefix = "'"
+								+ prefix.substring(0, newPrefixLength - 1)
+								+ "'.";
+					msg += ";  backspace zooms out to tags starting with "
+							+ unzoomPrefix;
 				}
 			}
 			art().setClickDesc(msg);
@@ -2557,73 +2411,65 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 		}
 
 		boolean zoom(String s) {
-			// Util.print("ZOOM to '" + s + "'");
+			// Util.print("ZOOM to '" + s + "' " + leftEdge + " " +
+			// logicalWidth);
 			if (s.length() == 0) {
 				animatePanZoom(0, visibleWidth());
 			} else {
-				String text = s.toUpperCase();
-				int letterIndex = text.length() - 1;
-				char suffix = text.charAt(letterIndex);
-				String prefix = text.substring(0, letterIndex);
-				PerspectiveObserver rePicker = new Repicker(s);
-				Perspective leftFacet = firstWithPrefix(text, rePicker);
-				if (leftFacet != null) {
+				String sUpper = s.toUpperCase();
+				// PerspectiveObserver rePicker = new Repicker(s);
+				Perspective rightFacet = p.lastWithPrefix(sUpper);
+
+				if (rightFacet != null) {
 					// Util.print(leftFacet.getName().toUpperCase() + " " +
 					// text);
-					if (leftFacet.getName().toUpperCase().startsWith(text)) {
-						Perspective rightFacet = lastWithLetter(prefix, suffix,
-								leftFacet.whichChild(), rePicker);
-						if (rightFacet != null) {
-							double left = leftFacet.cumCountExclusive()
-									* barWidthRatio();
-							double right = rightFacet.cumCountInclusive()
-									* barWidthRatio();
-							double newLogicalWidth = logicalWidth
-									* visibleWidth() / (right - left);
-							// Util.print("ZOOM to " + text + " " + leftFacet
-							// + "-" + rightFacet + " (" + left + "-"
-							// + right + ")/" + newLogicalWidth + " w="
-							// + getWidth());
-							double newLeftEdge = leftFacet.cumCountExclusive()
-									* (newLogicalWidth / p
-											.getTotalChildTotalCount());
-							// Util.print("");
-							// bbb(leftFacet, newLeftEdge, newLogicalWidth);
-							// bbb(rightFacet, newLeftEdge, newLogicalWidth);
-							// bbb(query().findPerspective(185737), newLeftEdge,
-							// newLogicalWidth);
-							animatePanZoom(newLeftEdge, newLogicalWidth);
-							// setLogicalBounds(newLeftEdge, newLogicalWidth);
-						}
-					} else {
-						art().setTip(
-								"No " + p.getName() + " tags start with '"
-										+ text + "'");
-					}
+					Perspective leftFacet = p.firstWithPrefix(sUpper);
+					assert leftFacet != null;
+					double newLogicalWidth = visibleWidth()
+							* p.getTotalChildTotalCount()
+							/ (rightFacet.cumCountInclusive() - leftFacet
+									.cumCountExclusive());
+					// Util.print("ZOOM to " + s + " " + leftFacet + "-"
+					// + rightFacet + " " + newLogicalWidth + " w="
+					// + w);
+					double newLeftEdge = leftFacet.cumCountExclusive()
+							* (newLogicalWidth / p.getTotalChildTotalCount());
+					// Util.print("");
+					// bbb(leftFacet, newLeftEdge, newLogicalWidth);
+					// bbb(rightFacet, newLeftEdge, newLogicalWidth);
+					// bbb(query().findPerspective(185737), newLeftEdge,
+					// newLogicalWidth);
+					// Util.print(" " + newLeftEdge + " " + newLogicalWidth);
+					animatePanZoom(newLeftEdge, newLogicalWidth);
+					// setLogicalBounds(newLeftEdge, newLogicalWidth);
+				} else {
+					art().setTip(
+							"No " + p.getName() + " tags start with '" + sUpper
+									+ "'");
 				}
 			}
 			return true;
 		}
 
-		// void bbb(Perspective facet, double leftEdge, double w) {
+		// void bbb(Perspective facet, double leftEdge1, double w) {
 		// double left = facet.cumCountExclusive() * w
-		// / p.getTotalChildTotalCount() - leftEdge;
+		// / p.getTotalChildTotalCount() - leftEdge1;
 		// double right = facet.cumCountInclusive() * w
-		// / p.getTotalChildTotalCount() - leftEdge;
+		// / p.getTotalChildTotalCount() - leftEdge1;
 		// Util.print("range " + facet + " " + left + "-" + right);
 		// }
 
-		private class Repicker implements PerspectiveObserver {
-			String text;
-
-			Repicker(String s) {
-				text = s;
-			}
-
-			public void redraw() {
-				zoom(text);
-			}
-		}
+		// private class Repicker implements PerspectiveObserver {
+		// String text;
+		//
+		// Repicker(String s) {
+		// text = s;
+		// }
+		//
+		// public void redraw() {
+		// zoom(text);
+		// }
+		// }
 
 		public Bungee art() {
 			return pv.art();
@@ -2686,27 +2532,27 @@ final class PerspectiveViz extends LazyPNode implements FacetNode,
 
 	boolean isPerspectiveVisible(Perspective facet) {
 		double divisor = barWidthRatio();
-		int minCount = (int) Math.ceil((leftEdge + epsilon) / divisor);
-		int maxCount = (int) ((leftEdge + visibleWidth() - epsilon) / divisor);
-		return facet.cumCountInclusive() >= minCount && facet.cumCountExclusive() <= maxCount;
-		
-//		return facet.compareTo(barXs[0]) >= 0
-//				&& facet.compareTo(barXs[(int) visibleWidth()]) <= 0;
+		int minCount = (int) Math.ceil(leftEdge / divisor + epsilon);
+		int maxCount = (int) ((leftEdge + visibleWidth()) / divisor - epsilon);
+		return facet.cumCountInclusive() >= minCount
+				&& facet.cumCountExclusive() <= maxCount;
+
+		// return facet.compareTo(barXs[0]) >= 0
+		// && facet.compareTo(barXs[(int) visibleWidth()]) <= 0;
 	}
 
 	Iterator slowVisibleChildIterator() {
 		double divisor = barWidthRatio();
-		// double fudgeFactor = 0.0; // 0.0000000001 / logicalWidth;
-		int minCount = (int) Math.ceil((leftEdge + epsilon) / divisor);
-		int maxCount = (int) ((leftEdge + visibleWidth() - epsilon) / divisor);
-		// int minCount = (int) (leftEdge * (factor + fudgeFactor));
-		// int maxCount = (int) Math.ceil((leftEdge + visibleWidth())
-		// * (factor - fudgeFactor));
-//		 Util.print("slowVisibleChildIterator " + p + " " + leftEdge + "/"
-//		 + logicalWidth + " => (ceil("
-//		 + ((leftEdge + epsilon) / divisor) + "}-(floor("
-//		 + ((leftEdge + visibleWidth() - epsilon) / divisor)
-//		 + "))/" + p.getTotalChildTotalCount());
+		int minCount = (int) Math.ceil(leftEdge / divisor + epsilon);
+		int maxCount = (int) ((leftEdge + visibleWidth()) / divisor - epsilon);
+		// Util.print(leftEdge + " " +(leftEdge + epsilon));
+		// Util.print((leftEdge / divisor) + " " +((leftEdge + epsilon)/
+		// divisor));
+		// Util.print("slowVisibleChildIterator " + p + " " + leftEdge + "/"
+		// + logicalWidth + " => (ceil("
+		// + ((leftEdge + epsilon) / divisor) + "}-(floor("
+		// + ((leftEdge + visibleWidth() - epsilon) / divisor)
+		// + "))/" + p.getTotalChildTotalCount());
 		return p.cumCountChildIterator(minCount, maxCount);
 	}
 
@@ -2802,7 +2648,7 @@ final class HotZoneListener extends PBasicInputEventHandler {
 
 }
 
-final class SqueezablePNode extends LazyPPath {
+final class SqueezablePNode extends LazyPNode {
 
 	// PBounds clip;
 
@@ -2813,7 +2659,7 @@ final class SqueezablePNode extends LazyPPath {
 	// private long loadTime;
 
 	SqueezablePNode() {
-		setBounds(0, 0, 1, 1);
+//		setBounds(0, 0, 1, 1);
 		setPickable(false);
 	}
 

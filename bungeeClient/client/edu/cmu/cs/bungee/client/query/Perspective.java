@@ -32,17 +32,27 @@
 package edu.cmu.cs.bungee.client.query;
 
 import java.awt.Color;
+import java.io.DataInputStream;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
+import java.util.Map.Entry;
+
 import edu.cmu.cs.bungee.javaExtensions.*;
 
 import JSci.maths.statistics.ChiSq2x2;
 import JSci.maths.statistics.OutOfRangeException;
+import JSci.maths.statistics.ChiSq2x2.SignedPValue;
 
 /**
  * aka Facet. a property that an Item can have.
@@ -78,8 +88,8 @@ public final class Perspective implements Comparable, ItemPredicate {
 
 	static final String[] filterTypes = { " = ", " \u2260 " };
 
-	static final Color[] filterColors = { Markup.INCLUDED_COLORS[3],
-			Markup.EXCLUDED_COLORS[3] };
+	static final Color[] filterColors = { Markup.INCLUDED_COLORS[0],
+			Markup.EXCLUDED_COLORS[0] };
 
 	// static final Perspective[] noDescendents = new ItemPredicate[0];
 	//
@@ -233,6 +243,9 @@ public final class Perspective implements Comparable, ItemPredicate {
 	// return instantiatedPerspective.lastWithLetter(prefix, letter, redraw);
 	// }
 
+	/**
+	 * @return number of ancestor Perspectives. 0 means no parent.
+	 */
 	int depth() {
 		return parent != null ? parent.depth() + 1 : 0;
 	}
@@ -246,7 +259,7 @@ public final class Perspective implements Comparable, ItemPredicate {
 			result.add(parent);
 			return result;
 		} else {
-			return new TreeSet();
+			return new HashSet();
 		}
 	}
 
@@ -254,8 +267,8 @@ public final class Perspective implements Comparable, ItemPredicate {
 	 * @param leafs
 	 * @return leafs + their ancestors
 	 */
-	public static Set ancestors(Set leafs) {
-		Set result = new TreeSet(leafs);
+	public static SortedSet ancestors(Set leafs) {
+		SortedSet result = new TreeSet(leafs);
 		for (Iterator it = leafs.iterator(); it.hasNext();) {
 			Perspective leaf = (Perspective) it.next();
 			result.addAll(leaf.ancestors());
@@ -387,22 +400,158 @@ public final class Perspective implements Comparable, ItemPredicate {
 					ensureInstantiatedPerspective();
 
 					int fetchType = 1;
-					if (instantiatedPerspective.totalChildTotalCount > 0)
-						fetchType = 3;
-					else if (query().isRestrictedData())
+					if (query().isRestrictedData())
 						fetchType = 5;
+					else if (instantiatedPerspective.totalChildTotalCount > 0)
+						fetchType = 3;
 					if (nChildren() > 100)
 						fetchType += 1;
-					query().initPerspective(this, fetchType);
-					setPrefetched();
+
+					query().prefetch(this, fetchType);
+
+					setPrefetched(true);
 					notifyAll();
 				}
 			}
 		}
 	}
 
-	void setPrefetched() {
-		instantiatedPerspective.isPrefetched = true;
+	void initPerspective(DataInputStream in, int fetchType) {
+		if (fetchType > 4)
+			fetchType -= 4;
+		setChildrenOffset(MyResultSet.readInt(in));
+		initPerspective(new MyResultSet(in, prefetchColumnTypes(fetchType)),
+				fetchType);
+		setIsAlphabetic(MyResultSet.readInt(in) > 0);
+		if (isAlphabetic())
+			setLetterOffsets(new MyResultSet(in, MyResultSet.SNMINT_SINT), "");
+		// Util.print("offset " + facet + " " + facet.childrenOffset() + " "
+		// + facet.isAlphabetic());
+	}
+
+	static List prefetchColumnTypes(int fetchType) {
+		List types = null;
+		switch (fetchType) {
+		case 1:
+			types = MyResultSet.INT_INT_STRING;
+			break;
+		case 2:
+			types = MyResultSet.INT_INT;
+			break;
+		case 3:
+			types = MyResultSet.INT_STRING;
+			break;
+		case 4:
+			types = MyResultSet.INT;
+			break;
+		default:
+			assert false : "prefetch args=" + fetchType;
+		}
+		return types;
+	}
+
+	// cases:
+	// 0: initFacetTypes: count
+	// 1: prefetch a new facet: count, nChildren, offset, name
+	// 2: prefetch a new facet: count, nChildren, offset
+	// 3: prefetch a top-level facet (count is already set): nChildren, offset,
+	// name
+	// 4: prefetch a top-level facet (count is already set): nChildren, offset
+	void initPerspective(ResultSet rs, int fetchType) {
+		assert isInstantiated();
+		try {
+			boolean isCount = fetchType <= 2;
+			boolean isName = fetchType == 1 || fetchType == 3;
+			boolean isOffset = fetchType > 0;
+			// Map cHist = new TreeMap();
+			// Map offHist = new TreeMap();
+			// Map ncHist = new TreeMap();
+
+			// Util.print("Query.initPerspective isName=" + isName + " isCount="
+			// + isCount + " isOffset=" + isOffset + " " + p
+			// + " nChildren=" + p.nChildren() + " childrenOffset="
+			// + p.children_offset());
+
+			int child_facet_id = childrenOffset();
+			int nRemainingChildren = nChildren();
+			int child_cumCount = 0;
+			int maxCount = -1;
+			int count = -1;
+			String name1 = null;
+			while (--nRemainingChildren >= 0) {
+				rs.next();
+				Perspective v;
+				if (isOffset) {
+					int fieldOffset = isCount ? 1 : 0;
+					// int childrenOffset = rs.getInt(fieldOffset + 2);
+					int nChildren = rs.getInt(fieldOffset + 1);
+					if (isName)
+						name1 = rs.getString(fieldOffset + 2);
+					v = ensureChild(++child_facet_id, name1, nChildren);
+
+					// incf(offHist, childrenOffset);
+					// incf(ncHist, nChildren);
+
+					// if (v.nChildren > 0 && nameGetter != null) {
+					// nameGetter.addFacet(v);
+					// }
+					// if (isCount)
+					// count = rs.getInt(1);
+				} else {
+					assert isCount;
+					// count = rs.getInt(1);
+					v = ensureChild(++child_facet_id, null, 0);
+				}
+				if (isCount) {
+					count = rs.getInt(1);
+					// incf(cHist, count);
+
+					assert count > 0 || query().isRestrictedData() : this + " "
+							+ v + " " + count;
+					// Need to DELETE FROM facet WHERE count = 0
+					child_cumCount += count;
+					// v.onCount = count;
+					if (count > maxCount) {
+						// Util
+						// .print("initPerspective setting max child count to "
+						// + count + " (" + v + ")");
+						maxCount = count;
+					}
+					// Util.print("Setting " + v + " totalCount=" + count);
+					v.totalCount = count;
+					v.cumCount = child_cumCount;
+				}
+			}
+
+			// showHist(cHist, "Counts:");
+			// showHist(offHist, "Offsets:");
+			// showHist(ncHist, "nChilds:");
+			if (isCount) {
+				setTotalChildTotalCount(child_cumCount);
+				setMaxChildTotalCount(maxCount);
+				// if (p.parent != null) {
+				// // For a new facet, any other displayed siblings have to
+				// // make room.
+				// p.parent.updateChildPercents();
+				// }
+			}
+			// assert p.isDataIndexByOnComplete();
+			rs.close();
+		} catch (SQLException se) {
+			Util.err("SQL Exception in perspective.updateData: "
+					+ se.getMessage());
+			se.printStackTrace();
+		}
+	}
+
+	Perspective ensureChild(int child_facet_id, String child_name,
+			int child_nChildren) {
+		return query().ensurePerspective(child_facet_id, this, child_name, -1,
+				child_nChildren);
+	}
+
+	void setPrefetched(boolean state) {
+		instantiatedPerspective.isPrefetched = state;
 	}
 
 	/**
@@ -585,10 +734,19 @@ public final class Perspective implements Comparable, ItemPredicate {
 
 	void setTotalChildTotalCount(int cnt) {
 		// Util.print("setTotalChildTotalCount " + this + " " + cnt);
-		assert cnt >= 0;
+		assert cnt >= 0 : this + " " + query() + " "
+				+ query().displayedPerspectives();
 		instantiatedPerspective.totalChildTotalCount = cnt;
 		if (cnt == 0 && getParent() != null) {
-			parent.deselectFacet(this, true);
+			// Uh-oh. In the unrestricted database we have children, but in the
+			// restricted one they all have zero count. We didn't know that
+			// ahead of time, and added a pv. Oh well, viz can notice this and
+			// remove it again, via PV.updateData(). Can't do it in
+			// this thread or you'd get concurrent modification on
+			// displayedPerspectives.
+			// Util.print("zero totalChildTotalCount for " + this + " " +
+			// query());
+			// parent.deselectFacet(this, true);
 		}
 	}
 
@@ -642,15 +800,16 @@ public final class Perspective implements Comparable, ItemPredicate {
 
 	/**
 	 * @return spaces to indent according to this perspective's ancestor depth,
-	 *         followed by a symbol if this perspective has any children
+	 *         followed by a symbol if this perspective has a parent.
 	 */
 	public String namePrefix() {
 		String result = "";
 		int level = depth();
 		for (int i = 1; i < level; i++)
 			result += "  ";
-		result += Markup.parentIndicatorPrefix;
-		// Util.print("namePrefix '" + result + "'");
+		if (level > 0)
+			result += Markup.parentIndicatorPrefix;
+		// Util.print("namePrefix " + this + " '" + result + "'");
 		return result;
 	}
 
@@ -681,11 +840,12 @@ public final class Perspective implements Comparable, ItemPredicate {
 		}
 		assert redraw != null;
 		Query q = query();
-		if (!parent.isPrefetched()) {
-			q.queuePrefetch(getParent());
-			// getQuery().prefetchData(parent);
-			// assert name != null;
-		}
+
+		// Why did we do this?
+		// if (!parent.isPrefetched()) {
+		// q.queuePrefetch(getParent());
+		// }
+
 		NameGetter nameGetter = q.nameGetter;
 		assert nameGetter != null : q;
 		nameGetter.add(this);
@@ -720,6 +880,96 @@ public final class Perspective implements Comparable, ItemPredicate {
 
 	void setIsAlphabetic(boolean _isAlphabetic) {
 		instantiatedPerspective.isAlphabetic = _isAlphabetic;
+	}
+
+	/**
+	 * @param prefix
+	 * @return Iterator over getLetterOffsets(prefix)
+	 */
+	public Iterator letterOffsetsIterator(String prefix) {
+		return getLetterOffsets(prefix).entrySet().iterator();
+	}
+
+	/**
+	 * @param prefix
+	 * @return Perspective with lowest facet_id whose name begins with prefix,
+	 *         or null if none exist.
+	 */
+	public Perspective firstWithPrefix(String prefix) {
+		int charIndex = prefix.length();
+		if (charIndex == 0) {
+			return getNthChild(0);
+		}
+		String prefixButOne = prefix.substring(0, charIndex - 1);
+		char desiredLetter = prefix.charAt(charIndex - 1);
+		Perspective firstWithLetter = null;
+		for (Iterator it = letterOffsetsIterator(prefixButOne); it.hasNext();) {
+			Entry entry = (Entry) it.next();
+			char letter = ((Character) entry.getKey()).charValue();
+			Perspective lastWithLetter = (Perspective) entry.getValue();
+			if (letter == desiredLetter) {
+				if (firstWithLetter == null)
+					firstWithLetter = firstWithPrefix(prefixButOne);
+				// Util.print("firstWithPrefix " + prefix + " => " +
+				// firstWithLetter);
+				return firstWithLetter;
+			} else if (letter > desiredLetter)
+				return null;
+			firstWithLetter = lastWithLetter.nextSibling();
+		}
+		return null;
+	}
+
+	/**
+	 * @param prefix
+	 * @return Perspective with highest facet_id whose name begins with prefix,
+	 *         or null if none exist.
+	 */
+	public Perspective lastWithPrefix(String prefix) {
+		// Util.print("lastWithPrefix " + prefix);
+		int charIndex = prefix.length();
+		if (charIndex == 0) {
+			return getNthChild(nChildren() - 1);
+		}
+		String prefixButOne = prefix.substring(0, charIndex - 1);
+		Character desiredLetter = new Character(prefix.charAt(charIndex - 1));
+		// Util.print(" " + getLetterOffsets(prefixButOne).get(desiredLetter));
+		return (Perspective) getLetterOffsets(prefixButOne).get(desiredLetter);
+	}
+
+	public Map getLetterOffsets(String prefix) {
+		assert isAlphabetic();
+		Map letterOffsets = (Map) instantiatedPerspective.lettersOffsets
+				.get(prefix);
+		if (letterOffsets == null) {
+			assert prefix.equals(prefix.toUpperCase());
+			ResultSet rs = query().getLetterOffsets(this, prefix);
+			letterOffsets = setLetterOffsets(rs, prefix);
+			// Util.print(prefix + " " + letterOffsets);
+		}
+		return letterOffsets;
+	}
+
+	Map setLetterOffsets(ResultSet rs, String prefix) {
+		Map letterOffsets = null;
+		try {
+			rs.last();
+			int n = rs.getRow();
+			rs.beforeFirst();
+			letterOffsets = new LinkedHashMap(n);
+			while (rs.next()) {
+				Character c = new Character((char) rs.getInt(1));
+				Perspective child = query().findPerspective(rs.getInt(2));
+				letterOffsets.put(c, child);
+			}
+			rs.close();
+			instantiatedPerspective.lettersOffsets.put(prefix, letterOffsets);
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		// Util.print("letter offsets for " + this + " '" + prefix + "':");
+		// Util.print(letterOffsets);
+		return letterOffsets;
 	}
 
 	void setNchildren(int n, int child_offset) {
@@ -1389,6 +1639,8 @@ public final class Perspective implements Comparable, ItemPredicate {
 		// Util.print("p.selectFacet " + this + "." + facet + " " + require + "
 		// "
 		// + ancestorRestriction(facet));
+		assert !isRestriction(facet, require) : facet + " " + this + " "
+				+ require + " " + allRestrictions();
 		addRestriction(facet, require);
 		if (facet.isEffectiveChildren() && require) {
 			instantiatedPerspective.q.insertPerspective(facet);
@@ -1418,6 +1670,8 @@ public final class Perspective implements Comparable, ItemPredicate {
 		for (Iterator it = getChildIterator(); it.hasNext();) {
 			Perspective child = (Perspective) it.next();
 			int count = child.onCount;
+			assert count >= 0 : child + " " + query() + " "
+					+ query().displayedPerspectives();
 
 			// Query.restrict calls Query.clear, which will resetData of facet
 			// to -1
@@ -1811,11 +2065,17 @@ public final class Perspective implements Comparable, ItemPredicate {
 		 */
 		private int updateIndex = 0;
 
-		private double[] pValue = new double[2];
+		private SignedPValue pValue;
 
-		private double[] medianPvalue = new double[2];
+		private SignedPValue medianPvalue;
 
 		boolean isPrefetched = false;
+
+		/**
+		 * Maps from a prefix string to a map from the next letter to the last
+		 * child with that letter.
+		 */
+		Map lettersOffsets = new HashMap();
 
 		/**
 		 * This child's <code>totalCount</code> divided by all siblings'
@@ -1937,20 +2197,18 @@ public final class Perspective implements Comparable, ItemPredicate {
 		 *         c.cumCountExclusive <= maxCount
 		 */
 		Iterator cumCountChildIterator(int minCount, int maxCount) {
-			totalChildTotalCount = getTotalChildTotalCount();
 			if (minCount < 0)
 				minCount = 0;
 			if (maxCount > totalChildTotalCount)
 				maxCount = totalChildTotalCount;
-			if (minCount <= 1 && maxCount >= totalChildTotalCount-1)
+			if (minCount <= 1 && maxCount >= totalChildTotalCount - 1)
 				// optimize common case
 				return getChildIterator();
 			synchronized (dummyCumCount) {
 				dummyCumCount.cumCount = minCount;
 				int minWhichChild = Arrays.binarySearch(dataIndex,
 						dummyCumCount, cumCountInclusiveComparator);
-				minWhichChild = childIndexFromBinarySearch(
-						minWhichChild, false);
+				minWhichChild = childIndexFromBinarySearch(minWhichChild, false);
 				Perspective minChild = getNthChild(minWhichChild);
 				while (minChild.totalCount == 0) {
 					// This can happen when restrictedData
@@ -1961,17 +2219,16 @@ public final class Perspective implements Comparable, ItemPredicate {
 				dummyCumCount.cumCount = maxCount;
 				int maxWhichChild = Arrays.binarySearch(dataIndex,
 						dummyCumCount, cumCountExclusiveComparator);
-				maxWhichChild = childIndexFromBinarySearch(
-						maxWhichChild, true);
+				maxWhichChild = childIndexFromBinarySearch(maxWhichChild, true);
 				Perspective maxChild = getNthChild(maxWhichChild);
 				while (maxChild.totalCount == 0) {
 					maxChild = getNthChild(++maxWhichChild);
 				}
-//				 Util.print("cumCountChildIterator " + minCount + "-" +
-//				 maxCount
-//				 + "/" + getTotalChildTotalCount() + " " +
-//				 minChild.toStringWithCumCount()
-//				 + " -- " + maxChild.toStringWithCumCount());
+				// Util.print("cumCountChildIterator " + minCount + "-" +
+				// maxCount
+				// + "/" + getTotalChildTotalCount() + " " +
+				// minChild.toStringWithCumCount()
+				// + " -- " + maxChild.toStringWithCumCount());
 				assert minChild.cumCountInclusive() >= minCount
 						&& minChild.cumCountExclusive() <= minCount
 						&& maxChild.cumCountInclusive() >= maxCount
@@ -2106,7 +2363,7 @@ public final class Perspective implements Comparable, ItemPredicate {
 		 * greater than the median, and col1 is the total less than the median.
 		 */
 		private void computeMedianTestPvalue() {
-			medianPvalue[0] = 1.0;
+			medianPvalue = new SignedPValue();
 			int totalChildOnCount = getTotalChildOnCount();
 			if (totalChildOnCount < totalChildTotalCount
 					&& totalChildOnCount > 0) {
@@ -2153,12 +2410,12 @@ public final class Perspective implements Comparable, ItemPredicate {
 
 		double medianPvalue() {
 			computeMedianTestPvalue();
-			return medianPvalue[0];
+			return medianPvalue.magnitude;
 		}
 
 		int medianPvalueSign() {
 			computeMedianTestPvalue();
-			return (int) medianPvalue[1];
+			return medianPvalue.sign ? 1 : -1;
 		}
 
 		/**
@@ -2168,7 +2425,7 @@ public final class Perspective implements Comparable, ItemPredicate {
 			// if (chiSqTable == null)
 			// chiSqTable = new ChiSq2x2();
 			if (updateIndex != q.updateIndex) {
-				pValue[0] = 1.0;
+				pValue = new SignedPValue();
 				if (q.isQueryValid() && q.isRestricted()) {
 					ItemPredicate pparent = getParent() != null ? getParent()
 							: (ItemPredicate) q;
@@ -2188,14 +2445,14 @@ public final class Perspective implements Comparable, ItemPredicate {
 						try {
 							pValue = ChiSq2x2.signedPvalue(parentTotalCount,
 									parentOnCount, totalCount, onCount);
-							if ("Commercial organizations"
-									.equals(getNameIfPossible()))
-								// Util.print("pvalue = "
-								// + Util.valueOfDeep(pValue) + " "
-								// + parentTotalCount + " "
-								// + parentOnCount + " " + totalCount + " " +
-								// onCount);
-								updateIndex = q.updateIndex;
+							// if ("no date recorded on caption card"
+							// .equals(getNameIfPossible()))
+							// Util.print(this + " pvalue = "
+							// + pValue + " "
+							// + parentTotalCount + " "
+							// + parentOnCount + " " + totalCount + " " +
+							// onCount);
+							updateIndex = q.updateIndex;
 						} catch (OutOfRangeException e) {
 							// Keep going even if there are problems in
 							// ChiSq2x2.signedPvalue
@@ -2224,19 +2481,24 @@ public final class Perspective implements Comparable, ItemPredicate {
 		}
 
 		String checkTableMsg(int total, int row0, int col0, int table00) {
-			return this + " parentTotalCount=" + total + " parentOnCount="
-					+ row0 + " totalCount=" + col0 + " onCount=" + table00
-					+ " isQueryValid=" + q.isQueryValid();
+			return this + " isQueryValid=" + q.isQueryValid() + " " + query()
+					+ "\n" + table00 + "   " + (row0 - table00) + "   " + row0
+					+ "\n" + (col0 - table00) + "   "
+					+ (total - row0 - col0 + table00) + "   " + (total - row0)
+					+ "\n" + col0 + "   " + (total - col0) + "   " + total;
+			// return this + " parentTotalCount=" + total + " parentOnCount="
+			// + row0 + " totalCount=" + col0 + " onCount=" + table00
+			// + " isQueryValid=" + q.isQueryValid();
 		}
 
 		double pValue() {
 			computePvalue();
-			return pValue[0];
+			return pValue.magnitude;
 		}
 
 		int pValueSign() {
 			computePvalue();
-			return (int) pValue[1];
+			return pValue.sign ? 1 : -1;
 		}
 
 		/**
@@ -2348,7 +2610,7 @@ public final class Perspective implements Comparable, ItemPredicate {
 		}
 
 		void resetData(int count) {
-			// Util.print("Perspective.resetData " + this + " " + count);
+//			Util.print("Perspective.resetData " + this + " " + count);
 			assert count <= 0;
 			assert isPrefetched : this;
 			// if (isPrefetched())

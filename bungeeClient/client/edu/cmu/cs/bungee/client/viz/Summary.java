@@ -32,15 +32,13 @@
 package edu.cmu.cs.bungee.client.viz;
 
 import java.awt.Color;
-import java.awt.Component;
-import java.awt.geom.AffineTransform;
 import java.awt.geom.Point2D;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.SortedSet;
-import java.util.TreeSet;
+import java.util.Set;
 
 import edu.cmu.cs.bungee.client.query.Cluster;
 import edu.cmu.cs.bungee.client.query.ItemPredicate;
@@ -50,8 +48,8 @@ import edu.cmu.cs.bungee.client.query.Query;
 import edu.cmu.cs.bungee.javaExtensions.*;
 import edu.cmu.cs.bungee.piccoloUtils.gui.APText;
 import edu.cmu.cs.bungee.piccoloUtils.gui.Boundary;
+import edu.cmu.cs.bungee.piccoloUtils.gui.LazyContainer;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
-import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPPath;
 import edu.cmu.cs.bungee.piccoloUtils.gui.MouseDoc;
 import edu.cmu.cs.bungee.piccoloUtils.gui.MyInputEventHandler;
 import edu.umd.cs.piccolo.PNode;
@@ -60,17 +58,18 @@ import edu.umd.cs.piccolo.activities.PInterpolatingActivity;
 import edu.umd.cs.piccolo.event.PInputEvent;
 import edu.umd.cs.piccolo.util.PPaintContext;
 
-final class Summary extends LazyPNode implements MouseDoc {
+final class Summary extends LazyContainer implements MouseDoc {
 
+	static int updateCount = 0;
+
+	/**
+	 * Horizontal space between buttons
+	 */
 	private final static int BUTTON_MARGIN = 8;
 
 	Bungee art;
 
 	Query q;
-
-	double w;
-
-	double h;
 
 	double queryW;
 
@@ -108,11 +107,8 @@ final class Summary extends LazyPNode implements MouseDoc {
 
 	Summary(Bungee _art) {
 		super();
-		setPaint(Bungee.summaryBG);
-		// initColors();
-		// q = _q;
 		art = _art;
-		setPaint(Bungee.summaryBG);
+		// setPaint(Bungee.summaryBG);
 		queryViz = new QueryViz(this);
 		addChild(queryViz);
 		ranks = new ArrayList(art.query.nAttributes);
@@ -167,8 +163,8 @@ final class Summary extends LazyPNode implements MouseDoc {
 
 		// barHelp = new Help(art);
 
-		colorKey = new ColorKey();
-		addChild(colorKey);
+		// colorKey = new ColorKey();
+		// addChild(colorKey);
 
 		facetDesc = new PopupSummary(art);
 		addChild(facetDesc);
@@ -190,6 +186,7 @@ final class Summary extends LazyPNode implements MouseDoc {
 		// fetcher.start();
 
 		boundary = new Boundary(this, false);
+		boundary.margin = ResultsGrid.MARGIN_SIZE / 2;
 		addChild(boundary);
 	}
 
@@ -218,9 +215,10 @@ final class Summary extends LazyPNode implements MouseDoc {
 		// + " " + recomputeQueryW + " " + minWidth(recomputeQueryW));
 		assert _w == (int) _w;
 		assert _h == (int) _h;
-		w = _w;
+		w = _w; // - art.lineH; // Leave room for rightmost rotated label; No,
+		// use grid margin.
 		h = _h;
-		setBounds(0, 0, w, h);
+		// setBounds(0, 0, _w, h);
 		setTextSize();
 		double summaryTextY = label.getGlobalBounds().getHeight();
 		double buttonY = summaryTextY + 1.5 * art.lineH;
@@ -253,24 +251,26 @@ final class Summary extends LazyPNode implements MouseDoc {
 		}
 		label.setOffset(queryW, 0);
 
-		final double ellipsisMargin = 1;
-		double ellipsisX = w - ellipsis.minWidth() - ellipsisMargin;
+		double ellipsisX = w - ellipsis.minWidth();
 		ellipsis.setOffset(ellipsisX, summaryTextY);
 
 		summaryText.setOffset(queryW, summaryTextY);
-		summaryText.setBounds(0, 0, ellipsisX - ellipsisMargin - queryW,
+		summaryText.setBounds(0, 0, ellipsisX - BUTTON_MARGIN - queryW,
 				art.lineH);
 		summaryText.layoutBestFit();
 
 		clear.setOffset(queryW, buttonY);
-
-		restrict.setOffset(clear.getMaxX() + BUTTON_MARGIN, clear.getYOffset());
+		clearMessage.setOffset(queryW, clear.getYOffset());
 
 		if (bookmark != null) {
-			bookmark.setOffset(restrict.getMaxX() + BUTTON_MARGIN, clear
+			bookmark.setOffset(w - bookmark.minWidth(), clear.getYOffset());
+
+			restrict.setOffset(
+					(clear.getMaxX() + bookmark.getXOffset() - restrict
+							.minWidth()) / 2, clear.getYOffset());
+		} else
+			restrict.setOffset(clear.getMaxX() + BUTTON_MARGIN, clear
 					.getYOffset());
-		}
-		clearMessage.setOffset(queryW, clear.getYOffset());
 
 		for (Iterator it = ranks.iterator(); it.hasNext();) {
 			Rank r = (Rank) it.next();
@@ -282,9 +282,22 @@ final class Summary extends LazyPNode implements MouseDoc {
 		boundary.validate();
 
 		queryViz.validate(queryW, h);
-		colorKey.fit();
+		// colorKey.fit();
 		if (perspectiveList != null)
 			perspectiveList.validate();
+
+		validateColorKey();
+	}
+
+	void validateColorKey() {
+		if (colorKey != null)
+			colorKey.removeFromParent();
+		double topMargin = summaryText.getYOffset();
+		colorKey = new ColorKey(queryW - Rank.LABEL_RIGHT_MARGIN
+				- Rank.LABEL_LEFT_MARGIN, clear.getMaxY() - topMargin);
+		colorKey.setOffset(Rank.LABEL_LEFT_MARGIN, topMargin);
+		colorKey.setVisible(art.query.isRestricted());
+		addChild(colorKey);
 	}
 
 	void setTextSize() {
@@ -297,7 +310,7 @@ final class Summary extends LazyPNode implements MouseDoc {
 		clear.setFont(art.font);
 		bookmark.setFont(art.font);
 		restrict.setFont(art.font);
-		colorKey.setSize();
+		// colorKey.setSize();
 	}
 
 	double internalH() {
@@ -311,10 +324,14 @@ final class Summary extends LazyPNode implements MouseDoc {
 		// return label.getScale() * art.lineH + clear.getScale() * art.lineH
 		// + art.lineH /2;
 
-		return clear.getMaxY() + art.lineH / 2;
+		assert !Double.isNaN(clear.getMaxY());
+		assert !Double.isNaN(art.lineH);
+		return clear.getMaxY() + art.lineH;
 	}
 
 	double getBottomMargin() {
+		assert !Double.isNaN(queryViz.getBottomMargin());
+		assert !Double.isNaN(art.lineH);
 		return queryViz.getBottomMargin() + art.lineH / 2;
 	}
 
@@ -350,7 +367,11 @@ final class Summary extends LazyPNode implements MouseDoc {
 	}
 
 	public double maxWidth() {
-		return getWidth() + art.grid.getWidth() - art.grid.minWidth();
+		return w + art.grid.w - art.grid.minWidth();
+	}
+
+	public double minHeight() {
+		return art.lineH * (10 + art.query.nAttributes);
 	}
 
 	// private void initColors() {
@@ -375,10 +396,12 @@ final class Summary extends LazyPNode implements MouseDoc {
 		boolean buttonsVisible = q.isRestricted();
 		clear.setNumFilters();
 		clear.setVisible(buttonsVisible || q.isRestrictedData());
-		if (bookmark != null)
+		if (bookmark != null) {
 			bookmark.setVisible(buttonsVisible);
-		if (restrict != null)
+		}
+		if (restrict != null) {
 			restrict.setVisible(buttonsVisible);
+		}
 	}
 
 	void setEllipsisVisibility() {
@@ -526,10 +549,10 @@ final class Summary extends LazyPNode implements MouseDoc {
 		final double minSelectedLabelH = Math.min(maxSelectedLabelH,
 				6 * art.lineH);
 		computeRankComponentHeights(new DesiredSize(0,
-				Double.POSITIVE_INFINITY, 1), new DesiredSize(0,
+				Double.POSITIVE_INFINITY, 1.5), new DesiredSize(0,
 				Double.POSITIVE_INFINITY, 3), new DesiredSize(
 				minSelectedLabelH, maxSelectedLabelH, 7), new DesiredSize(1,
-				Double.POSITIVE_INFINITY, 0.1));
+				Double.POSITIVE_INFINITY, 0.2));
 		layoutChildrenWhenNeeded(duration);
 	}
 
@@ -661,10 +684,18 @@ final class Summary extends LazyPNode implements MouseDoc {
 	}
 
 	void updateData() {
-		// Util.print("Summary.updateData");
+		// Util.print("Summary.updateData " + art.query.isQueryValid() + " " +
+		// art.query);
 		for (Iterator it = ranks.iterator(); it.hasNext();) {
 			Rank r = (Rank) it.next();
 			r.updateData();
+			if (r.getParent() == null) {
+				// all its PVs have zero totalChildTotalCount, so rank has been
+				// removed.
+				// start over so you don't get concurrent modification error.
+				updateData();
+				break;
+			}
 		}
 
 		PInterpolatingActivity dataAnimator = new PInterpolatingActivity(
@@ -676,6 +707,7 @@ final class Summary extends LazyPNode implements MouseDoc {
 			// }
 
 			public void setRelativeTargetValue(float zeroToOne) {
+				updateCount++;
 				// Util.print("Summary.animateData");
 				for (int i = 0; i < nRanks(); i++) {
 					Rank r = (Rank) ranks.get(i);
@@ -684,8 +716,15 @@ final class Summary extends LazyPNode implements MouseDoc {
 			}
 		};
 		addActivity(dataAnimator);
+
 		if (perspectiveList != null)
 			perspectiveList.updateData();
+		if (colorKey != null)
+			colorKey.setVisible(art.query.isRestricted());
+		if (bookmark != null)
+			bookmark.showDisabledState();
+		if (restrict != null)
+			restrict.showDisabledState();
 	}
 
 	// void redrawLabels() {
@@ -694,35 +733,38 @@ final class Summary extends LazyPNode implements MouseDoc {
 	// r.redrawLabels();
 	// }
 
-	void updateSelections(Perspective facet) {
-		// Util.print("Summary.updateSelections " + facet.getName() + " " +
-		// state);
-		PerspectiveViz pv = findPerspective(facet);
-		if (pv != null)
-			pv.rank.updatePerspectiveSelections(facet);
-		pv = findPerspective(facet.getParent());
-		if (pv != null)
-			pv.rank.updatePerspectiveSelections(facet);
-		// for (int i = 0; i < ranks.size(); i++) {
-		// Rank r = (Rank) ranks.get(i);
-		// r.updatePerspectiveSelections(facet, state);
-		// }
-		summaryText.updateSelections(facet);
+	void updateSelections(Set facets) {
+		// Util.print("Summary.updateSelections " + facets);
+		for (Iterator it = ranks.iterator(); it.hasNext();) {
+			Rank r = (Rank) it.next();
+			PerspectiveViz[] ps = r.perspectives;
+			boolean inRank = false;
+			for (Iterator fit = facets.iterator(); fit.hasNext() && !inRank;) {
+				Perspective facet = (Perspective) fit.next();
+				for (int j = 0; j < ps.length && !inRank; j++) {
+					Perspective pvP = ps[j].p;
+					inRank = (pvP == facet || pvP == facet.getParent());
+				}
+			}
+			if (inRank)
+				r.updatePerspectiveSelections(facets);
+		}
+		summaryText.updateSelections(facets);
 	}
 
-	PerspectiveViz findPerspective(ItemPredicate facet_type) {
+	PerspectiveViz lookupPV(Perspective facet) {
 		for (Iterator it = ranks.iterator(); it.hasNext();) {
 			Rank r = (Rank) it.next();
 			PerspectiveViz[] ps = r.perspectives;
 			for (int j = 0; j < ps.length; j++) {
-				if (ps[j].p == facet_type)
+				if (ps[j].p == facet)
 					return ps[j];
 			}
 		}
 		return null;
 	}
 
-	PerspectiveViz findPerspective(String facetName) {
+	PerspectiveViz findPerspectiveViz(String facetName) {
 		for (Iterator it = ranks.iterator(); it.hasNext();) {
 			Rank r = (Rank) it.next();
 			PerspectiveViz[] ps = r.perspectives;
@@ -759,27 +801,21 @@ final class Summary extends LazyPNode implements MouseDoc {
 	 * @param facet
 	 *            facet for which highlighting has changed
 	 */
-	void highlightFacet(Perspective facet) {
-		assert facet != null;
-		if (q.displaysPerspective(facet.getParent())
-				|| q.displaysPerspective(facet)) {
-			updateSelections(facet);
-		}
+	void highlightFacet(Set facets) {
+		updateSelections(facets);
 		if (perspectiveList != null)
-			perspectiveList.highlightFacet(facet);
+			perspectiveList.highlightFacet(facets);
 	}
 
-	void highlightCluster(Cluster facet) {
-		if (facet != null) {
-			queryViz.highlightCluster(facet);
-			summaryText.updateSelections(facet);
-		}
+	void highlightCluster(Set facets) {
+		// if (facet != null) {
+		queryViz.highlightCluster(facets);
+		summaryText.updateSelections(facets);
 	}
 
 	void clearQuery() {
 		art.printUserAction(Bungee.BUTTON, "Clear", 0);
 		boolean isMultipleFilters = q.nFilters(false, true, false) > 1;
-		flagConnectedRank(null);
 		art.clearQuery();
 		if (isMultipleFilters) {
 			addChild(clearMessage);
@@ -807,15 +843,14 @@ final class Summary extends LazyPNode implements MouseDoc {
 	// return result;
 	// }
 
-	private SortedSet previousRestrictions = new TreeSet();
+	private Set previousRestrictions = new HashSet();
 
-	void synchronizeSelections(SortedSet previousRestrictions2) {
-		for (Iterator it = previousRestrictions2.iterator(); it.hasNext();) {
-			Perspective p = (Perspective) it.next();
-
-			assert p.getParent() != null : p;
-			updateSelections(p);
-		}
+	void synchronizeSelections(Set previousRestrictions2) {
+		// for (Iterator it = previousRestrictions2.iterator(); it.hasNext();) {
+		// Perspective p = (Perspective) it.next();
+		//
+		// assert p.getParent() != null : p;
+		updateSelections(previousRestrictions2);
 	}
 
 	// void synchronizePerspectives() {
@@ -828,7 +863,7 @@ final class Summary extends LazyPNode implements MouseDoc {
 		// queryPerspectives);
 
 		// out with the old.
-		Perspective highlight = art.highlightedFacet;
+		// Perspective highlight = art.highlightedFacet;
 		for (Iterator pit = ranks.iterator(); pit.hasNext();) {
 			Rank r = (Rank) pit.next();
 			PerspectiveViz[] ps = r.perspectives;
@@ -841,13 +876,13 @@ final class Summary extends LazyPNode implements MouseDoc {
 				else {
 					remove = (PerspectiveViz[]) Util.push(remove, pv,
 							PerspectiveViz.class);
-					if (highlight != null && highlight.hasAncestor(pv.p)) {
-						art.highlightFacet(null, 0);
-					}
+					// if (highlight != null && highlight.hasAncestor(pv.p)) {
+					// art.highlightFacet(null, 0);
+					// }
 				}
 			}
 			if (removeAll) {
-				// Util.print("Remove rank " + r);
+//				Util.print("Remove rank " + r);
 				removeChild(r);
 				pit.remove();
 			} else {
@@ -859,7 +894,7 @@ final class Summary extends LazyPNode implements MouseDoc {
 		// in with the new.
 		for (Iterator iter = queryPerspectives.iterator(); iter.hasNext();) {
 			Perspective p = (Perspective) iter.next();
-			if (findPerspective(p) == null) {
+			if (lookupPV(p) == null) {
 				Rank rank = addPerspective(p);
 				rank.delayedInit();
 				// if (defaultConnect != null) {
@@ -871,6 +906,10 @@ final class Summary extends LazyPNode implements MouseDoc {
 
 		if (toConnect != null)
 			connectToPerspective(toConnect);
+		// else if (connectedPerspective() == null)
+		// // If we removed the connected rank above, it might have had
+		// perspective list showing
+		// hidePerspectiveList();
 		setDescription();
 		queryViz.synchronizeWithQuery();
 		computeRankComponentHeights();
@@ -939,12 +978,14 @@ final class Summary extends LazyPNode implements MouseDoc {
 		if (r != current) {
 			// Util.print("summary.flagConnectedRank " + r + " old was "
 			// + connectedRank());
+			hidePerspectiveList();
 			if (current != null) {
 				current.setConnected(false);
 			}
 			if (r != null)
 				r.setConnected(true);
 			queryViz.setSearchVisibility(r != null);
+			art.setHelpVisibility();
 		}
 	}
 
@@ -965,9 +1006,9 @@ final class Summary extends LazyPNode implements MouseDoc {
 		return result;
 	}
 
-	void connectToPerspective(ItemPredicate p) {
+	void connectToPerspective(Perspective p) {
 		// Util.print("connectToPerspective " + p);
-		PerspectiveViz pv = findPerspective(p);
+		PerspectiveViz pv = lookupPV(p);
 		assert pv != null : p;
 		Rank rank = pv.rank;
 		assert rank != null : p;
@@ -990,6 +1031,7 @@ final class Summary extends LazyPNode implements MouseDoc {
 			Rank r = (Rank) it.next();
 			result = Util.append(result, r.pValues());
 		}
+		assert result != null : ranks + " " + art.query;
 		return result;
 	}
 
@@ -1053,7 +1095,7 @@ final class Summary extends LazyPNode implements MouseDoc {
 			summaryText.setWrapOnWordBoundaries(false);
 			summaryText.setHeight(art.lineH);
 			summaryText.layout();
-			ellipsis.moveToFront();
+			// ellipsis.moveToFront();
 			ellipsis.setState(true);
 			ellipsis.mouseDoc = "Show the rest of the summary";
 			setEllipsisVisibility();
@@ -1078,7 +1120,7 @@ final class Summary extends LazyPNode implements MouseDoc {
 		if (clearMessage.getParent() != null)
 			removeChild(clearMessage);
 		contractSummary();
-		colorKey.fit();
+		// colorKey.fit();
 		queryViz.doHideTransients();
 	}
 
@@ -1086,12 +1128,12 @@ final class Summary extends LazyPNode implements MouseDoc {
 	 * Only called by replayOps
 	 */
 	void clickBar(Perspective facet, int modifiers) {
-		PerspectiveViz pv = findPerspective(facet.getParent());
+		PerspectiveViz pv = lookupPV(facet.getParent());
 		pv.clickBar(facet, modifiers);
 	}
 
-	void clickRank(ItemPredicate facet, int modifiers) {
-		findPerspective(facet).pickFacet((Perspective) facet, modifiers);
+	void clickRank(Perspective facet, int modifiers) {
+		lookupPV(facet).pickFacet((Perspective) facet, modifiers);
 	}
 
 	boolean removeSearch(String string) {
@@ -1137,18 +1179,18 @@ final class Summary extends LazyPNode implements MouseDoc {
 
 	void showPopup(Perspective facet) {
 		if (isShowPopup(facet)) {
-			// Work your way up from facet until you find a pv
-			// pvp will have a pv, and barp
+			// Work your way up from facet until you find an ancestor with a pv.
+			//  barp
 			// will be a bar on it (or the same pv if facet is a facet_type)
 
-			for (Perspective pvp = facet, barp = facet;; barp = pvp, pvp = pvp
+			for (Perspective ancestor = facet, barp = facet;; barp = ancestor, ancestor = ancestor
 					.getParent()) {
-				assert pvp != null : facet + " " + barp;
-				if (pvp != facet || pvp.getParent() == null) {
-					PerspectiveViz pv = findPerspective(pvp);
+				assert ancestor != null : facet + " " + barp + " " + lookupPV(barp)
+						+ " " + art.query.displayedPerspectives() + " " + ranks;
+				if (ancestor != facet || ancestor.getParent() == null) {
+					PerspectiveViz pv = lookupPV(ancestor);
 					if (pv != null) {
-						LazyPNode anchor = findPerspective(pvp).anchorForPopup(
-								barp);
+						LazyPNode anchor = lookupPV(ancestor).anchorForPopup(barp);
 						// if (anchor != null) {
 						// There a transient state where pvp has a pv, but
 						// it
@@ -1177,15 +1219,27 @@ final class Summary extends LazyPNode implements MouseDoc {
 		}
 	}
 
+	void stop() {
+		if (facetDesc != null) {
+			// This hangs
+			// facetDesc.exit();
+			facetDesc = null;
+		}
+		hidePerspectiveList();
+	}
+
 	boolean isShowPopup(Object facet) {
 		boolean state = facet != null && !art.isShowingInitialHelp();
 		facetDesc.exit();
-		facetDesc.setVisible(state);
+		// facetDesc.setVisible(state);
 		if (state) {
 			facetDesc.moveToFront();
-			moveToFront();
+			// moveToFront(); // Do this in Popup when it starts translating, to
+			// reduce the number of summary invalidatePaints. Here, just worry
+			// about grid.
+			moveAheadOf(art.grid);
 		} else {
-			moveInBackOf(art.header);
+			moveBehind(art.header);
 		}
 		return state;
 	}
@@ -1241,7 +1295,7 @@ final class Summary extends LazyPNode implements MouseDoc {
 
 	void showMedianArrowPopup(Perspective facet) {
 		if (isShowPopup(facet)) {
-			PerspectiveViz pv = findPerspective(facet);
+			PerspectiveViz pv = lookupPV(facet);
 			assert pv != null;
 			// facetDesc.setAnchor(pv);
 			facetDesc.setFacet(facet, true, pv.medianArrow);
@@ -1273,162 +1327,78 @@ final class Summary extends LazyPNode implements MouseDoc {
 	}
 
 	void hidePerspectiveList() {
+		// Util.print("hidePerspectiveList");
+		// Util.printStackTrace();
 		if (perspectiveList != null && !perspectiveList.isHidden())
 			perspectiveList.toggle();
 	}
 
-	void expandColorKey() {
-		colorKey.expand();
-	}
+	// void expandColorKey() {
+	// colorKey.expand();
+	// }
 
-	private final class ColorKey extends LazyPPath {
+	private final class ColorKey extends LazyPNode {
 
-		// private final AffineTransform transform = new AffineTransform();
+		private final ColorKeyHover colorKeyHover = new ColorKeyHover();
 
-		// private final Summary summary;
-
-		private final double initialSize;
-
-		void setSize() {
-			setScale(art.lineH / initialSize);
-		}
-
-		ColorKey() {
-			// summary = _summary;
-			initialSize = art.lineH;
-			final double Xmargin = Math.round(art.lineH / 2);
-			final double Ymargin = Math.round(art.lineH / 3);
-
-			APText label1 = new APText(art.font);
+		ColorKey(double w, double h) {
+			Color[][] colors = { Markup.INCLUDED_COLORS,
+					Markup.POSITIVE_ASSOCIATION_COLORS,
+					Markup.UNASSOCIATED_COLORS,
+					Markup.NEGATIVE_ASSOCIATION_COLORS, Markup.EXCLUDED_COLORS };
+			String[] msgs = {
+					"Tag required by filters",
+					"Tag associated with filters; Items with this tag are more likely than others to satisfy the filters",
+					"Unassociated tag; There is no statistically significant association between this tag and the filters",
+					"Tag negatively associated with filters; Items with this tag are less likely than others to satisfy the filters",
+					"Tag prohibited by filters" };
+			int nColors = colors.length;
+			APText label1 = art.oneLineLabel();
 			label1.setTextPaint(Bungee.summaryFG);
-			label1.setTextPaint(Util.lighten(Bungee.summaryFG, 1.3f));
-			label1.setText("Color\nKey");
-			label1.setJustification(Component.CENTER_ALIGNMENT);
-			label1.setOffset(Xmargin, 5);
+			label1.setText("Color Key");
 			addChild(label1);
-
-			double fTab = (int) label1.getWidth() + 2 * Xmargin;
-			APText filter = new APText(art.font);
-			filter.setTextPaint(Bungee.summaryFG);
-			filter.setText("Tags in\nFilters");
-			filter.setJustification(Component.CENTER_ALIGNMENT);
-			filter.setOffset(fTab, Ymargin + 5);
-			addChild(filter);
-
-			double rTab = fTab + (int) filter.getWidth() + Xmargin;
-			APText related = new APText(art.font);
-			related.setTextPaint(Bungee.summaryFG);
-			related.setText("Related\nTags");
-			related.setJustification(Component.CENTER_ALIGNMENT);
-			related.setOffset(rTab, Ymargin + 5);
-			addChild(related);
-
-			double uTab = rTab + (int) related.getWidth() + Xmargin;
-			APText unrelated = new APText(art.font);
-			unrelated.setTextPaint(Bungee.summaryFG);
-			unrelated.setText("Unrelated\nTags");
-			unrelated.setJustification(Component.CENTER_ALIGNMENT);
-			unrelated.setOffset(uTab, Ymargin + 5);
-			addChild(unrelated);
-
-			double posTab = (int) related.getHeight() + 2 * Ymargin + 5;
-			APText positive = art.oneLineLabel();
-			positive.setTextPaint(Bungee.summaryFG);
-			positive.setText("Positive");
-			positive.setOffset(Xmargin, posTab);
-			addChild(positive);
-
-			double negTab = posTab + (int) positive.getHeight() + Ymargin;
-			APText negative = art.oneLineLabel();
-			negative.setTextPaint(Bungee.summaryFG);
-			negative.setText("Negative");
-			negative.setOffset(Xmargin, negTab);
-			addChild(negative);
-
-			double size = (int) art.lineH - Ymargin;
-			double fBoxTab = (int) (rTab + fTab - Xmargin - size) / 2;
-			double rBoxTab = (int) (uTab + rTab - Xmargin - size) / 2;
-			double uBoxTab = uTab + (int) ((int) unrelated.getWidth() - size)
-					/ 2;
-			double posBoxTab = posTab + 4;
-			double negBoxTab = negTab + 4;
-
-			LazyPNode positiveFilter = new LazyPNode();
-			positiveFilter.setPaint(Markup.INCLUDED_COLORS[2]);
-			positiveFilter.setWidth(size);
-			positiveFilter.setHeight(size);
-			positiveFilter.setOffset(fBoxTab, posBoxTab);
-			addChild(positiveFilter);
-
-			LazyPNode negativeFilter = new LazyPNode();
-			negativeFilter.setPaint(Markup.EXCLUDED_COLORS[2]);
-			negativeFilter.setWidth(size);
-			negativeFilter.setHeight(size);
-			negativeFilter.setOffset(fBoxTab, negBoxTab);
-			addChild(negativeFilter);
-
-			LazyPNode positiveRelated = new LazyPNode();
-			positiveRelated.setPaint(Markup.POSITIVE_ASSOCIATION_COLORS[1]);
-			positiveRelated.setWidth(size);
-			positiveRelated.setHeight(size);
-			positiveRelated.setOffset(rBoxTab, posBoxTab);
-			addChild(positiveRelated);
-
-			LazyPNode negativeRelated = new LazyPNode();
-			negativeRelated.setPaint(Markup.NEGATIVE_ASSOCIATION_COLORS[1]);
-			negativeRelated.setWidth(size);
-			negativeRelated.setHeight(size);
-			negativeRelated.setOffset(rBoxTab, negBoxTab);
-			addChild(negativeRelated);
-
-			LazyPNode unrelatedBox = new LazyPNode();
-			unrelatedBox.setPaint(Markup.UNASSOCIATED_COLORS[1]);
-			unrelatedBox.setWidth(size);
-			unrelatedBox.setHeight(size);
-			unrelatedBox
-					.setOffset(uBoxTab, (int) ((posBoxTab + negBoxTab) / 2));
-			addChild(unrelatedBox);
-
-			setWidth(uTab + (int) unrelated.getWidth() + Xmargin);
-			setHeight(negTab + (int) negative.getHeight() + Ymargin);
-
-			float x = 0;
-			float y = 0;
-			float width = (float) getWidth();
-			float height = (float) getHeight();
-			float[] Xs = { x, x + width, x + width, x, x };
-			float[] Ys = { y, y, y + height, y + height, y };
-			setPathToPolyline(Xs, Ys);
-			setStroke(LazyPPath.getStrokeInstance(1));
-			setStrokePaint(Bungee.summaryFG);
-
-			setPaint(Bungee.summaryBG);
-			setTransparency(0.3f);
-			setChildrenPickable(false);
-			setX(5);
-			setY(5);
-
-			addInputEventListener(new ColorKeyHover());
+			if (label1.getMaxX() > w)
+				label1.setScale(w / label1.getMaxX());
+			double buttonW = Math.round(label1.getMaxX() / nColors);
+			double y = 1.5 * art.lineH;
+			double buttonH = Math.round(h - y);
+			for (int i = 0; i < nColors; i++) {
+				PNode node = new ColorKeyKey(colors[i][0], colors[i][1],
+						msgs[i], buttonW, buttonH);
+				node.setOffset(i * buttonW, y);
+				addChild(node);
+			}
 		}
 
-		void fit() {
-			fit(queryW - 10, clear.getMaxY());
-		}
+		private class ColorKeyKey extends LazyPNode {
+			Color color;
+			Color highlight;
+			String msg;
 
-		void fit(double w1, double h1) {
-			moveToBack();
-			animateToTransparency(0.3f, 300);
-			double scale = Math.min(w1 / getWidth(), h1 / getHeight());
-			animateToTransform(AffineTransform.getScaleInstance(scale, scale),
-					300);
-		}
+			ColorKeyKey(Color _color, Color _highlight, String _msg, double w,
+					double h) {
+				color = _color;
+				highlight = _highlight;
+				msg = _msg;
+				setBounds(0, 0, w, h);
+				setPaint(color);
+				addInputEventListener(colorKeyHover);
+			}
 
-		void expand() {
-			moveToFront();
-			animateToTransparency(1f, 300);
-			if (getScale() < 1.0)
-				animateToTransform(AffineTransform.getScaleInstance(1.0, 1.0),
-						300);
+			void enter() {
+				setPaint(highlight);
+				APText text = art.oneLineLabel();
+				text.setPaint(Bungee.summaryBG);
+				text.setTextPaint(Bungee.helpColor);
+				text.setText(msg);
+				text.setOffset(getX(), getMaxY() - text.getHeight());
+				addChild(text);
+			}
+
+			void exit() {
+				setPaint(color);
+				removeAllChildren();
+			}
 		}
 
 		private final class ColorKeyHover extends MyInputEventHandler {
@@ -1436,24 +1406,20 @@ final class Summary extends LazyPNode implements MouseDoc {
 			// private ColorKey colorKey;
 
 			ColorKeyHover() {
-				super(ColorKey.class);
+				super(ColorKeyKey.class);
 				// colorKey = _colorKey;
 			}
 
 			protected boolean enter(PNode node) {
 				// Util.print("SummaryTextHover.enter " + node);
-				colorKey.expand();
+				((ColorKeyKey) node).enter();
 				return true;
 			}
 
 			protected boolean exit(PNode node, PInputEvent e) {
-				colorKey.fit();
+				((ColorKeyKey) node).exit();
 				return true;
 			}
-
-			// public void mayHideTransients(PNode node) {
-			// summary.mayHideTransients();
-			// }
 		}
 
 	}
@@ -1589,7 +1555,13 @@ final class Summary extends LazyPNode implements MouseDoc {
 			// art.lineH /* / scale */+ 2, null, 1.8f, color,
 			// Bungee.summaryBG);
 			super(label1, color, Bungee.summaryBG, Summary.this.art);
+			((APText) child).setConstrainWidthToTextWidth(true);
 			mouseDoc = "Copy a URL for your current query to the system Clipboard";
+			setDisabledMessage("There are no results to bookmark");
+		}
+
+		public boolean isEnabled() {
+			return art.query.getOnCount() > 0;
 		}
 
 		public void doPick() {
@@ -1611,7 +1583,13 @@ final class Summary extends LazyPNode implements MouseDoc {
 			// art.lineH /* / scale */+ 2, null, 1.8f, color,
 			// Bungee.summaryBG);
 			super(label1, color, Bungee.summaryBG, Summary.this.art);
+			((APText) child).setConstrainWidthToTextWidth(true);
 			mouseDoc = "Explore within the current results";
+			setDisabledMessage("There are no results to restrict to");
+		}
+
+		public boolean isEnabled() {
+			return art.query.getOnCount() > 0;
 		}
 
 		public void doPick() {

@@ -28,19 +28,10 @@ import sun.rmi.log.LogOutputStream;
  * 
  */
 final class Bar extends LazyPNode implements FacetNode {
+	
+	static int paintCount = 0;
 
 	private static final double MIN_BAR_HEIGHT = 0.02;
-
-	// PERCENT: 0, 1; ELSE 0.5, 0.5
-	/**
-	 * Initial y-coordinate of coding end of bar
-	 */
-	private static final double y0 = 0.5;
-
-	/**
-	 * y-coordinate of non-coding end of bar
-	 */
-	private static final double y1 = 0.5;
 
 	private PerspectiveViz pv;
 
@@ -48,7 +39,7 @@ final class Bar extends LazyPNode implements FacetNode {
 
 	// private int colorIndex;
 
-	private int fadeIndex = 0;
+	// private byte fadeIndex = 0;
 
 	private Rectangle2D.Double rect;
 
@@ -64,7 +55,8 @@ final class Bar extends LazyPNode implements FacetNode {
 		Bar result = null;
 		if (barCache.isEmpty()) {
 			result = new Bar();
-			result.rect = new Rectangle2D.Double(x, y0, w, 1 - y1);
+			result.rect = new Rectangle2D.Double(x, 0.5-MIN_BAR_HEIGHT/2, w,
+					MIN_BAR_HEIGHT);
 		} else {
 			result = (Bar) barCache.remove(0);
 			assert result != null;
@@ -76,12 +68,12 @@ final class Bar extends LazyPNode implements FacetNode {
 		assert result.checkXparam(w);
 		assert result.checkXparam(x + w);
 		assert _pv.p == _facet.getParent() : _facet;
-		result.startY = y0;
+		result.startY = 0.5;
 		// sloppyY = startY;
-		result.goalY = y1;
+		result.goalY = 0.5;
 		result.currentY = result.startY;
 		result.setBounds(x, 0, w, 1);
-		result.rect.setFrame(x, y0, w, 1 - y1);
+		result.rect.setFrame(x, 0.5-MIN_BAR_HEIGHT/2, w, MIN_BAR_HEIGHT);
 		// addInputEventListener(Art.facetClickHandler);
 
 		result.updateSelection();
@@ -92,7 +84,7 @@ final class Bar extends LazyPNode implements FacetNode {
 		assert noNulls(toRelease);
 		barCache.addAll(toRelease);
 	}
-	
+
 	static boolean noNulls(Collection c) {
 		for (Iterator it = c.iterator(); it.hasNext();) {
 			Object o = it.next();
@@ -147,72 +139,95 @@ final class Bar extends LazyPNode implements FacetNode {
 		// Util.print("Bar.updateSelection for bar " + facet + "; mousedFacet =
 		// "
 		// + mousedFacet);
-		int oldIndex = fadeIndex;
-		fadeIndex = 0;
-		if (facet.isRestriction(true))
-			fadeIndex += 3;
-		if (facet.isRestriction(false))
-			fadeIndex += 6;
-		assert fadeIndex < 9;
-		if (facet == art().highlightedFacet)
-			fadeIndex++;
+		// int oldIndex = fadeIndex;
+		// fadeIndex = 0;
+		// if (facet.isRestriction(true))
+		// fadeIndex += 3;
+		// if (facet.isRestriction(false))
+		// fadeIndex += 6;
+		// assert fadeIndex < 9;
+		// if (facet == art().highlightedFacet)
+		// fadeIndex++;
+		//
+		// if (fadeIndex != oldIndex) {
+		// invalidatePaint();
+		// }
 
-		if (fadeIndex != oldIndex) {
-			invalidatePaint();
-		}
+		Color color = art().facetTextColor(facet, facet.guessOnCount());
+		// if (!color.equals(getPaint())) {
+		setPaint(color);
+		// invalidatePaint();
+		// }
 	}
 
 	void updateData() {
-		startY = rect.getY();
+		startY = currentY;
 		// goalY = expectedPercentOn == 1 ? 0.5 : 1 - pv.rank.warp(facet
 		// .percentOn());
 		goalY = 1 - Rank.warp(pv.rank.oddsRatio(facet));
-		// Util.print("Bar.updateData " + facet + " " + pv.rank.oddsRatio(facet)
-		// + " " + Rank.warp(pv.rank.oddsRatio(facet)));
-		// if (observedPercentOn == expectedPercentOn)
-		// // speed up for common case
-		// colorIndex = 0;
-		// else
-		// colorIndex = art().chiColorFamily(facet);
+		updateSelection();
+
+		// Try this to increase the salience of bars that max out - so they
+		// aren't perceived as background.
+		// goalY = (goalY - 0.5) * 0.9 + 0.5;
 	}
 
 	void animateData(double zeroToOne) {
-		double minH = MIN_BAR_HEIGHT; // 1.0 / pv.rank.frontH; We're not
-		// always called when frontH changes, so
-		// this doesn't work
-		double y = lerp(zeroToOne, startY, goalY) - minH / 2.0;
+		double y = lerp(zeroToOne, startY, goalY);
 		double slop = zeroToOne == 1.0 ? 0.0 : 0.1;
 		if (Math.abs(y - currentY) > slop) {
 			currentY = y;
-			double top = Math.min(y, y1);
-			double h = Math.abs(y - y1);
+			double top;
+			double h;
+			if (y > 0.5) {
+				top = 0.5-MIN_BAR_HEIGHT/2;
+				h = Math.max(MIN_BAR_HEIGHT, y-0.5);
+			}else {
+				top = Math.min(0.5-MIN_BAR_HEIGHT/2, y);
+				h = Math.max(MIN_BAR_HEIGHT, 0.5-y+MIN_BAR_HEIGHT/2);				
+			}
 			rect.setRect(rect.getX(), top, rect.getWidth(), h);
 			invalidatePaint();
 			// Util.print("animateData " + facet + " " + frontDimH);
 		}
 	}
 
-	public void setPaint(Paint ignore) {
-		assert false : "FacetPNode.paint ignores paint";
-	}
+	// public void setPaint(Paint ignore) {
+	// assert false : "FacetPNode.paint ignores paint";
+	// }
 
 	// private Color color() {
 	// return art().facetTextColor(facet, facet.guessOnCount());
 	// }
 
 	protected void paint(PPaintContext paintContext) {
-		// if (pv.p.getName().equals("Genre"))
-		// Util.print("fpn.paint " + facet + " " + rect);
+		paintCount++;
+//		if ("Army".equals(facet.getNameIfPossible()))
+//		 Util.print("bar.paint " + facet + " " + currentY +" "+ goalY);
 		Graphics2D g2 = paintContext.getGraphics();
-		int onCount = facet.guessOnCount();
+		// int onCount = facet.guessOnCount();
 		// g2.setPaint(Markup.UNASSOCIATED_COLORS[fadeIndex]);
 		// g2.fill(getBoundsReference());
-		g2.setPaint(art().facetTextColor(facet, onCount)); // getColor(1));
+//		Color color = art().facetTextColor(facet, facet.guessOnCount());
+
+		// remember paint so updateSelection can detect changes
+//		setPaint(color);
+		g2.setPaint(getPaint()); // getColor(1));
 		g2.fill(rect);
 		// if (rect.height > 2.0 / pv.rank.frontH()) {
-		g2.setPaint(Color.black);
-		g2.setStroke(LazyPPath.getStrokeInstance(0));
-		g2.draw(getBoundsReference());
+		// if (facet.getID() % 2 == 0) {
+		// strokes separate bars, so only need to draw them for alternate
+		// bars.
+		// NO! We depend on strokeW=0 to add transparency so we can see a bar's
+		// color even
+		// if it's width is 1 and the stroke overwrites the interior.
+		if (currentY == goalY) {
+			// Save time by not painting boundaries during animation
+			g2.setPaint(Color.black);
+			g2.setStroke(LazyPPath.getStrokeInstance(0));
+			g2.draw(getBoundsReference());
+		}
+		// }
 		// }
 	}
 

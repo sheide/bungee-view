@@ -34,6 +34,7 @@ package edu.cmu.cs.bungee.client.viz;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 
+import edu.cmu.cs.bungee.javaExtensions.Util;
 import edu.cmu.cs.bungee.piccoloUtils.gui.APText;
 import edu.cmu.cs.bungee.piccoloUtils.gui.Boundary;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
@@ -56,6 +57,7 @@ final class Header extends LazyPNode implements MouseDoc {
 	private Boundary boundary;
 
 	void validate(double w, double h) {
+//		Util.print("Header.validate " + w + "x" + h);
 		setBounds(0, 0, w, h);
 		setPaint(Bungee.headerBG);
 		if (databaseLabel != null)
@@ -97,7 +99,7 @@ final class Header extends LazyPNode implements MouseDoc {
 
 	public double minHeight() {
 //		assert ignore == boundary;
-		return Math.ceil(Bungee.minTextH * getHeight() / art.textH);
+		return 2*art.lineH;
 	}
 
 	public double maxHeight() {

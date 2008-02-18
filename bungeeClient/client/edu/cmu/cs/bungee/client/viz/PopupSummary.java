@@ -20,10 +20,8 @@ import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPPath;
 import edu.umd.cs.piccolo.PNode;
 import edu.umd.cs.piccolo.activities.PActivity;
-import edu.umd.cs.piccolo.activities.PInterpolatingActivity;
 import edu.umd.cs.piccolo.util.PAffineTransform;
 import edu.umd.cs.piccolo.util.PBounds;
-import edu.umd.cs.piccolo.util.PUtil;
 
 /**
  * see <a href="C:\Projects\ArtMuseum\DesignSketches\popupColors.xcf">color key</a>
@@ -31,34 +29,38 @@ import edu.umd.cs.piccolo.util.PUtil;
 final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 
 	private void actions() {
-		massActions();
+		if (getRoot() != null) {
+			// After an unrestrict, we may be left hanging
+			
+			massActions();
 
-		totalCountActions();
-		totalDescActions();
-		nameActions();
-		namePrefixActions();
+			totalCountActions();
+			totalDescActions();
+			nameActions();
+			namePrefixActions();
 
-		facetPercentActions();
-		facetCountActions();
-		facetDescActions();
-		facetNparentFadeActions();
-		parentInitActions();
-		ratioDescActions();
+			facetPercentActions();
+			facetCountActions();
+			facetDescActions();
+			facetNparentFadeActions();
+			parentInitActions();
+			ratioDescActions();
 
-		sigActions();
+			sigActions();
 
-		spacebarDescActions();
+			spacebarDescActions();
 
-		totalHeaderActions();
-		totalBGActions();
-		barBGActions();
-		summaryBGActions();
+			totalHeaderActions();
+			totalBGActions();
+			barBGActions();
+			summaryBGActions();
 
-		totalLinesActions();
-		ratioLinesActions();
-		// parentLinesActions();
+			totalLinesActions();
+			ratioLinesActions();
+			// parentLinesActions();
 
-		globalActions();
+			globalActions();
+		}
 	}
 
 	private static final class Step implements Comparable {
@@ -270,7 +272,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 	/**
 	 * Color of the message "Press the spacebar for more information"
 	 */
-	private static final Color spaceBarDescTextColor = Bungee.helpColor; //unimportantTextColor;
+	private static final Color spaceBarDescTextColor = Bungee.helpColor; // unimportantTextColor;
 
 	private static final Color facetPercentColor = Color.getHSBColor(0.15f,
 			0.4f, 0.9f);
@@ -363,7 +365,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 
 		spacebarDesc = newAPText();
 		spacebarDesc.setTextPaint(spaceBarDescTextColor);
-//		spacebarDesc.setScale(0.75);
+		// spacebarDesc.setScale(0.75);
 
 		totalHeader.setPaint(no_helpHeaderBGColor);
 		significanceHeader.setPaint(significanceHeaderBGColor);
@@ -548,7 +550,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 				delay(2500);
 			}
 		} else if (showHelp == Step.START_FRAME) {
-
+			summary().moveToFront();
 			// setBoundsFromNode(this, barBG, 0);
 			animateToAlignment(this, 2, art.header, 2, -barBG.getX()
 					- barBG.getMaxX(), -barBG.getY(),
@@ -581,8 +583,8 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 			// animateToAlignment(this, 16, anchor, 2, 10 * MARGIN, art.lineH /
 			// 2,
 			// translateToBarDuration());
-//		} else if (showHelp == Step.FADE_IN_TOTAL) {
-//			animateBarTransparencies(FADED_TRANSPARENCY, 0, fadeDuration());
+			// } else if (showHelp == Step.FADE_IN_TOTAL) {
+			// animateBarTransparencies(FADED_TRANSPARENCY, 0, fadeDuration());
 		} else if (showHelp == Step.FADE_IN_RATIO) {
 			fade(nodes(anchor), OPAQUE);
 		} else if (showHelp == Step.UNFADE) {
@@ -736,7 +738,8 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 	private void summaryBGActions() {
 		if (showHelp == Step.GOLD_OVERLAY) {
 			assert facet != null;
-			assert isShowFacetInfo();
+			assert isShowFacetInfo() : facet + " " + query().isRestricted()
+					+ " " + query().isQueryValid() + " " + facet.getOnCount();
 
 			if (summaryBG.getParent() == null) {
 				// art.summary == null when we're initted, so check here
@@ -745,7 +748,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 
 			summaryBG.moveToFront();
 			moveToFront();
-			rank().moveInBackOf(this);
+			rank().moveBehind(this);
 
 			fitToNodes(nodes(summaryBG), nodes(art.header, art.mouseDoc),
 					MARGIN);
@@ -827,7 +830,11 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 		align(siblingPercent, 4, facetDesc, 20, 0, MARGIN);
 
 		align(parentDesc, 0, siblingPercent, 2, MARGIN, 0);
-		setWidth(nodes(parentDesc), maxW() - siblingPercent.getMaxX() - MARGIN);
+		double width = maxW() - siblingPercent.getMaxX() - MARGIN;
+		assert width >= 0 : art.getW() + " " + art.summary.w + " "
+				+ maxW() + " " + siblingPercent.getMaxX() + " " + MARGIN + " "
+				+ facet;
+		setWidth(nodes(parentDesc), width);
 	}
 
 	private void ratioDescActions() {
@@ -892,7 +899,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 			// scaleAboutPoint(heavyLines, point, 0.1, 0);
 			// scaleAboutPoint(heavyLines, point, 1, 2 * fadeDuration());
 
-			summary().expandColorKey();
+			// summary().expandColorKey();
 			// summary().colorKey.moveToFront();
 		}
 	}
@@ -1000,7 +1007,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 	// }
 
 	void performNextStep() {
-		if (!animationFinished() && !finishingAnimation) {
+		if (!animationFinished() && !finishingAnimation && art.isReady) {
 			finishAnimation();
 			showHelp = showHelp.next();
 			actions();
@@ -1100,11 +1107,12 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 				new Point2D.Double(attachmentX0, attachmentY0));
 		PActivity a = attachment.animateToPositionScaleRotation(goal.getX(),
 				goal.getY(), attachment.getScale(), 0, duration);
-		if (a != null)
 			addAnimationJob(a);
 	}
 
 	private static PBounds ensureGlobalBounds(PNode node) {
+		if (node.getRoot() == null)
+			edu.cmu.cs.bungee.piccoloUtils.gui.Util.printAncestors(node);
 		assert node.getRoot() != null;
 		// bounds will be empty if width or height is zero, and we don't want
 		// that to prevent using the offset for alignment.
@@ -1427,7 +1435,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 				// pValueString(buf);
 			} else {
 				if (siblingTotalCount() > 0)
-				buf.append(", compared with");
+					buf.append(", compared with");
 			}
 			medianDesc.add(0, buf.toString());
 			return medianDesc;
@@ -1441,7 +1449,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 		if (unconditionalMedian != null) {
 			content.add(Markup.NEWLINE_TAG);
 			int significant = isConditional ? facet.medianTestSignificant() : 0;
-			content.add(Bungee.significanceColor(significant, 2));
+			content.add(Bungee.significanceColor(significant, 0));
 			content.add("median: ");
 			// content.add(Markup.DEFAULT_COLOR_TAG);
 			content
@@ -1476,27 +1484,28 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 	private void setParentDesc(String prefix) {
 		if (isShowFacetInfo() && unconditionalMedian == null) {
 			if (siblingTotalCount() > 0) {
-			StringBuffer buf = new StringBuffer();
-			buf.append(prefix);
-			siblingPercent.setText(siblingPercentOn(buf).toString());
+				StringBuffer buf = new StringBuffer();
+				buf.append(prefix);
+				siblingPercent.setText(siblingPercentOn(buf).toString());
 
-			parentDesc.setWidth(maxW() - siblingPercent.getWidth() - MARGIN);
-			buf = new StringBuffer();
-			buf.append("for the other ").append(
-					Util.addCommas(siblingTotalCount())).append(" ").append(
-					parentDescString());
-			pValueString(buf);
-			parentDesc.setText(buf.toString());
+				parentDesc
+						.setWidth(maxW() - siblingPercent.getWidth() - MARGIN);
+				buf = new StringBuffer();
+				buf.append("for the other ").append(
+						Util.addCommas(siblingTotalCount())).append(" ")
+						.append(parentDescString());
+				pValueString(buf);
+				parentDesc.setText(buf.toString());
 
-			siblingPercent.clearAttributes();
-			if (prefix.length() > 0) {
-				// hack to show a division result
-				siblingPercent.addAttribute(TextAttribute.UNDERLINE,
-						TextAttribute.UNDERLINE_ON);
-			}
+				siblingPercent.clearAttributes();
+				if (prefix.length() > 0) {
+					// hack to show a division result
+					siblingPercent.addAttribute(TextAttribute.UNDERLINE,
+							TextAttribute.UNDERLINE_ON);
+				}
 			} else {
 				siblingPercent.setText("");
-				parentDesc.setText("");				
+				parentDesc.setText("");
 			}
 		} else {
 			// Use many spaces to avoid out-of-range error for color attribute
@@ -1511,7 +1520,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 		// Util.print(ratio + " " + ratioLabel);
 		String desc = "as likely to satisfy the filters, as shown by the bar height. "
 				+ "(Height scale is non-linear; move the mouse over the scale to see.)";
-		double limit = Math.exp(Rank.logOddsRange);
+		double limit = Math.exp(Rank.LOG_ODDS_RANGE);
 		switch (ratioLabel.charAt(0)) {
 		case '*':
 			ratioLabel = ratioLabel.substring(2);
@@ -1551,36 +1560,38 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 		}
 	}
 
-//	private void animateBarTransparencies(final float newTransparency,
-//			long delay, long duration) {
-//		final Rank rank = rank();
-//		if (rank != null) {
-//			if (duration == 0 && delay == 0) {
-//				rank.setBarTransparencies(newTransparency);
-//				// anchor.setTransparency(1);
-//			} else {
-//				// final PNode _node = anchor;
-//				// final Rank _rank = rank;
-//				final float oldTransparency = anchor.getTransparency();
-//
-//				PActivity ta = new PInterpolatingActivity(duration,
-//						PUtil.DEFAULT_ACTIVITY_STEP_RATE, delay
-//								+ System.currentTimeMillis(), 1,
-//						PInterpolatingActivity.SOURCE_TO_DESTINATION) {
-//
-//					public void setRelativeTargetValue(float zeroToOne) {
-//						rank.setBarTransparencies((float) lerp(zeroToOne,
-//								oldTransparency, newTransparency));
-//						// _node.setTransparency(1);
-//					}
-//				};
-//				addActivity(ta);
-//				addAnimationJob(ta);
-//			}
-//		}
-//	}
+	// private void animateBarTransparencies(final float newTransparency,
+	// long delay, long duration) {
+	// final Rank rank = rank();
+	// if (rank != null) {
+	// if (duration == 0 && delay == 0) {
+	// rank.setBarTransparencies(newTransparency);
+	// // anchor.setTransparency(1);
+	// } else {
+	// // final PNode _node = anchor;
+	// // final Rank _rank = rank;
+	// final float oldTransparency = anchor.getTransparency();
+	//
+	// PActivity ta = new PInterpolatingActivity(duration,
+	// PUtil.DEFAULT_ACTIVITY_STEP_RATE, delay
+	// + System.currentTimeMillis(), 1,
+	// PInterpolatingActivity.SOURCE_TO_DESTINATION) {
+	//
+	// public void setRelativeTargetValue(float zeroToOne) {
+	// rank.setBarTransparencies((float) lerp(zeroToOne,
+	// oldTransparency, newTransparency));
+	// // _node.setTransparency(1);
+	// }
+	// };
+	// addActivity(ta);
+	// addAnimationJob(ta);
+	// }
+	// }
+	// }
 
 	private PerspectiveViz pv() {
+		if (anchor == null)
+			return null;
 		return (PerspectiveViz) anchor.getParent().getParent();
 	}
 
@@ -1589,7 +1600,10 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 	}
 
 	private Rank rank() {
-		return pv().rank;
+		PerspectiveViz pv = pv();
+		if (pv == null)
+			return null;
+		return pv.rank;
 	}
 
 	private Object medianName(boolean isConditional) {
@@ -1641,7 +1655,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 	}
 
 	private int maxW() {
-		return (int) (art.getW() - art.summary.getWidth() - 33 * MARGIN);
+		return (int) (art.getW() - art.summary.w - 33 * MARGIN);
 	}
 
 	private Markup getPrefix(Markup facetDescList) {
@@ -1657,6 +1671,11 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 		return result;
 	}
 
+	/**
+	 * This loses prefix Markup like COLOR and PLURAL (which is a good thing)
+	 * @param facetDescList
+	 * @return
+	 */
 	private Markup getPostfix(Markup facetDescList) {
 		Markup result = Query.emptyMarkup();
 		boolean startRecording = false;
@@ -1708,7 +1727,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 					.append(
 							"The difference is percentage is statistically significant, so this tag is colored ")
 					.append(
-							chiColorFamily == Markup.NEGATIVE_ASSOCIATION_COLORS ? "orange"
+							chiColorFamily == Markup.NEGATIVE_ASSOCIATION_COLORS ? "brown"
 									: "green");
 		}
 		sigStringBuf.append(" (see Color Key).");
@@ -1800,7 +1819,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 	// reset
 	void setFacet(Perspective _facet, boolean _showMedian, PNode _anchor) {
 		assert _facet != null;
-//		assert _anchor != null;
+		// assert _anchor != null;
 		anchor = _anchor;
 		facet = _facet;
 		if (_showMedian) {
@@ -1808,6 +1827,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 			unconditionalMedian = facet.getMedianPerspective(false);
 		}
 		performNextStep();
+		setVisible(true);
 	}
 
 	void setCluster(Cluster _cluster) {
@@ -1815,6 +1835,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 		assert _cluster != null;
 		cluster = _cluster;
 		performNextStep();
+		setVisible(true);
 	}
 
 	boolean showMoreHelp() {
@@ -1851,11 +1872,12 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 			summaryBG.removeFromParent();
 			if (isHelp) {
 				art.summary.computeRankComponentHeights(0);
-//				animateBarTransparencies(1, 0, 0);
+				// animateBarTransparencies(1, 0, 0);
 				totalCountDescNum.setScale(1);
 				facetCount.setScale(1);
 				summary().doHideTransients();
-				pv().loseHotZone();
+				if (pv() != null)
+					pv().loseHotZone();
 				siblingPercent.clearAttributes();
 			}
 			anchor = null;
@@ -1870,4 +1892,10 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 	Query query() {
 		return art.query;
 	}
+	
+//	public void setVisible(boolean state) {
+//		Util.print("Popup.setVisible " + state + " " + facetDesc.getTransparency());
+//		edu.cmu.cs.bungee.piccoloUtils.gui.Util.printDescendents(this,20,false);
+//		 super.setVisible(state);
+//	}
 }

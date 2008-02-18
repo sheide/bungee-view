@@ -5,6 +5,7 @@ import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
 
 import edu.cmu.cs.bungee.client.query.DisplayTree;
 import edu.cmu.cs.bungee.client.query.Markup;
@@ -13,11 +14,12 @@ import edu.cmu.cs.bungee.client.query.Query.Item;
 import edu.cmu.cs.bungee.javaExtensions.Util;
 import edu.cmu.cs.bungee.piccoloUtils.gui.APText;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
+import edu.cmu.cs.bungee.piccoloUtils.gui.MouseDoc;
 import edu.cmu.cs.bungee.piccoloUtils.gui.TextButton;
 import edu.cmu.cs.bungee.piccoloUtils.gui.VScrollbar;
 import edu.umd.cs.piccolo.PNode;
 
-final class FacetTreeViz extends LazyPNode {
+final class FacetTreeViz extends LazyPNode implements MouseDoc {
 
 	Bungee art;
 
@@ -31,7 +33,7 @@ final class FacetTreeViz extends LazyPNode {
 
 	double openButtonW;
 
-	static final double openButtonScale = 0.55; // 0.6;
+	static final double openButtonScale = 0.7; // 0.6;
 
 	final static Color openButtonBG = new Color(0x111100);
 
@@ -112,12 +114,12 @@ final class FacetTreeViz extends LazyPNode {
 	OpenButton getOpenButton(Object treeObject, boolean state) {
 		OpenButton result = openButtons[openButtonIndex++];
 		if (result == null) {
-			result = new OpenButton(treeObject, state);
+//			Util.err("new open button " + openButtonIndex);
+			result = new OpenButton();
 			openButtons[openButtonIndex - 1] = result;
-		} else {
-			result.p = treeObject;
-			result.setLabel(state);
 		}
+		result.p = treeObject;
+		result.setLabel(state);
 		return result;
 	}
 
@@ -205,8 +207,8 @@ final class FacetTreeViz extends LazyPNode {
 		Object treeObject = subtree.treeObject();
 		boolean showChildren = subtree.nChildren() > 0
 				&& !isContracted(treeObject);
-		// Util.print("drawTreeInternal " + treeObject + " " + offsetLines + " "
-		// + lastLine + " " + x + " " + treeW + " " + showChildren);
+//		 Util.print("drawTreeInternal " + treeObject + " " + offsetLines + " "
+//		 + lastLine + " " + x + " " + treeW + " " + showChildren);
 		if (treeObject != null && !(treeObject instanceof Item)) { // don't
 			// display
 			// null's or
@@ -339,7 +341,7 @@ final class FacetTreeViz extends LazyPNode {
 
 	// private Perspective[] allRestrictions;
 
-	void highlightFacet(Object highlightFacet) {
+	void highlightFacet(Set highlightFacets) {
 		// FacetText child = getFacetText(highlightFacet);
 		// if (child != null && child.getParent() != null) {
 		// child.highlightFacet();
@@ -349,7 +351,8 @@ final class FacetTreeViz extends LazyPNode {
 			PNode node = getChild(i);
 			if (node instanceof FacetText) {
 				FacetText ft = (FacetText) node;
-				if (ft.facet == highlightFacet || ft.cluster == highlightFacet)
+				if (highlightFacets.contains(ft.facet)
+						|| highlightFacets.contains(ft.cluster))
 					ft.highlightFacet();
 			}
 		}
@@ -361,7 +364,7 @@ final class FacetTreeViz extends LazyPNode {
 		// }
 	}
 
-	void synchronizeWithQuery() {
+	void updateColors() {
 		// Util.print("FacetTreeViz.synchronizeWithQuery");
 		// leafRestrictions = q.dontUnderline();
 		// allRestrictions = q.restrictions();
@@ -370,22 +373,22 @@ final class FacetTreeViz extends LazyPNode {
 			if (x instanceof FacetText) {
 				FacetText child = (FacetText) x;
 				child.selectFacet();
-				highlightFacet(child.getFacet());
+				// highlightFacet(child.getFacet());
 			}
 		}
 		// Util.print("FacetTreeViz.synchronizeWithQuery return");
 	}
 
-	void clickText(Perspective facet, int modifiers) {
-		// FacetText facetLabel = getFacetText(facet);
-		// if (facetLabel == null)
-		// // fake it
-		art.toggleFacet(facet, modifiers);
-		// else
-		// facetLabel.pick(modifiers);
-	}
+	// void clickText(Perspective facet, int modifiers) {
+	// // FacetText facetLabel = getFacetText(facet);
+	// // if (facetLabel == null)
+	// // // fake it
+	// art.toggleFacet(facet, modifiers);
+	// // else
+	// // facetLabel.pick(modifiers);
+	// }
 
-	final class OpenButton extends BungeeTextButton {
+	final class OpenButton extends TextButton {
 
 		/**
 		 * plus sign
@@ -399,14 +402,16 @@ final class FacetTreeViz extends LazyPNode {
 
 		Object p;
 
-		OpenButton(Object _p, boolean isContracted) {
+		OpenButton() {
 			// super("-", art.font, 0, 0, art.lineH, art.lineH, null, 1.8f,
 			// openButtonFG, openButtonBG);
-			super(contractLabel, openButtonFG, openButtonBG,
-					FacetTreeViz.this.art);
-			p = _p;
-			((APText) child).setConstrainWidthToTextWidth(true);
-			setLabel(isContracted);
+//			super(contractLabel+ " ", openButtonFG, openButtonBG,
+//					FacetTreeViz.this.art);
+
+			super(contractLabel+" ", art.font, 0, 0, -1, -1, null, 0, openButtonFG, openButtonBG);
+			
+//			((APText) child).setConstrainWidthToTextWidth(true);
+//			((APText) child).setConstrainHeightToTextHeight(true);
 			setScale(openButtonScale);
 		}
 
@@ -417,7 +422,7 @@ final class FacetTreeViz extends LazyPNode {
 		 * @param isContracted
 		 */
 		void setLabel(boolean isContracted) {
-			super.setState(isContracted);
+			// super.setState(isContracted);
 
 			// If isContracted, button should show the expand sign
 			setText(isContracted ? expandLabel : contractLabel);
@@ -431,5 +436,13 @@ final class FacetTreeViz extends LazyPNode {
 			contract(p, contractLabel.equals(getText()));
 		}
 
+	}
+
+	public void setMouseDoc(PNode source, boolean state) {
+		art.setMouseDoc(source, state);
+	}
+
+	public void setMouseDoc(String doc) {
+		art.setMouseDoc(doc);
 	}
 }
