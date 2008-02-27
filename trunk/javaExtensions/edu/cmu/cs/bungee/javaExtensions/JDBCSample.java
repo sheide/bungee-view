@@ -56,7 +56,7 @@ public class JDBCSample {
 		// String speedUpResultSetParsing =
 		// "&useUnicode=false&characterEncoding=US-ASCII&characterSetResults=US-ASCII";
 		// String cache = "&cacheResultSetMetadata=true&cachePrepStmts=true";
-//		print("openMySQL " + database + compression);
+		// print("openMySQL " + database + compression);
 		info = database + compression;
 		open(info);
 	}
@@ -274,25 +274,37 @@ public class JDBCSample {
 			rs = SQL.executeQuery();
 		else {
 			try {
-			rs = myCreateStatement(desc).executeQuery(desc);
+				rs = myCreateStatement(desc).executeQuery(desc);
 			} catch (SQLException ex) {
+				// This doesn't do any good, because all the prepared statements
+				// will break when you try to set parameters.
+				// Solution is to have mySetInt, etc. that catch this and call
+				// prepareStatement again. You'd write
+				// ps = mySetInt(ps, 1, 42)
+				// But prepared statements don't let you get the SQL back, so
+				// this would have to be stored in a hash table
+				// (or in MyPreparedStatement, but it's ugly to have to write
+				// all the required methods). Then you'd write
+				// ps = mySetInt(ps, 1, 42, SQL)
 
 				try {
-					print("Got exception " + ex +". Try reopening connection...");
+					print("Got exception " + ex + "Try reopening connection...");
 
-				close();
-				open(info);
+					close();
+					open(info);
 
-				// Now retry executing the query. If it was a time-out, this time it should work
+					// Now retry executing the query. If it was a time-out, this
+					// time it should work
 
-				rs = myCreateStatement(desc).executeQuery(desc);
+					rs = myCreateStatement(desc).executeQuery(desc);
+					print("Retry worked!");
 
 				} catch (Exception secondEx) {
 					print("Got another exception while retrying: " + secondEx);
 					throw ex;
-				// this was not a time-out -- do some error handling
-				} 
+					// this was not a time-out -- do some error handling
 				}
+			}
 			if (rs == null)
 				print("Null result set for: " + desc);
 		}
