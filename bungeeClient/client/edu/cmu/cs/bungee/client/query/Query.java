@@ -1398,7 +1398,7 @@ public final class Query implements ItemPredicate {
 
 	public boolean restrictData() {
 		name += " / " + markupToText(description(), null);
-		Util.print("Query.restrictData " + displayedPerspectives);
+//		Util.print("Query.restrictData " + displayedPerspectives);
 		for (int i = 0; i < allPerspectives.length; i++) {
 			Perspective p = allPerspectives[i];
 			if (p != null) {

@@ -256,6 +256,12 @@ final class QueryViz extends LazyContainer implements MouseDoc {
 		summary.updateQueryBoundary();
 	}
 
+	public void enterBoundary(Boundary boundary1) {
+		if (!art().getShowBoundaries()) {
+			boundary1.exit();
+		}
+	}
+
 	public double minWidth() {
 		return lineH() * 3;
 	}

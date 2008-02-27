@@ -32,7 +32,6 @@
 package edu.cmu.cs.bungee.client.viz;
 
 import java.awt.Color;
-import java.awt.Graphics2D;
 import java.text.DecimalFormat;
 import java.text.FieldPosition;
 import java.text.NumberFormat;
@@ -45,7 +44,6 @@ import edu.cmu.cs.bungee.client.query.Query;
 import edu.cmu.cs.bungee.javaExtensions.*;
 import edu.cmu.cs.bungee.piccoloUtils.gui.APText;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
-import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPPath;
 import edu.umd.cs.piccolo.util.PPaintContext;
 
 final class MouseDocLine extends LazyPNode implements PerspectiveObserver {
@@ -160,7 +158,7 @@ final class MouseDocLine extends LazyPNode implements PerspectiveObserver {
 		if (clickDesc.setContent(s)) {
 			// Allow room for facetDoc to at least say "mmmm (100% of nnnn)
 			// P=1E-10"
-			if (art.isPopups) {
+			if (art.isPopups()) {
 				clickDesc.setWidth(getWidth());
 				clickDesc.setTrim(-1, -1);
 			} else {
@@ -250,7 +248,7 @@ final class MouseDocLine extends LazyPNode implements PerspectiveObserver {
 		buf.append(Util.addCommas(count));
 		// buf.append(getDescription(name);
 		buf.append(") ");
-		if (pValue >= 0.0)
+		if (pValue >= 0.0&&art.getShowPvalues())
 			formatPvalue(pValue, buf);
 		return buf.toString();
 	}

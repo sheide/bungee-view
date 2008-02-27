@@ -809,7 +809,7 @@ public final class Perspective implements Comparable, ItemPredicate {
 			result += "  ";
 		if (level > 0)
 			result += Markup.parentIndicatorPrefix;
-		// Util.print("namePrefix " + this + " '" + result + "'");
+//		 Util.print("namePrefix " + this + " '" + result + "'");
 		return result;
 	}
 
@@ -1352,7 +1352,7 @@ public final class Perspective implements Comparable, ItemPredicate {
 	public Markup facetDoc(int modifiers) {
 		if (getParent() == null)
 			// This happens for facet_type labels in SelectedItem frame.
-			return facetDoc(this, modifiers);
+			return null; //facetDoc(this, modifiers);
 		else
 			return parent.facetDoc(this, modifiers);
 	}

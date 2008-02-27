@@ -31,6 +31,16 @@ public interface Markup extends List {
 	public static final Object NEWLINE_TAG = new Character('\n');
 
 	/**
+	 * underline subsequent tokens
+	 */
+	public static final Object UNDERLINE_TAG = new Character('u');
+
+	/**
+	 * Don't underline subsequent tokens
+	 */
+	public static final Object NO_UNDERLINE_TAG = new Character('n');
+
+	/**
 	 * render subsequent tokens in the default color
 	 */
 	public static final Object DEFAULT_COLOR_TAG = new Character('c');

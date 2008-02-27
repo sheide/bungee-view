@@ -274,7 +274,7 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 		if (!isHidden()) {
 			removeFromParent();
 			// art.selectedItem.setChildrenPickable(true);
-		} else {
+		} else if (art.getShowTagLists()) {
 			art.summary.addChild(this);
 			validate();
 		}
@@ -384,7 +384,7 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 		if (!isHidden()) {
 			init(selected);
 			validate(); // in case offset needs to change due to change in
-						// displayed
+			// displayed
 			// pv's
 		}
 	}

@@ -33,6 +33,8 @@ package edu.cmu.cs.bungee.client.viz;
 /**
  * ToDo:
  * 
+ * Light beams aren't right when you zoom
+ * 
  * PerspectiveList headers should color facet name and use search color for
  * other text.
  * 
@@ -166,8 +168,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.SortedSet;
-import java.util.TreeSet;
 import java.util.ArrayList;
 
 import javax.swing.SwingUtilities;
@@ -211,7 +211,7 @@ final class Bungee extends PFrame {
 
 	static final int ImageQuality = 100;
 
-	int textH = 14;
+	// int textH = 14;
 	static final int MIN_TEXT_HEIGHT = 8;
 
 	// private int minW = 612;
@@ -340,9 +340,11 @@ final class Bungee extends PFrame {
 
 	double parentIndicatorWidth;
 
-	boolean isPopups = true;
+	// boolean isPopups = true;
 
 	/** ************* End of tweakable parameters *************** */
+
+	public Preferences features = Preferences.defaultFeatures;
 
 	private double digitWidth;
 
@@ -481,6 +483,10 @@ final class Bungee extends PFrame {
 
 	private final static int fontStyle = Font.BOLD;
 
+	Set highlightedFacets;
+
+	Set highlightedClusters;
+
 	public static void main(String[] args) {
 		// Util.print("Starting Art");
 		new Bungee(args);
@@ -560,9 +566,15 @@ final class Bungee extends PFrame {
 		// } catch (Exception e) {
 		// e.printStackTrace();
 		// }
+		int textH = Preferences.defaultFeatures.fontSize;
 		String fontSizeSpec = argURLQuery.getArgument("fontSize");
-		if (fontSizeSpec.length() > 0)
+		if (fontSizeSpec.length() > 0) {
 			textH = Integer.parseInt(fontSizeSpec);
+		}
+
+		// setTextSize is a no-op if the size doesn't change, and we need to
+		// initialize font
+		updateTextSize(textH);
 		setTextSize(textH);
 
 		server = argURLQuery.getArgument("server");
@@ -588,24 +600,52 @@ final class Bungee extends PFrame {
 					}
 				});
 
-		// basicJNLPservice = maybeGetBasicService();
+		 basicJNLPservice = maybeGetBasicService();
 		waitCursor = new Cursor(Cursor.WAIT_CURSOR);
 		setDatabase(_dbName);
+	}
+
+	void setFeatures(Preferences options) {
+		if (!options.equals(features)) {
+			features = options;
+			updateTextSize(options.fontSize);
+			summary.setFeatures();
+			grid.setFeatures();
+			validateIfReady();
+			printUserAction(Bungee.MODE, options.features2string().replace(',', '_'), 0);
+		}
+	}
+
+	void setTextSize(int fontSize) {
+		fontSize = Math.max(MIN_TEXT_HEIGHT, Math.min(fontSize, maxTextSize()));
+		setFeatures(new Preferences(features, "fontSize=" + fontSize, true));
+	}
+
+	int getTextSize() {
+		return features.fontSize;
+	}
+
+	int getDesiredNumResultsColumns() {
+		return features.nColumns;
+	}
+
+	void setDesiredNumResultsColumns(int nCols) {
+		setFeatures(new Preferences(features, "nColumns=" + nCols, true));
 	}
 
 	/**
 	 * @param fontSize
 	 * @return whether the new fontSize represents a change
 	 */
-	boolean setTextSize(int fontSize) {
+	boolean updateTextSize(int fontSize) {
 		// Util.print("Art.setTextSize " + fontSize+" " + maxTextSize());
-		fontSize = Math.max(MIN_TEXT_HEIGHT, Math.min(fontSize, maxTextSize()));
+		assert fontSize >= MIN_TEXT_HEIGHT;
+		assert fontSize <= maxTextSize();
 		boolean result = font == null || fontSize != font.getSize();
 		if (result) {
 			// Util.print("Art.setTextSize " + fontSize);
 			clearTextCaches();
-			textH = fontSize;
-			font = new Font(fontFamily, fontStyle, textH);
+			font = new Font(fontFamily, fontStyle, fontSize);
 			FontMetrics fontMetrics = getGraphics().getFontMetrics(font);
 			lineH = Math.ceil(APText.fontLineH(font));
 			maxCharW = fontMetrics.getMaxAdvance();
@@ -615,14 +655,12 @@ final class Bungee extends PFrame {
 			childIndicatorWidth = getStringWidth(childIndicatorSuffix);
 			parentIndicatorWidth = getStringWidth(Markup.parentIndicatorPrefix);
 			checkBoxWidth = getStringWidth(checkBoxPrefix);
-			headerH = Math.ceil(2.5 * lineH);
+			headerH = Math.ceil(3.5 * lineH);
 			mouseDocH = lineH;
 			scrollBarWidth = Math.round(0.67 * lineH);
 			scrollMarginSize = Math.round(0.17 * lineH);
 
-			// Util.print("childIndicatorWidth = " + childIndicatorWidth + ";
-			// checkBoxWidth = " + checkBoxWidth);
-			validateIfReady();
+			// validateIfReady();
 		}
 		return result;
 	}
@@ -722,7 +760,7 @@ final class Bungee extends PFrame {
 			setPickable(false);
 			setChildrenPickable(false);
 
-			meta = new APText(new Font(fontFamily, Font.ITALIC, textH));
+			meta = new APText(new Font(fontFamily, Font.ITALIC, getTextSize()));
 			meta.setTextPaint(Color.white);
 			meta.setText("New Users: Watch for usage tips in orange text.");
 			// If natural width set above is too big, positionHelp will fix it
@@ -795,7 +833,7 @@ final class Bungee extends PFrame {
 		// Util.print("maxTextSize " + w + " "
 		// + ((int) (textH * w / (double) minWidth())));
 		if (w > 0)
-			return (int) (textH * Math.min(w / (double) minWidth(), h
+			return (int) (getTextSize() * Math.min(w / (double) minWidth(), h
 					/ (double) minHeight()));
 		else
 			return Integer.MAX_VALUE;
@@ -856,7 +894,7 @@ final class Bungee extends PFrame {
 	}
 
 	void validateIfReady() {
-		if (isReady && !setTextSize(textH)) {
+		if (isReady) { // && !setTextSize(textH)) {
 			// Util.print("Bungee.setSize " + w + " " + h);
 			// Util.printStackTrace();
 			// This will reduce text size if necessary to fit in the window.
@@ -1017,7 +1055,10 @@ final class Bungee extends PFrame {
 	 * Stop all threads. Called by setDatabase and finalize.
 	 */
 	private void stop() {
-//		 Util.print("Art.stop bar: "+Bar.paintCount+" summary: " + Summary.updateCount + " aptext: " + APText.paintCount+" nHighlights="+nHighlights);
+		// Util.print("Art.stop bar: "+Bar.paintCount+" summary: " +
+		// Summary.updateCount + " aptext: " + APText.paintCount+"
+		// nHighlights="+nHighlights);
+
 		// if (grid != null)
 		// grid.thumbs = null;
 		// if (itemImages != null)
@@ -1067,8 +1108,8 @@ final class Bungee extends PFrame {
 		}
 
 		clearTextCaches();
-		highlightedClusters.clear();
-		highlightedFacets.clear();
+		highlightedClusters = new HashSet();
+		highlightedFacets = new HashSet();
 		userActionIndex = 0;
 
 		// Need to lose all references to stale facets, or hash tables will have
@@ -1082,13 +1123,65 @@ final class Bungee extends PFrame {
 		clusterViz = null;
 	}
 
-	boolean toggleIsPopups() {
+	boolean togglePopups() {
 		showPopup(null);
-		return isPopups = !isPopups;
+		boolean state = !isPopups();
+		features = new Preferences(features, "popups", state);
+		setTip(state ? "Will now show tag information with popups"
+				: "Will now show tag information in the lower right corner of the window");
+		return state;
 	}
 
-	boolean getIsPopups() {
-		return isPopups;
+	boolean isPopups() {
+		return features.popups;
+	}
+
+	boolean isOpenClose() {
+		return features.openClose;
+	}
+
+	boolean getShowCheckboxes() {
+		return features.checkboxes;
+	}
+
+	boolean getIsShortcuts() {
+		return features.shortcuts;
+	}
+
+	boolean getIsClustering() {
+		return features.clustering;
+	}
+
+	boolean getIsBrushing() {
+		return features.brushing;
+	}
+
+	boolean getShowPvalues() {
+		return features.pvalues;
+	}
+
+	boolean getShowMedian() {
+		return features.medians;
+	}
+
+	boolean getShowSortMenu() {
+		return features.sortMenus;
+	}
+
+	boolean getUseArrowKeys() {
+		return features.arrows;
+	}
+
+	boolean getShowBoundaries() {
+		return features.boundaries;
+	}
+
+	boolean getShowTagLists() {
+		return features.tagLists;
+	}
+
+	boolean getShowZoomLetters() {
+		return features.zoom;
 	}
 
 	void setSelectedItem(Item item) {
@@ -1136,7 +1229,8 @@ final class Bungee extends PFrame {
 			s = (BasicService) ServiceManager.lookup("javax.jnlp.BasicService");
 			jnlpClipboardService = (ClipboardService) ServiceManager
 					.lookup("javax.jnlp.ClipboardService");
-		} catch (UnavailableServiceException e) {
+		} catch (Throwable e) {
+			// Expect UnavailableServiceException or NoClassDefFoundError
 			if (s == null)
 				Util.err("jnlp.BasicService is not available");
 			if (jnlpClipboardService == null)
@@ -1319,6 +1413,8 @@ final class Bungee extends PFrame {
 
 	void toggleFacet(Perspective facet, int modifiers) {
 		// Util.print("Art.toggleFacet " + facet + " " + modifiers);
+		if (!getIsShortcuts()&&replayer==null)
+			modifiers = 0;
 		assert facet != null;
 		assert facet.getParent() != null : facet;
 		// arrowFocus = facet;
@@ -1375,11 +1471,7 @@ final class Bungee extends PFrame {
 		// }
 	}
 
-	Set highlightedFacets = new HashSet();
-
-	Set highlightedClusters = new HashSet();
-
-//	private int nHighlights;
+	// private int nHighlights;
 
 	void highlightCluster(Cluster cluster) {
 		Set prevFacets = highlightedClusters;
@@ -1423,7 +1515,7 @@ final class Bungee extends PFrame {
 		// Util.printStackTrace();
 		// assert !highlightedFacets.contains(facet) : facet + " " +
 		// highlightedFacets;
-//		nHighlights++;
+		// nHighlights++;
 		Set prevFacets = highlightedFacets;
 		highlightedFacets = new HashSet();
 		if (facet != null) {
@@ -1439,7 +1531,9 @@ final class Bungee extends PFrame {
 			// SelectedItem.
 
 			selectedItem.highlightFacet(prevFacets);
-			grid.highlightFacet(prevFacets);
+			if (getIsBrushing()) {
+				grid.highlightFacet(prevFacets);
+			}
 			if (clusterViz != null)
 				clusterViz.highlightFacet(prevFacets);
 
@@ -1458,19 +1552,21 @@ final class Bungee extends PFrame {
 	}
 
 	void highlightFacets(Set facets, boolean state) {
-		Set prevFacets = highlightedFacets;
-		highlightedFacets = state ? facets : new HashSet();
-		if (!prevFacets.equals(highlightedFacets)) {
-			prevFacets = Util.symmetricDifference(
-					new HashSet(highlightedFacets), prevFacets);
-			assert !prevFacets.isEmpty();
+		if (getIsBrushing()) {
+			Set prevFacets = highlightedFacets;
+			highlightedFacets = state ? facets : new HashSet();
+			if (!prevFacets.equals(highlightedFacets)) {
+				prevFacets = Util.symmetricDifference(new HashSet(
+						highlightedFacets), prevFacets);
+				assert !prevFacets.isEmpty();
 
-			summary.highlightFacet(prevFacets);
-			selectedItem.highlightFacet(prevFacets);
-			if (clusterViz != null)
-				clusterViz.highlightFacet(prevFacets);
+				summary.highlightFacet(prevFacets);
+				selectedItem.highlightFacet(prevFacets);
+				if (clusterViz != null)
+					clusterViz.highlightFacet(prevFacets);
 
-			showPopup(singleHighlightedFacet());
+				showPopup(singleHighlightedFacet());
+			}
 		}
 	}
 
@@ -1565,14 +1661,16 @@ final class Bungee extends PFrame {
 	}
 
 	void setMouseDoc(PNode source, boolean state) {
-		String desc = null;
-		if (state) {
-			if (source instanceof Button)
-				desc = ((Button) source).mouseDoc;
-			else if (source instanceof Boundary)
-				desc = ((Boundary) source).mouseDoc;
+		if (!(source instanceof Boundary) || getShowBoundaries()) {
+			String desc = null;
+			if (state) {
+				if (source instanceof Button)
+					desc = ((Button) source).mouseDoc;
+				else if (source instanceof Boundary)
+					desc = ((Boundary) source).mouseDoc;
+			}
+			setClickDesc(desc);
 		}
-		setClickDesc(desc);
 	}
 
 	void setMouseDoc(String doc) {
@@ -1585,19 +1683,21 @@ final class Bungee extends PFrame {
 	 */
 	Markup defaultClickDesc() {
 		Markup result = null;
-		if (arrowFocus != null) {
-			result = Query.emptyMarkup();
-			result.add("Arrow keys will move through: ");
-			result.add(arrowFocus.getParent());
-		} else if (grid != null && grid.onCount > 1) {
-			result = Query.emptyMarkup();
-			result.add("Arrow keys will move through: ");
-			result.add(Bungee.gridFG);
-			result.add("Results");
-		} else if (isShowingInitialHelp()) {
+		if (isShowingInitialHelp()) {
 			result = Query.emptyMarkup();
 			result.add("Click on a category, and then click on its tags "
 					+ "to start diving into the collection.");
+		} else if (getUseArrowKeys()) {
+			if (arrowFocus != null) {
+				result = Query.emptyMarkup();
+				result.add("Arrow keys will move through: ");
+				result.add(arrowFocus.getParent());
+			} else if (grid != null && grid.onCount > 1) {
+				result = Query.emptyMarkup();
+				result.add("Arrow keys will move through: ");
+				result.add(Bungee.gridFG);
+				result.add("Results");
+			}
 		}
 		// Util.print("defaultClickDesc " + result);
 		return result;
@@ -2064,7 +2164,7 @@ final class Bungee extends PFrame {
 		Perspective parent = (facet instanceof Perspective) ? ((Perspective) facet)
 				.getParent()
 				: null;
-		if (showCheckBox && parent != null) {
+		if (showCheckBox && parent != null && getShowCheckboxes()) {
 			name.append(checkBoxPrefix);
 			nameW -= checkBoxWidth;
 		}
@@ -2133,7 +2233,8 @@ final class Bungee extends PFrame {
 		if (p != null && showChildIndicator && p.isEffectiveChildren()
 				&& p.getParent() != null)
 			result += childIndicatorWidth;
-		if (p != null && showCheckBox && p.getParent() != null)
+		if (p != null && showCheckBox && p.getParent() != null
+				&& getShowCheckboxes())
 			result += checkBoxWidth;
 		return result;
 	}
@@ -2253,9 +2354,14 @@ final class Bungee extends PFrame {
 				showMoreHelp();
 			} else if (keyChar == CONTROL_P) {
 				printUserAction(Bungee.TOGGLE_POPUPS, 0, 0);
-				toggleIsPopups();
+				togglePopups();
 			} else if (keyChar == CONTROL_C) {
-				showClusters();
+				if (getIsClustering())
+					showClusters();
+				else {
+					setTip("Finding clusters is disabled in beginner mode");
+					return false;
+				}
 			} else if (editMenu != null
 					&& Character.digit(keyChar, editMenu.nChoices()) > 0) {
 				editMenu.choose(keyChar - '1');
@@ -2299,7 +2405,10 @@ final class Bungee extends PFrame {
 
 	boolean handleArrow(char key, int modifiers) {
 		// Util.print("Art.handleArrow " + arrowFocus);
-		if (Util.isAltDown(modifiers) && editArrow(key)) {
+		if (!getUseArrowKeys()) {
+			setTip("Arrow keys are disabled in beginner mode");
+			return false;
+		} else if (Util.isAltDown(modifiers) && editArrow(key)) {
 			return true;
 		} else if (arrowFocus == null) {
 			grid.handleArrow(key);
@@ -2691,7 +2800,7 @@ final class Bungee extends PFrame {
 	}
 
 	void showPopup(Perspective facet) {
-		if (isPopups && !isShowingInitialHelp()) {
+		if (isPopups() && !isShowingInitialHelp()) {
 			summary.showPopup(facet);
 			mouseDoc.showPopup(null);
 		} else
@@ -2699,7 +2808,7 @@ final class Bungee extends PFrame {
 	}
 
 	void showMoreHelp() {
-		if (isPopups && summary.facetDesc.getVisible())
+		if (isPopups() && summary.facetDesc.getVisible())
 			summary.facetDesc.showMoreHelp();
 		// else
 		// summary.barHelp.phase2();
@@ -2737,7 +2846,7 @@ final class Bungee extends PFrame {
 			// actionPrinter = new ActionPrinter(query);
 			// actionPrinter.start();
 			// }
-			assert location >= BAR && location <= ZOOM : location;
+			assert location >= BAR && location <= MODE : location;
 
 			String[] v = new String[4];
 			v[0] = Integer.toString(userActionIndex++);
@@ -2798,142 +2907,157 @@ final class Bungee extends PFrame {
 
 	static final int ZOOM = 22;
 
+	static final int MODE = 23;
+
 	void replayOp() {
-		mayHideTransients();
-		String[] args = replayer.getArgs();
-		Util.print("\nReplay op #" + (replayer.opNum - 1) + " "
-				+ Util.valueOfDeep(args));
-		int modifiers = args.length > 3 ? Integer.parseInt(args[3]) : -1;
-		switch (Integer.parseInt(args[1])) {
-		case BAR:
-		case BAR_LABEL:
-			Util.print("  clickBar " + replayPerspective(args[2]) + " "
-					+ modifiers);
-			summary.clickBar(replayPerspective(args[2]), modifiers);
-			break;
-		case RANK_LABEL:
-			Util.print("  clickRank " + replayPerspective(args[2]));
-			summary.clickRank(replayPerspective(args[2]), modifiers);
-			break;
-		case THUMBNAIL:
-			// Always select the item so that it's facets get loaded, in case
-			// user clicks on a deeply nested one.
-			// if (modifiers == 1)
-		{
-			Item item = Item.ensureItem(Integer.parseInt(args[2]));
-			Util.print("  Click thumb "
-					+ (modifiers == 0 ? " unintentionally " : "intentionally ")
-					+ item);
-			grid.clickThumb(item);
-			// } else {
-			// Util.print(" no-op set selected item");
-		}
-			break;
-		case IMAGE:
-			Item item = Item.ensureItem(Integer.parseInt(args[2]));
-			Util.print("  clickImage " + item);
-			grid.clickThumb(item);
-			selectedItem.clickImage(item);
-			break;
-		case FACET_TREE:
-			Util.print("  clickText " + replayPerspective(args[2]) + " "
-					+ modifiers);
-			toggleFacet(replayPerspective(args[2]), modifiers);
-			// selectedItem.clickText(replayPerspective(args[2]), modifiers);
-			break;
-		case SCROLL:
-			// This is obsolete. Now we just capture the setSelectedItem.
-			if (args[2].equals("grid")) {
-				int offset = Integer.parseInt(args[3]);
-				Util.print("  scroll - ignoring " + offset);
-				// grid.scrollTo(offset);
-				// grid.clickThumb(Item.ensureItem(Integer.parseInt(args[3])));
+		try {
+			mayHideTransients();
+			String[] args = replayer.getArgs();
+			Util.print("\nReplay op #" + (replayer.opNum - 1) + " "
+					+ Util.valueOfDeep(args));
+			int modifiers = args.length > 3 ? Integer.parseInt(args[3]) : -1;
+			switch (Integer.parseInt(args[1])) {
+			case BAR:
+			case BAR_LABEL:
+				Util.print("  clickBar " + replayPerspective(args[2]) + " "
+						+ modifiers);
+				summary.clickBar(replayPerspective(args[2]), modifiers);
+				break;
+			case RANK_LABEL:
+				Util.print("  clickRank " + replayPerspective(args[2]));
+				summary.clickRank(replayPerspective(args[2]), modifiers);
+				break;
+			case THUMBNAIL:
+				// Always select the item so that it's facets get loaded, in
+				// case
+				// user clicks on a deeply nested one.
+				// if (modifiers == 1)
+			{
+				Item item = Item.ensureItem(Integer.parseInt(args[2]));
+				Util.print("  Click thumb "
+						+ (modifiers == 0 ? " unintentionally "
+								: "intentionally ") + item);
+				grid.clickThumb(item);
+				// } else {
+				// Util.print(" no-op set selected item");
 			}
-			break;
-		case 8:
-			Util.print("  keypress - ignoring ");
-			break;
-		case GRID_ARROW:
-			// grid.clickThumb(Integer.parseInt(args[3]));
-			Util.print("  ignoring arrow key grid " + args[2]);
-			break;
-		case FACET_ARROW:
-			Util.print("  Facet Arrow " + args[2] + " " + modifiers);
-			Perspective p = replayPerspective(args[2]);
-			summary.connectToPerspective(p.getParent());
-			summary.clickBar(p, modifiers);
-			break;
-		case SHOW_CLUSTERS:
-			Util.print("  find clusters");
-			showClusters();
-			break;
-		case BUTTON:
-			Util.print("  button " + args[2]);
-			if (args[2].equals("Clear")) {
-				summary.clickClear();
-			} else if (args[2].equals("Ellipsis")) {
-				summary.clickEllipsis();
-			} else {
-				summary.removeSearch(args[2]);
+				break;
+			case IMAGE:
+				Item item = Item.ensureItem(Integer.parseInt(args[2]));
+				Util.print("  clickImage " + item);
+				grid.clickThumb(item);
+				selectedItem.clickImage(item);
+				break;
+			case FACET_TREE:
+				Util.print("  clickText " + replayPerspective(args[2]) + " "
+						+ modifiers);
+				toggleFacet(replayPerspective(args[2]), modifiers);
+				// selectedItem.clickText(replayPerspective(args[2]),
+				// modifiers);
+				break;
+			case SCROLL:
+				// This is obsolete. Now we just capture the setSelectedItem.
+				if (args[2].equals("grid")) {
+					int offset = Integer.parseInt(args[3]);
+					Util.print("  scroll - ignoring " + offset);
+					// grid.scrollTo(offset);
+					// grid.clickThumb(Item.ensureItem(Integer.parseInt(args[3])));
+				}
+				break;
+			case 8:
+				Util.print("  keypress - ignoring ");
+				break;
+			case GRID_ARROW:
+				// grid.clickThumb(Integer.parseInt(args[3]));
+				Util.print("  ignoring arrow key grid " + args[2]);
+				break;
+			case FACET_ARROW:
+				Util.print("  Facet Arrow " + args[2] + " " + modifiers);
+				Perspective p = replayPerspective(args[2]);
+				summary.connectToPerspective(p.getParent());
+				summary.clickBar(p, modifiers);
+				break;
+			case SHOW_CLUSTERS:
+				Util.print("  find clusters");
+				showClusters();
+				break;
+			case BUTTON:
+				Util.print("  button " + args[2]);
+				if (args[2].equals("Clear")) {
+					summary.clickClear();
+				} else if (args[2].equals("Ellipsis")) {
+					summary.clickEllipsis();
+				} else {
+					summary.removeSearch(args[2]);
+				}
+				break;
+			case SEARCH:
+				Util.print("  search " + args[2]);
+				summary.q.addTextSearch(args[2]);
+				updateAllData();
+				break;
+			case SETSIZE:
+				int width = Integer.parseInt(args[2]);
+				int height = modifiers;
+				Util.print("  setSize " + width + " " + height);
+				Insets insets = getInsets();
+				width += insets.left + insets.right;
+				height += insets.top + insets.bottom;
+				super.setSize(width, height);
+				validate();
+				break;
+			case RESTRICT:
+				Util.print("  Restrict");
+				restrict();
+				break;
+			case REORDER:
+				int facetType = Integer.parseInt(args[2]);
+				String name = facetType == -1 ? "random"
+						: facetType == 0 ? "ID" : query.findPerspective(
+								facetType).getName();
+				Util.print("  Reorder by " + name);
+				grid.chooseReorder(facetType);
+				break;
+			case TOGGLE_CLUSTER_EXCLUSION:
+				Perspective facet = replayPerspective(args[2]);
+				Util.print("  Toggle cluster exclusion " + facet);
+				clusterViz.toggleClusterExclusion(facet);
+				break;
+			case TOGGLE_CLUSTER:
+				Util.print("  Toggle Cluster " + args[2]);
+				String[] facet_ids = args[2].split("/");
+				Set facets = new HashSet();
+				for (int i = 0; i < facet_ids.length; i++) {
+					facets.add(query.findPerspective(Integer
+							.parseInt(facet_ids[i])));
+				}
+				Cluster cluster = new Cluster(facets);
+				toggleCluster(cluster);
+				break;
+			case TOGGLE_POPUPS:
+				Util.print("  Toggle Popups ");
+				togglePopups();
+				break;
+			case SHOW_MORE_HELP:
+				Util.print("  Show More Help ");
+				showMoreHelp();
+				break;
+			case ZOOM:
+				char keyChar = (char) modifiers;
+				Util.print("  Zoom to " + keyChar);
+				summary.keyPress(keyChar);
+				break;
+			case MODE:
+				String mode = args[2].replace('_', ',');
+				Util.print("  Change mode to " + mode);
+				setFeatures(new Preferences(null, mode, true));
+				break;
+			default:
+				assert false : args[1];
 			}
-			break;
-		case SEARCH:
-			Util.print("  search " + args[2]);
-			summary.q.addTextSearch(args[2]);
-			updateAllData();
-			break;
-		case SETSIZE:
-			int width = Integer.parseInt(args[2]);
-			int height = modifiers;
-			Util.print("  setSize " + width + " " + height);
-			Insets insets = getInsets();
-			width += insets.left + insets.right;
-			height += insets.top + insets.bottom;
-			super.setSize(width, height);
-			validate();
-			break;
-		case RESTRICT:
-			Util.print("  Restrict");
-			restrict();
-			break;
-		case REORDER:
-			int facetType = Integer.parseInt(args[2]);
-			String name = facetType == -1 ? "random" : facetType == 0 ? "ID"
-					: query.findPerspective(facetType).getName();
-			Util.print("  Reorder by " + name);
-			grid.chooseReorder(facetType);
-			break;
-		case TOGGLE_CLUSTER_EXCLUSION:
-			Perspective facet = replayPerspective(args[2]);
-			Util.print("  Toggle cluster exclusion " + facet);
-			clusterViz.toggleClusterExclusion(facet);
-			break;
-		case TOGGLE_CLUSTER:
-			Util.print("  Toggle Cluster " + args[2]);
-			String[] facet_ids = args[2].split("/");
-			Set facets = new HashSet();
-			for (int i = 0; i < facet_ids.length; i++) {
-				facets.add(query
-						.findPerspective(Integer.parseInt(facet_ids[i])));
-			}
-			Cluster cluster = new Cluster(facets);
-			toggleCluster(cluster);
-			break;
-		case TOGGLE_POPUPS:
-			Util.print("  Toggle Popups ");
-			toggleIsPopups();
-			break;
-		case SHOW_MORE_HELP:
-			Util.print("  Show More Help ");
-			showMoreHelp();
-			break;
-		case ZOOM:
-			char keyChar = (char) modifiers;
-			Util.print("  Zoom to " + keyChar);
-			summary.keyPress(keyChar);
-			break;
-		default:
-			assert false : args[1];
+		} catch (Throwable e) {
+			System.err.println("Ignoring exception in replayer: " + e);
+			e.printStackTrace();
 		}
 		replayer.update();
 	}
@@ -3191,5 +3315,15 @@ final class Bungee extends PFrame {
 				handleCursor(false);
 			}
 		}
+	}
+
+	void expertMode() {
+		setFeatures(new Preferences(features, Preferences.expertFeatureNames,
+				true));
+	}
+
+	void beginnerMode() {
+		setFeatures(new Preferences(features, Preferences.expertFeatureNames,
+				false));
 	}
 }

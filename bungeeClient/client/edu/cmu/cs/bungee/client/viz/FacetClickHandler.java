@@ -29,35 +29,54 @@ class FacetClickHandler extends MyInputEventHandler {
 	// super.mouseMoved(e);
 	// }
 	// }
+	
+	private int getModifiers(PNode node, PInputEvent e) {
+		return ((FacetNode) node).art().getIsShortcuts() ? e
+				.getModifiersEx() : 0;		
+	}
 
 	// Treat it like enter
 	protected boolean shiftKeysChanged(PNode node, PInputEvent e) {
 		// Util.print("FacetClickHandler.enter " + ((FacetNode) node).getFacet()
 		// + " " + e.getModifiersEx());
-		return ((FacetNode) node).highlight(true, e.getModifiersEx(), e);
+		return ((FacetNode) node).highlight(true, getModifiers(node, e), e);
 	}
 
 	protected boolean enter(PNode node, PInputEvent e) {
 		// Util.print("FacetClickHandler.enter " + ((FacetNode) node).getFacet()
 		// + " " + e.getModifiersEx());
-		return ((FacetNode) node).highlight(true, e.getModifiersEx(), e);
+		return ((FacetNode) node).highlight(true, getModifiers(node, e), e);
 	}
 
 	protected boolean exit(PNode node, PInputEvent e) {
 		// Util.print("FacetClickHandler.exit " + ((FacetNode)
 		// node).getFacet());
-		return ((FacetNode) node).highlight(false, e.getModifiersEx(), e);
+		return ((FacetNode) node).highlight(false, getModifiers(node, e), e);
+	}
+
+	protected boolean moved(PNode node, PInputEvent e) {
+		// Util.print("FacetClickHandler.exit " + ((FacetNode)
+		// node).getFacet());
+		return moved(node, getModifiers(node, e), e);
+	}
+
+	protected boolean moved(PNode node, int modifiers, PInputEvent e) {
+			// Override this
+			assert edu.cmu.cs.bungee.javaExtensions.Util.ignore(node);
+			assert edu.cmu.cs.bungee.javaExtensions.Util.ignore(modifiers);
+			assert edu.cmu.cs.bungee.javaExtensions.Util.ignore(e);
+			return false;
 	}
 
 	protected boolean click(PNode node, PInputEvent e) {
 		FacetNode f = (FacetNode) node;
-//		 System.out.println("FacetClickHandler.click " + f);
+		// System.out.println("FacetClickHandler.click " + f);
 		if (e.isRightMouseButton()
 				&& f.art().setSelectedForEdit(f.getFacet(), e.getModifiersEx()))
 			return true;
 		if (e.isMiddleMouseButton() && f.art().facetMiddleMenu(f.getFacet()))
 			return true;
-		return f.pick(e);
+		return f.pick(getModifiers(node, e), e);
 	}
 
 	protected void mayHideTransients(PNode node) {
@@ -65,24 +84,25 @@ class FacetClickHandler extends MyInputEventHandler {
 	}
 
 	protected boolean press(PNode node, PInputEvent e) {
-		dragging = ((FacetNode) node).startDrag(node, e.getPositionRelativeTo(node));
+		dragging = ((FacetNode) node).startDrag(node, e
+				.getPositionRelativeTo(node));
 		return dragging != null;
-//		boolean result = node instanceof Bar;
-//		if (result) {
-//			PNode parent = node.getParent();
-//			if (parent == null)
-//				edu.cmu.cs.bungee.piccoloUtils.gui.Util.printDescendents(node);
-//			assert parent != null;
-//			// gui.Util.printDescendents(node);
-//			PerspectiveViz pv = (PerspectiveViz) parent.getParent();
-//			result = pv.front == parent;
-//			if (result) {
-//				Point2D x = e.getPosition();
-//				dragging = pv;
-//				pv.startDrag(x, e.getPositionRelativeTo(parent));
-//			}
-//		}
-//		return result;
+		// boolean result = node instanceof Bar;
+		// if (result) {
+		// PNode parent = node.getParent();
+		// if (parent == null)
+		// edu.cmu.cs.bungee.piccoloUtils.gui.Util.printDescendents(node);
+		// assert parent != null;
+		// // gui.Util.printDescendents(node);
+		// PerspectiveViz pv = (PerspectiveViz) parent.getParent();
+		// result = pv.front == parent;
+		// if (result) {
+		// Point2D x = e.getPosition();
+		// dragging = pv;
+		// pv.startDrag(x, e.getPositionRelativeTo(parent));
+		// }
+		// }
+		// return result;
 	}
 
 	protected boolean release(PNode ignore) {
