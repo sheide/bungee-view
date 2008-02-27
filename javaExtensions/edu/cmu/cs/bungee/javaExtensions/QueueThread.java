@@ -123,6 +123,18 @@ public class QueueThread extends Thread {
 	 */
 	public void init() {
 		// Override this
+//		testThreadProblems();
+	}
+	
+	private void testThreadProblems() {
+		try {
+			long delay = (long) (Math.random()*2000);
+			Util.print(this + " " + delay);
+			sleep(delay);
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}		
 	}
 
 	final public void run() {
@@ -131,6 +143,7 @@ public class QueueThread extends Thread {
 		while ((o = get()) != null) {
 			try {
 				processing = true;
+//				testThreadProblems();
 				process(o);
 				// }
 				// if (q != null) {
