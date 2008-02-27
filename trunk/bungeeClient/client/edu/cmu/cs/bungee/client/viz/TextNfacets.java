@@ -93,12 +93,13 @@ final class TextNfacets extends LazyPNode implements PerspectiveObserver {
 
 	private boolean wrapOnWordBoundaries = false;
 
-	private boolean underline;
+	// private boolean underline;
 
 	private float justification = Component.LEFT_ALIGNMENT;
 
 	/**
-	 * Only rank labels set this true
+	 * Only rank labels set this true. This is implicitly ANDed with
+	 * features.checkbox
 	 */
 	private final boolean showCheckBoxAndChildIndicator;
 
@@ -171,12 +172,12 @@ final class TextNfacets extends LazyPNode implements PerspectiveObserver {
 		justification = _justification;
 	}
 
-	void setUnderline(boolean isUnderline) {
-		underline = isUnderline;
-		for (int i = 0; i < getChildrenCount(); i++) {
-			((APText) getChild(i)).setUnderline(underline);
-		}
-	}
+	// void setUnderline(boolean isUnderline) {
+	// underline = isUnderline;
+	// for (int i = 0; i < getChildrenCount(); i++) {
+	// ((APText) getChild(i)).setUnderline(underline);
+	// }
+	// }
 
 	// public void setPickable(boolean _isPickable) {
 	// super.setPickable(_isPickable);
@@ -237,9 +238,9 @@ final class TextNfacets extends LazyPNode implements PerspectiveObserver {
 	}
 
 	double layout(double w, double h) {
-		// Util.print("TNF.layout " + w + " " + h + " " + wrapText + " "
-		// + art.lineH + " " + wrapOnWordBoundaries);
-		// Util.print(content);
+//		Util.print("TNF.layout " + w + " " + h + " " + wrapText + " "
+//				+ art.lineH + " " + wrapOnWordBoundaries);
+//		Util.print(content);
 		untrimmedW = w;
 		untrimmedH = h;
 		removeAllChildren();
@@ -251,6 +252,7 @@ final class TextNfacets extends LazyPNode implements PerspectiveObserver {
 			double x = 0;
 			double y = 0;
 			boolean plural = false;
+			boolean underline = false;
 			Paint color = defaultTextPaint;
 			int style = Font.BOLD;
 			for (Iterator it = content.iterator(); it.hasNext() && !incomplete;) {
@@ -258,6 +260,12 @@ final class TextNfacets extends LazyPNode implements PerspectiveObserver {
 				if (o == Markup.PLURAL_TAG) {
 					assert !plural;
 					plural = true;
+				} else if (o == Markup.UNDERLINE_TAG) {
+					assert !underline;
+					underline = true;
+				} else if (o == Markup.NO_UNDERLINE_TAG) {
+					assert underline;
+					underline = false;
 				} else if (o == Markup.NEWLINE_TAG) {
 					if (wrapText) {
 						justifyLine(w);
@@ -301,7 +309,7 @@ final class TextNfacets extends LazyPNode implements PerspectiveObserver {
 						plural = false;
 					}
 					APText last = myWrap(s, facet, x, y, w, h, paint, style,
-							null, true);
+							underline, null, true);
 					if (last != null) {
 						y = last.getYOffset();
 						x = last.getXOffset() + Math.ceil(last.getWidth());
@@ -318,12 +326,11 @@ final class TextNfacets extends LazyPNode implements PerspectiveObserver {
 	}
 
 	APText myWrap(final String s, ItemPredicate facet, double x, double y,
-			double w, double h, Paint paint, int style,
+			double w, double h, Paint paint, int style, boolean underline,
 			ItemPredicate[] restrictions, boolean isFirstLine) {
-		// Util.print("myWrap '" + s + "' x=" + x + " y=" + y + " w=" + w + "
-		// wrapOnWordBoundaries="
-		// + wrapOnWordBoundaries + " isFirstLine=" + isFirstLine + " " +
-		// facet);
+//		Util.print("myWrap '" + s + "' x=" + x + " y=" + y + " w=" + w
+//				+ " wrapOnWordBoundaries=" + wrapOnWordBoundaries
+//				+ " isFirstLine=" + isFirstLine + " " + facet);
 		APText result = null;
 		if (s.length() > 0) {
 			if (y + art.lineH <= h) {
@@ -365,11 +372,11 @@ final class TextNfacets extends LazyPNode implements PerspectiveObserver {
 				// text.setFont(art.italicFont);
 				text.setOffset(x, y);
 				String textString = text.getText();
-//				Util.print("___ '" + textString + "' " + x + ", " + y + " '"
-//						+ s + "' " + textString.equals(s));
+				// Util.print("___ '" + textString + "' " + x + ", " + y + " '"
+				// + s + "' " + textString.equals(s));
 				if (!textString.equals(s)) {
-					assert textString.length() < s.length() : textString + " '"
-							+ s + "' " + facet;
+					assert textString.length() < s.length() : "'" + textString
+							+ "' '" + s + "' " + facet + " " + isFirstLine;
 					if (textString.endsWith(Bungee.childIndicatorSuffix)) {
 						// getFacetText will truncate the name and add
 						// childIndicatorSuffix.
@@ -389,11 +396,11 @@ final class TextNfacets extends LazyPNode implements PerspectiveObserver {
 							index = -1;
 						if (index > 0) {
 							textString = s.substring(0, index);
-							
+
 							// If a facet name has a lot of spaces in it, go
 							// ahead and treat them as normal characters.
-//							assert textString.trim().length() > 0;
-							
+							// assert textString.trim().length() > 0;
+
 							text.setTextAndDecache(textString,
 									facet != null ? facet : (Object) s);
 						} else if (x > 0) {
@@ -413,12 +420,17 @@ final class TextNfacets extends LazyPNode implements PerspectiveObserver {
 								index++;
 						}
 						String suffix = s;
-						if (index > 0)
+						if (index > 0) {
 							suffix = s.substring(index);
+							// If facet name starts with spaces, and
+							// isFirstLine, the call to myWrap below will barf
+							// because s won't match text.getText()
+							isFirstLine = false;
+						}
 
 						result = myWrap(suffix, facet, 0, y + art.lineH, w, h,
-								paint, style, restrictions, isFirstLine
-										&& textString.length() == 0);
+								paint, style, underline, restrictions,
+								isFirstLine && textString.length() == 0);
 					}
 				}
 				if (result == null)

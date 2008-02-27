@@ -747,8 +747,8 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 			}
 
 			summaryBG.moveToFront();
+			rank().moveToFront();
 			moveToFront();
-			rank().moveBehind(this);
 
 			fitToNodes(nodes(summaryBG), nodes(art.header, art.mouseDoc),
 					MARGIN);
@@ -881,6 +881,8 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 
 			setBoundsFromNodes(significanceHeader, nodes(significanceDesc,
 					significanceTypeDesc), MARGIN);
+			
+			summary().colorKey.moveToFront();
 
 			// Rectangle2D barBounds = ((Bar) anchor).visibleBounds();
 			// double top = barBounds.getY();
@@ -1056,7 +1058,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 	private void pValueString(StringBuffer buf) {
 		double pValue = facet != null ? facet.pValue() : cluster.pValue();
 		// Util.print(facet + " " + cluster + " " + pValue);
-		if (pValue >= 0) {
+		if (pValue >= 0&&art.getShowPvalues()) {
 			// If cluster is created by replayOps, pValue = -1
 			buf.append(" (");
 			MouseDocLine.formatPvalue(pValue, buf);

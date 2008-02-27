@@ -41,7 +41,6 @@ import java.util.List;
 import java.util.Set;
 
 import edu.cmu.cs.bungee.client.query.Cluster;
-import edu.cmu.cs.bungee.client.query.ItemPredicate;
 import edu.cmu.cs.bungee.client.query.Markup;
 import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.cmu.cs.bungee.client.query.Query;
@@ -57,10 +56,11 @@ import edu.umd.cs.piccolo.activities.PActivity;
 import edu.umd.cs.piccolo.activities.PInterpolatingActivity;
 import edu.umd.cs.piccolo.event.PInputEvent;
 import edu.umd.cs.piccolo.util.PPaintContext;
+import edu.umd.cs.piccolo.util.PPickPath;
 
 final class Summary extends LazyContainer implements MouseDoc {
 
-	static int updateCount = 0;
+//	static int updateCount = 0;
 
 	/**
 	 * Horizontal space between buttons
@@ -297,6 +297,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 				- Rank.LABEL_LEFT_MARGIN, clear.getMaxY() - topMargin);
 		colorKey.setOffset(Rank.LABEL_LEFT_MARGIN, topMargin);
 		colorKey.setVisible(art.query.isRestricted());
+		colorKey.setPickable(false);
 		addChild(colorKey);
 	}
 
@@ -337,9 +338,17 @@ final class Summary extends LazyContainer implements MouseDoc {
 
 	public void updateBoundary(Boundary boundary1) {
 		assert boundary1 == boundary;
-		// System.out.println("Grid.updateBoundary " + boundary.centerX());
-		validateInternal(boundary1.center(), h, false);
-		art.updateSummaryBoundary();
+		if (art.getShowBoundaries()) {
+			// System.out.println("Grid.updateBoundary " + boundary.centerX());
+			validateInternal(boundary1.center(), h, false);
+			art.updateSummaryBoundary();
+		}
+	}
+
+	public void enterBoundary(Boundary boundary1) {
+		if (!art.getShowBoundaries()) {
+			boundary1.exit();
+		}
 	}
 
 	void updateQueryBoundary() {
@@ -372,6 +381,15 @@ final class Summary extends LazyContainer implements MouseDoc {
 
 	public double minHeight() {
 		return art.lineH * (10 + art.query.nAttributes);
+	}
+
+	void setFeatures() {
+		for (Iterator it = ranks.iterator(); it.hasNext();) {
+			Rank r = (Rank) it.next();
+			r.setFeatures();
+		}
+		if (!art.getShowTagLists())
+		hidePerspectiveList();
 	}
 
 	// private void initColors() {
@@ -707,7 +725,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 			// }
 
 			public void setRelativeTargetValue(float zeroToOne) {
-				updateCount++;
+//				updateCount++;
 				// Util.print("Summary.animateData");
 				for (int i = 0; i < nRanks(); i++) {
 					Rank r = (Rank) ranks.get(i);
@@ -882,7 +900,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 				}
 			}
 			if (removeAll) {
-//				Util.print("Remove rank " + r);
+				// Util.print("Remove rank " + r);
 				removeChild(r);
 				pit.remove();
 			} else {
@@ -1129,6 +1147,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 	 */
 	void clickBar(Perspective facet, int modifiers) {
 		PerspectiveViz pv = lookupPV(facet.getParent());
+		assert pv != null : facet.getParent();
 		pv.clickBar(facet, modifiers);
 	}
 
@@ -1173,6 +1192,12 @@ final class Summary extends LazyContainer implements MouseDoc {
 		super.paint(ignore);
 	}
 
+	protected boolean pickAfterChildren(PPickPath pickPath) {
+		boolean result = super.pickAfterChildren(pickPath);
+		Util.print("summary.pickAfterChildren " +result);
+		return result;
+	}
+
 	void setSelectedForEdit(Perspective facet) {
 		queryViz.setSelectedForEdit(facet);
 	}
@@ -1180,17 +1205,19 @@ final class Summary extends LazyContainer implements MouseDoc {
 	void showPopup(Perspective facet) {
 		if (isShowPopup(facet)) {
 			// Work your way up from facet until you find an ancestor with a pv.
-			//  barp
+			// barp
 			// will be a bar on it (or the same pv if facet is a facet_type)
 
 			for (Perspective ancestor = facet, barp = facet;; barp = ancestor, ancestor = ancestor
 					.getParent()) {
-				assert ancestor != null : facet + " " + barp + " " + lookupPV(barp)
-						+ " " + art.query.displayedPerspectives() + " " + ranks;
+				assert ancestor != null : facet + " " + barp + " "
+						+ lookupPV(barp) + " "
+						+ art.query.displayedPerspectives() + " " + ranks;
 				if (ancestor != facet || ancestor.getParent() == null) {
 					PerspectiveViz pv = lookupPV(ancestor);
 					if (pv != null) {
-						LazyPNode anchor = lookupPV(ancestor).anchorForPopup(barp);
+						LazyPNode anchor = lookupPV(ancestor).anchorForPopup(
+								barp);
 						// if (anchor != null) {
 						// There a transient state where pvp has a pv, but
 						// it
@@ -1337,7 +1364,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 	// colorKey.expand();
 	// }
 
-	private final class ColorKey extends LazyPNode {
+	 final class ColorKey extends LazyPNode {
 
 		private final ColorKeyHover colorKeyHover = new ColorKeyHover();
 
@@ -1356,6 +1383,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 			APText label1 = art.oneLineLabel();
 			label1.setTextPaint(Bungee.summaryFG);
 			label1.setText("Color Key");
+			label.setPickable(false);
 			addChild(label1);
 			if (label1.getMaxX() > w)
 				label1.setScale(w / label1.getMaxX());

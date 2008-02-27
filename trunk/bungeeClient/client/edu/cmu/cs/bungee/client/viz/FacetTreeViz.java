@@ -114,7 +114,7 @@ final class FacetTreeViz extends LazyPNode implements MouseDoc {
 	OpenButton getOpenButton(Object treeObject, boolean state) {
 		OpenButton result = openButtons[openButtonIndex++];
 		if (result == null) {
-//			Util.err("new open button " + openButtonIndex);
+			// Util.err("new open button " + openButtonIndex);
 			result = new OpenButton();
 			openButtons[openButtonIndex - 1] = result;
 		}
@@ -179,8 +179,8 @@ final class FacetTreeViz extends LazyPNode implements MouseDoc {
 	int drawTree(double treeW, int offsetLines, int lastLine) {
 		if (tree != null) {
 			addChild(selectionTreeScrollBar);
-			double margin = (nInvisibleLines > 0 || contracted.size() > 0) ? openButtonW
-					: 0;
+			double margin = ((nInvisibleLines > 0 || contracted.size() > 0) && art
+					.isOpenClose()) ? openButtonW : 0;
 			// System.out.println(tree);
 			int nLines = drawTreeInternal(tree, margin, treeW, offsetLines,
 					lastLine);
@@ -207,8 +207,8 @@ final class FacetTreeViz extends LazyPNode implements MouseDoc {
 		Object treeObject = subtree.treeObject();
 		boolean showChildren = subtree.nChildren() > 0
 				&& !isContracted(treeObject);
-//		 Util.print("drawTreeInternal " + treeObject + " " + offsetLines + " "
-//		 + lastLine + " " + x + " " + treeW + " " + showChildren);
+// Util.print("drawTreeInternal " + treeObject + " " + offsetLines + " "
+// + lastLine + " " + x + " " + treeW + " " + showChildren);
 		if (treeObject != null && !(treeObject instanceof Item)) { // don't
 			// display
 			// null's or
@@ -233,6 +233,7 @@ final class FacetTreeViz extends LazyPNode implements MouseDoc {
 			}
 			boolean overflow = drawWidth(subtree) + x > treeW;
 			if (offsetLines <= 0
+					&& art.isOpenClose()
 					&& ((nInvisibleLines > 0 && ((overflow && showChildren) || !(subtree
 							.getParent().treeObject() instanceof Perspective)
 					// || tree.p == null || tree.p.parent == null
@@ -405,13 +406,14 @@ final class FacetTreeViz extends LazyPNode implements MouseDoc {
 		OpenButton() {
 			// super("-", art.font, 0, 0, art.lineH, art.lineH, null, 1.8f,
 			// openButtonFG, openButtonBG);
-//			super(contractLabel+ " ", openButtonFG, openButtonBG,
-//					FacetTreeViz.this.art);
+			// super(contractLabel+ " ", openButtonFG, openButtonBG,
+			// FacetTreeViz.this.art);
 
-			super(contractLabel+" ", art.font, 0, 0, -1, -1, null, 0, openButtonFG, openButtonBG);
-			
-//			((APText) child).setConstrainWidthToTextWidth(true);
-//			((APText) child).setConstrainHeightToTextHeight(true);
+			super(contractLabel + " ", art.font, 0, 0, -1, -1, null, 0,
+					openButtonFG, openButtonBG);
+
+			// ((APText) child).setConstrainWidthToTextWidth(true);
+			// ((APText) child).setConstrainHeightToTextHeight(true);
 			setScale(openButtonScale);
 		}
 

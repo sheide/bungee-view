@@ -151,10 +151,16 @@ final class SelectedItem extends LazyContainer implements MouseDoc {
 
 	public void updateBoundary(Boundary boundary1) {
 		assert boundary1 == boundary;
-		if (selectedItemSummaryTextBox != null) {
+		if (art.getShowBoundaries() && selectedItemSummaryTextBox != null) {
 			minTextBoxH = boundary1.center()
 					- selectedItemSummaryTextBox.getYOffset();
 			redraw();
+		}
+	}
+
+	public void enterBoundary(Boundary boundary1) {
+		if (!art.getShowBoundaries()) {
+			boundary1.exit();
 		}
 	}
 
@@ -196,8 +202,7 @@ final class SelectedItem extends LazyContainer implements MouseDoc {
 				outline.animateToBounds(0, 0, w - 1, h, 500);
 			}
 			currentItem = item;
-			// Util.print("animateOutline " + currentItem + " " +
-			// getFacetTree());
+			// Util.print("animateOutline " + currentItem );
 			if (getFacetTree() == null) {
 				setter.set(item);
 				removeTree();

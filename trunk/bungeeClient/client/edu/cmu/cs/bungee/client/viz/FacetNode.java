@@ -46,7 +46,7 @@ interface FacetNode {
      * @param e the PInputEvent
      * @return whether the event was handled
      */
-    boolean pick(PInputEvent e);
+    boolean pick(int modifiers, PInputEvent e);
     
     /**
      * @param state did mouse enter (as opposed to exit)?

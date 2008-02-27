@@ -48,7 +48,7 @@ final class Header extends LazyPNode implements MouseDoc {
 
 	APText databaseLabel;
 
-	Menu helpMenu;
+	Menu helpMenu, modeMenu;
 
 	Bungee art;
 
@@ -57,9 +57,8 @@ final class Header extends LazyPNode implements MouseDoc {
 	private Boundary boundary;
 
 	void validate(double w, double h) {
-//		Util.print("Header.validate " + w + "x" + h);
+		// Util.print("Header.validate " + w + "x" + h);
 		setBounds(0, 0, w, h);
-		setPaint(Bungee.headerBG);
 		if (databaseLabel != null)
 			databaseLabel.setOffset(Math.round((w - databaseLabel
 					.getGlobalBounds().getWidth()) / 2.0),
@@ -80,7 +79,9 @@ final class Header extends LazyPNode implements MouseDoc {
 							Math.round((h - helpMenu.getGlobalBounds()
 									.getHeight()) / 2.0));
 		}
-		label.setScale(h * 0.9 / label.getHeight());
+		label.setScale((h - art.lineH) * 0.9 / label.getHeight());
+		modeMenu.setFont(art.font);
+		modeMenu.setOffset(label.getXOffset(), label.getMaxY());
 		boundary.validate();
 	}
 
@@ -89,21 +90,29 @@ final class Header extends LazyPNode implements MouseDoc {
 		// art.textH * boundary.center()
 		// / getHeight()));
 		assert boundary1 == boundary;
-		int fontsize = (int) Math.round(art.textH * boundary1.center()
-				/ (2.5 * art.lineH /* fontLineH() */));
-//		if (fontsize != art.textH) {
+		if (art.getShowBoundaries()) {
+			int fontsize = (int) Math
+					.round(art.getTextSize() * boundary1.center()
+							/ (2.5 * art.lineH /* fontLineH() */));
+			// if (fontsize != art.textH) {
 			art.setTextSize(fontsize);
-//			art.revalidate();
-//		}
+			// art.revalidate();
+		}
+	}
+
+	public void enterBoundary(Boundary boundary1) {
+		if (!art.getShowBoundaries()) {
+			boundary1.exit();
+		}
 	}
 
 	public double minHeight() {
-//		assert ignore == boundary;
-		return 2*art.lineH;
+		// assert ignore == boundary;
+		return 2 * art.lineH;
 	}
 
 	public double maxHeight() {
-//		assert ignore == boundary;
+		// assert ignore == boundary;
 		double contentW = 2 * label.getGlobalBounds().getWidth();
 		if (databaseMenu != null)
 			contentW += databaseMenu.getGlobalBounds().getWidth();
@@ -114,6 +123,7 @@ final class Header extends LazyPNode implements MouseDoc {
 
 	Header(Bungee _art, String[][] allDBdescriptions, String selectedDBname) {
 		art = _art;
+		setPaint(Bungee.headerBG);
 
 		if (true || art.basicJNLPservice != null) {
 			String mouseDoc = "Show this help in your web browser";
@@ -152,6 +162,28 @@ final class Header extends LazyPNode implements MouseDoc {
 			helpMenu.addButton("Tips and Tricks", mouseDoc);
 			helpMenu.setText("Help");
 			addChild(helpMenu);
+
+			Runnable showMode = new Runnable() {
+
+				public void run() {
+					String which = modeMenu.getChoice();
+					if (which.equals("Beginner Mode")) {
+						art.beginnerMode();
+					} else if (which.equals("Expert Mode")) {
+						art.expertMode();
+					} else if (which.equals("Custom")) {
+						PreferencesDialog.createAndShowGUI(art);
+					}
+				}
+			};
+
+			modeMenu = new Menu(Bungee.headerBG, Bungee.headerFG, showMode,
+					art.font);
+
+			modeMenu.addButton("Beginner Mode", "Disable advanced features");
+			modeMenu.addButton("Expert Mode", "Enable advanced features");
+			modeMenu.addButton("Custom", "Choose features");
+			addChild(modeMenu);
 		}
 
 		// Add this after help, so it won't be occluded
@@ -215,7 +247,7 @@ final class Header extends LazyPNode implements MouseDoc {
 		art.setMouseDoc(doc);
 	}
 
-//	public void setMouseDoc(Markup doc, boolean state) {
-//		art.setMouseDoc(doc, state);
-//	}
+	// public void setMouseDoc(Markup doc, boolean state) {
+	// art.setMouseDoc(doc, state);
+	// }
 }

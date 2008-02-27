@@ -59,13 +59,15 @@ import edu.cmu.cs.bungee.piccoloUtils.gui.MouseDoc;
 import edu.cmu.cs.bungee.piccoloUtils.gui.VScrollbar;
 import edu.umd.cs.piccolo.PNode;
 import edu.umd.cs.piccolo.activities.PInterpolatingActivity;
+import edu.umd.cs.piccolo.util.PPickPath;
 
 final class ResultsGrid extends LazyContainer implements MouseDoc {
 
-	int desiredCols = -1;
-	
+	// int desiredCols = -1;
+
 	/**
-	 * Number of empty pixels to leave around thumbnails. gridW = edgeW + 2 * THUMB_BORDER
+	 * Number of empty pixels to leave around thumbnails. gridW = edgeW + 2 *
+	 * THUMB_BORDER
 	 */
 	static int THUMB_BORDER = 2;
 
@@ -74,7 +76,7 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 	 * art.regionMargins
 	 */
 	static final int MARGIN_SIZE = 40;
-	
+
 	/**
 	 * Maps from item record_nums to a GridImage (a kind of PImage)
 	 */
@@ -124,20 +126,20 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 
 	private LazyPPath outline;
 
-	private Boundary boundary;
+	Boundary boundary;
 
 	Menu sortMenu;
 
 	private APText sortLabel;
 
-	PInterpolatingActivity highlightAnimator;
+	// PInterpolatingActivity highlightAnimator;
 
 	private double minWidth;
 
 	ResultsGrid(Bungee a) {
 		art = a;
 		setPickable(false);
-//		setPaint(Bungee.gridBG);
+		// setPaint(Bungee.gridBG);
 	}
 
 	void init() {
@@ -164,6 +166,7 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 
 		outline = new LazyPPath();
 		outline.setVisible(false);
+		outline.setPickable(false);
 		outline.setStroke(LazyPPath.getStrokeInstance(5));
 		outline.setStrokePaint(Bungee.selectedItemOutlineColor);
 		outline.setPathToRectangle(0, 0, 1, 1);
@@ -205,7 +208,8 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 		sortLabel.setText("Sorted by:");
 		sortLabel.setVisible(false);
 		// sortLabel.setScale(0.8);
-		addChild(sortLabel);
+		if (art.getShowSortMenu())
+			addChild(sortLabel);
 
 		Runnable doReorder = new Runnable() {
 			public void run() {
@@ -213,7 +217,7 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 			}
 		};
 
-		sortMenu = new Menu(Bungee.gridBG, Bungee.gridFG.darker(), doReorder,
+		sortMenu = new Menu(null, Bungee.gridFG.darker(), doReorder,
 				art.font);
 		sortMenu.addButton("Random", "Show thumbnails in random order",
 				new Integer(-1));
@@ -227,9 +231,20 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 		}
 		sortMenu.setVisible(false);
 		// sortMenu.setScale(0.8);
-		addChild(sortMenu);
+		if (art.getShowSortMenu())
+			addChild(sortMenu);
 
 		validate(w, h);
+	}
+
+	void setFeatures() {
+		if (art.getShowSortMenu()) {
+			addChild(sortLabel);
+			addChild(sortMenu);
+		} else {
+			sortLabel.removeFromParent();
+			sortMenu.removeFromParent();
+		}
 	}
 
 	boolean isInitted() {
@@ -249,7 +264,10 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 	}
 
 	double getBottomMargin() {
-		return h - sortLabel.getYOffset() + art.lineH;
+		if (art.getShowSortMenu())
+			return h - sortLabel.getYOffset() + art.lineH;
+		else
+			return art.lineH;
 	}
 
 	// void validate(double _w, double _h, double _minW, double _maxW) {
@@ -261,7 +279,7 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 	void validate(double _w, double _h) {
 		w = _w;
 		h = _h;
-//		setBounds(0, 0, w, h);
+		// setBounds(0, 0, w, h);
 		if (isInitted()) {
 			computeMinWidth();
 			assert w >= minWidth;
@@ -304,26 +322,36 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 	}
 
 	public void updateBoundary(Boundary boundary1) {
-		assert boundary1 == boundary;
-		validate(boundary1.center(), h);
-		art.updateGridBoundary();
+		if (art.getShowBoundaries()) {
+			assert boundary1 == boundary;
+			validate(boundary1.center(), h);
+			art.updateGridBoundary();
+		}
+	}
+
+	public void enterBoundary(Boundary boundary1) {
+		// Util.print("grid enter boundary");
+		if (!art.getShowBoundaries()) {
+			boundary1.exit();
+		}
 	}
 
 	void computeMinWidth() {
 		minWidth = art.getStringWidth("(0.001% of 999,999 "
 				+ query().genericObjectLabel + ")")
 				+ 2 * MARGIN_SIZE;
+		// Util.print("computeMinWidth " + minWidth);
 	}
 
 	public double minWidth() {
+		// Util.print("minWidth " + minWidth);
 		if (minWidth <= 0)
 			computeMinWidth();
 		return minWidth;
 	}
 
 	public double maxWidth() {
-		return w + art.selectedItem.w
-				- art.selectedItem.minWidth();
+		return w + art.selectedItem.w - art.selectedItem.minWidth();
 	}
 
 	void setDescription() {
@@ -392,6 +420,7 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 
 	/**
 	 * As a side effect, sets nCols, gridW, nVisibleRows, nRows
+	 * 
 	 * @param count
 	 * @return
 	 */
@@ -434,24 +463,25 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 
 	void computeEdge() {
 		maxThumbs(onCount);
-		edgeW = gridW - 2*THUMB_BORDER;
+		edgeW = gridW - 2 * THUMB_BORDER;
 		edgeW = Math.max(1, edgeW);
-		edgeH = gridH - 2*THUMB_BORDER;
+		edgeH = gridH - 2 * THUMB_BORDER;
 		edgeH = Math.max(1, edgeH);
 		if (gridScrollBar != null) {
 			gridScrollBar.setH(gridH * nVisibleRows);
 			gridScrollBar.setBufferPercent(nVisibleRows, nRows);
 		}
-//		Util.print("computeEdge " + edgeW + "x" + edgeH);
+		// Util.print("computeEdge " + edgeW + "x" + edgeH);
 		// thumbnails.updateBoundaries(nCols, nVisibleRows, grid);
 	}
 
 	void setDesiredCols(int newNcols) {
 		// Util.print("setDesiredCols " + newNcols);
-		if (newNcols != desiredCols) {
-			desiredCols = newNcols;
+		if (newNcols != art.getDesiredNumResultsColumns()) {
+			art.setDesiredNumResultsColumns(newNcols);
 			computeEdge();
-			desiredCols = nCols; // Would be confusing to change the desire
+			art.setDesiredNumResultsColumns(nCols);
+			// desiredCols = nCols; // Would be confusing to change the desire
 			// if the user doesn't see a change.
 			visRowOffset = -9999;
 			computeSelectedItemFromSelectedOffset(selectedItemOffset, -1);
@@ -459,14 +489,17 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 	}
 
 	int getDesiredColumns() {
-		if (desiredCols > 0)
-			return desiredCols;
+		int result;
+		if (art.getDesiredNumResultsColumns() > 0)
+			result = art.getDesiredNumResultsColumns();
 		else {
 			// Make thumbnails grow from the minimum size as the square root of
 			// the extra space
-			return (int) Math.round(Math.max(1, Math
-					.pow(usableW() / Bungee.MIN_THUMB_SIZE, 0.8)));
+			result = (int) Math.round(Math.max(1, Math.pow(usableW()
+					/ Bungee.MIN_THUMB_SIZE, 0.8)));
 		}
+		// Util.print("getDesiredColumns " + result);
+		return result;
 	}
 
 	void chooseReorder(int facetType) {
@@ -602,7 +635,7 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 				if (isInRange(i, i)) {
 					Item item = offsetItemTable[i];
 					assert item != null : i + " " + minOffset + "-" + maxOffset
-							+ " " + Util.valueOfDeep(offsetItemTable);
+							+ " " + Util.valueOfDeep(offsetItemTableRanges);
 
 					ItemImage ii = art.lookupItemImage(item);
 					// Util.print("offset [" + minOffset + ", " + maxOffset
@@ -921,67 +954,6 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 		// Util.print(" Exit drawGrid");
 	}
 
-	// // No longer used -- packs thumbnails keeping aspect ratio
-	// void sortRow(int prevRowOffset, int rowOffset, int offset, boolean even,
-	// double scale) {
-	// Util.print("sortRow " + prevRowOffset + " " + rowOffset + " " + offset);
-	// GridImage[] images = new GridImage[offset - rowOffset];
-	// for (int i = rowOffset; i < offset; i++) {
-	// GridImage gi = (GridImage) thumbs.get(getItem(i));
-	// if (gi != null) {
-	// images[i - rowOffset] = gi;
-	// double area = edge * edge / (scale * scale);
-	// gi.setArea(area);
-	// // Image ii = gi.getImage();
-	// // Util.print(offset + " " + ii.getHeight(null));
-	// }
-	// }
-	// Arrays.sort(images, new GridImageHeightComparator());
-	// // if (even)
-	// // images = (GridImage[]) Util.reverse(images);
-	// int x = 0;
-	// int margin = grid - edge;
-	// int w = nCols * grid;
-	// for (int i = 0; i < images.length; i++) {
-	// GridImage gi = images[i];
-	// if (gi != null) {
-	// int iw = gi.getImage().getWidth(null);
-	// // int ih = images[i].getImage().getHeight(null);
-	// int realX = even ? x : w - x - iw;
-	// int y = findY(prevRowOffset, rowOffset, realX - margin, realX
-	// + iw + margin, even, margin);
-	// images[i].setOffset(realX, y);
-	// x += iw + margin;
-	// // Util.print(even + " " + x + " " + iw + "x" + ih);
-	// }
-	// }
-	// }
-	//
-	// // No longer used -- packs thumbnails keeping aspect ratio
-	// int findY(int prevRowOffset, int rowOffset, int x1, int x2, boolean even,
-	// int margin) {
-	// int result = 0;
-	// for (int i = prevRowOffset; i < rowOffset; i++) {
-	// GridImage gi = (GridImage) thumbs.get(getItem(i));
-	// if (gi.getXOffset() < x2 && gi.getXOffset() + gi.getWidth() > x1)
-	// result = Util.max(result, margin
-	// + (int) (gi.getYOffset() + gi.getHeight()));
-	// }
-	// Util.print(prevRowOffset + "-" + rowOffset + " " + x1 + "-" + x2 + " "
-	// + result);
-	// return result;
-	// }
-	//
-	// // No longer used -- packs thumbnails keeping aspect ratio
-	// final class GridImageHeightComparator extends ValueComparator {
-	//
-	// public int value(Object data) {
-	// if (data == null)
-	// return 0;
-	// return ((GridImage) data).getImage().getHeight(null);
-	// }
-	// }
-
 	// Set one element for use by revUpLoadThumbs.
 	Item[] offsetItemTable;
 
@@ -1155,7 +1127,7 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 	}
 
 	public void setMouseDoc(PNode source, boolean state) {
-		art.setMouseDoc(source, state);
+			art.setMouseDoc(source, state);
 	}
 
 	public void setMouseDoc(String doc) {
@@ -1225,20 +1197,33 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 	Query query() {
 		return art.query;
 	}
+
+	int maxColumns() {
+		// Util.print("maxColumns " + thumbnails.getWidth() + " "
+		// + thumbnails.getRoot());
+		return (thumbnails != null && thumbnails.getWidth() > 0) ? thumbnails
+				.maxColumns() : (int) minWidth() / Thumbnails.MIN_COLUMN_WIDTH;
+	}
 }
 
 final class Thumbnails extends LazyPNode implements MouseDoc {
+
+	static int MIN_COLUMN_WIDTH = 20;
 
 	private Boundary[] vBoundaries;
 
 	private Boundary[] hBoundaries;
 
+	private ResultsGrid grid() {
+		return (ResultsGrid) getParent();
+	}
+
 	int nCols() {
-		return ((ResultsGrid) getParent()).nCols;
+		return grid().nCols;
 	}
 
 	int nRows() {
-		return ((ResultsGrid) getParent()).nVisibleRows;
+		return grid().nVisibleRows;
 	}
 
 	void updateBoundaries(int nCols, int nRows, int edgeW, int edgeH) {
@@ -1271,7 +1256,7 @@ final class Thumbnails extends LazyPNode implements MouseDoc {
 
 	public double minWidth(Boundary boundary) {
 		int col = Util.member(vBoundaries, boundary);
-		return 20 * col;
+		return MIN_COLUMN_WIDTH * col;
 	}
 
 	public double maxWidth(Boundary boundary) {
@@ -1281,12 +1266,16 @@ final class Thumbnails extends LazyPNode implements MouseDoc {
 
 	public double minHeight(Boundary boundary) {
 		int row = Util.member(hBoundaries, boundary);
-		return 20 * row;
+		return MIN_COLUMN_WIDTH * row;
 	}
 
 	public double maxHeight(Boundary boundary) {
 		int row = Util.member(hBoundaries, boundary);
 		return getHeight() * row;
+	}
+
+	int maxColumns() {
+		return (int) getWidth() / MIN_COLUMN_WIDTH;
 	}
 
 	void addGrid(int nCols, int nRows, int edgeW, int edgeH) {
@@ -1301,18 +1290,20 @@ final class Thumbnails extends LazyPNode implements MouseDoc {
 	}
 
 	public void updateBoundary(Boundary boundary) {
-		int col = Util.member(vBoundaries, boundary);
-		int row = Util.member(hBoundaries, boundary);
-		// System.out.println("Thumbnails.updateBoundary " + col + " "
-		// + boundary.center());
-		if (col > 0) {
-			double newEdge = boundary.center() / col;
-			int newNcols = (int) (getWidth() / newEdge);
-			((ResultsGrid) getParent()).setDesiredCols(newNcols);
-		} else if (row > 0) {
-			double newEdge = boundary.center() / row;
-			int newNcols = (int) (getWidth() / newEdge);
-			((ResultsGrid) getParent()).setDesiredCols(newNcols);
+		if (grid().art.getShowBoundaries()) {
+			int col = Util.member(vBoundaries, boundary);
+			int row = Util.member(hBoundaries, boundary);
+			// System.out.println("Thumbnails.updateBoundary " + col + " "
+			// + boundary.center());
+			if (col > 0) {
+				double newEdge = boundary.center() / col;
+				int newNcols = (int) (getWidth() / newEdge);
+				((ResultsGrid) getParent()).setDesiredCols(newNcols);
+			} else if (row > 0) {
+				double newEdge = boundary.center() / row;
+				int newNcols = (int) (getWidth() / newEdge);
+				((ResultsGrid) getParent()).setDesiredCols(newNcols);
+			}
 		}
 	}
 
@@ -1329,7 +1320,9 @@ final class Thumbnails extends LazyPNode implements MouseDoc {
 	}
 
 	public void enterBoundary(Boundary boundary) {
-		setBoundariesVisible(true);
+		if (!grid().art.getShowBoundaries()) {
+			boundary.exit();
+		}
 	}
 
 	public void exitBoundary(Boundary boundary) {

@@ -29,6 +29,7 @@ package edu.cmu.cs.bungee.client.viz;
 
 import java.text.DecimalFormat;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
@@ -47,7 +48,7 @@ final class Rank extends LazyContainer {
 	/**
 	 * Margin between multiple PVs in a rank
 	 */
-	private static final double margin = 5.0;
+	private static final double PV_MARGIN = 5.0;
 
 	// private double queryW;
 
@@ -104,17 +105,24 @@ final class Rank extends LazyContainer {
 			// Util.print("Rank.validateInternal " + this + " " + (w-
 			// summary.queryW) + " " +
 			// perspectives.length + " " + totalChildTotalCount());
-			double barW = w - summary.queryW - margin * (nPerspectives - 1);
+			
+			double availableW = w-summary.queryW;
+			// Don't let margins take up more than half the width
+			int margin = (int) Math.min(availableW/2/( nPerspectives-1), PV_MARGIN);
+			double barW = availableW - margin * (nPerspectives - 1);
+			assert barW>0;
 			double ratio = barW / totalChildTotalCount();
 			double xOffset = summary.queryW;
 			for (int i = 0; i < nPerspectives; i++) {
 				PerspectiveViz pv = perspectives[i];
 				if (pv.p.isDisplayed()) {
-					int childW = (int) (ratio * pv.p.getTotalCount());
+					int childW = (int) Math.round(ratio * pv.p.getTotalCount());
 					// assert childW > 0 : pv.p + " " + pv.p.getTotalCount();
+					if (childW<=0)
+						Util.print("WARNING: zero width for "+pv);
 					pv.setHeight(getHeight());
 					pv.setOffset(xOffset, 0.0);
-					pv.validate(childW, i == 0);
+					pv.validate(Math.max(1, childW), i == 0);
 					xOffset += childW + margin;
 				} else {
 					summary.synchronizeWithQuery();
@@ -124,6 +132,12 @@ final class Rank extends LazyContainer {
 			// if (label.getWidth() != rankLabelWdith()) {
 			perspectives[0].layoutRankLabel(false);
 			label.setOffset(LABEL_LEFT_MARGIN - summary.queryW, 0);
+		}
+	}
+
+	void setFeatures() {
+		for (int i = 0; i < perspectives.length; i++) {
+			perspectives[i].setFeatures();
 		}
 	}
 
@@ -258,7 +272,9 @@ final class Rank extends LazyContainer {
 
 	void setConnected(boolean connected) {
 		// Util.print("setConnected " + getName() + " " + connected);
+		assert connected != isConnected;
 		isConnected = connected;
+		updateNameLabels();
 		for (int i = 0; i < perspectives.length; i++) {
 			perspectives[i].setConnected(connected);
 		}
@@ -726,7 +742,14 @@ final class Rank extends LazyContainer {
 
 	void updateNameLabels() {
 		Markup content = Query.facetSetDescription(getPerspectives());
-		// Util.print("Rank.updateNameLabels " + getName() + " " + content);
+		if (art().getShowTagLists() || !isConnected())
+			content.add(0, Markup.UNDERLINE_TAG);
+		else {
+			int i = content.indexOf(Markup.NEWLINE_TAG);
+			if (i >= 0)
+				content.add(i, Markup.UNDERLINE_TAG);
+		}
+//		Util.print("Rank.updateNameLabels " + this + " " + content);
 
 		TextNfacets label = perspectives[0].rankLabel;
 		label.setContent(content);
@@ -888,7 +911,7 @@ final class Rank extends LazyContainer {
 	}
 
 	public String toString() {
-			return "<Rank " + Arrays.asList(perspectives) + ">";
+		return "<Rank " + Arrays.asList(perspectives) + ">";
 	}
 
 	boolean keyPress(char key) {

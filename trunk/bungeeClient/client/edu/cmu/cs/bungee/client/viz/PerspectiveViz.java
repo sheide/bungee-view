@@ -105,8 +105,7 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 	 * Our logical width, of which floor(leftEdge) - floor(leftEdge +
 	 * visibleWidth) is visible. logicalWidth>=visibleWidth();
 	 * 
-	 * visibleWidth = w - epsilon bars are placed at floor(0 -
-	 * logicalWidth)
+	 * visibleWidth = w - epsilon bars are placed at floor(0 - logicalWidth)
 	 */
 	double logicalWidth = 0;
 
@@ -136,7 +135,7 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 	}
 
 	double visibleWidth() {
-		return w-epsilon;
+		return w - epsilon;
 		// return getWidth() - 1.0e-12;
 	}
 
@@ -186,7 +185,7 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 
 		front = new SqueezablePNode();
 		front.setPaint(pvBG);
-//		 front.setStroke(LazyPPath.getStrokeInstance(0));
+		// front.setStroke(LazyPPath.getStrokeInstance(0));
 		front.setHeight(1);
 		// front.clip = new PBounds(-1000, 0.5, 2000, 0.5);
 		addChild(front);
@@ -209,7 +208,8 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 		rankLabel.setPickable(false);
 		// rankLabel.unpickableAction = -2;
 		rankLabel.setWrapText(false);
-		rankLabel.setUnderline(true);
+		// rankLabel.setUnderline(true);
+//		rankLabel.setPaint(Color.red);
 
 		if (p.isOrdered()) {
 			Color color = Markup.UNASSOCIATED_COLORS[1];
@@ -291,7 +291,7 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 				}
 			}
 			if (medianArrow != null) {
-				if (p.getOnCount() > 0) {
+				if (p.getOnCount() > 0 && art().getShowMedian()) {
 					front.addChild(medianArrow);
 					layoutMedianArrow();
 				} else {
@@ -364,9 +364,9 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 			setPercentLabelVisible();
 
 			front.setWidth(_visibleWidth);
-//			setWidth(_visibleWidth);
+			// setWidth(_visibleWidth);
 			w = _visibleWidth;
-//			visibleWidth = _visibleWidth - epsilon;
+			// visibleWidth = _visibleWidth - epsilon;
 			resetLogicalBounds();
 			layoutLightBeam();
 			rankLabel.setVisible(isShowRankLabels);
@@ -390,15 +390,30 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 				// Do this after drawBars, as offset computation uses bar
 				// offsets
 				double logicalVisibleOffset = logicalWidth / 2 - leftEdge;
-				if (logicalVisibleOffset >= 0
-						&& logicalVisibleOffset < w)
+				if (logicalVisibleOffset >= 0 && logicalVisibleOffset < w) {
 					medianArrow.setOffset(logicalVisibleOffset, 1.0);
-				else
+				} else
 					medianArrow.removeFromParent();
 				if (query().isQueryValid())
 					layoutMedianArrow();
 			}
 		}
+	}
+
+	void setFeatures() {
+		facetPTexts.clear();
+		if (medianArrow != null && p.guessOnCount() > 0) {
+			if (art().getShowMedian())
+				front.addChild(medianArrow);
+			else
+				medianArrow.removeFromParent();
+		}
+		drawLabels();
+		if (art().getShowZoomLetters()) {
+			if (letters == null || letters.getParent() == null)
+				drawLetters();
+		} else if (letters != null)
+			letters.removeFromParent();
 	}
 
 	void queuePrefetch() {
@@ -601,7 +616,7 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 
 	public void layoutChildren() {
 		if (logicalWidth > 0) { // Make sure we've been initialized.
-//			double h = getHeight();
+			// double h = getHeight();
 			if (!rank.componentHeights.equals(prevComponentHeights) /*
 																	 * ||
 																	 * Math.abs(h -
@@ -756,7 +771,7 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 							rank.addChild(lightBeam);
 						} else {
 							lightBeam.reset();
-//							lightBeam.moveToFront();
+							// lightBeam.moveToFront();
 						}
 						float[] Xs = { newCoords[4], newCoords[2],
 								newCoords[3], newCoords[5], newCoords[4] };
@@ -893,7 +908,7 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 			front.addChild(hotLine);
 			// front.addChild(parentRect);
 		}
-		if (medianArrow != null) {
+		if (medianArrow != null && art().getShowMedian()) {
 			front.addChild(medianArrow);
 		}
 		computeBars();
@@ -1228,6 +1243,7 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 						if (labelXs[i] == v) {
 							label.setVisible(true);
 							mouseNameLabel.setVisible(false);
+							mouseNameLabel.setPickable(false);
 							return;
 						} else
 							label.setVisible(v == null);
@@ -1303,8 +1319,8 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 	}
 
 	void setConnected(boolean connected) {
-//		if (!connected)
-//			edu.cmu.cs.bungee.piccoloUtils.gui.Util.printDescendents(letters);
+		// if (!connected)
+		// edu.cmu.cs.bungee.piccoloUtils.gui.Util.printDescendents(letters);
 		// Util.print("PV.setConnected " + p.getName() + " " + connected);
 		if (rankLabel.getVisible()) {
 			float transparency = connected ? 1 : 0;
@@ -1474,14 +1490,18 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 			if (!isConnected()) {
 				doc.add("open category ");
 				doc.add(p);
-			} else if (summary.perspectiveList == null
-					|| summary.perspectiveList.isHidden()) {
-				doc.add("List all ");
-				doc.add(p);
-				doc.add(" tags");
+			} else if (art().getShowTagLists()) {
+				if (summary.perspectiveList == null
+						|| summary.perspectiveList.isHidden()) {
+					doc.add("List all ");
+					doc.add(p);
+					doc.add(" tags");
+				} else
+					doc.add("Hide the list of tags");
 			} else
-				doc.add("Hide the list of tags");
-			art().setClickDesc(doc);
+				handle = false;
+			if (handle)
+				art().setClickDesc(doc);
 		}
 		return handle;
 	}
@@ -1521,7 +1541,7 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 			facet = _facet;
 			assert facet.getParent() != null;
 			((APText) this).setText(art.facetLabel(facet, numW, nameW, false,
-					true, true, true, this));
+					true, showCheckBox, true, this));
 
 		}
 
@@ -1543,7 +1563,7 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 			setRotation(-Math.PI / 4.0);
 			// setPaint(Art.summaryBG);
 
-			showCheckBox = true;
+			showCheckBox = art.getShowCheckboxes();
 			// isPickable = showCheckBox;
 			setUnderline(true /* isPickable */);
 			if (_facet != null) {
@@ -1561,7 +1581,7 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 			// addInputEventListener(Art.facetClickHandler);
 		}
 
-		public boolean pick(PInputEvent e) {
+		public boolean pick(int modifiers, PInputEvent e) {
 			// Util.print("FacetPNode.pick " + e.getPosition() + " " +
 			// e.getPositionRelativeTo(this));
 			// int modifiers = e.getModifiers();
@@ -1574,7 +1594,7 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 			// // + facet.getName());
 			// art.printUserAction(Art.BAR_LABEL, facet, modifiers);
 			if (isConnected()) {
-				super.pick(e);
+				super.pick(modifiers, e);
 				// toggleFacet(facet, modifiers);
 				// p.art.printUserAction("FacetPText.picked: " +
 				// p.summary.q.getFacetName(facet));
@@ -1604,11 +1624,11 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 				if (!isHighlighted) {
 					if (x >= -5.0 && x <= w + 5 && _y >= -5.0
 							&& _y <= getHeight() + 5.0) {
-						highlight(state, modifiers);
+						highlightInternal(state, modifiers);
 					}
 				}
 			} else if (isHighlighted) {
-				highlight(state, modifiers);
+				highlightInternal(state, modifiers);
 			}
 			return true;
 		}
@@ -1659,8 +1679,9 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 		maybeDrawBar(facet, barWidthRatio(), true);
 		Bar bar = lookupBar(facet);
 		assert bar != null : facet + " " + facet.getTotalCount() + " " + p
-				+ " " + p.getTotalChildTotalCount() + " " + visibleWidth() + " " + logicalWidth;
-		bar.pick(modifiers);
+				+ " " + p.getTotalChildTotalCount() + " " + visibleWidth()
+				+ " " + logicalWidth;
+		bar.pick(modifiers, null);
 	}
 
 	public String toString() {
@@ -1841,7 +1862,7 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 		if (medianArrow != null) {
 			medianArrow.setVisible(false);
 		}
-//		front.setStrokePaint(null);
+		// front.setStrokePaint(null);
 	}
 
 	void animate(float zeroToOne) {
@@ -1849,7 +1870,7 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 			if (medianArrow != null) {
 				medianArrow.setVisible(true);
 			}
-//			front.setStrokePaint(Bungee.summaryFG.brighter());
+			// front.setStrokePaint(Bungee.summaryFG.brighter());
 		}
 	}
 
@@ -1937,12 +1958,14 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 	}
 
 	void drawLetters() {
-		if (letters == null) {
-			letters = new Letters(this);
-			letters.setVisible(false);
-			addChild(letters);
-		} else {
-			letters.redraw();
+		if (art().getShowZoomLetters()) {
+			if (letters == null) {
+				letters = new Letters(this);
+				letters.setVisible(false);
+				addChild(letters);
+			} else {
+				letters.redraw();
+			}
 		}
 	}
 
@@ -2483,7 +2506,7 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 			// TODO Auto-generated method stub
 		}
 
-		public boolean pick(PInputEvent e) {
+		public boolean pick(int modifiers, PInputEvent e) {
 			// TODO Auto-generated method stub
 			return false;
 		}
@@ -2570,7 +2593,7 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 
 	}
 
-	public boolean pick(PInputEvent e) {
+	public boolean pick(int modifiers, PInputEvent e) {
 		// TODO Auto-generated method stub
 		return false;
 	}
@@ -2659,7 +2682,7 @@ final class SqueezablePNode extends LazyPNode {
 	// private long loadTime;
 
 	SqueezablePNode() {
-//		setBounds(0, 0, 1, 1);
+		// setBounds(0, 0, 1, 1);
 		setPickable(false);
 	}
 

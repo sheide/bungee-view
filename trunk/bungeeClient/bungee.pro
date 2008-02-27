@@ -9,7 +9,7 @@
 -verbose
 -printseeds shrink.seeds
 
--dontobfuscate
+#-dontobfuscate
 #-dontshrink
 #-dontoptimize
 -allowaccessmodification

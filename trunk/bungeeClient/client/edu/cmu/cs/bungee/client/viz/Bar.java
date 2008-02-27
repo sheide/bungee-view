@@ -29,7 +29,7 @@ import sun.rmi.log.LogOutputStream;
  */
 final class Bar extends LazyPNode implements FacetNode {
 	
-	static int paintCount = 0;
+//	static int paintCount = 0;
 
 	private static final double MIN_BAR_HEIGHT = 0.02;
 
@@ -201,7 +201,7 @@ final class Bar extends LazyPNode implements FacetNode {
 	// }
 
 	protected void paint(PPaintContext paintContext) {
-		paintCount++;
+//		paintCount++;
 //		if ("Army".equals(facet.getNameIfPossible()))
 //		 Util.print("bar.paint " + facet + " " + currentY +" "+ goalY);
 		Graphics2D g2 = paintContext.getGraphics();
@@ -231,11 +231,12 @@ final class Bar extends LazyPNode implements FacetNode {
 		// }
 	}
 
-	public boolean pick(PInputEvent e) {
-		return pick(e.getModifiersEx());
-	}
+//	public boolean pick(PInputEvent e) {
+//		return pick(e.getModifiersEx());
+//	}
 
-	boolean pick(int modifiers) {
+	public boolean pick(int modifiers, PInputEvent e) {
+		assert Util.ignore(e);
 		art().printUserAction(Bungee.BAR, facet, modifiers);
 		// Util.print("Bar.pick " + facet + " " + pv.isConnected());
 		if (pv.isConnected()) {
