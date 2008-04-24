@@ -8,6 +8,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.Map;
 
@@ -35,45 +36,43 @@ public class JDBCSample {
 
 	private Connection con;
 
-	private String info;
+	private String connectString;
 
 	private GenericServlet servlet; // Used to write to log file. Call print
 
+	private String dbName;
+
 	// instead of using this directly.
 
-	public JDBCSample(GenericServlet _servlet) {
-		servlet = _servlet;
+	public JDBCSample(String server, String db, String user, String pass)
+			throws SQLException, InstantiationException,
+			IllegalAccessException, ClassNotFoundException {
+		this(server, db, user, pass, null);
 	}
 
-	public void openMySQL(String database) throws SQLException,
+	public JDBCSample(String server, String db, String user, String pass,
+			GenericServlet _servlet) throws SQLException,
 			InstantiationException, IllegalAccessException,
 			ClassNotFoundException {
-		String compression = "&useCompression=true";
-		if (database.indexOf("localhost") >= 0)
-			// You get an error trying to use compression for localhost.
-			// Plus it's not important in that case.
-			compression = "&useCompression=false";
+		print("Connect to " + server + db + " at " + new Date());
+		servlet = _servlet;
+		dbName = db;
+		String compression = server.indexOf("localhost") >= 0 ? "&useCompression=false"
+				: "&useCompression=true";
+		// You get an error trying to use compression for localhost.
+		// Plus it's not important in that case.
 		// String speedUpResultSetParsing =
 		// "&useUnicode=false&characterEncoding=US-ASCII&characterSetResults=US-ASCII";
 		// String cache = "&cacheResultSetMetadata=true&cachePrepStmts=true";
-		// print("openMySQL " + database + compression);
-		info = database + compression;
-		open(info);
-	}
+		connectString = server + db + "?user=" + user;
+		if (pass != null)
+			connectString += "&password=" + pass;
 
-	private static Object loadDriver() throws InstantiationException,
-			IllegalAccessException, ClassNotFoundException {
-		Object result = null;
-		// This is where we load the driver
-		result = Class.forName("com.mysql.jdbc.Driver").newInstance();
-		return result;
-	}
-
-	private void open(String connectString) throws SQLException,
-			InstantiationException, IllegalAccessException,
-			ClassNotFoundException {
+		connectString += compression + "&useUnicode=true"
+				+ "&characterEncoding=UTF-8" + "&characterSetResults=UTF-8"
+				+ "&connectionCollation=utf8_general_ci";
 		if (driver == null)
-			driver = loadDriver();
+			driver = Class.forName("com.mysql.jdbc.Driver").newInstance();
 		con = DriverManager.getConnection(connectString);
 	}
 
@@ -162,9 +161,7 @@ public class JDBCSample {
 			long delay = new Date().getTime() - start.getTime();
 			if (delay >= slowQueryTime) {
 				// try {
-				rs.last();
-				showSlowInternal(delay, rs.getRow(), desc);
-				rs.beforeFirst();
+				showSlowInternal(delay, MyResultSet.nRows(rs), desc);
 				// } catch (SQLException e) {
 				// e.printStackTrace();
 				// }
@@ -273,38 +270,38 @@ public class JDBCSample {
 		if (SQL != null)
 			rs = SQL.executeQuery();
 		else {
-			try {
-				rs = myCreateStatement(desc).executeQuery(desc);
-			} catch (SQLException ex) {
-				// This doesn't do any good, because all the prepared statements
-				// will break when you try to set parameters.
-				// Solution is to have mySetInt, etc. that catch this and call
-				// prepareStatement again. You'd write
-				// ps = mySetInt(ps, 1, 42)
-				// But prepared statements don't let you get the SQL back, so
-				// this would have to be stored in a hash table
-				// (or in MyPreparedStatement, but it's ugly to have to write
-				// all the required methods). Then you'd write
-				// ps = mySetInt(ps, 1, 42, SQL)
-
-				try {
-					print("Got exception " + ex + "Try reopening connection...");
-
-					close();
-					open(info);
-
-					// Now retry executing the query. If it was a time-out, this
-					// time it should work
-
-					rs = myCreateStatement(desc).executeQuery(desc);
-					print("Retry worked!");
-
-				} catch (Exception secondEx) {
-					print("Got another exception while retrying: " + secondEx);
-					throw ex;
-					// this was not a time-out -- do some error handling
-				}
-			}
+			// try {
+			rs = myCreateStatement(desc).executeQuery(desc);
+			// } catch (SQLException ex) {
+			// // This doesn't do any good, because all the prepared statements
+			// // will break when you try to set parameters.
+			// // Solution is to have mySetInt, etc. that catch this and call
+			// // prepareStatement again. You'd write
+			// // ps = mySetInt(ps, 1, 42)
+			// // But prepared statements don't let you get the SQL back, so
+			// // this would have to be stored in a hash table
+			// // (or in MyPreparedStatement, but it's ugly to have to write
+			// // all the required methods). Then you'd write
+			// // ps = mySetInt(ps, 1, 42, SQL)
+			//
+			// try {
+			// print("Got exception " + ex + "Try reopening connection...");
+			//
+			// close();
+			// open(info);
+			//
+			// // Now retry executing the query. If it was a time-out, this
+			// // time it should work
+			//
+			// rs = myCreateStatement(desc).executeQuery(desc);
+			// print("Retry worked!");
+			//
+			// } catch (Exception secondEx) {
+			// print("Got another exception while retrying: " + secondEx);
+			// throw ex;
+			// // this was not a time-out -- do some error handling
+			// }
+			// }
 			if (rs == null)
 				print("Null result set for: " + desc);
 		}
@@ -337,6 +334,61 @@ public class JDBCSample {
 			if (rs.next()) {
 				result = rs.getInt(1);
 				assert !rs.next() : desc + " returned multiple records.";
+			}
+		} finally {
+			close(rs);
+		}
+		// } catch (SQLException se) {
+		// System.err.println("SQL Exception: " + se.getMessage());
+		// se.printStackTrace();
+		// }
+		return result;
+	}
+
+	public int[] SQLqueryIntArray(String SQL) throws SQLException {
+		return SQLqueryIntArrayInternal(SQLquery(SQL));
+	}
+
+	public int[] SQLqueryIntArray(PreparedStatement SQL, String desc)
+			throws SQLException {
+		return SQLqueryIntArrayInternal(SQLquery(SQL, desc));
+	}
+
+	private int[] SQLqueryIntArrayInternal(ResultSet rs) throws SQLException {
+		int[] result = null;
+		try {
+			result = new int[MyResultSet.nRows(rs)];
+			for (int i = 0; i < result.length; i++) {
+				rs.next();
+				result[i] = rs.getInt(1);
+			}
+		} finally {
+			close(rs);
+		}
+		// } catch (SQLException se) {
+		// System.err.println("SQL Exception: " + se.getMessage());
+		// se.printStackTrace();
+		// }
+		return result;
+	}
+
+	public String[] SQLqueryStringArray(String SQL) throws SQLException {
+		return SQLqueryStringArrayInternal(SQLquery(SQL));
+	}
+
+	public String[] SQLqueryStringArray(PreparedStatement SQL, String desc)
+			throws SQLException {
+		return SQLqueryStringArrayInternal(SQLquery(SQL, desc));
+	}
+
+	private String[] SQLqueryStringArrayInternal(ResultSet rs)
+			throws SQLException {
+		String[] result = null;
+		try {
+			result = new String[MyResultSet.nRows(rs)];
+			for (int i = 0; i < result.length; i++) {
+				rs.next();
+				result[i] = rs.getString(1);
 			}
 		} finally {
 			close(rs);
@@ -439,6 +491,17 @@ public class JDBCSample {
 		return result;
 	}
 
+	private Map preparedStatements = new Hashtable();
+
+	public PreparedStatement lookupPS(String SQL) throws SQLException {
+		PreparedStatement ps = (PreparedStatement) preparedStatements.get(SQL);
+		if (ps == null) {
+			ps = prepareStatement(SQL);
+			preparedStatements.put(SQL, ps);
+		}
+		return ps;
+	}
+
 	public String unsignedTypeForMaxValue(int max) {
 		assert max >= 0;
 		String type = null;
@@ -459,8 +522,45 @@ public class JDBCSample {
 		return type;
 	}
 
+	public void ensureIndex(String table, String name, String columnNames) throws SQLException {
+		ensureIndex(table, name, columnNames, "");
+	}
+
+	public void ensureIndex(String table, String name, String columnNames,
+			String type) throws SQLException {
+		assert type == ""
+				|| "PRIMARY, UNIQUE, FULLTEXT, SPATIAL, BTREE, HASH, RTREE"
+						.indexOf(type) >= 0;
+		String oldColumns = SQLqueryString("SELECT GROUP_CONCAT(CONCAT(column_name, "
+				+ "IF(sub_part IS NULL,'',CONCAT('(',sub_part,')')))) "
+				+ "FROM information_schema.STATISTICS "
+				+ "WHERE table_schema = '"
+				+ dbName
+				+ "' AND table_name = '"
+				+ table
+				+ "' AND index_name = '"
+				+ name
+				+ "' ORDER BY seq_in_index");
+		if (!columnNames.equals(oldColumns)) {
+			Util.print("Redoing index " + table + " " + oldColumns + " => "
+					+ columnNames);
+			if (oldColumns != null)
+				SQLupdate("ALTER TABLE " + table + " DROP INDEX " + name);
+			String indexSpec = "INDEX";
+			if ("UNIQUE, FULLTEXT, SPATIAL".indexOf(type) >= 0)
+				indexSpec = type + " INDEX";
+			else if ("PRIMARY".indexOf(type) >= 0) {
+				indexSpec = "PRIMARY KEY";
+				assert name.equals("");
+			} else if ("BTREE, HASH, RTREE".indexOf(type) >= 0)
+				name += " USING " + type;
+			SQLupdate("ALTER TABLE " + table + " ADD " + indexSpec + " " + name
+					+ " (" + columnNames + ")");
+		}
+	}
+
 	public String toString() {
-		return info;
+		return "<JDBCsample " + connectString + ">";
 	}
 
 }

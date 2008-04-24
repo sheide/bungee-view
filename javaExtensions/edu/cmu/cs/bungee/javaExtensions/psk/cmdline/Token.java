@@ -12,7 +12,7 @@ import java.util.Vector;
 
 public abstract class Token
 {
- public String name() {return m_name;};
+ public String name() {return m_name;}
  
  public int NumberOfValues() {
   return m_values.size();
@@ -34,7 +34,7 @@ public abstract class Token
  
  // All but bool (where merely the appearence of the flag
  // signifies the existence) return true;
- public boolean hasOneOrMoreArgs() {return true;};
+ public boolean hasOneOrMoreArgs() {return true;}
  
  public abstract String type();
  
@@ -54,7 +54,7 @@ public abstract class Token
   m_flags = aTokenOptions;
   m_firstTime = true;
   m_values = new Vector(1);
- };
+ }
  
  //-----------------------------------------------
  // These methods are used by the ApplicationSettings class
@@ -179,29 +179,29 @@ str) {
  protected boolean isRequired() {
   return (m_flags & optRequired) ==
 optRequired;
- };
+ }
  
  protected boolean isSwitch() {
   return !isArgument();
- };
+ }
  
  protected boolean isArgument() {
   return (m_flags & optArgument) ==
 optArgument;
- };
+ }
  
  protected boolean allowsMultipleValues() {
   return (m_flags & optMultiple) ==
 optMultiple;
- };
+ }
  
  protected boolean isUsed() {
   return (m_flags & optAlreadyUsed) ==
 optAlreadyUsed;
- };
+ }
  
  protected void setUsed() {m_flags |=
-optAlreadyUsed;};
+optAlreadyUsed;}
  
  protected void AddValueFromLexeme(String lexeme) {
   if (m_firstTime) {

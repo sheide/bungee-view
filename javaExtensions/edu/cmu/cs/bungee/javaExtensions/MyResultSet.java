@@ -25,7 +25,6 @@ import java.util.Calendar;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Vector;
 
 public class MyResultSet implements ResultSet, Serializable {
 	private static final long serialVersionUID = -959016825795947094L;
@@ -91,6 +90,10 @@ public class MyResultSet implements ResultSet, Serializable {
 			Column.IntegerType, Column.DoubleType, Column.PositiveIntegerType,
 			Column.PositiveIntegerType);
 
+	public static final List INT_SINT = makeColumnTypeList(Column.IntegerType,
+			Column.SortedIntegerType, null, null, null, null, null, null, null,
+			null);
+
 	public static final List INT_STRING = makeColumnTypeList(
 			Column.IntegerType, Column.StringType, null, null, null, null,
 			null, null, null, null);
@@ -130,10 +133,6 @@ public class MyResultSet implements ResultSet, Serializable {
 			Column.IntegerType, Column.IntegerType, null, null, null, null,
 			null);
 
-	public static final List SNMINT_SINT = makeColumnTypeList(
-			Column.SortedNMIntegerType, Column.SortedIntegerType, null, null,
-			null, null, null, null, null, null);
-
 	public static final List SNMINT_PINT = makeColumnTypeList(
 			Column.SortedNMIntegerType, Column.PositiveIntegerType, null, null,
 			null, null, null, null, null, null);
@@ -152,6 +151,10 @@ public class MyResultSet implements ResultSet, Serializable {
 	public static final List STRING_INT_INT_INT = makeColumnTypeList(
 			Column.StringType, Column.IntegerType, Column.IntegerType,
 			Column.IntegerType, null, null, null, null, null, null);
+
+	public static final List STRING_SINT = makeColumnTypeList(
+			Column.StringType, Column.SortedIntegerType, null, null, null,
+			null, null, null, null, null);
 
 	public static final List STRING_STRING_STRING_INT_INT_INT_INT = makeColumnTypeList(
 			Column.StringType, Column.StringType, Column.StringType,
@@ -1391,11 +1394,51 @@ public class MyResultSet implements ResultSet, Serializable {
 		int row = rs.getRow();
 		rs.last();
 		int result = rs.getRow();
+		resetRow(rs, row);
+		return result;
+	}
+	
+	static void resetRow(ResultSet rs, int row) throws SQLException {
 		if (row == 0)
 			// absolute(0) may barf
 			rs.beforeFirst();
 		else
-			rs.absolute(row);
-		return result;
+			rs.absolute(row);		
+	}
+
+	public static String valueOfDeep(ResultSet result, List types, int maxRows) {
+		StringBuffer buf = new StringBuffer();
+		try {
+			int nRows = MyResultSet.nRows(result);
+			int nCols = types.size();
+			buf.append(nRows).append(" rows, ").append(nCols).append(
+					" cols in result set");
+			int row = result.getRow();
+			result.beforeFirst();
+			for (int i = 0; i < nRows && (maxRows < 0 || i < maxRows); i++) {
+				result.next();
+				buf.append("\n");
+				for (int j = 0; j < nCols; j++) {
+					Object type = types.get(j);
+					if (type == MyResultSet.Column.IntegerType
+							|| type == MyResultSet.Column.SortedIntegerType
+							|| type == MyResultSet.Column.SortedNMIntegerType
+							|| type == MyResultSet.Column.PositiveIntegerType)
+						buf.append(result.getInt(j + 1)).append("\t");
+					else if (type == MyResultSet.Column.StringType)
+						buf.append(result.getString(j + 1)).append("\t");
+					else if (type == MyResultSet.Column.DoubleType)
+						buf.append(result.getDouble(j + 1)).append("\t");
+					else if (type == MyResultSet.Column.ImageType)
+						buf.append("<image>\t");
+					else
+						assert false : "Unknown ColumnType: " + type;
+				}
+			}
+			resetRow(result, row);
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		return buf.toString();
 	}
 }

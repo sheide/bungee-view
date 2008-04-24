@@ -44,8 +44,9 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.lang.reflect.Array;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
 
@@ -62,11 +63,18 @@ import java.awt.image.BufferedImage;
 import java.awt.image.ColorModel;
 import java.awt.image.RenderedImage;
 import java.awt.image.WritableRaster;
+import java.text.CollationKey;
+import java.text.Collator;
+import java.text.ParseException;
+import java.text.RuleBasedCollator;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.Iterator;
+import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -361,11 +369,12 @@ public final class Util {
 		return Color.getHSBColor(hsb[0], Math.min(1.0f, hsb[1] / factor), Math
 				.min(1.0f, hsb[2] * factor));
 	}
+
 	public static Color desaturate(Color color, float factor) {
 		if (factor <= 0.0)
 			factor = colorComponentChangeFactor;
 		float[] hsb = getHSBcomponents(color);
-		return Color.getHSBColor(hsb[0], hsb[1] / factor, hsb[2] );
+		return Color.getHSBColor(hsb[0], hsb[1] / factor, hsb[2]);
 	}
 
 	/**
@@ -784,20 +793,25 @@ public final class Util {
 		}
 		return false;
 	}
-	
+
 	/**
 	 * @param s1
 	 * @param s2
-	 * @return elements in s1 or s2 but not both.  Destroys s1 and s2.
+	 * @return elements in s1 or s2 but not both.
 	 */
 	public static Set symmetricDifference(Set s1, Set s2) {
-		boolean isIntersects = s1.removeAll(s2);
-		if (isIntersects)
-			s2.removeAll(s1);
-		s1.addAll(s2);
-		return s1;
+		Set s = new HashSet(s1);
+		for (Iterator it = s2.iterator(); it.hasNext();) {
+			Object elt = it.next();
+			if (s1.contains(elt)) {
+				s.remove(elt);
+			} else {
+				s.add(elt);
+			}
+		}
+		return s;
 	}
-	
+
 	// public static boolean intersects(Object[] a1, Object[] a2) {
 	// if (a2 != null && a1 != null) {
 	// for (int i = 0; i < a2.length; i++)
@@ -1198,6 +1212,37 @@ public final class Util {
 		return result;
 	}
 
+	/**
+	 * Opposite of split; concatenates STRINGLIST using DELIMITER as the
+	 * separator. The separator is only added between strings, so there will be
+	 * no separator at the beginning or end.
+	 * <p>
+	 * 
+	 * @param stringList
+	 *            The list of strings that will to be put together
+	 * @param delimiter
+	 *            The string to put between the strings of stringList
+	 * @return string that has DELIMITER put between each of the elements of
+	 *         stringList
+	 */
+	public static String join(List stringList, String delimiter) {
+		String result = null;
+		int len = stringList == null ? 0 : stringList.size();
+		if (!stringList.isEmpty()) {
+			StringBuffer buf = new StringBuffer(len * 20);
+			synchronized (stringList) {
+				for (Iterator it = stringList.iterator(); it.hasNext();) {
+					Object o = it.next();
+					if (buf.length() > 0)
+						buf.append(delimiter);
+					buf.append(o);
+				}
+			}
+			result = buf.toString();
+		}
+		return result;
+	}
+
 	public static String join(int[] stringList, String delimiter) {
 		String result = null;
 		int len = stringList == null ? 0 : stringList.length;
@@ -1252,6 +1297,38 @@ public final class Util {
 		Color c = Color.getHSBColor(h, s, b);
 		return new Color(c.getRed(), c.getGreen(), c.getBlue(),
 				(int) (alpha * 255 + 0.5));
+	}
+
+	private static final String PLAIN_ASCII = "AaEeIiOoUu" // grave
+			+ "AaEeIiOoUuYy" // acute
+			+ "AaEeIiOoUuYy" // circumflex
+			+ "AaOo" // tilde
+			+ "AaEeIiOoUuYy" // umlaut
+			+ "Aa" // ring
+			+ "Cc" // cedilla
+	;
+
+	private static final String UNICODE = "\u00C0\u00E0\u00C8\u00E8\u00CC\u00EC\u00D2\u00F2\u00D9\u00F9"
+			+ "\u00C1\u00E1\u00C9\u00E9\u00CD\u00ED\u00D3\u00F3\u00DA\u00FA\u00DD\u00FD"
+			+ "\u00C2\u00E2\u00CA\u00EA\u00CE\u00EE\u00D4\u00F4\u00DB\u00FB\u0176\u0177"
+			+ "\u00C3\u00E3\u00D5\u00F5"
+			+ "\u00C4\u00E4\u00CB\u00EB\u00CF\u00EF\u00D6\u00F6\u00DC\u00FC\u0178\u00FF"
+			+ "\u00C5\u00E5" + "\u00C7\u00E7";
+
+	// remove accentued from a string and replace with ascii equivalent
+	public static String convertNonAscii(String s) {
+		StringBuffer sb = new StringBuffer();
+		int n = s.length();
+		for (int i = 0; i < n; i++) {
+			char c = s.charAt(i);
+			int pos = UNICODE.indexOf(c);
+			if (pos > -1) {
+				sb.append(PLAIN_ASCII.charAt(pos));
+			} else {
+				sb.append(c);
+			}
+		}
+		return sb.toString();
 	}
 
 	public static void printDeep(Object a) {
@@ -1336,8 +1413,8 @@ public final class Util {
 	 * Save a few keystrokes.
 	 */
 	public static void print(Object o) {
-//		if (o.toString().startsWith("MD"))
-//		 printStackTrace();
+		// if (o.toString().startsWith("MD"))
+		// printStackTrace();
 		if (o == null)
 			System.out.println("<null>");
 		else
@@ -1382,6 +1459,13 @@ public final class Util {
 				"Relax.  There's no error, we're just printing the stack trace"))
 				.printStackTrace();
 		return null;
+	}
+
+	public static String printStackTrace(Throwable e) {
+		StringWriter sw = new StringWriter();
+		PrintWriter pw = new PrintWriter(sw);
+		e.printStackTrace(pw);
+		return sw.toString();
 	}
 
 	public static void err(Object o) {
@@ -1667,7 +1751,7 @@ public final class Util {
 		}
 		return out;
 	}
-	
+
 	public static String readFile(String filename) {
 		return readFile(new File(filename));
 	}
@@ -1678,7 +1762,8 @@ public final class Util {
 
 	public static String readURL(String URL) throws IOException {
 		URL url = new URL(URL);
-		BufferedReader in = new BufferedReader(new InputStreamReader(url.openStream()));
+		BufferedReader in = new BufferedReader(new InputStreamReader(url
+				.openStream()));
 		return ReaderToString(in);
 	}
 
@@ -1716,24 +1801,50 @@ public final class Util {
 		return false;
 	}
 
-	public static String commonPrefix(String s1, String s2,
-			boolean caseSensitive) {
+	public static String commonPrefix(String s1, String s2) {
 		String prefix = s1;
-		for (int i = 0; i < prefix.length(); i++) {
-			if (s2.length() >= i) {
-				char char1 = prefix.charAt(i);
-				char char2 = s2.charAt(i);
-				if (!caseSensitive) {
-					char1 = Character.toUpperCase(char1);
-					char2 = Character.toUpperCase(char2);
-				}
-				if (char1 == char2)
-					continue;
+		for (int i = 0; i < s1.length(); i++) {
+			if (s2.length() < i || !charEquals(s1.charAt(i), s2.charAt(i))) {
+				prefix = prefix.substring(0, i);
+				break;
 			}
-			prefix = prefix.substring(0, i);
-			break;
 		}
 		return prefix;
+	}
+
+	public static final Collator US_COLLATOR = getCollator();
+
+	private static Collator getCollator() {
+		Collator result = Collator.getInstance(Locale.US);
+		// Normally, whitespace is a secondary difference, but getLetterOffsets
+		// needs to distinguish 'Wright, " from "Wright,". This removes ' ' from
+		// ignorable characters.
+		String rules = ((RuleBasedCollator) result).getRules().replaceAll(
+				";' '", "");
+		try {
+			result = new RuleBasedCollator(rules);
+		} catch (ParseException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		result.setStrength(Collator.PRIMARY);
+		// print(((RuleBasedCollator) result).getRules());
+		// print("ggg "+result.compare("ww", "w w"));
+		return result;
+	}
+
+	public static boolean charEquals(char c1, char c2) {
+		// print("hh "+c1+" "+c2+"
+		// "+(toCollationKey(c1).equals(toCollationKey(c2))));
+		return toCollationKey(c1).equals(toCollationKey(c2));
+	}
+
+	public static CollationKey toCollationKey(char c) {
+		return US_COLLATOR.getCollationKey(String.valueOf(c));
+	}
+
+	public static CollationKey toCollationKey(String c) {
+		return US_COLLATOR.getCollationKey(c);
 	}
 
 	public static Object[] reverse(Object[] b) {
