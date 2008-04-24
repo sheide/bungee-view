@@ -10,7 +10,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Enumeration;
 import java.util.Hashtable;
-import java.util.Vector;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -99,7 +98,7 @@ final class SaxWFMovieHandler extends HTMLEditorKit.ParserCallback {
 
 	JDBCSample jdbc;
 
-	private String dbName;
+//	private String dbName;
 
 	private String img;
 
@@ -109,28 +108,28 @@ final class SaxWFMovieHandler extends HTMLEditorKit.ParserCallback {
 
 	String data;
 
-	SaxWFMovieHandler(String connectString, boolean clearTables) {
-		jdbc = new JDBCSample(null);
-		try {
-			jdbc.openMySQL(connectString);
-			if (clearTables) {
-				// createTables();
-				// clearTables();
-				// parseTGM();
-				// parse043codes();
-				// checkMultipleParents("places_hierarchy");
-				// checkMultipleParents("TGM");
-			}
-
-			Matcher m = Pattern.compile("/(\\w*)\\?").matcher(connectString);
-			if (m.find()) {
-				dbName = m.group(1);
-			}
-			Util.print("dbname = " + dbName);
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-	}
+//	SaxWFMovieHandler(String connectString, boolean clearTables) {
+//		jdbc = new JDBCSample(null);
+//		try {
+//			jdbc.openMySQL(connectString);
+//			if (clearTables) {
+//				// createTables();
+//				// clearTables();
+//				// parseTGM();
+//				// parse043codes();
+//				// checkMultipleParents("places_hierarchy");
+//				// checkMultipleParents("TGM");
+//			}
+//
+//			Matcher m = Pattern.compile("/(\\w*)\\?").matcher(connectString);
+//			if (m.find()) {
+//				dbName = m.group(1);
+//			}
+//			Util.print("dbname = " + dbName);
+//		} catch (Exception e) {
+//			e.printStackTrace();
+//		}
+//	}
 
 	void jackasscritics() throws SQLException {
 		ResultSet rs = jdbc.SQLquery("SELECT item.record_num, title FROM item "
@@ -232,13 +231,7 @@ final class SaxWFMovieHandler extends HTMLEditorKit.ParserCallback {
 								} catch (ImageFormatException e) {
 									// TODO Auto-generated catch block
 									e.printStackTrace();
-								} catch (InterruptedException e) {
-									// TODO Auto-generated catch block
-									e.printStackTrace();
-								} catch (IOException e) {
-									// TODO Auto-generated catch block
-									e.printStackTrace();
-								}
+								} 
 							}
 						}
 					} else {
@@ -252,6 +245,7 @@ final class SaxWFMovieHandler extends HTMLEditorKit.ParserCallback {
 		}
 	}
 
+	@Override
 	public void handleStartTag(HTML.Tag tag, MutableAttributeSet attributes,
 			int position) {
 		// Util.print("startElement " + tag);
@@ -269,7 +263,7 @@ final class SaxWFMovieHandler extends HTMLEditorKit.ParserCallback {
 	}
 
 	String getValue(MutableAttributeSet attributes, String attrName) {
-		Enumeration e = attributes.getAttributeNames();
+		Enumeration<?> e = attributes.getAttributeNames();
 		while (e.hasMoreElements()) {
 			Object attr = e.nextElement();
 			// Util.print(" " + attr + "='" + attributes.getAttribute(attr) +
@@ -307,6 +301,7 @@ final class SaxWFMovieHandler extends HTMLEditorKit.ParserCallback {
 	// }
 	// }
 
+	@Override
 	public void handleText(char[] chars, int position) {
 		String s = new String(chars);
 		// Util.print("handleText " + s);
@@ -315,6 +310,7 @@ final class SaxWFMovieHandler extends HTMLEditorKit.ParserCallback {
 		// }
 	}
 
+	@Override
 	public void handleSimpleTag(HTML.Tag tag, MutableAttributeSet attributes,
 			int position) {
 		if (tag.toString().equals("img") && "thumb".equals(td)) {
@@ -327,6 +323,7 @@ final class SaxWFMovieHandler extends HTMLEditorKit.ParserCallback {
 
 	private PreparedStatement setURI;
 
+	@Override
 	public void handleEndTag(HTML.Tag tag, int position) {
 		// Util.print("endElement " + tag);
 		String value = null;
@@ -378,8 +375,8 @@ final class SaxWFMovieHandler extends HTMLEditorKit.ParserCallback {
 	}
 
 	void loadImageInternal(String directory, String thumbURL, URL base,
-			int record, String loc) throws ImageFormatException,
-			InterruptedException, IOException {
+			int record, String loc) throws ImageFormatException {
+		Util.ignore(base);
 		// Util.print(thumbURL + " " + record);
 		String[] filenames = loc.split("\\.");
 		// Util.print(loc);
@@ -392,15 +389,15 @@ final class SaxWFMovieHandler extends HTMLEditorKit.ParserCallback {
 //			filename += ParseOAIhandler.imageFileExtension;
 			Util.print("Using existing file " + filename);
 		} else {
-			Vector info = null; //ParseOAIhandler.download(base, thumbURL, filename);
-			if (info != null) {
-				filename = (String) info.get(0);
-				w = ((Integer) info.get(1)).intValue();
-				h = ((Integer) info.get(2)).intValue();
-			} else {
+//			Vector info = ParseOAIhandler.download(base, thumbURL, filename);
+//			if (info != null) {
+//				filename = (String) info.get(0);
+//				w = ((Integer) info.get(1)).intValue();
+//				h = ((Integer) info.get(2)).intValue();
+//			} else {
 				Util.print("Cant find " + thumbURL);
 				filename = null;
-			}
+//			}
 		}
 		if (filename != null)
 			setImage(record, filename, loc, Math.max(0, w), Math.max(0, h));
@@ -457,9 +454,9 @@ final class SaxMovieHandler extends DefaultHandler {
 		}
 		Util.print("dbname = " + dbName);
 
-		jdbc = new JDBCSample(null);
+//		jdbc = new JDBCSample(null);
 		try {
-			jdbc.openMySQL(connectString);
+//			jdbc.openMySQL(connectString);
 			if (clearTables) {
 				createTables();
 				clearTables();
@@ -606,6 +603,7 @@ final class SaxMovieHandler extends DefaultHandler {
 		return nRows;
 	}
 
+	@Override
 	public void startElement(String uri, String localName, String qName,
 			Attributes attrs) {
 		if (qName.equals("movie")) {
@@ -666,6 +664,7 @@ final class SaxMovieHandler extends DefaultHandler {
 		}
 	}
 
+	@Override
 	public void characters(char[] ch, int start, int length) {
 		if (data != null) {
 			data.append(ch, start, length);
@@ -679,11 +678,11 @@ final class SaxMovieHandler extends DefaultHandler {
 		return result;
 	}
 
-	private Hashtable oscarType;
+	private Hashtable<String, String> oscarType;
 
 	String oscarType(String name) {
 		if (oscarType == null) {
-			oscarType = new Hashtable();
+			oscarType = new Hashtable<String, String>();
 			oscarType.put("bestpicture", "Best Picture");
 			oscarType.put("cinematography", "Cinematography");
 			oscarType.put("directing", "Directing");
@@ -692,9 +691,10 @@ final class SaxMovieHandler extends DefaultHandler {
 			oscarType.put("supportingactor", "Supporting Actor");
 			oscarType.put("supportingactress", "Supporting Actress");
 		}
-		return (String) oscarType.get(name);
+		return oscarType.get(name);
 	}
 
+	@Override
 	public void endElement(String uri, String localName, String qName) {
 		String value = null;
 		if (data != null && data.length() > 0)
@@ -1016,11 +1016,11 @@ final class SaxMovieHandler extends DefaultHandler {
 		}
 	}
 
-	private Hashtable months;
+	private Hashtable<String, String>  months;
 
 	private String month(String abbr) {
 		if (months == null) {
-			months = new Hashtable();
+			months = new Hashtable<String, String> ();
 			String[] names = "January,February,March,April,May,June,July,August,September,October,November,December"
 					.split(",");
 			for (int i = 0; i < names.length; i++) {
@@ -1028,7 +1028,7 @@ final class SaxMovieHandler extends DefaultHandler {
 				months.put(abb, names[i]);
 			}
 		}
-		String result = (String) months.get(abbr);
+		String result = months.get(abbr);
 		assert result != null;
 		return result;
 	}

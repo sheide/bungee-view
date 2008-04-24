@@ -3,9 +3,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.sql.SQLException;
 
-
-import com.sun.image.codec.jpeg.ImageFormatException;
-
+import edu.cmu.cs.bungee.dbScripts.ParseOAIhandler.Field;
 import edu.cmu.cs.bungee.javaExtensions.Util;
 
 
@@ -19,32 +17,37 @@ public class Chartres {
 
 	private int lineNo;
 
-	public static void main(String[] args) throws ImageFormatException,
-			SQLException, InterruptedException {
-		ParseOAIhandler handler = ParseOAIhandler.getHandler(args[1], null);
-		String directory = args[0];
-		String[] spreadsheets = { "visuals.tab" };
-
-		handler
-				.db("UPDATE raw_facet_type SET name = 'Creator' WHERE name = 'Photographer'");
-		for (int i = 0; i < spreadsheets.length; i++) {
-			Util.print("\nParsing " + spreadsheets[i]);
-			BufferedReader in = Util.getReader(directory + "\\"
-					+ spreadsheets[i]);
-			if (in != null) {
-				new Chartres(handler, in);
-			}
-			Util.print("...done");
-		}
-		handler.renumber();
-		// handler.useTGM();
-		handler
-				.db("UPDATE raw_facet_type SET name = 'Photographer' WHERE name = 'Creator'");
-//		handler.collectDescriptions();
-		handler.convertFromRaw().fixMissingItemFacets(0);
-
-//		handler.loadDRLimages(directory + "\\thumbs\\");
-	}
+//	public static void main(String[] args) throws ImageFormatException,
+//			SQLException {
+//		ParseOAIhandler handler = null; //getHandler(args[1]);
+//		String directory = args[0];
+//		String[] spreadsheets = { "visuals.tab" };
+//
+//		handler
+//				.db("UPDATE raw_facet_type SET name = 'Creator' WHERE name = 'Photographer'");
+//		for (int i = 0; i < spreadsheets.length; i++) {
+//			Util.print("\nParsing " + spreadsheets[i]);
+//			BufferedReader in = Util.getReader(directory + "\\"
+//					+ spreadsheets[i]);
+//			if (in != null) {
+//				new Chartres(handler, in);
+//			}
+//			Util.print("...done");
+//		}
+//		handler.renumber();
+//		// handler.useTGM();
+//		handler
+//				.db("UPDATE raw_facet_type SET name = 'Photographer' WHERE name = 'Creator'");
+////		handler.collectDescriptions();
+//		handler.convertFromRaw().fixMissingItemFacets(0);
+//
+////		handler.loadDRLimages(directory + "\\thumbs\\");
+//	}
+//
+//	static ParseOAIhandler getHandler(String connectString) {
+//		ParseOAI.createJDBC(connectString);
+//		return null;
+//	}
 
 	Chartres(ParseOAIhandler _handler, BufferedReader in) {
 		handler = _handler;
@@ -93,7 +96,7 @@ public class Chartres {
 		try {
 			String set = "visuals"; // colValue("Location");
 				handler.newItem();
-				Field field = Field.getField("Collection", Field.FACET);
+				Field field = handler.getField("Collection", Field.FACET);
 				int[] facets = handler.getFacets(field, set);
 				assert ParseOAIhandler.dontUpdate || facets != null : field + " '"
 						+ set + "'";

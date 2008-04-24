@@ -1,10 +1,11 @@
 package edu.cmu.cs.bungee.dbScripts;
 
 import java.io.File;
+import java.io.FilenameFilter;
 import java.sql.SQLException;
 import java.util.HashSet;
-import java.util.Hashtable;
-import java.util.Map;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Set;
 
 import javax.xml.parsers.SAXParser;
@@ -20,13 +21,32 @@ import edu.cmu.cs.bungee.javaExtensions.psk.cmdline.Token;
 /**
  * Here is an example of parsing of XML data with help of document-handler.
  * 
- * Args for HP: -db hp3 -user root -pass tartan01 -reset -verbose -directory
- * C:\Projects\ArtMuseum\HistoricPittsburgh\OAI-2007-Dec\ -files
+ * Args for HP: -db hp3 -user root -pass tartan01 -reset -renumber -verbose
+ * -directory C:\Projects\ArtMuseum\HistoricPittsburgh\OAI-2007-Dec\ -files
  * drlimg-accdbib.xml,drlimg-aerialbib.xml,drlimg-allegobbib.xml,drlimg-cmabib.xml,drlimg-cmaharrisbib.xml,drlimg-consolbib.xml,drlimg-cpbib.xml,drlimg-darlingtonbib.xml,drlimg-fcoxbib.xml,drlimg-fwagbib.xml,drlimg-gnbib.xml,drlimg-gretbib.xml,drlimg-gtbib.xml,drlimg-hjhzbib.xml,drlimg-iksbib.xml,drlimg-jalbib.xml,drlimg-jbenbib.xml,drlimg-kabib.xml,drlimg-lyshbib.xml,drlimg-mestbib.xml,drlimg-pghrailbib.xml,drlimg-ppsbib.xml,drlimg-rrbib.xml,drlimg-shourekbib.xml,drlimg-smokebib.xml,drlimg-spencerbib.xml,drlimg-trimbib.xml,drlimg-uapittbib.xml,drlimg-uebib.xml,drlimg-unionarcadebib.xml,drlimg-urbanbib.xml
  * "hp-drlimg-chathambib.xml,hp-drlimg-darlfamilybib.xml,hp-drlimg-fairbanksbib.xml,hp-drlimg-kaufbib.xml,hp-drlimg-pghprintsbib.xml,hp-drlimg-rustbib.xml,hp-drlimg-stotzbib.xml,hp-drlimg-switchbib.xml"
  * -cities Places.txt -renames Rename.txt -moves
- * Moves.txt,TGM.txt,places_hierarchy.txt -image_url_getter URI -image_regexp
+ * TGM.txt,places_hierarchy.txt,Moves.txt -image_url_getter URI -image_regexp
  * src=\"(/cgi-bin.*?)\"
+ * 
+ * Args for LoC2: VM argument: -DentityExpansionLimit=200000
+ * 
+ * -db loc2 -user root -pass tartan01 -reset -verbose -directory
+ * C:\Projects\ArtMuseum\LoC\2008\ -files loc-*.xml -cities Places.txt -renames
+ * Rename.txt -moves TGM.txt,places_hierarchy.txt,Moves.txt -toMerge Collection
+ * -image_url_getter URI 
+ * 
+ * Can't get disjunction to work:
+ * 
+ * -image_regexp SRC=\"(/gmd/.*?\.gif)\"
+ * 
+ * -image_regexp SRC=\"(http://.*?\.gif)\"
+ * 
+ * 
+ * -cities Places.txt -renames Rename.txt -moves
+ * TGM.txt,places_hierarchy.txt,Moves.txt
+ * 
+ * Make sure moves.txt is the last -moves files
  */
 
 public class ParseOAI {
@@ -38,7 +58,14 @@ public class ParseOAI {
 			Token.optSwitch, "bungee");
 	static StringToken sm_pass = new StringToken("pass", "MySQL user password",
 			"", Token.optRequired, "");
+	static StringToken sm_toMerge = new StringToken(
+			"toMerge",
+			"Merge items with the same URI that differ only in these tag categories",
+			"", Token.optSwitch, null);
 
+	static StringToken sm_copyImagesFrom = new StringToken("copy images from",
+			"Database to copy images from, based on the item.URI column", "",
+			Token.optSwitch, null);
 	static StringToken sm_image_url_getter = new StringToken(
 			"image_url_getter", "SQL expression for thumbnail location", "",
 			Token.optSwitch, null);
@@ -62,6 +89,9 @@ public class ParseOAI {
 	static BooleanToken sm_reset = new BooleanToken("reset",
 			"clear raw_facet, raw_item_facet, and item?", "", Token.optSwitch,
 			false);
+	static BooleanToken sm_renumber = new BooleanToken("renumber",
+			"renumber record_num to use sequential IDs starting at 1", "",
+			Token.optSwitch, false);
 	static BooleanToken sm_verbose = new BooleanToken("verbose",
 			"print tag hierarchy manipulations?", "", Token.optSwitch, false);
 
@@ -71,62 +101,34 @@ public class ParseOAI {
 		sm_main.addToken(sm_server);
 		sm_main.addToken(sm_user);
 		sm_main.addToken(sm_pass);
+		sm_main.addToken(sm_copyImagesFrom);
 		sm_main.addToken(sm_image_url_getter);
+		sm_main.addToken(sm_toMerge);
 		sm_main.addToken(sm_image_regexp);
 		sm_main.addToken(sm_image_max_dimension);
 		sm_main.addToken(sm_image_quality);
 		sm_main.addToken(sm_files);
 		sm_main.addToken(sm_directory);
 		sm_main.addToken(sm_reset);
+		sm_main.addToken(sm_renumber);
 		sm_main.addToken(sm_verbose);
 		sm_main.addToken(sm_places);
 		sm_main.addToken(sm_renames);
 		sm_main.addToken(sm_moves);
 	}
 
-	static JDBCSample createJDBC(String server, String db, String user,
-			String pass) {
-		String connectString = server + db + "?user=" + user;
-		if (pass != null)
-			connectString += "&password=" + pass;
-		return createJDBC(connectString);
-	}
-
-	static JDBCSample createJDBC(String connectString) {
-		JDBCSample jdbc = new JDBCSample(null);
-		try {
-			jdbc.openMySQL(connectString);
-
-			// createTables();
-			// clearTables();
-
-		} catch (SQLException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (InstantiationException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (IllegalAccessException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (ClassNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		return jdbc;
-	}
-
-	static void parseTGM(Map use, Map bt, String directory, String filename) {
-		if (filename != null) {
-			File f = new File(directory, filename);
-			// BufferedReader in = new BufferedReader(f);
-			// while (true) {
-			// String[] s = in.readLine().split("\t");
-			// abbrevs.put(s[0], Util.subArray(s, 1, String.class));
-			// }
-		}
-
-	}
+	// static void parseTGM(Map use, Map bt, String directory, String filename)
+	// {
+	// if (filename != null) {
+	// File f = new File(directory, filename);
+	// // BufferedReader in = new BufferedReader(f);
+	// // while (true) {
+	// // String[] s = in.readLine().split("\t");
+	// // abbrevs.put(s[0], Util.subArray(s, 1, String.class));
+	// // }
+	// }
+	//
+	// }
 
 	/**
 	 * Application entry point
@@ -138,7 +140,7 @@ public class ParseOAI {
 		try {
 			if (sm_main.parseArgs(args)) {
 				String dbName = sm_db.getValue();
-				JDBCSample jdbc = createJDBC(sm_server.getValue(), dbName,
+				JDBCSample jdbc = new JDBCSample(sm_server.getValue(), dbName,
 						sm_user.getValue(), sm_pass.getValue());
 				createTables(jdbc, dbName);
 				if (sm_reset.getValue()) {
@@ -156,57 +158,87 @@ public class ParseOAI {
 				String filenameList = sm_files.getValue();
 				if (filenameList != null) {
 					String[] filenames = filenameList.split(",");
-					SAXParser parser = SAXParserFactory.newInstance()
-							.newSAXParser();
+					SAXParserFactory factory = SAXParserFactory.newInstance();
+					factory.setNamespaceAware(true);
+					SAXParser parser = factory.newSAXParser();
 					for (int i = 0; i < filenames.length; i++) {
-						Util.print("\nParsing " + filenames[i]);
-						parser.parse(
-								directory + filenames[i].replace(':', '-'),
-								handler);
+						String[] matches = getFilenames(directory, filenames[i]);
+						for (int j = 0; j < matches.length; j++) {
+							Util.print("\nParsing " + matches[j]);
+							parser.parse(directory
+									+ matches[j].replace(':', '-'), handler);
+						}
 					}
+					Util.print("... done parsing ");
 				}
-				handler.renumber();
+				if (sm_renumber.getValue()) {
+					handler.renumber();
+				}
 				handler.useTGM();
 				if (verbose)
 					handler.printDuplicates();
-//				handler.copyImagesNoURI("hp2");
+				String copyImagesFrom = sm_copyImagesFrom.getValue();
+				if (copyImagesFrom != null)
+					handler.copyImagesNoURI(copyImagesFrom);
 				String urlGetter = sm_image_url_getter.getValue();
 				if (urlGetter != null)
 					handler.loadImages(urlGetter, sm_image_regexp.getValue(),
 							sm_image_max_dimension.getValue(), sm_image_quality
 									.getValue());
+				String facetTypesToMerge = sm_toMerge.getValue();
+				if (facetTypesToMerge != null)
+					handler.mergeDuplicateItems(facetTypesToMerge);
 			}
 		} catch (Exception ex) {
 			ex.printStackTrace(System.out);
 		}
 	}
 
-	private static Hashtable parsePairFiles(String directory, String filenames) {
-		Hashtable result = null;
+	private static String[] getFilenames(String directory,
+			final String filenamePattern) {
+		FilenameFilter filter = new FilenameFilter() {
+			public boolean accept(File dir1, String name) {
+				String pattern = filenamePattern.replaceAll("\\\\", "\\\\\\\\");
+				pattern = pattern.replaceAll("\\.", "\\\\.");
+				pattern = pattern.replaceAll("\\*", ".*");
+				return name.matches(pattern);
+			}
+		};
+		return new File(directory).list(filter);
+	}
+
+	private static List<String[]>  parsePairFiles(String directory, String filenames) {
+		List<String[]> result = null;
 		if (filenames != null) {
-			result = new Hashtable();
+			result = new LinkedList<String[]> ();
 			String[] fnames = filenames.split(",");
 			for (int j = 0; j < fnames.length; j++) {
 				String filename = fnames[j];
+				Util.print("Parsing " + filename);
 				if (directory != null)
 					filename = directory + filename;
 				String[] renames = Util.readFile(filename).split("\n");
 				for (int i = 0; i < renames.length; i++) {
 					String[] pair = renames[i].split("\t");
-					result.put(pair[0], pair[1]);
+					assert pair.length == 2 : "On line " + (i + 1)
+							+ " of file " + filename
+							+ ":\n Should have exactly one tab character: "
+							+ renames[i];
+					result.add(pair);
 				}
 			}
 		}
 		return result;
 	}
 
-	private static Set parseSingletonFiles(String directory, String filenames) {
-		Set result = null;
+	private static Set<String>  parseSingletonFiles(String directory, String filenames) {
+		Set<String>  result = null;
 		if (filenames != null) {
-			result = new HashSet();
+			result = new HashSet<String> ();
 			String[] fnames = filenames.split(",");
 			for (int j = 0; j < fnames.length; j++) {
 				String filename = fnames[j];
+				Util.print("Parsing " + filename);
 				if (directory != null)
 					filename = directory + filename;
 				String[] renames = Util.readFile(filename).split("\n");
@@ -253,7 +285,7 @@ public class ParseOAI {
 			throws SQLException {
 		String copyFrom = "wpa";
 
-		String[] tablesToCopy = { "raw_facet_type", "globals" };
+		String[] tablesToCopy = { "raw_facet_type", "globals", "043places" };
 		for (int i = 0; i < tablesToCopy.length; i++) {
 			if (!tableExists(jdbc, db, tablesToCopy[i])) {
 				db(jdbc, "CREATE TABLE " + tablesToCopy[i] + " LIKE "

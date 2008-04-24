@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="WINDOWS-1252"?>
+<jardesc>
+<jar path="C:/Documents and Settings/mad/workspace/bungeeDBscripts/populate-non-shrunk.jar"/>
+<options buildIfNeeded="true" compress="true" descriptionLocation="/bungeeDBscripts/populate.jardesc" exportErrors="false" exportWarnings="true" includeDirectoryEntries="false" overwrite="false" saveDescription="true" storeRefactorings="false" useSourceFolders="false"/>
+<storedRefactorings deprecationInfo="true" structuralOnly="false"/>
+<selectedProjects/>
+<manifest generateManifest="false" mainClassHandleIdentifier="=bungeeDBscripts/&lt;edu.cmu.cs.bungee.dbScripts{ParseOAI.java[ParseOAI" manifestLocation="/bungeeDBscripts/populate.mf" manifestVersion="1.0" reuseManifest="true" saveManifest="true" usesManifest="true">
+<sealing sealJar="false">
+<packagesToSeal/>
+<packagesToUnSeal/>
+</sealing>
+</manifest>
+<selectedElements exportClassFiles="true" exportJavaFiles="false" exportOutputFolder="false">
+<javaElement handleIdentifier="=javaExtensions/&lt;edu.cmu.cs.bungee.javaExtensions.psk.cmdline"/>
+<javaElement handleIdentifier="=bungeeDBscripts/&lt;edu.cmu.cs.bungee.dbScripts{ConvertFromRaw.java"/>
+<javaElement handleIdentifier="=javaExtensions/&lt;edu.cmu.cs.bungee.javaExtensions{JDBCSample.java"/>
+<javaElement handleIdentifier="=javaExtensions/&lt;edu.cmu.cs.bungee.javaExtensions{MyResultSet.java"/>
+<javaElement handleIdentifier="=bungeeDBscripts/&lt;edu.cmu.cs.bungee.dbScripts{ParseOAIhandler.java"/>
+<javaElement handleIdentifier="=javaExtensions/&lt;edu.cmu.cs.bungee.javaExtensions{Util.java"/>
+<javaElement handleIdentifier="=bungeeDBscripts/&lt;edu.cmu.cs.bungee.dbScripts{ParseOAI.java"/>
+</selectedElements>
+</jardesc>
