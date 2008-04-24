@@ -4,6 +4,7 @@ import java.io.BufferedOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.sql.SQLException;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -16,8 +17,6 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-
-import sun.jdbc.odbc.JdbcOdbc;
 
 import edu.cmu.cs.bungee.javaExtensions.Util;
 
@@ -113,10 +112,22 @@ public class Servlet extends HttpServlet {
 	@Override
 	protected void doGet(HttpServletRequest request,
 			HttpServletResponse response) throws IOException {
-		log(request.getParameter("command"));
 		// Called when you go to a bookmark in a browser
-		log("Who is sending doGet??? Calling doPost.");
+		log("Who is sending doGet??? Calling doPost: ");
+		logRequest(request);
 		doPost(request, response);
+	}
+	
+	@SuppressWarnings("unchecked")
+	void logRequest(HttpServletRequest request) {
+		log("Request info: "
+				+ request.getRequestURL().toString() + " "
+				+ request.getQueryString() + " " + request.getRemoteHost());
+		Enumeration<String> e = request.getHeaderNames();
+		while (e.hasMoreElements()) {
+			String s = e.nextElement();
+			log(s + ": " + request.getHeader(s));
+		}		
 	}
 
 	@Override
@@ -135,7 +146,8 @@ public class Servlet extends HttpServlet {
 			String pass = config.getInitParameter("pwd");
 			if (dbName == null)
 				dbName = config.getInitParameter("dbs").split(",")[0];
-			log("Connect to " + dbName);
+			log("Connect to " + dbName + " session = " + xsession);
+			logRequest(request);
 			Database db;
 			try {
 				db = new Database(server, dbName, user, pass, this);
@@ -198,7 +210,7 @@ public class Servlet extends HttpServlet {
 		Database db = sessions.get(xsession);
 		switch (command) {
 		case CONNECT:
-			log("session = '" + xsession.toString() + "'");
+			// log("session = '" + xsession.toString() + "'");
 			Database.writeString(xsession.toString(), out);
 			Database.writeString(db.dbDescs(getServletConfig()
 					.getInitParameter("dbs")), out);
@@ -379,7 +391,7 @@ public class Servlet extends HttpServlet {
 			for (int i = 0; i < actions.length; i++) {
 				String[] actionString = Util.splitComma(actions[i]);
 				Database.myAssert(actionString.length == 4, "Bad argString: '"
-						+ actions[i] + "' in '" + actionsString);
+						+ actions[i] + "' in '" + actionsString + "'");
 				int actionIndex = Integer.parseInt(actionString[0]);
 				int location = Integer.parseInt(actionString[1]);
 				String object = actionString[2];

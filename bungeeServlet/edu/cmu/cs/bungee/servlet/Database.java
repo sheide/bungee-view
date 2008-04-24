@@ -45,7 +45,10 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 
 import javax.imageio.ImageIO;
 import javax.servlet.GenericServlet;
@@ -70,18 +73,20 @@ import edu.cmu.cs.bungee.javaExtensions.MyResultSet.Column;
 
 class Database {
 
+	private String dbName;
+
 	private JDBCSample jdbc;
 
 	Database(String _server, String _db, String _user, String _pass,
 			GenericServlet _servlet) throws SQLException,
 			InstantiationException, IllegalAccessException,
 			ClassNotFoundException, ServletException {
+		dbName = _db;
 		String connectString = _server + _db + "?user=" + _user;
 		if (_pass != null)
 			connectString += "&password=" + _pass;
 		// servlet = _servlet;
-		jdbc = new JDBCSample(_servlet);
-		jdbc.openMySQL(connectString);
+		jdbc = new JDBCSample(_server, _db, _user, _pass, _servlet);
 		ensureDBinitted();
 		String item_id_column_type = jdbc.unsignedTypeForMaxValue(jdbc
 				.SQLqueryInt("SELECT MAX(record_num) FROM item"));
@@ -92,18 +97,18 @@ class Database {
 
 		String[] createTempTables = {
 
-				"CREATE TEMPORARY TABLE onItems (record_num "
+				"CREATE TEMPORARY TABLE if not exists onItems (record_num "
 						+ item_id_column_type
 						+ ", PRIMARY KEY (record_num)) ENGINE=HEAP "
 						+ "PACK_KEYS=1 ROW_FORMAT=FIXED",
 
-				"CREATE TEMPORARY TABLE restricted (record_num "
+				"CREATE TEMPORARY TABLE if not exists restricted (record_num "
 						+ item_id_column_type
 						+ ", PRIMARY KEY (record_num)) ENGINE=HEAP "
 						+ "PACK_KEYS=1 ROW_FORMAT=FIXED",
 
-				"CREATE TEMPORARY TABLE relevantFacets (" + "facet_id "
-						+ facet_id_column_type + ", "
+				"CREATE TEMPORARY TABLE if not exists relevantFacets ("
+						+ "facet_id " + facet_id_column_type + ", "
 						+ "PRIMARY KEY USING BTREE (facet_id)) ENGINE=HEAP "
 						+ "PACK_KEYS=1 ROW_FORMAT=FIXED",
 
@@ -125,6 +130,11 @@ class Database {
 
 		String[] prefetchFROM = {
 				" FROM facet WHERE parent_facet_id = ? ORDER BY facet_id",
+
+				// This would be faster if we first calculate the facet_id range
+				// from parent_facet_id and using that in the WHERE clause.
+				// But then we'd need two ?s and so have to change the code that
+				// uses these queries.
 				" FROM (SELECT facet_id, count(restricted.record_num) AS n_items, n_child_facets, first_child_offset, name"
 						+ " FROM facet INNER JOIN item_facet_heap USING (facet_id)"
 						+ " LEFT JOIN restricted USING (record_num) WHERE parent_facet_id = ?"
@@ -165,9 +175,13 @@ class Database {
 		printUserActionStmt = jdbc
 				.prepareStatement("INSERT INTO user_actions VALUES(NOW(), ?, ?, ?, ?, ?, ?)");
 
+		// ORDER BY clause doesn't make any difference if facets are ordered
+		// correctly (by utf8_general_ci),
+		// but will correct for bad alphabetization in old databases.
 		getLetterOffsetsQuery = jdbc
-				.prepareStatement("SELECT ORD(UPPER(SUBSTRING(name, LENGTH(?) + 1, 1))) letter, MAX(facet_id) "
-						+ "FROM facet WHERE parent_facet_id = ? AND LOCATE(?, name) = 1 GROUP BY letter");
+				.prepareStatement("SELECT MIN(SUBSTRING(name, LENGTH(?) + 1, 1)) letter, MAX(facet_id) max_facet "
+						+ "FROM facet WHERE parent_facet_id = ? AND LOCATE(?, name) = 1 "
+						+ "GROUP BY SUBSTRING(name, LENGTH(?) + 1, 1) ORDER BY max_facet");
 	}
 
 	void close() throws SQLException {
@@ -226,6 +240,8 @@ class Database {
 
 	private PreparedStatement itemURLPS;
 
+	private String xxx;
+
 	String getItemURL(int item) throws SQLException, ServletException {
 		// Util.print("itemDesc " + item);
 		// try {
@@ -249,25 +265,30 @@ class Database {
 			jdbc
 					.SQLupdate("INSERT INTO item_facet_heap SELECT * FROM item_facet;");
 			jdbc.SQLupdate("TRUNCATE TABLE item_facet_type_heap;");
-			jdbc
-					.SQLupdate("INSERT INTO item_facet_type_heap "
-							+ "SELECT distinct i.record_num, p.facet_id "
-							+ "FROM facet f INNER JOIN facet p ON f.parent_facet_id = p.facet_id "
-							+ "INNER JOIN item_facet i ON i.facet_id = f.facet_id "
-							+ "WHERE p.parent_facet_id = 0;");
+			jdbc.SQLupdate("INSERT INTO item_facet_type_heap "
+					+ "SELECT distinct i.record_num, f.parent_facet_id "
+					+ "FROM facet f "
+					+ "INNER JOIN item_facet i ON i.facet_id = f.facet_id "
+					+ "WHERE f.parent_facet_id <= " + maxFacetTypeID());
 			jdbc.SQLupdate("TRUNCATE TABLE item_order_heap;");
 			jdbc.SQLupdate("INSERT INTO item_order_heap "
 					+ "SELECT * FROM item_order");
-//			updateUsageCounts();
+			// updateUsageCounts();
 		}
 	}
 
-	private void updateUsageCounts() throws SQLException {
-		jdbc
-				.SQLupdate("UPDATE facet, (SELECT COUNT(*) cnt, object FROM user_actions "
-						+ "WHERE location IN (1,2,6) GROUP BY object) temp "
-						+ "SET usage_count = cnt WHERE object = facet_id");
+	int maxFacetTypeID() throws SQLException {
+		return jdbc
+				.SQLqueryInt("SELECT MAX(facet_id) FROM facet WHERE parent_facet_id = 0");
 	}
+
+	// private void updateUsageCounts() throws SQLException {
+	// jdbc
+	// .SQLupdate("UPDATE facet, (SELECT COUNT(*) cnt, object FROM user_actions
+	// "
+	// + "WHERE location IN (1,2,6) GROUP BY object) temp "
+	// + "SET usage_count = cnt WHERE object = facet_id");
+	// }
 
 	String sortedResultTable(int i) throws ServletException {
 		switch (i) {
@@ -306,41 +327,53 @@ class Database {
 		if (offsetItemsQuery == null) {
 			offsetItemsQuery = new PreparedStatement[3];
 			itemOffsetQuery1 = new PreparedStatement[offsetItemsQuery.length];
-			itemOffsetQuery2 = new PreparedStatement[offsetItemsQuery.length];			
+			itemOffsetQuery2 = new PreparedStatement[offsetItemsQuery.length];
 		}
 		synchronized (offsetItemsQuery) {
-		for (int i = 1; i < offsetItemsQuery.length; i++) {
-			offsetItemsQuery[i] = jdbc
-					.prepareStatement("SELECT o.record_num FROM "
-							+ sortedResultTable(i)
-							+ " o INNER JOIN item_order_heap r USING (record_num)"
-							+ " ORDER BY r." + columnToSortBy + " LIMIT ?, ?");
+			for (int i = 1; i < offsetItemsQuery.length; i++) {
+				offsetItemsQuery[i] = jdbc
+						.prepareStatement("SELECT o.record_num FROM "
+								+ sortedResultTable(i)
+								+ " o INNER JOIN item_order_heap r USING (record_num)"
+								+ " ORDER BY r." + columnToSortBy
+								+ " LIMIT ?, ?");
 
-			// Have to use 2 queries to work around the "can't reopen temporary
-			// table" problem in MySQL
-			// Only call query 2 if query 1 result > 0 (should never be exactly
-			// 0)
-			// Argument to query 2 is the result of query 1
-			itemOffsetQuery1[i] = jdbc.prepareStatement("SELECT s."
-					+ columnToSortBy + " FROM item_order_heap s INNER JOIN "
-					+ sortedResultTable(i)
-					+ " USING (record_num) WHERE s.record_num = ?");
-			itemOffsetQuery2[i] = jdbc
-					.prepareStatement("SELECT COUNT(*) FROM item_order_heap r "
-							+ "INNER JOIN " + sortedResultTable(i)
-							+ " USING (record_num) WHERE r." + columnToSortBy
-							+ " < ?");
+				xxx = "SELECT o.record_num FROM " + sortedResultTable(i)
+						+ " o INNER JOIN item_order_heap r USING (record_num)"
+						+ " ORDER BY r." + columnToSortBy;
+
+				// Have to use 2 queries to work around the "can't reopen
+				// temporary
+				// table" problem in MySQL
+				// Only call query 2 if query 1 result > 0 (should never be
+				// exactly
+				// 0)
+				// Argument to query 2 is the result of query 1
+				itemOffsetQuery1[i] = jdbc.prepareStatement("SELECT s."
+						+ columnToSortBy
+						+ " FROM item_order_heap s INNER JOIN "
+						+ sortedResultTable(i)
+						+ " USING (record_num) WHERE s.record_num = ?");
+				itemOffsetQuery2[i] = jdbc
+						.prepareStatement("SELECT COUNT(*) FROM item_order_heap r "
+								+ "INNER JOIN "
+								+ sortedResultTable(i)
+								+ " USING (record_num) WHERE r."
+								+ columnToSortBy + " < ?");
+			}
+			offsetItemsQuery[0] = jdbc
+					.prepareStatement("SELECT record_num FROM "
+							+ "item_order_heap ORDER BY " + columnToSortBy
+							+ " LIMIT ?, ?");
+
+			itemOffsetQuery1[0] = jdbc.prepareStatement("SELECT s."
+					+ columnToSortBy
+					+ " FROM item_order_heap s WHERE s.record_num = ?");
+			itemOffsetQuery2[0] = jdbc
+					.prepareStatement("SELECT COUNT(*)-1 FROM item_order_heap "
+							+ " WHERE " + columnToSortBy + " <= ?");
 		}
-		offsetItemsQuery[0] = jdbc.prepareStatement("SELECT record_num FROM "
-				+ "item_order_heap ORDER BY " + columnToSortBy + " LIMIT ?, ?");
-
-		itemOffsetQuery1[0] = jdbc.prepareStatement("SELECT s."
-				+ columnToSortBy
-				+ " FROM item_order_heap s WHERE s.record_num = ?");
-		itemOffsetQuery2[0] = jdbc
-				.prepareStatement("SELECT COUNT(*)-1 FROM item_order_heap "
-						+ " WHERE " + columnToSortBy + " <= ?");
-	}}
+	}
 
 	int getItemFromURL(String URL) throws SQLException {
 		synchronized (itemURLPS) {
@@ -353,16 +386,26 @@ class Database {
 	void getCountsIgnoringFacet(String subQuery, String facet_id,
 			DataOutputStream out) throws SQLException, ServletException,
 			IOException {
+		ResultSet range = jdbc
+				.SQLquery("SELECT min(facet_id), max(facet_id) from facet where parent_facet_id = "
+						+ facet_id);
+		range.next();
+		int minChild = range.getInt(1);
+		int maxChild = range.getInt(2);
+		range.close();
+		// Imitating relevantFacets is way faster than using parent_facet_id
+		// with another join
 		ResultSet rs = jdbc
-				.SQLquery("SELECT f.facet_id, COUNT(onItemsFake.record_num) AS cnt "
-						+ "FROM facet f "
-						+ "INNER JOIN item_facet_heap i_f USING (facet_id) "
+				.SQLquery("SELECT i_f.facet_id, COUNT(onItemsFake.record_num) AS cnt "
+						+ "FROM item_facet_heap i_f "
 						+ "INNER JOIN ("
 						+ subQuery
 						+ ") onItemsFake USING (record_num) "
-						+ "WHERE f.parent_facet_id = "
-						+ facet_id
-						+ " GROUP BY f.facet_id ORDER BY f.facet_id");
+						+ "WHERE i_f.facet_id >= "
+						+ minChild
+						+ " AND i_f.facet_id <= "
+						+ maxChild
+						+ " GROUP BY i_f.facet_id ORDER BY i_f.facet_id");
 		sendResultSet(rs, MyResultSet.SINT_PINT, out);
 	}
 
@@ -449,6 +492,16 @@ class Database {
 		sendResultSet(rs, MyResultSet.STRING_STRING_STRING_INT_INT_INT_INT, out);
 	}
 
+	@SuppressWarnings("unchecked")
+	void init(DataOutputStream out) throws SQLException, ServletException,
+			IOException {
+		ResultSet rs = jdbc
+				.SQLquery("SELECT f.n_items as cnt "
+						+ "FROM facet f WHERE f.parent_facet_id > 0 AND f.parent_facet_id <= "
+						+ maxFacetTypeID() + " ORDER BY f.facet_ID");
+		sendResultSet(rs, MyResultSet.INT, out);
+	}
+
 	int updateOnItems(String onSQL) throws SQLException {
 		// lastQuery = onSQL;
 		jdbc.SQLupdate("TRUNCATE TABLE onItems");
@@ -527,16 +580,20 @@ class Database {
 
 	@SuppressWarnings("unchecked")
 	void getLetterOffsets(int facet_id, String prefix, DataOutputStream out)
-			throws SQLException, ServletException, IOException {
+			throws SQLException, IOException {
 		synchronized (getLetterOffsetsQuery) {
 			getLetterOffsetsQuery.setString(1, prefix);
 			getLetterOffsetsQuery.setInt(2, facet_id);
 			getLetterOffsetsQuery.setString(3, prefix);
+			getLetterOffsetsQuery.setString(4, prefix);
 			ResultSet rs = jdbc.SQLquery(getLetterOffsetsQuery,
 					"Getting letter offsets.");
-
-			// Needs to be SNMINT because character could be 0
-			sendResultSet(rs, MyResultSet.SNMINT_SINT, out);
+			try {
+				// If an old DB has facets alphabetized wrong, just ignore it.
+				sendResultSet(rs, MyResultSet.STRING_SINT, out);
+			} catch (ServletException e) {
+				log("Exception in getLetterOffsets: " + e);
+			}
 		}
 	}
 
@@ -547,16 +604,6 @@ class Database {
 				.SQLquery("SELECT name FROM facet WHERE facet_id IN(" + facets
 						+ ") ORDER BY facet_id");
 		sendResultSet(rs, MyResultSet.STRING, out);
-	}
-
-	@SuppressWarnings("unchecked")
-	void init(DataOutputStream out) throws SQLException, ServletException,
-			IOException {
-		ResultSet rs = jdbc.SQLquery("SELECT f.n_items as cnt "
-				+ "FROM facet f INNER JOIN facet parent "
-				+ "ON f.parent_facet_id = parent.facet_id "
-				+ "WHERE parent.parent_facet_id = 0 " + "ORDER BY f.facet_ID");
-		sendResultSet(rs, MyResultSet.INT, out);
 	}
 
 	/**
@@ -574,10 +621,20 @@ class Database {
 			s.setInt(1, minOffset);
 			s.setInt(2, nRows);
 			ResultSet rs = jdbc.SQLquery(s, "Get offsets");
-			// myAssert(MyResultSet.nRows(rs) == nRows
-			// || jdbc.SQLqueryInt("SELECT COUNT(*) FROM "
-			// + sortedResultTable(table)) < nRows, minOffset
-			// + "-" + nRows + " " + MyResultSet.nRows(rs));
+			if (false && MyResultSet.nRows(rs) != nRows) {
+				int onCount = jdbc.SQLqueryInt("SELECT COUNT(*) FROM "
+						+ sortedResultTable(table));
+
+				if (onCount >= maxOffset) {
+					log(xxx);
+					ResultSet zz = jdbc.SQLquery(xxx);
+					log(sortedResultTable(table) + " nRows="
+							+ MyResultSet.nRows(zz));
+				}
+
+				myAssert(onCount < maxOffset, minOffset + "-" + nRows + " "
+						+ MyResultSet.nRows(rs) + " " + onCount);
+			}
 			sendResultSet(rs, MyResultSet.INT, out);
 		}
 	}
@@ -715,9 +772,7 @@ class Database {
 		checkPositive(facet);
 		int prev = facet;
 		int ancestor;
-		while ((ancestor = jdbc
-				.SQLqueryInt("SELECT parent_facet_id FROM facet WHERE facet_id = "
-						+ prev)) > 0) {
+		while ((ancestor = parentFacetID(prev)) > 0) {
 			jdbc.SQLupdate("REPLACE INTO item_facet_heap VALUES(" + item + ", "
 					+ prev + ")");
 			prev = ancestor;
@@ -732,9 +787,7 @@ class Database {
 		checkPositive(facet);
 		int prev = facet;
 		int ancestor;
-		while ((ancestor = jdbc
-				.SQLqueryInt("SELECT parent_facet_id FROM facet WHERE facet_id = "
-						+ prev)) > 0) {
+		while ((ancestor = parentFacetID(prev)) > 0) {
 			jdbc.SQLupdate("REPLACE INTO item_facet_heap SELECT record_num, "
 					+ prev + " FROM onItems");
 			prev = ancestor;
@@ -744,7 +797,7 @@ class Database {
 		updateFacetCounts(facet, out);
 	}
 
-	int[] removeItemsFacet(int facet, DataOutputStream out)
+	Set<Integer> removeItemsFacet(int facet, DataOutputStream out)
 			throws SQLException, ServletException, IOException {
 		checkPositive(facet);
 		jdbc.SQLupdate("DELETE FROM ifh USING item_facet_heap ifh, onItems oi "
@@ -753,15 +806,14 @@ class Database {
 		ResultSet rs = jdbc
 				.SQLquery("SELECT facet_id FROM facet WHERE parent_facet_id = "
 						+ facet);
-		int[] result = null;
+		Set<Integer> result = new HashSet<Integer>();
 		boolean hasChildren = false;
 		while (rs.next()) {
 			hasChildren = true;
-			result = Util.append(result, removeItemsFacet(rs.getInt(1), null));
+			result.addAll(removeItemsFacet(rs.getInt(1), null));
 		}
 		if (!hasChildren) {
-			result = new int[1];
-			result[0] = facet;
+			result.add(facet);
 		}
 		int grandparent = jdbc
 				.SQLqueryInt("SELECT parent.parent_facet_id FROM facet f "
@@ -769,9 +821,7 @@ class Database {
 						+ "WHERE f.facet_id = " + facet);
 		checkNonNegative(grandparent);
 		if (grandparent == 0) {
-			int parent = jdbc
-					.SQLqueryInt("SELECT parent_facet_id FROM facet WHERE facet_id = "
-							+ facet);
+			int parent = parentFacetID(facet);
 			checkPositive(parent);
 			jdbc
 					.SQLupdate("DELETE FROM ifh USING item_facet_type_heap ifh, onItems oi "
@@ -783,7 +833,13 @@ class Database {
 		return result;
 	}
 
-	int[] removeItemFacet(int facet, int item, DataOutputStream out)
+	int parentFacetID(int facet) throws SQLException {
+		return jdbc
+				.SQLqueryInt("SELECT parent_facet_id FROM facet WHERE facet_id = "
+						+ facet);
+	}
+
+	Set<Integer> removeItemFacet(int facet, int item, DataOutputStream out)
 			throws SQLException, ServletException, IOException {
 		checkPositive(facet);
 		checkPositive(item);
@@ -792,16 +848,14 @@ class Database {
 		ResultSet rs = jdbc
 				.SQLquery("SELECT facet_id FROM facet WHERE parent_facet_id = "
 						+ facet);
-		int[] result = null;
+		Set<Integer> result = new HashSet<Integer>();
 		boolean hasChildren = false;
 		while (rs.next()) {
 			hasChildren = true;
-			result = Util.append(result, removeItemFacet(rs.getInt(1), item,
-					null));
+			result.addAll(removeItemFacet(rs.getInt(1), item, null));
 		}
 		if (!hasChildren) {
-			result = new int[1];
-			result[0] = facet;
+			result.add(facet);
 		}
 		int grandparent = jdbc
 				.SQLqueryInt("SELECT parent.parent_facet_id FROM facet f "
@@ -809,9 +863,7 @@ class Database {
 						+ "WHERE f.facet_id = " + facet);
 		checkNonNegative(grandparent);
 		if (grandparent == 0) {
-			int parent = jdbc
-					.SQLqueryInt("SELECT parent_facet_id FROM facet WHERE facet_id = "
-							+ facet);
+			int parent = parentFacetID(facet);
 			checkPositive(parent);
 			jdbc
 					.SQLupdate("DELETE FROM item_facet_type_heap WHERE record_num = "
@@ -853,9 +905,7 @@ class Database {
 			throws SQLException, ServletException, IOException {
 		checkNonNegative(parent);
 		checkPositive(child);
-		int oldParent = jdbc
-				.SQLqueryInt("SELECT parent_facet_id FROM facet WHERE facet_id = "
-						+ child);
+		int oldParent = parentFacetID(child);
 		jdbc.SQLupdate("UPDATE facet SET parent_facet_id = " + parent
 				+ " WHERE facet_id = " + child);
 		ResultSet rs = jdbc
@@ -870,7 +920,9 @@ class Database {
 		child = jdbc
 				.SQLqueryInt("SELECT facet_id FROM renames WHERE old_facet_id = "
 						+ child);
-		int[] leafs = { oldParent, child };
+		Set<Integer> leafs = new HashSet<Integer>();
+		leafs.add(oldParent);
+		leafs.add(child);
 		updateFacetCounts(leafs, out);
 	}
 
@@ -930,24 +982,23 @@ class Database {
 
 	private void updateFacetCounts(int facet, DataOutputStream out)
 			throws SQLException, ServletException, IOException {
-		int[] leafs = { facet };
+		Set<Integer> leafs = new HashSet<Integer>();
+		leafs.add(facet);
 		updateFacetCounts(leafs, out);
 	}
 
 	@SuppressWarnings("unchecked")
-	private void updateFacetCounts(int[] leafFacets, DataOutputStream out)
+	private void updateFacetCounts(Set<Integer> leafFacets, DataOutputStream out)
 			throws SQLException, ServletException, IOException {
 		int[] ancestors = null;
-		for (int i = 0; i < leafFacets.length; i++) {
-			int ancestor = leafFacets[i];
+		for (Iterator<Integer> it = leafFacets.iterator(); it.hasNext();) {
+			int ancestor = it.next().intValue();
 			do {
 				int nChildren = jdbc
 						.SQLqueryInt("SELECT COUNT(*) FROM facet WHERE parent_facet_id = "
 								+ ancestor);
 				int nItems = 0;
-				int parent = jdbc
-						.SQLqueryInt("SELECT parent_facet_id FROM facet WHERE facet_id = "
-								+ ancestor);
+				int parent = parentFacetID(ancestor);
 				if (parent > 0) {
 					nItems = jdbc
 							.SQLqueryInt("SELECT COUNT(*) FROM item_facet_heap WHERE facet_id = "
@@ -1366,37 +1417,8 @@ class Database {
 		return cfExpr;
 	}
 
-	void printRecords(ResultSet result, List<Object> types)
-			throws SQLException, ServletException {
-		StringBuffer buf = new StringBuffer();
-		result.last();
-		int nRows = result.getRow();
-		int nCols = types.size();
-		buf.append(nRows).append(" rows, ").append(nCols).append(
-				" cols in result set");
-		result.beforeFirst();
-		for (int i = 0; i < nRows && i < 5; i++) {
-			result.next();
-			buf.append("\n");
-			for (int j = 0; j < nCols; j++) {
-				Object type = types.get(j);
-				if (type == MyResultSet.Column.IntegerType
-						|| type == MyResultSet.Column.SortedIntegerType
-						|| type == MyResultSet.Column.SortedNMIntegerType
-						|| type == MyResultSet.Column.PositiveIntegerType)
-					buf.append(result.getInt(j + 1)).append("\t");
-				else if (type == MyResultSet.Column.StringType)
-					buf.append(result.getString(j + 1)).append("\t");
-				else if (type == MyResultSet.Column.DoubleType)
-					buf.append(result.getDouble(j + 1)).append("\t");
-				else if (type == MyResultSet.Column.ImageType)
-					buf.append("<image>\t");
-				else
-					error("Unknown ColumnType: " + type);
-			}
-		}
-		result.beforeFirst();
-		log(buf.toString());
+	void printRecords(ResultSet result, List<Object> types) {
+		log(MyResultSet.valueOfDeep(result, types, 5));
 	}
 
 	private void log(String message) {
@@ -1753,6 +1775,11 @@ class Database {
 		myAssert(dbNameList != null && dbNameList.length() > 0,
 				"Empty db name list");
 		String[] dbNames = Util.splitComma(dbNameList);
+		if (!Util.isMember(dbNames, dbName))
+			// In case URL specified a "hidden" database, get it's description
+			// too.
+			dbNames = (String[]) Util.push(dbNames, dbName, String.class);
+
 		String[] dbDescs = new String[dbNames.length];
 		for (int i = 0; i < dbDescs.length; i++) {
 			String desc = jdbc.SQLqueryString("SELECT description FROM "
