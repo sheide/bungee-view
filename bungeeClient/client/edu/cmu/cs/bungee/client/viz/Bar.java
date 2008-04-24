@@ -11,15 +11,12 @@ import edu.umd.cs.piccolo.util.PPaintContext;
 
 import java.awt.Color;
 import java.awt.Graphics2D;
-import java.awt.Paint;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
-
-import sun.rmi.log.LogOutputStream;
 
 /**
  * @author mad y-coordinates range from 0 if observedPercent = 1.0 to 1 if
@@ -153,7 +150,7 @@ final class Bar extends LazyPNode implements FacetNode {
 		// invalidatePaint();
 		// }
 
-		Color color = art().facetTextColor(facet, facet.guessOnCount());
+		Color color = art().facetTextColor(facet);
 		// if (!color.equals(getPaint())) {
 		setPaint(color);
 		// invalidatePaint();

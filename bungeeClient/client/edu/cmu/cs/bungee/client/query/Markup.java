@@ -10,8 +10,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
-import java.util.Vector;
 
+import edu.cmu.cs.bungee.client.query.Query.ItemList;
 import edu.cmu.cs.bungee.javaExtensions.Util;
 
 /**
@@ -293,7 +293,7 @@ final class MarkupImplementation extends ArrayList implements Markup {
 	}
 
 	static void descriptionClauses(List phrases, Markup result, Set searches,
-			Set clusters) {
+			Set clusters, Set itemLists) {
 		// Util.print("\nq.descriptionClauses "
 		// + Util.valueOfDeep(phrases));
 		// Util.printDeep(result);
@@ -370,6 +370,16 @@ final class MarkupImplementation extends ArrayList implements Markup {
 			// result.add(Markup.DEFAULT_COLOR_TAG);
 			result.add("}");
 		}
+		for (Iterator it = itemLists.iterator(); it.hasNext();) {
+			ItemList itemList = (ItemList) it.next();
+			String s = "that match the Informedia query '"+itemList+"'";
+			if (first) {
+				result.add(" ");
+				first = false;
+			} else
+				result.add(" and ");
+			result.add(s);
+		}
 		// Util.print(phrases);
 	}
 
@@ -387,7 +397,7 @@ final class MarkupImplementation extends ArrayList implements Markup {
 		// summary.add(" "); // descriptionNounPhrase assumes there is exactly
 		// one canned prefix
 		descriptionNounPhrase(phrases, summary);
-		descriptionClauses(phrases, summary, emptySet, emptySet);
+		descriptionClauses(phrases, summary, emptySet, emptySet, emptySet);
 		return summary;
 	}
 
@@ -415,7 +425,7 @@ final class MarkupImplementation extends ArrayList implements Markup {
 				info.addAll(p.getRestrictionFacetInfos(true, reqtType));
 			}
 
-			if (info != null && !info.isEmpty()) {
+			if (!info.isEmpty()) {
 				descriptions[type] = Query.emptyMarkup();
 				Query.toEnglish(info, " or ", descriptions[type]);
 			}

@@ -34,7 +34,6 @@ package edu.cmu.cs.bungee.client.viz;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 
-import edu.cmu.cs.bungee.javaExtensions.Util;
 import edu.cmu.cs.bungee.piccoloUtils.gui.APText;
 import edu.cmu.cs.bungee.piccoloUtils.gui.Boundary;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
@@ -183,6 +182,8 @@ final class Header extends LazyPNode implements MouseDoc {
 			modeMenu.addButton("Beginner Mode", "Disable advanced features");
 			modeMenu.addButton("Expert Mode", "Enable advanced features");
 			modeMenu.addButton("Custom", "Choose features");
+			if (art.isExpertMode())
+				modeMenu.setText("Expert Mode");
 			addChild(modeMenu);
 		}
 

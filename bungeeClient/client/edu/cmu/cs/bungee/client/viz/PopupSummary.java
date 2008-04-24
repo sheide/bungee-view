@@ -28,6 +28,21 @@ import edu.umd.cs.piccolo.util.PBounds;
  */
 final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 
+	private static final long TRANSLATE_TO_CORNER_DELAY = 10000;
+
+	private static final double MARGIN = 5.0;
+
+	private static final double BIG_TEXT_SCALE = 1.4;
+
+	private static final float FADED_TRANSPARENCY = 0.3F;
+	private static final float SPACEBAR_TRANSPARENCY = 0.6f;
+
+	private static final double LABEL_ANIMATION_SCALE = 3;
+
+	private final static int TRANSLATE_TO_CORNER_STEP = 400;
+
+	private final static int TRANSLATION_OPACITY_DELAY = TRANSLATE_TO_CORNER_STEP / 3;
+
 	private void actions() {
 		if (getRoot() != null) {
 			// After an unrestrict, we may be left hanging
@@ -203,22 +218,9 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 
 	private PNode tempRatioLabel;
 
-	private static final double MARGIN = 5.0;
-
-	private static final double BIG_TEXT_SCALE = 1.4;
-
-	private static final float FADED_TRANSPARENCY = 0.3F;
-	private static final float SPACEBAR_TRANSPARENCY = 0.6f;
-
 	private static final float TRANSPARENT = 0;
 
 	private static final float OPAQUE = 1;
-
-	private static final double LABEL_ANIMATION_SCALE = 3;
-
-	private final static int TRANSLATE_TO_CORNER_STEP = 400;
-
-	private final static int TRANSLATION_OPACITY_DELAY = TRANSLATE_TO_CORNER_STEP / 3;
 
 	// private long scaleBarsDuration() {
 	// return animationSpeed * 1000;
@@ -547,7 +549,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 		if (showHelp == Step.NO_FRAME) {
 			if (isAnchorable()) {
 				align(this, 0, anchor, 0);
-				delay(2500);
+				delay(TRANSLATE_TO_CORNER_DELAY);
 			}
 		} else if (showHelp == Step.START_FRAME) {
 			summary().moveToFront();
@@ -1432,7 +1434,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 			Markup medianDesc = medianContent(true);
 			StringBuffer buf = new StringBuffer();
 			buf.append(" of them satisfy all ").append(
-					query().nFilters(true, true, true)).append(" filters");
+					query().nFilters(true, true, true, true)).append(" filters");
 			if (conditionalMedian != null) {
 				// pValueString(buf);
 			} else {
@@ -1676,7 +1678,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 	/**
 	 * This loses prefix Markup like COLOR and PLURAL (which is a good thing)
 	 * @param facetDescList
-	 * @return
+	 * @return Markup with prefixes removed
 	 */
 	private Markup getPostfix(Markup facetDescList) {
 		Markup result = Query.emptyMarkup();

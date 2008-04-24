@@ -2,7 +2,6 @@ package edu.cmu.cs.bungee.client.viz;
 
 import java.awt.Color;
 
-import edu.cmu.cs.bungee.piccoloUtils.gui.APText;
 import edu.cmu.cs.bungee.piccoloUtils.gui.TextButton;
 import edu.umd.cs.piccolo.PNode;
 
@@ -21,9 +20,9 @@ class BungeeTextButton extends TextButton {
 		return outerW();
 	}
 
-	public void setMouseDoc(boolean state) {
-		art.setMouseDoc(mouseDoc);
-	}
+//	public void setMouseDoc(boolean state) {
+//		art.setMouseDoc(mouseDoc);
+//	}
 
 	public void mayHideTransients(PNode node) {
 		art.mayHideTransients();

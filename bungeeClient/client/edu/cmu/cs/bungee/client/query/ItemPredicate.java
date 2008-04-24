@@ -136,7 +136,6 @@ public interface ItemPredicate {
 	public abstract String getName(PerspectiveObserver _redraw);
 
 	/**
-	 * @param _redraw
 	 * @return the name of this ItemPredicate; if uncached, return null.
 	 */
 	public abstract String getNameIfPossible();

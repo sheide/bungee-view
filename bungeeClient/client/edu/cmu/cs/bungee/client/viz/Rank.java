@@ -29,7 +29,6 @@ package edu.cmu.cs.bungee.client.viz;
 
 import java.text.DecimalFormat;
 import java.util.Arrays;
-import java.util.Iterator;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
@@ -40,7 +39,6 @@ import edu.cmu.cs.bungee.client.query.Query;
 import edu.cmu.cs.bungee.client.viz.Summary.RankComponentHeights;
 import edu.cmu.cs.bungee.javaExtensions.Util;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyContainer;
-import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
 import edu.umd.cs.piccolo.PNode;
 
 final class Rank extends LazyContainer {
@@ -105,12 +103,13 @@ final class Rank extends LazyContainer {
 			// Util.print("Rank.validateInternal " + this + " " + (w-
 			// summary.queryW) + " " +
 			// perspectives.length + " " + totalChildTotalCount());
-			
-			double availableW = w-summary.queryW;
+
+			double availableW = w - summary.queryW;
 			// Don't let margins take up more than half the width
-			int margin = (int) Math.min(availableW/2/( nPerspectives-1), PV_MARGIN);
+			int margin = (int) Math.min(availableW / 2 / (nPerspectives - 1),
+					PV_MARGIN);
 			double barW = availableW - margin * (nPerspectives - 1);
-			assert barW>0;
+			assert barW > 0;
 			double ratio = barW / totalChildTotalCount();
 			double xOffset = summary.queryW;
 			for (int i = 0; i < nPerspectives; i++) {
@@ -118,8 +117,8 @@ final class Rank extends LazyContainer {
 				if (pv.p.isDisplayed()) {
 					int childW = (int) Math.round(ratio * pv.p.getTotalCount());
 					// assert childW > 0 : pv.p + " " + pv.p.getTotalCount();
-					if (childW<=0)
-						Util.print("WARNING: zero width for "+pv);
+					if (childW <= 0)
+						Util.print("WARNING: zero width for " + pv);
 					pv.setHeight(getHeight());
 					pv.setOffset(xOffset, 0.0);
 					pv.validate(Math.max(1, childW), i == 0);
@@ -132,6 +131,28 @@ final class Rank extends LazyContainer {
 			// if (label.getWidth() != rankLabelWdith()) {
 			perspectives[0].layoutRankLabel(false);
 			label.setOffset(LABEL_LEFT_MARGIN - summary.queryW, 0);
+		}
+	}
+
+	/**
+	 * Add PerspectiveVizs as the pickFacetTextNotifier of all rankLabel
+	 * FacetTexts with an actual facet.
+	 */
+	void hackRankLabelNotifier() {
+//		Util.print("hackRankLabelNotifier " + this);
+		TextNfacets rankLabel = perspectives[0].rankLabel;
+		for (int i = 0; i < rankLabel.getChildrenCount(); i++) {
+			FacetText ft = (FacetText) rankLabel.getChild(i);
+			Perspective ftFacet = ft.getFacet();
+			for (int j = 0; j < perspectives.length; j++) {
+				PerspectiveViz pv = perspectives[j];
+//				Util.print("vvv " + ftFacet+" " + pv.p);
+				if (pv.p == ftFacet) {
+					ft.pickFacetTextNotifier = pv;
+					// art().validatePerspectiveList();
+					// break;
+				}
+			}
 		}
 	}
 
@@ -246,11 +267,11 @@ final class Rank extends LazyContainer {
 	// }
 	// }
 
-	RankComponentHeights computeHeights(double h) {
+	RankComponentHeights computeHeights(double h1) {
 		double frontH, foldH, texth;
-		if (h > summary.selectedFrontH()) {
+		if (h1 > summary.selectedFrontH()) {
 			frontH = summary.selectedFrontH();
-			double extra = h - frontH;
+			double extra = h1 - frontH;
 			if (summary.selectedLabelH() == 0)
 				texth = 0;
 			else {
@@ -258,9 +279,9 @@ final class Rank extends LazyContainer {
 						/ summary.selectedLabelH();
 				texth = Math.round(extra / (1.0 + ratio));
 			}
-			foldH = Math.round(h - frontH - texth);
+			foldH = Math.round(h1 - frontH - texth);
 		} else {
-			frontH = Math.round(h);
+			frontH = Math.round(h1);
 			texth = 0.0;
 			foldH = 0.0;
 		}
@@ -749,7 +770,7 @@ final class Rank extends LazyContainer {
 			if (i >= 0)
 				content.add(i, Markup.UNDERLINE_TAG);
 		}
-//		Util.print("Rank.updateNameLabels " + this + " " + content);
+		// Util.print("Rank.updateNameLabels " + this + " " + content);
 
 		TextNfacets label = perspectives[0].rankLabel;
 		label.setContent(content);

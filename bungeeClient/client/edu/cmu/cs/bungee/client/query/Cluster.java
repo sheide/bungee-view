@@ -1,7 +1,6 @@
 package edu.cmu.cs.bungee.client.query;
 
 import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.Set;
