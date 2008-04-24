@@ -14,7 +14,7 @@ public class QueueThread extends Thread {
 
 	// private Object object;
 
-	 List queue;
+	protected List queue;
 
 	private final boolean unique;
 
@@ -126,16 +126,16 @@ public class QueueThread extends Thread {
 //		testThreadProblems();
 	}
 	
-	private void testThreadProblems() {
-		try {
-			long delay = (long) (Math.random()*2000);
-			Util.print(this + " " + delay);
-			sleep(delay);
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}		
-	}
+//	private void testThreadProblems() {
+//		try {
+//			long delay = (long) (Math.random()*2000);
+//			Util.print(this + " " + delay);
+//			sleep(delay);
+//		} catch (InterruptedException e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		}		
+//	}
 
 	final public void run() {
 		init();
@@ -151,12 +151,16 @@ public class QueueThread extends Thread {
 				// q = null;
 				// }
 			} catch (Throwable e) {
-				System.err.println("Ignoring exception in " + this + ":" + e);
-				e.printStackTrace();
+				reportError(e);
 			}
 			processing = false;
 		}
 		exit();
+	}
+	
+	public void reportError(Throwable e) {
+		System.err.println("Ignoring exception in " + this + ":" + e);
+		e.printStackTrace();		
 	}
 
 	/**
