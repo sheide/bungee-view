@@ -8,6 +8,7 @@ import java.net.URL;
 import java.net.URLEncoder;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Date;
 import java.util.List;
 import java.util.zip.InflaterInputStream;
 
@@ -45,6 +46,13 @@ final class ServletInterface {
 	private String status;
 
 	private DescAndImage descAndImage;
+
+	/**
+	 * This breaks abstraction, but is only used to enhance error messages. Or
+	 * maybe ServletInterface should have been an inner class of Query to start
+	 * with.
+	 */
+//	private Query query;
 
 	/**
 	 * This caches answers for two functions: itemIndex: what is the itemOffset
@@ -100,13 +108,28 @@ final class ServletInterface {
 		}
 
 		public String toString() {
-			return "onItems[" + itemIndex + "] = " + item + "; range "
-					+ minIndex + "-" + maxIndex();
+			StringBuffer buf = new StringBuffer();
+			buf.append("<ItemInfo");
+			if (itemIndex > 0) {
+				buf.append(" onItems[").append(itemIndex).append("] = ")
+						.append(item);
+			}
+			if (itemOffsets != null) {
+				String records = "";
+				records = MyResultSet.valueOfDeep(itemOffsets,
+						MyResultSet.INT, 5);
+				buf.append(" range ").append(minIndex).append("-").append(
+						maxIndex()).append("\n").append(records);
+			}
+			buf.append(">");
+			return buf.toString();
 		}
 	}
 
 	ServletInterface(String codeBase, String dbName) {
-		System.out.println(codeBase + " " + dbName);
+		System.out.print(codeBase + " " + dbName + " "
+				+ (new Date().toString()));
+//		query = _query;
 		host = codeBase;
 		String[] args = { dbName };
 		if (dbName == null || dbName.length() == 0)
@@ -115,7 +138,7 @@ final class ServletInterface {
 		DataInputStream in = getStream("CONNECT", args);
 		if (in != null) {
 			sessionID = MyResultSet.readString(in);
-			// Util.print("session = '" + sessionID + "'");
+			System.out.println(" session = '" + sessionID + "'");
 
 			databaseDesc = MyResultSet.readString(in);
 
@@ -130,7 +153,7 @@ final class ServletInterface {
 					MyResultSet.STRING_STRING_STRING_INT_INT_INT_INT);
 			init = new MyResultSet(in, MyResultSet.INT);
 
-			closeNcatch(in, "CONNECT");
+			closeNcatch(in, "CONNECT", args);
 		} else {
 			databaseDesc = null;
 			sessionID = null;
@@ -159,7 +182,7 @@ final class ServletInterface {
 	}
 
 	void dontGetStream(String command, String[] args) {
-		closeNcatch(getStream(command, args), command);
+		closeNcatch(getStream(command, args), command, args);
 	}
 
 	DataInputStream getStream(String command, String[] args) {
@@ -178,9 +201,14 @@ final class ServletInterface {
 				}
 			}
 			String actionString = flushUserActions();
-			if (actionString != null)
-				s.append("&userActions=").append(
-						URLEncoder.encode(actionString, "UTF-8"));
+			if (actionString != null) {
+				assert actionString.length() > 0;
+				String encodedActions = URLEncoder
+						.encode(actionString, "UTF-8");
+				assert encodedActions.length() > 0;
+				if (encodedActions.length() > 0)
+					s.append("&userActions=").append(encodedActions);
+			}
 			if (sessionID != null)
 				s.append("&session=").append(sessionID);
 			String url = s.toString();
@@ -206,6 +234,7 @@ final class ServletInterface {
 			// if (!command.equals("printUserAction"))
 			in = new DataInputStream(new InflaterInputStream(
 					new BufferedInputStream(conn.getInputStream())));
+
 			//           
 			// BufferedWriter out =
 			// new BufferedWriter( new OutputStreamWriter(
@@ -233,6 +262,10 @@ final class ServletInterface {
 		}
 		if (status != null && !status.equals("OK"))
 			System.err.println("getStream status: " + status);
+		if (command.equals("CONNECT")) {
+			Util.print("\nConnection using proxy? " + conn.usingProxy() + " "
+					+ conn.getRequestMethod() + " ");
+		}
 
 		return in;
 	}
@@ -257,7 +290,7 @@ final class ServletInterface {
 	String getString(String command, String[] args) {
 		DataInputStream in = getStream(command, args);
 		String result = MyResultSet.readString(in);
-		closeNcatch(in, command);
+		closeNcatch(in, command, args);
 		return result;
 	}
 
@@ -271,11 +304,11 @@ final class ServletInterface {
 	ResultSet getResultSet(String command, String[] args, List columnTypes) {
 		DataInputStream in = getStream(command, args);
 		ResultSet result = new MyResultSet(in, columnTypes);
-		closeNcatch(in, command);
+		closeNcatch(in, command, args);
 		return result;
 	}
 
-	void closeNcatch(DataInputStream s, String command) {
+	void closeNcatch(DataInputStream s, String command, String[] args) {
 		if (printOps)
 			System.out.println("...done " + command);
 		try {
@@ -283,7 +316,8 @@ final class ServletInterface {
 				// Must read to the end so s can be closed
 			}
 			s.close();
-		} catch (IOException e) {
+		} catch (Throwable e) {
+			Util.err("Error while closeNcatching: " + command + " " + args);
 			e.printStackTrace();
 		}
 	}
@@ -423,22 +457,23 @@ final class ServletInterface {
 	}
 
 	void decacheOffsets() {
+//		Util.print("Decaching itemInfo");
 		itemInfo = null;
 	}
 
 	int updateOnItems(String subQuery, int item, int table, int nNeighbors) {
 		decacheOffsets();
 		if (subQuery != null) {
-//			Util.print(subQuery);
+			// Util.print(subQuery);
 			String[] args = { subQuery, Integer.toString(item),
 					Integer.toString(table), Integer.toString(nNeighbors) };
 			DataInputStream in = getStream("updateOnItems", args);
 			int onCount = MyResultSet.readInt(in);
-//			Util.print("updateOnItems " + onCount + " " + subQuery);
+			// Util.print("updateOnItems " + onCount + " " + subQuery);
 			if (onCount > 0 && nNeighbors > 1) {
 				itemIndexInternal(in, item, nNeighbors);
 			}
-			closeNcatch(in, "updateOnItems");
+			closeNcatch(in, "updateOnItems", args);
 			return onCount;
 		} else {
 			return -1;
@@ -455,7 +490,7 @@ final class ServletInterface {
 	ResultSet getLetterOffsets(Perspective facet, String prefix) {
 		int facetID = facet.getID();
 		String[] args = { Integer.toString(facetID), prefix };
-		return getResultSet("getLetterOffsets", args, MyResultSet.SNMINT_SINT);
+		return getResultSet("getLetterOffsets", args, MyResultSet.STRING_SINT);
 	}
 
 	ResultSet init() {
@@ -474,9 +509,12 @@ final class ServletInterface {
 			if (printOps)
 				Util.print("Using cached rs for offsetItems. " + itemInfo);
 			return itemInfo.itemOffsets;
+		} else if (printOps) {
+			Util.print("NOT using cached rs for offsetItems. " + itemInfo);
 		}
 		ResultSet result = getResultSet("offsetItems", MyResultSet.INT,
 				minOffset, maxOffset, table);
+//		Util.print(MyResultSet.valueOfDeep(result, MyResultSet.INT, 5));
 		return result;
 	}
 
@@ -487,7 +525,7 @@ final class ServletInterface {
 		ResultSet[] result = new ResultSet[2];
 		result[0] = new MyResultSet(in, MyResultSet.SINT_IMAGE_INT_INT);
 		result[1] = new MyResultSet(in, MyResultSet.SNMINT_PINT);
-		closeNcatch(in, "getThumbs");
+		closeNcatch(in, "getThumbs", args);
 		return result;
 	}
 
@@ -503,7 +541,7 @@ final class ServletInterface {
 				MyResultSet.PINT_SINT_STRING_INT_INT_INT));
 		ResultSet result = new MyResultSet(in, MyResultSet.STRING_IMAGE_INT_INT);
 
-		closeNcatch(in, "getDescAndImage");
+		closeNcatch(in, "getDescAndImage", args);
 
 		return result;
 	}
@@ -530,7 +568,7 @@ final class ServletInterface {
 				Integer.toString(nNeighbors) };
 		DataInputStream in = getStream("itemIndex", args);
 		int result = itemIndexInternal(in, item, nNeighbors);
-		closeNcatch(in, "itemIndex");
+		closeNcatch(in, "itemIndex", args);
 		return result;
 	}
 
@@ -543,7 +581,7 @@ final class ServletInterface {
 		int item = MyResultSet.readInt(in);
 		result[0] = item;
 		result[1] = itemIndexInternal(in, item, nNeighbors);
-		closeNcatch(in, "itemIndexFromURL");
+		closeNcatch(in, "itemIndexFromURL", args);
 		return result;
 	}
 
@@ -579,14 +617,11 @@ final class ServletInterface {
 
 	StringBuffer processedQueue = new StringBuffer();
 
-	void printUserAction(String[] x) {
-		assert x.length == 4 : Util.valueOfDeep(x);
+	void printUserAction(String x) {
+		assert x.length() > 0;
 		if (processedQueue.length() > 0)
 			processedQueue.append(";");
-		processedQueue.append(x[0]).append(",");
-		processedQueue.append(x[1]).append(",");
-		processedQueue.append(x[2]).append(",");
-		processedQueue.append(x[3]);
+		processedQueue.append(x);
 	}
 
 	private String flushUserActions() {
@@ -621,7 +656,7 @@ final class ServletInterface {
 			result[i] = new MyResultSet(
 					in,
 					MyResultSet.INT_PINT_STRING_INT_INT_INT_INT_DOUBLE_PINT_PINT);
-		closeNcatch(in, "cluster");
+		closeNcatch(in, "cluster", args);
 		return result;
 	}
 

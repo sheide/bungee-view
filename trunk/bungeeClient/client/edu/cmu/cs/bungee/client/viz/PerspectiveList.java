@@ -36,12 +36,10 @@ import java.awt.Component;
 import java.awt.event.InputEvent;
 import java.awt.geom.Rectangle2D;
 import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
 import java.util.SortedSet;
 
 import edu.cmu.cs.bungee.client.query.ItemPredicate;
@@ -55,7 +53,6 @@ import edu.cmu.cs.bungee.piccoloUtils.gui.APText;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPPath;
 import edu.cmu.cs.bungee.piccoloUtils.gui.MouseDoc;
-import edu.cmu.cs.bungee.piccoloUtils.gui.TextButton;
 import edu.cmu.cs.bungee.piccoloUtils.gui.VScrollbar;
 import edu.umd.cs.piccolo.PNode;
 
@@ -273,6 +270,10 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 	void toggle() {
 		if (!isHidden()) {
 			removeFromParent();
+			// It's confusing if the arrows don't go by natural order if the
+			// list is hidden
+			sortField = SortButton.SORT_BY_NATURAL_ORDER;
+			sortDirection = 1;
 			// art.selectedItem.setChildrenPickable(true);
 		} else if (art.getShowTagLists()) {
 			art.summary.addChild(this);
@@ -581,14 +582,14 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 		// Util.print(" PL.showList return");
 	}
 
-	void highlightFacet(Set facets) {
+	void highlightFacet() {
 		if (!isHidden()) {
 			// Util.print("PL.showFacet " + facet);
 			for (Iterator it = getChildrenIterator(); it.hasNext();) {
 				PNode n = (PNode) it.next();
 				if (n instanceof FacetText) {
 					FacetText f = (FacetText) n;
-					f.setColor(counts[f.getFacet().whichChild()]);
+					f.setColor();
 				}
 			}
 		}
@@ -621,7 +622,7 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 			// art.font, 0, 0, -1, -1, null, 1.8f, Color.darkGray, Color
 			// .getHSBColor(0, 0, 0.1f));
 			super(field == SORT_BY_NATURAL_ORDER ? a_zLabel : noneLabel,
-					Color.darkGray, Color.getHSBColor(0, 0, 0.1f),
+					Color.gray, Color.getHSBColor(0, 0, 0.15f),
 					PerspectiveList.this.art);
 			mouseDoc = "Sort by this column";
 			// parent = _parent;

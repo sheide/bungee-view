@@ -58,8 +58,6 @@ import edu.cmu.cs.bungee.piccoloUtils.gui.Menu;
 import edu.cmu.cs.bungee.piccoloUtils.gui.MouseDoc;
 import edu.cmu.cs.bungee.piccoloUtils.gui.VScrollbar;
 import edu.umd.cs.piccolo.PNode;
-import edu.umd.cs.piccolo.activities.PInterpolatingActivity;
-import edu.umd.cs.piccolo.util.PPickPath;
 
 final class ResultsGrid extends LazyContainer implements MouseDoc {
 
@@ -75,8 +73,8 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 	 * Space to the left and right of this ResultsGrid. Redundant with
 	 * art.regionMargins
 	 */
-	static final int MARGIN_SIZE = 40;
-
+	// Now hardcoded into margin_size()
+	// int margin_size = 40;
 	/**
 	 * Maps from item record_nums to a GridImage (a kind of PImage)
 	 */
@@ -135,6 +133,8 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 	// PInterpolatingActivity highlightAnimator;
 
 	private double minWidth;
+
+	boolean onItemsInvalid;
 
 	ResultsGrid(Bungee a) {
 		art = a;
@@ -200,7 +200,6 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 				Bungee.gridScrollFG, scroll);
 
 		boundary = new Boundary(this, false);
-		boundary.margin = -MARGIN_SIZE / 2;
 		addChild(boundary);
 
 		sortLabel = art.oneLineLabel();
@@ -217,7 +216,7 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 			}
 		};
 
-		sortMenu = new Menu(null, Bungee.gridFG.darker(), doReorder,
+		sortMenu = new Menu(Bungee.gridBG, Bungee.gridFG.darker(), doReorder,
 				art.font);
 		sortMenu.addButton("Random", "Show thumbnails in random order",
 				new Integer(-1));
@@ -245,6 +244,10 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 			sortLabel.removeFromParent();
 			sortMenu.removeFromParent();
 		}
+	}
+
+	int margin_size() {
+		return art.getShowCheckboxes() ? 8 : 40;
 	}
 
 	boolean isInitted() {
@@ -281,20 +284,20 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 		h = _h;
 		// setBounds(0, 0, w, h);
 		if (isInitted()) {
-			computeMinWidth();
-			assert w >= minWidth;
-			label.setOffset(MARGIN_SIZE, 0.0);
+			boundary.margin = -margin_size() / 2;
+			assert w >= minWidth();
+			label.setOffset(margin_size(), 0.0);
 			label.setFont(art.font);
 			// label.setHeight(art.lineH);
 
-			countLabel.setOffset(MARGIN_SIZE, label.getMaxY());
+			countLabel.setOffset(margin_size(), label.getMaxY());
 			countLabel.setFont(art.font);
 
-			percentLabel.setOffset(MARGIN_SIZE, countLabel.getMaxY());
+			percentLabel.setOffset(margin_size(), countLabel.getMaxY());
 			percentLabel.setFont(art.font);
 
-			thumbnails.setOffset(MARGIN_SIZE, getTopMargin());
-			gridScrollBar.setOffset(w - MARGIN_SIZE - art.scrollBarWidth,
+			thumbnails.setOffset(margin_size(), getTopMargin());
+			gridScrollBar.setOffset(w - margin_size() - art.scrollBarWidth,
 					getTopMargin());
 
 			sortLabel.setFont(art.font);
@@ -303,13 +306,13 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 			// Match y of QueryViz text search label
 			double sortY = h - (art.lineH + 1) * 1.5;
 
-			if (sortLabel.getWidth() + sortMenu.getWidth() + MARGIN_SIZE <= w) {
-				sortLabel.setOffset(MARGIN_SIZE, sortY);
+			if (sortLabel.getWidth() + sortMenu.getWidth() + margin_size() <= w) {
+				sortLabel.setOffset(margin_size(), sortY);
 				sortMenu.setOffset(sortLabel.getMaxX(), sortY);
 			} else {
-				sortMenu.setOffset(MARGIN_SIZE, sortY);
+				sortMenu.setOffset(margin_size(), sortY);
 				sortY -= sortLabel.getHeight() * sortLabel.getScale();
-				sortLabel.setOffset(MARGIN_SIZE, sortY);
+				sortLabel.setOffset(margin_size(), sortY);
 			}
 
 			// boundary.setMinX(minW);
@@ -339,8 +342,8 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 	void computeMinWidth() {
 		minWidth = art.getStringWidth("(0.001% of 999,999 "
 				+ query().genericObjectLabel + ")")
-				+ 2 * MARGIN_SIZE;
-		// Util.print("computeMinWidth " + minWidth);
+				+ 2 * margin_size();
+		// Util.print("Grid.computeMinWidth " + minWidth);
 	}
 
 	public double minWidth() {
@@ -401,7 +404,8 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 	}
 
 	void dataUpdated() {
-		// Util.print("Grid.dataUpdated " + query().onCount);
+		// Util.print("Grid.dataUpdated " + query().getOnCount());
+		onItemsInvalid = false;
 		onCount = query().getOnCount();
 		setDescription();
 		offsetItemTableRangesIndex = 0;
@@ -422,7 +426,8 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 	 * As a side effect, sets nCols, gridW, nVisibleRows, nRows
 	 * 
 	 * @param count
-	 * @return
+	 * @return the number of thumbnails to display, assuming onCount is at least
+	 *         that high
 	 */
 	int maxThumbs(int count) {
 		double usableH = h - getTopMargin() - getBottomMargin();
@@ -447,7 +452,8 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 	}
 
 	double usableW() {
-		return w - art.scrollBarWidth - art.scrollMarginSize - 2 * MARGIN_SIZE;
+		return w - art.scrollBarWidth - art.scrollMarginSize - 2
+				* margin_size();
 	}
 
 	// Fit to height instead of width if it wastes less space.
@@ -525,95 +531,105 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 	 * Called in thread rangeEnsurer
 	 */
 	void ensureRange() {
-		// Util.print("ensureRange " + selectedItem + " " + selectedItemOffset +
-		// " " + onCount);
-		// If selectedItem is still in onItems, return it's new offset;
-		// otherwise, set offset to zero.
-		if (selectedItem != null && selectedItemOffset < 0) {
-			// This should be pre-computed - no need to talk to server.
-			selectedItemOffset = query().itemIndex(selectedItem,
-			// add an extra 1 to catch the case of paging down.
-					(nVisibleRows + 1) * nCols);
-			// Util.print("itemIndex = " + selectedItemOffset);
-		}
-		if (selectedItemOffset < 0) {
-			// Need new selectedItem
-			mustSetItem = true;
-			selectedItemOffset = 0;
-		}
-
-		visRowOffset = visibleRowOffset(visRowOffset, selectedItemOffset);
-		int originalMinOffset = visRowOffset * nCols;
-		int originalMaxOffset = (visRowOffset + nVisibleRows) * nCols;
-		if (originalMaxOffset > onCount)
-			originalMaxOffset = onCount;
-
-		if (!isInRange(originalMinOffset, originalMaxOffset)) {
-			// Util.print("ensureRange " + offsetItemTableRangesIndex + " "
-			// + minOffset + " " + maxOffset);
-			originalMaxOffset = Util.min(onCount, originalMaxOffset);
-			if (offsetItemTable == null) {
-				// assert offsetItemTableRangesIndex == 0;
-				offsetItemTable = new Item[query().getTotalCount()];
-				// if (offsetItemTable != null)
-				// System.arraycopy(offsetItemTable, 0, tempOffsetItemTable,
-				// 0, offsetItemTable.length);
-				// offsetItemTable = tempOffsetItemTable;
-			}
-
-			int minRange = -1;
-			int maxRange = -1;
-			int minOffset = originalMinOffset;
-			int maxOffset = originalMaxOffset;
-			for (int i = 0; i < offsetItemTableRangesIndex; i += 2) {
-				int low = offsetItemTableRanges[i];
-				int hi = offsetItemTableRanges[i + 1];
-				if (low >= minOffset && hi <= maxOffset) {
-					minRange = i;
-					offsetItemTableRanges[i + 1] = maxOffset;
-				} else if (low <= minOffset && hi >= minOffset) {
-					minRange = i;
-					minOffset = hi;
-					offsetItemTableRanges[i + 1] = maxOffset;
-				} else if (low <= maxOffset && low >= minOffset) {
-					maxRange = i;
-					maxOffset = low;
-					offsetItemTableRanges[i] = minOffset;
+		if (!onItemsInvalid) {
+			synchronized (offsetItemTableRanges) {
+				// Util.print("ensureRange " + selectedItem + " "
+				// + selectedItemOffset + " " + onCount);
+				// If selectedItem is still in onItems, return it's new offset;
+				// otherwise, set offset to zero.
+				if (selectedItem != null && selectedItemOffset < 0) {
+					// This should be pre-computed - no need to talk to server.
+					selectedItemOffset = query().itemIndex(selectedItem,
+					// add an extra 1 to catch the case of paging down.
+							(nVisibleRows + 1) * nCols);
+					// Util.print("itemIndex = " + selectedItemOffset);
 				}
+				if (selectedItemOffset < 0) {
+					// Need new selectedItem
+					mustSetItem = true;
+					selectedItemOffset = 0;
+				}
+
+				visRowOffset = visibleRowOffset(visRowOffset,
+						selectedItemOffset);
+				int originalMinOffset = visRowOffset * nCols;
+				int originalMaxOffset = (visRowOffset + nVisibleRows) * nCols;
+				originalMaxOffset = Util.min(onCount, originalMaxOffset);
+
+				if (!isInRange(originalMinOffset, originalMaxOffset)) {
+					// Util.print("ensureRange " + offsetItemTableRangesIndex +
+					// " "
+					// + minOffset + " " + maxOffset);
+					if (offsetItemTable == null) {
+						// assert offsetItemTableRangesIndex == 0;
+						offsetItemTable = new Item[query().getTotalCount()];
+						// if (offsetItemTable != null)
+						// System.arraycopy(offsetItemTable, 0,
+						// tempOffsetItemTable,
+						// 0, offsetItemTable.length);
+						// offsetItemTable = tempOffsetItemTable;
+					}
+
+					int minRange = -1;
+					int maxRange = -1;
+					int minOffset = originalMinOffset;
+					int maxOffset = originalMaxOffset;
+					for (int i = 0; i < offsetItemTableRangesIndex; i += 2) {
+						int low = offsetItemTableRanges[i];
+						int hi = offsetItemTableRanges[i + 1];
+						if (low >= minOffset && hi <= maxOffset) {
+							minRange = i;
+							offsetItemTableRanges[i + 1] = maxOffset;
+						} else if (low <= minOffset && hi >= minOffset) {
+							minRange = i;
+							minOffset = hi;
+							offsetItemTableRanges[i + 1] = maxOffset;
+						} else if (low <= maxOffset && low >= minOffset) {
+							maxRange = i;
+							maxOffset = low;
+							offsetItemTableRanges[i] = minOffset;
+						}
+					}
+					if (minRange >= 0 && maxRange >= 0) {
+						offsetItemTableRanges[minRange + 1] = offsetItemTableRanges[maxRange + 1];
+						int[] newRanges = null;
+						if (maxRange > 0) {
+							newRanges = Util.subArray(offsetItemTableRanges, 0,
+									maxRange - 1);
+							if (maxRange < offsetItemTableRanges.length - 2)
+								newRanges = Util
+										.append(
+												newRanges,
+												Util
+														.subArray(
+																offsetItemTableRanges,
+																maxRange + 2,
+																offsetItemTableRanges.length - 1));
+						} else
+							newRanges = Util.subArray(offsetItemTableRanges, 2,
+									offsetItemTableRanges.length - 1);
+						offsetItemTableRangesIndex -= 2;
+						offsetItemTableRanges = newRanges;
+					} else if (minRange < 0 && maxRange < 0) {
+						offsetItemTableRanges = Util.push(Util.push(
+								offsetItemTableRanges, maxOffset), minOffset);
+						offsetItemTableRangesIndex += 2;
+					}
+					ensureRangeInternal(minOffset, maxOffset);
+					selectedItem = getItem(selectedItemOffset);
+					if (selectedItem != null) {
+						// // results.art.waitForValidQuery();
+						javax.swing.SwingUtilities.invokeLater(getDoRedraw());
+						// if (toLoad != null) {
+						// loadThumbs(toLoad);
+						// javax.swing.SwingUtilities.invokeLater(getDoRedraw());
+					}
+					// }
+				}
+				checkCached(originalMinOffset, originalMaxOffset);
+				// Util.print("ensureRange return");
 			}
-			if (minRange >= 0 && maxRange >= 0) {
-				offsetItemTableRanges[minRange + 1] = offsetItemTableRanges[maxRange + 1];
-				int[] newRanges = null;
-				if (maxRange > 0) {
-					newRanges = Util.subArray(offsetItemTableRanges, 0,
-							maxRange - 1);
-					if (maxRange < offsetItemTableRanges.length - 2)
-						newRanges = Util.append(newRanges, Util.subArray(
-								offsetItemTableRanges, maxRange + 2,
-								offsetItemTableRanges.length - 1));
-				} else
-					newRanges = Util.subArray(offsetItemTableRanges, 2,
-							offsetItemTableRanges.length - 1);
-				offsetItemTableRangesIndex -= 2;
-				offsetItemTableRanges = newRanges;
-			} else if (minRange < 0 && maxRange < 0) {
-				offsetItemTableRanges = Util.push(Util.push(
-						offsetItemTableRanges, maxOffset), minOffset);
-				offsetItemTableRangesIndex += 2;
-			}
-			ensureRangeInternal(minOffset, maxOffset);
-			selectedItem = getItem(selectedItemOffset);
-			if (selectedItem != null) {
-				// // results.art.waitForValidQuery();
-				javax.swing.SwingUtilities.invokeLater(getDoRedraw());
-				// if (toLoad != null) {
-				// loadThumbs(toLoad);
-				// javax.swing.SwingUtilities.invokeLater(getDoRedraw());
-			}
-			// }
 		}
-		checkCached(originalMinOffset, originalMaxOffset);
-		// Util.print("ensureRange return");
 	}
 
 	// checks whether items need ItemImages (which it calls loadThumbs to load
@@ -626,29 +642,43 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 		// Util.print("ensureCached " + edge + " " + onCount + " " + minOffset +
 		// " " + maxOffset);
 		SortedSet toLoad = new TreeSet();
-		if (offsetItemTable != null) {
-			assert maxOffset <= offsetItemTable.length : offsetItemTable.length
-					+ " " + minOffset + "-" + maxOffset + " "
-					+ offsetItemTableRangesIndex + " "
+		if (offsetItemTable != null && !onItemsInvalid) {
+			assert maxOffset <= offsetItemTable.length && maxOffset <= onCount : onCount
+					+ " "
+					+ query().getOnCount()
+					+ " "
+					+ offsetItemTable.length
+					+ " "
+					+ minOffset
+					+ "-"
+					+ maxOffset
+					+ " "
+					+ offsetItemTableRangesIndex
+					+ " "
 					+ Util.valueOfDeep(offsetItemTableRanges);
 			for (int i = minOffset; i < maxOffset; i++) {
-				if (isInRange(i, i)) {
+				if (isInRange(i, i + 1)) {
 					Item item = offsetItemTable[i];
-					assert item != null : i + " " + minOffset + "-" + maxOffset
-							+ " " + Util.valueOfDeep(offsetItemTableRanges);
+					if (item != null) {
+						ItemImage ii = art.lookupItemImage(item);
+						// Util.print("offset [" + minOffset + ", " + maxOffset
+						// + "] => " + item + " " + (ii != null));
 
-					ItemImage ii = art.lookupItemImage(item);
-					// Util.print("offset [" + minOffset + ", " + maxOffset
-					// + "] => " + item + " " + (ii != null));
-
-					if (ii == null
-							|| !ii.bigEnough(edgeW, edgeH, Bungee.ThumbQuality)) {
-						assert !toLoad.contains(item);
-						toLoad.add(item);
-					} else if (lookupThumb(item) == null) {
-						// After unrestrict, thumbs gets wiped but itemImages
-						// doesn't
-						addThumb(item, new GridImage(ii));
+						if (ii == null
+								|| !ii.bigEnough(edgeW, edgeH,
+										Bungee.ThumbQuality)) {
+							assert !toLoad.contains(item);
+							toLoad.add(item);
+						} else if (lookupThumb(item) == null) {
+							// After unrestrict, thumbs gets wiped but
+							// itemImages
+							// doesn't
+							addThumb(item, new GridImage(ii));
+						}
+					} else {
+						assert false : i + " " + minOffset + "-" + maxOffset
+								+ " " + offsetItemTableRangesIndex + " "
+								+ Util.valueOfDeep(offsetItemTableRanges);
 					}
 				}
 			}
@@ -665,23 +695,27 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 	 */
 	void ensureRangeInternal(int minOffset, int maxOffset) {
 		// Util.print("ensureRangeInternal " + minOffset + "-" + maxOffset);
-		java.sql.ResultSet rs = query().offsetItems(minOffset, maxOffset);
-		// WARNING: don't change rs row, as it may be purposefullly set to an
-		// intermediate row.
-		try {
-			while (rs.next() && minOffset < maxOffset) {
-				// Util.print(minOffset + " " + rs.getInt(1));
-				Item item = Item.ensureItem(rs.getInt(1));
-				offsetItemTable[minOffset++] = item;
+		if (!onItemsInvalid) {
+			java.sql.ResultSet rs = query().offsetItems(minOffset, maxOffset);
+			// WARNING: don't change rs row, as it may be purposefullly set to
+			// an
+			// intermediate row.
+			try {
+				int i = minOffset;
+				while (rs.next() && i < maxOffset) {
+					// Util.print(minOffset + " " + rs.getInt(1));
+					Item item = Item.ensureItem(rs.getInt(1));
+					offsetItemTable[i++] = item;
+				}
+				// Util.print(" " + minOffset + " " + maxOffset + " "
+				// + rs.getRow());
+				assert i == maxOffset : minOffset + "-" + maxOffset + " " + i+" "
+						+ rs.getRow() + "/" + MyResultSet.nRows(rs);
+			} catch (Throwable e) {
+				e.printStackTrace();
+			} finally {
+				query().close(rs);
 			}
-			// Util.print(" " + minOffset + " " + maxOffset + " "
-			// + rs.getRow());
-			// assert minOffset == maxOffset : minOffset + " " + maxOffset + " "
-			// + rs.getRow();
-		} catch (Throwable e) {
-			e.printStackTrace();
-		} finally {
-			query().close(rs);
 		}
 		// Util.print("ensureRangeInternal return ");
 	}
@@ -896,7 +930,7 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 							// under
 							// us.
 							GridImage image = lookupThumb(item);
-							// Util.print("drawGrid " + item + " " + image.)
+							// Util.print("drawGrid " + item);
 							if (image != null) {
 								image.offset = offset;
 								image.scale(edgeW, edgeH);
@@ -958,8 +992,8 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 	Item[] offsetItemTable;
 
 	/**
-	 * plist of [min, max] offset ranges for which we've cached corresponding
-	 * record_num's in offsetItemTable.
+	 * plist of [min, max> offset ranges for which we've cached corresponding
+	 * record_num's in offsetItemTable. (max is not a valid index)
 	 */
 	private int[] offsetItemTableRanges = {};
 
@@ -972,10 +1006,12 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 	 * Can be called in thread rangeEnsurer
 	 */
 	boolean isInRange(int min, int max) {
-		for (int i = 0; i < offsetItemTableRangesIndex; i += 2) {
-			if (offsetItemTableRanges[i] <= min
-					&& offsetItemTableRanges[i + 1] >= max)
-				return true;
+		if (!onItemsInvalid) {
+			for (int i = 0; i < offsetItemTableRangesIndex; i += 2) {
+				if (offsetItemTableRanges[i] <= min
+						&& offsetItemTableRanges[i + 1] >= max)
+					return true;
+			}
 		}
 		// Util.print("not in range: " + min + "-" + max);
 		return false;
@@ -1043,7 +1079,7 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 
 	// Called by handleArrow, pick, and scroll.run
 	void computeSelectedItemFromSelectedOffset(int itemOffset, int rowOffset) {
-		if (onCount > 0) {
+		if (onCount > 0 && !onItemsInvalid) {
 			boolean isExplicitly = rowOffset < 0;
 			selectedItemOffset = Util.constrain(itemOffset, 0, onCount - 1);
 			if (rowOffset < 0) {
@@ -1052,13 +1088,11 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 			Item oldSelectedItem = selectedItem;
 			selectedItem = getItem(selectedItemOffset);
 
-			// Util.print("computeSelectedItemFromSelectedOffset itemOffset=" +
-			// itemOffset +
-			// " visRowOffset="
-			// + visRowOffset + " rowOffset=" + rowOffset
-			// + " selectedItemOffset=" + selectedItemOffset
-			// + " oldSelectedItem=" + oldSelectedItem + " selectedItem="
-			// + selectedItem);
+			// Util.print("computeSelectedItemFromSelectedOffset itemOffset="
+			// + itemOffset + " visRowOffset=" + visRowOffset
+			// + " rowOffset=" + rowOffset + " selectedItemOffset="
+			// + selectedItemOffset + " oldSelectedItem="
+			// + oldSelectedItem + " selectedItem=" + selectedItem);
 			if (rowOffset != visRowOffset) {
 				visRowOffset = rowOffset;
 				updateScrollPos();
@@ -1127,7 +1161,7 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 	}
 
 	public void setMouseDoc(PNode source, boolean state) {
-			art.setMouseDoc(source, state);
+		art.setMouseDoc(source, state);
 	}
 
 	public void setMouseDoc(String doc) {
@@ -1164,8 +1198,8 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 		// Util.print("# cached thumbs: " + table.size());
 	}
 
-	// only called by replayOps
-	void clickThumb(Item item) {
+	// only called by replayOps and Informedia
+	void clickThumb(Item item, int retries) {
 		GridImage thumb = lookupThumb(item);
 		// Util.print("clickThumb " + item + " " + query().itemIndex(item, 0)
 		// + " " + thumb);
@@ -1182,16 +1216,33 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 				} else {
 					Util.err("Thumbnail not found for " + selectedItem
 							+ ". Probably low on memory and table decached.");
+					retryClickThumb(item, retries);
 					return;
 				}
 			} else {
 				Util.err("Selected item not found for offset "
 						+ selectedItemOffset + " " + query().isQueryValid()
 						+ " " + item + "\n" + query());
+				retryClickThumb(item, retries);
 				return;
 			}
 		}
-		thumb.pick(false, false);
+		if (onItemsInvalid)
+			retryClickThumb(item, retries);
+		else
+			thumb.pick(false, false);
+	}
+
+	void retryClickThumb(final Item item, final int retries) {
+		// Util.print("retryClickThumb " + retries + " " + onItemsInvalid);
+		Runnable retry = new Runnable() {
+			public void run() {
+				if (retries > 0) {
+					clickThumb(item, retries - (onItemsInvalid ? 0 : 1));
+				}
+			}
+		};
+		javax.swing.SwingUtilities.invokeLater(retry);
 	}
 
 	Query query() {
@@ -1203,6 +1254,10 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 		// + thumbnails.getRoot());
 		return (thumbnails != null && thumbnails.getWidth() > 0) ? thumbnails
 				.maxColumns() : (int) minWidth() / Thumbnails.MIN_COLUMN_WIDTH;
+	}
+
+	void clearTextCaches() {
+		minWidth = 0;
 	}
 }
 

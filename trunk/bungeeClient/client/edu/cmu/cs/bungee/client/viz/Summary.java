@@ -60,7 +60,7 @@ import edu.umd.cs.piccolo.util.PPickPath;
 
 final class Summary extends LazyContainer implements MouseDoc {
 
-//	static int updateCount = 0;
+	// static int updateCount = 0;
 
 	/**
 	 * Horizontal space between buttons
@@ -75,7 +75,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 
 	QueryViz queryViz;
 
-	private APText label;
+	APText label;
 
 	private TextNfacets summaryText;
 
@@ -139,22 +139,22 @@ final class Summary extends LazyContainer implements MouseDoc {
 		clearMessage
 				.setText(" (To clear a single filter, click on the tag again.) ");
 
-		ellipsis = new EllipsisButton(Bungee.summaryFG);
+		ellipsis = new EllipsisButton();
 		ellipsis.setVisible(false);
 		addChild(ellipsis);
 
-		clear = new ClearButton(Bungee.summaryFG);
+		clear = new ClearButton();
 		// clear.addInputEventListener(new ClearQueryHandler());
 		clear.setVisible(false);
 		addChild(clear);
 
 		if (true || art.jnlpClipboardService != null) {
-			bookmark = new BookmarkButton(Bungee.summaryFG);
+			bookmark = new BookmarkButton();
 			bookmark.setVisible(false);
 			addChild(bookmark);
 		}
 
-		restrict = new RestrictButton(Bungee.summaryFG);
+		restrict = new RestrictButton();
 		restrict.setVisible(false);
 		addChild(restrict);
 
@@ -186,7 +186,6 @@ final class Summary extends LazyContainer implements MouseDoc {
 		// fetcher.start();
 
 		boundary = new Boundary(this, false);
-		boundary.margin = ResultsGrid.MARGIN_SIZE / 2;
 		addChild(boundary);
 	}
 
@@ -219,6 +218,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 		// use grid margin.
 		h = _h;
 		// setBounds(0, 0, _w, h);
+		boundary.margin = art.grid.margin_size() / 2;
 		setTextSize();
 		double summaryTextY = label.getGlobalBounds().getHeight();
 		double buttonY = summaryTextY + 1.5 * art.lineH;
@@ -389,7 +389,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 			r.setFeatures();
 		}
 		if (!art.getShowTagLists())
-		hidePerspectiveList();
+			hidePerspectiveList();
 	}
 
 	// private void initColors() {
@@ -725,7 +725,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 			// }
 
 			public void setRelativeTargetValue(float zeroToOne) {
-//				updateCount++;
+				// updateCount++;
 				// Util.print("Summary.animateData");
 				for (int i = 0; i < nRanks(); i++) {
 					Rank r = (Rank) ranks.get(i);
@@ -816,13 +816,13 @@ final class Summary extends LazyContainer implements MouseDoc {
 	}
 
 	/**
-	 * @param facet
-	 *            facet for which highlighting has changed
+	 * @param facets
+	 *            facets for which highlighting has changed
 	 */
 	void highlightFacet(Set facets) {
 		updateSelections(facets);
 		if (perspectiveList != null)
-			perspectiveList.highlightFacet(facets);
+			perspectiveList.highlightFacet();
 	}
 
 	void highlightCluster(Set facets) {
@@ -833,7 +833,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 
 	void clearQuery() {
 		art.printUserAction(Bungee.BUTTON, "Clear", 0);
-		boolean isMultipleFilters = q.nFilters(false, true, false) > 1;
+		boolean isMultipleFilters = q.nFilters(false, true, false, false) > 1;
 		art.clearQuery();
 		if (isMultipleFilters) {
 			addChild(clearMessage);
@@ -1067,8 +1067,8 @@ final class Summary extends LazyContainer implements MouseDoc {
 		art.setMouseDoc(source, state);
 	}
 
-	public void setMouseDoc(String ignore1) {
-		assert false;
+	public void setMouseDoc(String s) {
+		art.setMouseDoc(s);
 	}
 
 	// void setMouseDoc(Markup ignore1, boolean ignore2) {
@@ -1152,7 +1152,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 	}
 
 	void clickRank(Perspective facet, int modifiers) {
-		lookupPV(facet).pickFacet((Perspective) facet, modifiers);
+		lookupPV(facet).pickFacet(facet, modifiers);
 	}
 
 	boolean removeSearch(String string) {
@@ -1194,7 +1194,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 
 	protected boolean pickAfterChildren(PPickPath pickPath) {
 		boolean result = super.pickAfterChildren(pickPath);
-		Util.print("summary.pickAfterChildren " +result);
+		Util.print("summary.pickAfterChildren " + result);
 		return result;
 	}
 
@@ -1364,9 +1364,9 @@ final class Summary extends LazyContainer implements MouseDoc {
 	// colorKey.expand();
 	// }
 
-	 final class ColorKey extends LazyPNode {
+	final class ColorKey extends LazyPNode {
 
-		private final ColorKeyHover colorKeyHover = new ColorKeyHover();
+		final ColorKeyHover colorKeyHover = new ColorKeyHover();
 
 		ColorKey(double w, double h) {
 			Color[][] colors = { Markup.INCLUDED_COLORS,
@@ -1380,6 +1380,8 @@ final class Summary extends LazyContainer implements MouseDoc {
 					"Tag negatively associated with filters; Items with this tag are less likely than others to satisfy the filters",
 					"Tag prohibited by filters" };
 			int nColors = colors.length;
+			if (!art.getIsShortcuts() && !art.getShowCheckboxes())
+				nColors--;
 			APText label1 = art.oneLineLabel();
 			label1.setTextPaint(Bungee.summaryFG);
 			label1.setText("Color Key");
@@ -1494,12 +1496,14 @@ final class Summary extends LazyContainer implements MouseDoc {
 		}
 	}
 
-	final class EllipsisButton extends BungeeTextButton {
+	final class EllipsisButton extends SummaryButton {
 
-		EllipsisButton(Color color) {
+		private static final String label1 = "...";
+
+		EllipsisButton() {
 			// super("...", art.font, 0, 0, art.getStringWidth("...") + 2,
 			// art.lineH + 2, null, 1.5f, color, Bungee.summaryBG);
-			super("...", color, Bungee.summaryBG, Summary.this.art);
+			super(label1);
 			mouseDoc = "Show the rest of the summary";
 			// ((PText) child).setTextPaint(color);
 		}
@@ -1519,22 +1523,15 @@ final class Summary extends LazyContainer implements MouseDoc {
 
 	}
 
-	final class ClearButton extends BungeeTextButton {
+	final class ClearButton extends SummaryButton {
 
-		private static final String label1 = " Clear  "; // " Clear
+		private static final String label1 = " Clear  ";
 
-		// Filters on
-		// Categories ";
-
-		// APText nFiltersLabel;
-
-		// private final static double scale = 1.0;
-
-		ClearButton(Color color) {
+		ClearButton() {
 			// super(label1, art.font, 0, 0, art.getStringWidth(" Unrestrict "),
 			// art.lineH /* / scale */+ 2, null, 1.8f, color,
 			// Bungee.summaryBG);
-			super(label1, color, Bungee.summaryBG, Summary.this.art);
+			super(label1);
 			((APText) child).setConstrainWidthToTextWidth(true);
 			mouseDoc = "Remove all text and category filters";
 
@@ -1552,7 +1549,6 @@ final class Summary extends LazyContainer implements MouseDoc {
 		}
 
 		public void doPick() {
-			// Summary summary = ((Summary) getParent());
 			if (getText().equals(label1))
 				clearQuery();
 			else
@@ -1560,32 +1556,33 @@ final class Summary extends LazyContainer implements MouseDoc {
 		}
 
 		void setNumFilters() {
-			// Query q = ((Summary) getParent()).q;
 			if (!q.isRestricted() && q.isRestrictedData()) {
 				mouseDoc = "Revert to exploring the entire database";
 				setText(" Unrestrict  ");
 			} else {
-				// Util.print("ClearButton.setNumFilters " + n);
-				// ((APText) child).setText(" " + Integer.toString(n));
 				mouseDoc = "Remove " + q.describeNfilters();
 				setText(label1);
 			}
 		}
-
 	}
 
-	final class BookmarkButton extends BungeeTextButton {
+	final class BookmarkButton extends SummaryButton {
 
 		private static final String label1 = " Bookmark  ";
 
-		BookmarkButton(Color color) {
+		BookmarkButton() {
 			// super(label1, art.font, 0, 0, art.getStringWidth(label1),
 			// art.lineH /* / scale */+ 2, null, 1.8f, color,
 			// Bungee.summaryBG);
-			super(label1, color, Bungee.summaryBG, Summary.this.art);
+			super(label1);
 			((APText) child).setConstrainWidthToTextWidth(true);
 			mouseDoc = "Copy a URL for your current query to the system Clipboard";
 			setDisabledMessage("There are no results to bookmark");
+			if (art.informedia != null) {
+				setText("New Video Set");
+				mouseDoc = "Save these results as an Informedia video set";
+				setDisabledMessage("There are no results to save");
+			}
 		}
 
 		public boolean isEnabled() {
@@ -1593,7 +1590,10 @@ final class Summary extends LazyContainer implements MouseDoc {
 		}
 
 		public void doPick() {
-			art.copyBookmark();
+			if (art.informedia != null)
+				art.saveVideoSet();
+			else
+				art.copyBookmark();
 		}
 
 		public void mayHideTransients(PNode node) {
@@ -1602,15 +1602,15 @@ final class Summary extends LazyContainer implements MouseDoc {
 
 	}
 
-	final class RestrictButton extends BungeeTextButton {
+	final class RestrictButton extends SummaryButton {
 
 		private static final String label1 = " Restrict  ";
 
-		RestrictButton(Color color) {
+		RestrictButton() {
 			// super(label1, art.font, 0, 0, art.getStringWidth(label1),
 			// art.lineH /* / scale */+ 2, null, 1.8f, color,
 			// Bungee.summaryBG);
-			super(label1, color, Bungee.summaryBG, Summary.this.art);
+			super(label1);
 			((APText) child).setConstrainWidthToTextWidth(true);
 			mouseDoc = "Explore within the current results";
 			setDisabledMessage("There are no results to restrict to");
@@ -1628,6 +1628,14 @@ final class Summary extends LazyContainer implements MouseDoc {
 			Summary.this.mayHideTransients();
 		}
 
+	}
+	
+	class SummaryButton extends BungeeTextButton {
+
+		SummaryButton(String text) {
+			super(text, Bungee.summaryBG, Util.brighten(Bungee.summaryFG, 0.6f), Summary.this.art);
+		}
+		
 	}
 
 	boolean keyPress(char key) {

@@ -31,7 +31,6 @@
 
 package edu.cmu.cs.bungee.client.viz;
 
-import java.awt.geom.AffineTransform;
 import java.io.InputStream;
 import java.lang.ref.SoftReference;
 import java.sql.ResultSet;
@@ -458,11 +457,7 @@ final class SelectedItem extends LazyContainer implements MouseDoc {
 	}
 
 	void showItemInNewWindow() {
-		String desc = query().itemURLdoc;
-		if (desc != null && desc.length() > 0) {
-			art.printUserAction(Bungee.IMAGE, currentItem.getId(), 0);
 			art.showItemInNewWindow(currentItem);
-		}
 	}
 
 	/**

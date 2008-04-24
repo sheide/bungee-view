@@ -7,7 +7,6 @@ import java.util.ListIterator;
 import java.util.Set;
 import java.util.Vector;
 
-import edu.cmu.cs.bungee.javaExtensions.Util;
 
 /**
  * @author mad this is really just a generic tree structure, where every node

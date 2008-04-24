@@ -63,6 +63,7 @@ final class MouseDocLine extends LazyPNode implements PerspectiveObserver {
 		setBounds(0, 0, w, h);
 		clickDesc.setBounds(0, 0, w, h);
 		tip.setBounds(0, 0, w, h);
+		tip.setFont(art.font);
 	}
 
 	MouseDocLine(Bungee _art) {

@@ -33,10 +33,39 @@ package edu.cmu.cs.bungee.client.viz;
 /**
  * ToDo:
  * 
+ * get rid of clusters in favor of top 10/bottom 10 lists
+ * 
+ * PerspectiveLists show tags that have zero totalCount in restricted set.
+ * 
  * Light beams aren't right when you zoom
+ * 
+ * Query for percentage on even for deeply nested facets. Pass more arguments
+ * analogous to relevantFacets, to get counts for nested facets of the selected
+ * item along with all the other counts.
  * 
  * PerspectiveList headers should color facet name and use search color for
  * other text.
+ * 
+ * When you switch modes, bar label counts don't always line up. Maybe the
+ * problem is when they've previsouly been displayed in selected item frame?
+ * 
+ * HP database: lose centuries and only group dates by decade. Days should be '1
+ * June 1944' not '1'. Music database: many Labels' names start with blank
+ * space; Artists not alphabetized right.
+ * 
+ * Document BV ontology. eg are tags and categories the same kind of object?
+ * They use the same color scheme, so why can't you click on Oscar to select
+ * Oscar-winning movies?
+ * 
+ * in expert mode, could have tabs like informedia. A "Save" button would save
+ * the current query in a new tab. Then you could have a tab menu to AND or OR
+ * with the current query. You could also do "compare" where the current query
+ * becomes the OR and you restrict to either one.
+ * 
+ * Shot collector
+ * 
+ * Limit inf search names to width of frame, with rollover expansion like
+ * summary description.
  * 
  * Tweedie-style bars showing expected, current, current except for us, current
  * except for 1 other.
@@ -56,8 +85,6 @@ package edu.cmu.cs.bungee.client.viz;
  * complication. Also nest instantiatedPerspective inside Perspective.
  * 
  * Widget to limit cluster size (especially to 1)
- * 
- * Query for percentage on even for deeply nested facets.
  * 
  * Brush grid scrollbar if ordered by an attribute. scrollbar intervals
  * correspond to tags. Intervals can be computed from perspective cumOnCounts.
@@ -134,7 +161,6 @@ import javax.imageio.ImageIO;
 import javax.jnlp.BasicService;
 import javax.jnlp.ClipboardService;
 import javax.jnlp.ServiceManager;
-import javax.jnlp.UnavailableServiceException;
 
 import java.awt.Color;
 import java.awt.Cursor;
@@ -170,7 +196,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.ArrayList;
 
-import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 
 import edu.cmu.cs.bungee.client.query.Cluster;
@@ -180,6 +205,7 @@ import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.cmu.cs.bungee.client.query.PerspectiveObserver;
 import edu.cmu.cs.bungee.client.query.Query;
 import edu.cmu.cs.bungee.client.query.Query.Item;
+import edu.cmu.cs.bungee.client.query.Query.ItemList;
 import edu.cmu.cs.bungee.javaExtensions.QueueThread;
 import edu.cmu.cs.bungee.javaExtensions.URLQuery;
 import edu.cmu.cs.bungee.javaExtensions.UpdateNoArgsThread;
@@ -407,7 +433,7 @@ final class Bungee extends PFrame {
 
 	String dbName;
 
-	private DataUpdater updater;
+	DataUpdater updater;
 
 	private transient FacetSelecter facetSelecter;
 
@@ -454,6 +480,10 @@ final class Bungee extends PFrame {
 	 */
 	static final FacetClickHandler facetClickHandler = new FacetClickHandler();
 
+	/**
+	 * Whether the query and frames have been created (though not necessarily
+	 * validated)
+	 */
 	boolean isReady = false;
 
 	private APText tooSmall;
@@ -486,6 +516,8 @@ final class Bungee extends PFrame {
 	Set highlightedFacets;
 
 	Set highlightedClusters;
+
+	Informedia informedia;
 
 	public static void main(String[] args) {
 		// Util.print("Starting Art");
@@ -526,6 +558,7 @@ final class Bungee extends PFrame {
 	public void initialize() {
 		Runtime.runFinalizersOnExit(true);
 		argString = getTitle();
+		Util.print("argString=" + argString);
 		URLQuery argURLQuery = new URLQuery(argString);
 		setTitle("Bungee View Image Collection Browser.  See the forest AND the trees.");
 		// userActions = new StringBuffer();
@@ -600,19 +633,31 @@ final class Bungee extends PFrame {
 					}
 				});
 
-		 basicJNLPservice = maybeGetBasicService();
+		basicJNLPservice = maybeGetBasicService();
 		waitCursor = new Cursor(Cursor.WAIT_CURSOR);
 		setDatabase(_dbName);
+		String informediaSocket = argURLQuery.getArgument("socket");
+		if (informediaSocket.length() > 0)
+			try {
+				informedia = new Informedia(this, Integer
+						.parseInt(informediaSocket));
+				informedia.start();
+			} catch (NumberFormatException e) {
+				e.printStackTrace();
+			}
 	}
 
 	void setFeatures(Preferences options) {
 		if (!options.equals(features)) {
 			features = options;
 			updateTextSize(options.fontSize);
-			summary.setFeatures();
-			grid.setFeatures();
-			validateIfReady();
-			printUserAction(Bungee.MODE, options.features2string().replace(',', '_'), 0);
+			if (isReady) {
+				summary.setFeatures();
+				grid.setFeatures();
+				validateIfReady();
+			}
+			printUserAction(Bungee.MODE, options.features2string().replace(',',
+					'_'), 0);
 		}
 	}
 
@@ -638,7 +683,7 @@ final class Bungee extends PFrame {
 	 * @return whether the new fontSize represents a change
 	 */
 	boolean updateTextSize(int fontSize) {
-		// Util.print("Art.setTextSize " + fontSize+" " + maxTextSize());
+		// Util.print("Art.updateTextSize " + fontSize + " " + maxTextSize());
 		assert fontSize >= MIN_TEXT_HEIGHT;
 		assert fontSize <= maxTextSize();
 		boolean result = font == null || fontSize != font.getSize();
@@ -693,6 +738,8 @@ final class Bungee extends PFrame {
 		facetNameWidths = null;
 		truncatedStrings = null;
 		facetTexts = null;
+		if (grid != null)
+			grid.clearTextCaches();
 	}
 
 	/**
@@ -843,13 +890,13 @@ final class Bungee extends PFrame {
 	 * This must not depend on frames being validated, so use getStringWidth
 	 * instead of getWidth, for instance. It DOES depend on textH.
 	 * 
-	 * @return
+	 * @return minimum width of window required for rendering
 	 */
 	int minWidth() {
 		int result = 1;
 		if (selectedItem != null)
-			result = (int) (selectedItem.minWidth() + summary.minWidth(true) + grid
-					.minWidth());
+			result = (int) (selectedItem.minWidth() + summary.minWidth(true)
+					+ grid.minWidth() + regionMargins * 2);
 		return result;
 	}
 
@@ -857,7 +904,7 @@ final class Bungee extends PFrame {
 	 * This must not depend on frames being validated, so use getStringWidth
 	 * instead of getWidth, for instance. It DOES depend on textH.
 	 * 
-	 * @return
+	 * @return minimum height of window required for rendering
 	 */
 	int minHeight() {
 		int result = 1;
@@ -875,6 +922,8 @@ final class Bungee extends PFrame {
 	 *         scales as the square root, and Summary scales linearly.
 	 */
 	double scaleRatio(double power) {
+		// gridW >= grid.minWidth() as long as w >= minWidth() and power <= 1
+		assert power <= 1;
 		double minWidth = minWidth();
 		assert w >= minWidth : w + " " + minWidth + " " + minWidth() + " "
 				+ selectedItem.minWidth() + " " + summary.minWidth(true) + " "
@@ -916,11 +965,11 @@ final class Bungee extends PFrame {
 				double selectedItemW = (int) (selectedItem.minWidth() * scaleRatio(0.5));
 				double summaryW = (int) (summary.minWidth(true) * scaleRatio(1.0));
 				double gridW = (w - summaryW - selectedItemW - 2 * regionMargins);
-				// Util.print("gridMinW " + grid.minWidth() + " summaryMinW " +
-				// summary.minWidth(true)
-				// + " selectedItemMinW " + selectedItem.minWidth());
-				// Util.print("gridW " + gridW + " summaryW " + summaryW
-				// + " selectedItemW " + selectedItemW);
+				assert gridW >= grid.minWidth() : "gridMinW " + grid.minWidth()
+						+ " summaryMinW " + summary.minWidth(true)
+						+ " selectedItemMinW " + selectedItem.minWidth()
+						+ "\ngridW " + gridW + " summaryW " + summaryW
+						+ " selectedItemW " + selectedItemW;
 				summary.validate(summaryW, internalH);
 				summary.setOffset(0.0, headerH);
 				grid.validate(gridW, internalH);
@@ -985,8 +1034,8 @@ final class Bungee extends PFrame {
 			// } else {
 			showError("Bungee View requires at least " + minWidth() + " x "
 					+ minH + " pixels," + "\n but your window is only " + w
-					+ " x " + h
-					+ ".\n  1. Make sure your window is maximized, or"
+					+ " wide x " + h
+					+ " high.\n  1. Make sure your window is maximized, or"
 					+ "\n  2. Increase your screen resolution.");
 		} else
 			getCanvas().setBackground(Color.black);
@@ -1027,6 +1076,7 @@ final class Bungee extends PFrame {
 		tooSmall.setConstrainWidthToTextWidth(false);
 		tooSmall.setWidth(w - 2 * tooSmall.getXOffset());
 		tooSmall.setText(msg);
+		Util.err(msg);
 		getCanvas().getLayer().addChild(tooSmall);
 	}
 
@@ -1110,7 +1160,6 @@ final class Bungee extends PFrame {
 		clearTextCaches();
 		highlightedClusters = new HashSet();
 		highlightedFacets = new HashSet();
-		userActionIndex = 0;
 
 		// Need to lose all references to stale facets, or hash tables will have
 		// collisions arrowFocus = null;
@@ -1211,10 +1260,30 @@ final class Bungee extends PFrame {
 			clusterViz.hide();
 	}
 
+	Item selectedItem() {
+		return selectedItem.currentItem;
+	}
+
+	public Object getFacetIDs(int startIndex, int endIndex) {
+		return query.getFacetIDs(startIndex, endIndex);
+	}
+
+	void addItemList(String name, String items) {
+		query.toggleItemList(new ItemList(name, items));
+		mayHideTransients();
+		updateAllData();
+
+	}
+
 	void showItemInNewWindow(Item item) {
+		printUserAction(Bungee.IMAGE, item.getId(), 0);
 		showDocument(item);
 	}
 
+	/**
+	 * @param o
+	 *            Either an Item or a String
+	 */
 	void showDocument(Object o) {
 		if (documentShower == null) {
 			documentShower = new DocumentShower();
@@ -1235,6 +1304,7 @@ final class Bungee extends PFrame {
 				Util.err("jnlp.BasicService is not available");
 			if (jnlpClipboardService == null)
 				Util.err("jnlp.ClipboardService is not available");
+			Util.err("because " + e);
 		}
 		return s;
 	}
@@ -1295,8 +1365,8 @@ final class Bungee extends PFrame {
 
 				// Do it this way
 				Perspective child = parent == null ? query.findUsedPerspective(
-						ancestors[k], true) : parent
-						.firstWithPrefix(ancestors[k].toUpperCase());
+						ancestors[k], true) : parent.firstWithPrefix(Util
+						.toCollationKey(ancestors[k]));
 
 				assert child != null : parent + " " + ancestors[k];
 				parent = child;
@@ -1413,7 +1483,7 @@ final class Bungee extends PFrame {
 
 	void toggleFacet(Perspective facet, int modifiers) {
 		// Util.print("Art.toggleFacet " + facet + " " + modifiers);
-		if (!getIsShortcuts()&&replayer==null)
+		if (!getIsShortcuts() && replayer == null)
 			modifiers = 0;
 		assert facet != null;
 		assert facet.getParent() != null : facet;
@@ -1739,20 +1809,20 @@ final class Bungee extends PFrame {
 
 	Color facetTextColor(ItemPredicate facet) {
 		if (facet instanceof Perspective) {
-			return facetTextColor((Perspective) facet, 1);
+			return facetTextColor((Perspective) facet);
 		} else {
 			return clusterTextColor((Cluster) facet);
 		}
 	}
 
-	Color facetTextColor(Perspective facet, int onCount, Cluster cluster) {
+	Color facetTextColor(Perspective facet, Cluster cluster) {
 		if (facet != null)
-			return facetTextColor(facet, onCount);
+			return facetTextColor(facet);
 		else
 			return clusterTextColor(cluster);
 	}
 
-	Color facetTextColor(Perspective facet, int onCount) {
+	Color facetTextColor(Perspective facet) {
 		// int fadeIndex = 1;
 		// Color[] colorFamily = Markup.UNASSOCIATED_COLORS;
 		// if (facet != null) {
@@ -1959,6 +2029,7 @@ final class Bungee extends PFrame {
 		// Util.print("Art.updateAllData ");
 		query.setQueryInvalid();
 		summary.synchronizeWithQuery(toConnect);
+		grid.onItemsInvalid = true;
 		if (clusterViz != null)
 			clusterViz.hide();
 
@@ -2042,7 +2113,7 @@ final class Bungee extends PFrame {
 								.println("Aborting doRedraw - probably user has updated query since we were called.");
 						e.printStackTrace();
 					} finally {
-						// Util.print("getRedrawer/handleCursor false");
+						// Util.print("...getRedrawer done/handleCursor false");
 						handleCursor(false);
 					}
 				}
@@ -2053,36 +2124,6 @@ final class Bungee extends PFrame {
 	Perspective singleHighlightedFacet() {
 		return highlightedFacets.size() == 1 ? (Perspective) highlightedFacets
 				.iterator().next() : null;
-	}
-
-	private transient Runnable onItemsUpdated;
-
-	/**
-	 * @return Runnable to call after onItems is updated (but Query is still
-	 *         invalid because counts aren't updated yet).
-	 */
-	Runnable getOnItemsUpdated() {
-		if (onItemsUpdated == null)
-			onItemsUpdated = new Runnable() {
-
-				public void run() {
-					// Util.print("Art.onItemsUpdated " + query.getOnCount());
-					grid.dataUpdated();
-
-					// if (showImages) {
-					// updateOnItems(onCount);
-					// }
-
-					// Do this after counts updated, so FacetText colors are
-					// right.
-					// selectedItem.updateOnItems();
-					if (query.getOnCount() == 0 && !query.isShortSearch()) {
-						setTip("No results. You need to remove some filters.  (There are now "
-								+ query.describeNfilters() + ")");
-					}
-				}
-			};
-		return onItemsUpdated;
 	}
 
 	void waitForValidQuery() {
@@ -2190,7 +2231,8 @@ final class Bungee extends PFrame {
 			name.append(stringForWidth(numW - numWidth(onCount)));
 			name.append(Util.addCommas(onCount));
 		}
-		// Util.print("facetLabel " + onCount + " '" + name.toString() + "'");
+		// Util.print("facetLabel " + facet + " " + showChildIndicator + " "
+		// + onCount + " '" + name.toString() + "'");
 		return name.toString(); // Don't trim -- need initial spaces to position
 		// past checkboxes
 	}
@@ -2799,6 +2841,10 @@ final class Bungee extends PFrame {
 		setSelectedItem(item);
 	}
 
+	void saveVideoSet() {
+		informedia.newVideoSet();
+	}
+
 	void showPopup(Perspective facet) {
 		if (isPopups() && !isShowingInitialHelp()) {
 			summary.showPopup(facet);
@@ -2832,34 +2878,15 @@ final class Bungee extends PFrame {
 		printUserAction(location, Integer.toString(item), modifiers);
 	}
 
-	/**
-	 * MySQL timestamp granularity is one second, and users can perform more
-	 * than one action in that time, so we need to remember the order
-	 * explicitly.
-	 */
-	private int userActionIndex = 0;
-
 	void printUserAction(int location, String object, int modifiers) {
 		if (isPrintUserActions && replayer == null) {
-			assert SwingUtilities.isEventDispatchThread() : "Should call this from one thread to ensure order is correct";
-			// if (actionPrinter == null) {
-			// actionPrinter = new ActionPrinter(query);
-			// actionPrinter.start();
-			// }
-			assert location >= BAR && location <= MODE : location;
-
-			String[] v = new String[4];
-			v[0] = Integer.toString(userActionIndex++);
-			v[1] = Integer.toString(location);
-			v[2] = object;
-			v[3] = Integer.toString(modifiers);
-			query.printUserAction(v);
-			// actionPrinter.add(v);
-
-			// userActions.append("\n").append(new Date().getTime() - startTime)
-			// .append("\t").append(location).append("\t").append(object);
-			// if (modifiers != 0)
-			// userActions.append("\t").append(modifiers);
+			// assert location >= BAR && location <= ERROR : location;
+			if (query == null) {
+				Util
+						.err("Tried to printUserAction before query is initialized: "
+								+ location + " " + modifiers + " " + object);
+			} else
+				query.printUserAction(location, object, modifiers);
 		}
 	}
 
@@ -2909,6 +2936,11 @@ final class Bungee extends PFrame {
 
 	static final int MODE = 23;
 
+	/**
+	 * Query secretly knows this value, so keep synchronized
+	 */
+	static final int ERR = 24;
+
 	void replayOp() {
 		try {
 			mayHideTransients();
@@ -2937,7 +2969,7 @@ final class Bungee extends PFrame {
 				Util.print("  Click thumb "
 						+ (modifiers == 0 ? " unintentionally "
 								: "intentionally ") + item);
-				grid.clickThumb(item);
+				grid.clickThumb(item, 5);
 				// } else {
 				// Util.print(" no-op set selected item");
 			}
@@ -2945,7 +2977,7 @@ final class Bungee extends PFrame {
 			case IMAGE:
 				Item item = Item.ensureItem(Integer.parseInt(args[2]));
 				Util.print("  clickImage " + item);
-				grid.clickThumb(item);
+				grid.clickThumb(item, 5);
 				selectedItem.clickImage(item);
 				break;
 			case FACET_TREE:
@@ -3051,6 +3083,9 @@ final class Bungee extends PFrame {
 				String mode = args[2].replace('_', ',');
 				Util.print("  Change mode to " + mode);
 				setFeatures(new Preferences(null, mode, true));
+				break;
+			case ERR:
+				Util.print(args[2]);
 				break;
 			default:
 				assert false : args[1];
@@ -3215,20 +3250,28 @@ final class Bungee extends PFrame {
 			super("DocumentShower", 0);
 		}
 
-		public void process(Object URLstring) {
-			if (URLstring instanceof Item) {
+		public void process(final Object objectToShow) {
+			String URLs;
+			if (objectToShow instanceof Item) {
+				Item item = (Item) objectToShow;
 				Query q = query;
 				if (q != null) {
-					URLstring = q.getItemURL((Item) URLstring);
-					if (URLstring == null)
+					URLs = q.getItemURL(item);
+					if (URLs == null || URLs.length() == 0) {
+						if (informedia != null
+								&& "historymakers".equals(dbName)) {
+							informedia.playSegment(item);
+						}
 						return;
-				} else
+					}
+				} else {
 					return;
+				}
+			} else {
+				URLs = (String) objectToShow;
 			}
-			if (URLstring.equals("About this collection"))
-				URLstring = aboutCollection();
-
-			String URLs = (String) URLstring;
+			if (URLs.equals("About this collection"))
+				URLs = aboutCollection();
 			if (URLs.indexOf("library.pitt.edu") > 0) {
 				// LoC & MedART can't handle additional query args
 				String prefix = "?";
@@ -3297,16 +3340,43 @@ final class Bungee extends PFrame {
 		}
 
 		public void process() {
+			// Util.print("DataUpdater.process");
 			boolean mustGetCounts = updateOnItems();
 			if (isUpToDate()) {
-				javax.swing.SwingUtilities.invokeLater(getOnItemsUpdated());
+				// Util.print("DataUpdater queueing getOnItemsUpdated");
+				final int updateIndex = query.updateIndex;
+				Runnable doOnItemsUpdated = new Runnable() {
+					public void run() {
+						if (updateIndex == query.updateIndex) {
+							// Util.print("Art.onItemsUpdated " +
+							// query.getOnCount());
+							grid.dataUpdated();
+
+							// if (showImages) {
+							// updateOnItems(onCount);
+							// }
+
+							// Do this after counts updated, so FacetText colors
+							// are
+							// right.
+							// selectedItem.updateOnItems();
+							if (query.getOnCount() == 0
+									&& !query.isShortSearch()) {
+								setTip("No results. You need to remove some filters.  (There are now "
+										+ query.describeNfilters() + ")");
+							}
+						}
+					}
+				};
+
+				javax.swing.SwingUtilities.invokeLater(doOnItemsUpdated);
 				query.updateData(!mustGetCounts);
 				if (isUpToDate()) {
 					query.setQueryValid();
 					javax.swing.SwingUtilities.invokeLater(getRedrawer());
 				} else {
 					assert waiting > 1;
-					// Util.print("updater aborting/handleCursor false");
+					Util.print("updater aborting/handleCursor false");
 					handleCursor(false);
 				}
 			} else {
@@ -3315,6 +3385,11 @@ final class Bungee extends PFrame {
 				handleCursor(false);
 			}
 		}
+	}
+
+	boolean isExpertMode() {
+		return new Preferences(features, Preferences.expertFeatureNames, true)
+				.equals(features);
 	}
 
 	void expertMode() {

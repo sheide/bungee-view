@@ -18,7 +18,6 @@ import javax.swing.JCheckBox;
 import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JFormattedTextField;
-import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JSpinner;
@@ -88,8 +87,8 @@ class PreferencesDialog extends JPanel implements ActionListener {
 		int desiredColumns = features.nColumns;
 		// Util.print("gg "+desiredColumns);
 		columnsSpinner
-		.setValue(desiredColumns > 0 ? new Integer(desiredColumns)
-				: (Object) "Bungee's choice");
+				.setValue(desiredColumns > 0 ? new Integer(desiredColumns)
+						: (Object) "Bungee's choice");
 		columnsPanel.add(columnsSpinner);
 		textFieldLabel = new JLabel("Number of columns in Results pane");
 		columnsPanel.add(textFieldLabel);
@@ -213,7 +212,7 @@ class PreferencesDialog extends JPanel implements ActionListener {
 	void setEditorWidth(JSpinner spinner, String value) {
 		JFormattedTextField ftf = getTextField(spinner);
 		if (ftf != null) {
-			ftf.setColumns((int) (0.6*value.length())); 
+			ftf.setColumns((int) (0.6 * value.length()));
 		}
 	}
 
@@ -343,13 +342,13 @@ class Preferences {
 			+ "pvalues,shortcuts,sortMenus,tagLists,zoom";
 
 	static Preferences defaultFeatures = new Preferences(null,
-			"fontSize=14,nColumns=-1,popups", true);
+			"fontSize=14,popups", true);
 
 	Preferences(Preferences base, String optionsToChange, boolean changeTo) {
 		boolean a = base != null;
 		String[] options = optionsToChange.split(",");
-		int font = 14;
-		int nCols = -1;
+		int font = a ? base.fontSize : 14;
+		int nCols = a ? base.nColumns : -1;
 		for (int i = 0; i < options.length; i++) {
 			String[] option = options[i].split("=");
 			if (option.length > 1) {
