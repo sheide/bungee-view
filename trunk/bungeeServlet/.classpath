@@ -6,6 +6,6 @@
 	<classpathentry kind="src" path="/bungeeDBscripts"/>
 	<classpathentry kind="src" path="/statistics"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
-	<classpathentry kind="lib" path="C:/Program Files/Apache Software Foundation/Tomcat 6.0/lib/servlet-api.jar"/>
+	<classpathentry kind="lib" path="C:/Program Files/Apache Software Foundation/Tomcat 6.0.16/lib/servlet-api.jar"/>
 	<classpathentry kind="output" path=""/>
 </classpath>

@@ -116,14 +116,14 @@ class Database {
 		jdbc.SQLupdate(createTempTables);
 
 		filteredCountQuery = jdbc
-				.prepareStatement("SELECT f.facet_id, COUNT(*) AS cnt "
+				.lookupPS("SELECT f.facet_id, COUNT(*) AS cnt "
 						+ "FROM relevantFacets f "
 						+ "INNER JOIN item_facet_heap i_f USING (facet_id) "
 						+ "INNER JOIN onItems USING (record_num) "
 						+ "GROUP BY f.facet_id ORDER BY f.facet_id");
 
 		filteredCountTypeQuery = jdbc
-				.prepareStatement("SELECT f.facet_id, COUNT(*) AS cnt "
+				.lookupPS("SELECT f.facet_id, COUNT(*) AS cnt "
 						+ "FROM item_facet_type_heap f "
 						+ "INNER JOIN onItems USING (record_num) "
 						+ "GROUP BY f.facet_id ");
@@ -140,28 +140,24 @@ class Database {
 						+ " LEFT JOIN restricted USING (record_num) WHERE parent_facet_id = ?"
 						+ " GROUP BY facet_id) foo ORDER BY facet_id" };
 
-		prefetchQuery = jdbc
-				.prepareStatement("SELECT n_items, n_child_facets, name "
-						+ prefetchFROM[0]);
+		prefetchQuery = jdbc.lookupPS("SELECT n_items, n_child_facets, name "
+				+ prefetchFROM[0]);
 
-		prefetchNoCountQuery = jdbc
-				.prepareStatement("SELECT n_child_facets, name"
-						+ prefetchFROM[0]);
+		prefetchNoCountQuery = jdbc.lookupPS("SELECT n_child_facets, name"
+				+ prefetchFROM[0]);
 
-		prefetchNoNameQuery = jdbc
-				.prepareStatement("SELECT n_items, n_child_facets"
-						+ prefetchFROM[0]);
+		prefetchNoNameQuery = jdbc.lookupPS("SELECT n_items, n_child_facets"
+				+ prefetchFROM[0]);
 
-		prefetchNoCountNoNameQuery = jdbc
-				.prepareStatement("SELECT n_child_facets" + prefetchFROM[0]);
+		prefetchNoCountNoNameQuery = jdbc.lookupPS("SELECT n_child_facets"
+				+ prefetchFROM[0]);
 
 		prefetchQueryRestricted = jdbc
-				.prepareStatement("SELECT n_items, n_child_facets, name"
+				.lookupPS("SELECT n_items, n_child_facets, name"
 						+ prefetchFROM[1]);
 
 		prefetchNoNameQueryRestricted = jdbc
-				.prepareStatement("SELECT n_items, n_child_facets"
-						+ prefetchFROM[1]);
+				.lookupPS("SELECT n_items, n_child_facets" + prefetchFROM[1]);
 
 		getItemInfoQuery = jdbc
 				.prepareStatement(
@@ -173,13 +169,13 @@ class Database {
 						ResultSet.CONCUR_READ_ONLY);
 
 		printUserActionStmt = jdbc
-				.prepareStatement("INSERT INTO user_actions VALUES(NOW(), ?, ?, ?, ?, ?, ?)");
+				.lookupPS("INSERT INTO user_actions VALUES(NOW(), ?, ?, ?, ?, ?, ?)");
 
 		// ORDER BY clause doesn't make any difference if facets are ordered
 		// correctly (by utf8_general_ci),
 		// but will correct for bad alphabetization in old databases.
 		getLetterOffsetsQuery = jdbc
-				.prepareStatement("SELECT MIN(SUBSTRING(name, LENGTH(?) + 1, 1)) letter, MAX(facet_id) max_facet "
+				.lookupPS("SELECT MIN(SUBSTRING(name, LENGTH(?) + 1, 1)) letter, MAX(facet_id) max_facet "
 						+ "FROM facet WHERE parent_facet_id = ? AND LOCATE(?, name) = 1 "
 						+ "GROUP BY SUBSTRING(name, LENGTH(?) + 1, 1) ORDER BY max_facet");
 	}
@@ -219,12 +215,21 @@ class Database {
 					+ "ON item.record_num = images.record_num "
 					+ "WHERE item.record_num = ";
 
+			/**
+			 * itemURLgetter should stick to atomic table references in any FROM
+			 * clause, so that copyImagesNoURI can parse it and prepend explicit
+			 * schema names. Any FROM clause should be followed immediately by
+			 * WHERE. I.e. don't use JOIN syntax in expressions like this:
+			 * 
+			 * (SELECT xref FROM movie, shotbreak WHERE movie.movie_id =
+			 * shotbreak.movie_id AND shotbreak.shotbreak_id = item.shotbreak)
+			 * 
+			 */
 			String itemURLgetter = rs.getString(3);
-			itemIdPS = jdbc.prepareStatement("SELECT " + itemURLgetter
+			itemIdPS = jdbc.lookupPS("SELECT " + itemURLgetter
 					+ " FROM item WHERE record_num = ?");
-			itemURLPS = jdbc
-					.prepareStatement("SELECT record_num FROM item WHERE "
-							+ itemURLgetter + " = ?");
+			itemURLPS = jdbc.lookupPS("SELECT record_num FROM item WHERE "
+					+ itemURLgetter + " = ?");
 
 			String[] resultx = { itemDescriptionFields, rs.getString(2),
 					rs.getString(4), rs.getString(5) };
@@ -238,8 +243,6 @@ class Database {
 
 	private PreparedStatement itemIdPS;
 
-	private PreparedStatement itemURLPS;
-
 	private String xxx;
 
 	String getItemURL(int item) throws SQLException, ServletException {
@@ -247,7 +250,7 @@ class Database {
 		// try {
 		synchronized (itemIdPS) {
 			itemIdPS.setInt(1, item);
-			String result = jdbc.SQLqueryString(itemIdPS, "Get item URL.");
+			String result = jdbc.SQLqueryString(itemIdPS);
 			myAssert(result != null, "Can't find "
 					+ jdbc.SQLqueryString("SELECT itemURL FROM globals")
 					+ " for record_num " + item);
@@ -331,12 +334,10 @@ class Database {
 		}
 		synchronized (offsetItemsQuery) {
 			for (int i = 1; i < offsetItemsQuery.length; i++) {
-				offsetItemsQuery[i] = jdbc
-						.prepareStatement("SELECT o.record_num FROM "
-								+ sortedResultTable(i)
-								+ " o INNER JOIN item_order_heap r USING (record_num)"
-								+ " ORDER BY r." + columnToSortBy
-								+ " LIMIT ?, ?");
+				offsetItemsQuery[i] = jdbc.lookupPS("SELECT o.record_num FROM "
+						+ sortedResultTable(i)
+						+ " o INNER JOIN item_order_heap r USING (record_num)"
+						+ " ORDER BY r." + columnToSortBy + " LIMIT ?, ?");
 
 				xxx = "SELECT o.record_num FROM " + sortedResultTable(i)
 						+ " o INNER JOIN item_order_heap r USING (record_num)"
@@ -349,36 +350,35 @@ class Database {
 				// exactly
 				// 0)
 				// Argument to query 2 is the result of query 1
-				itemOffsetQuery1[i] = jdbc.prepareStatement("SELECT s."
+				itemOffsetQuery1[i] = jdbc.lookupPS("SELECT s."
 						+ columnToSortBy
 						+ " FROM item_order_heap s INNER JOIN "
 						+ sortedResultTable(i)
 						+ " USING (record_num) WHERE s.record_num = ?");
 				itemOffsetQuery2[i] = jdbc
-						.prepareStatement("SELECT COUNT(*) FROM item_order_heap r "
-								+ "INNER JOIN "
-								+ sortedResultTable(i)
+						.lookupPS("SELECT COUNT(*) FROM item_order_heap r "
+								+ "INNER JOIN " + sortedResultTable(i)
 								+ " USING (record_num) WHERE r."
 								+ columnToSortBy + " < ?");
 			}
-			offsetItemsQuery[0] = jdbc
-					.prepareStatement("SELECT record_num FROM "
-							+ "item_order_heap ORDER BY " + columnToSortBy
-							+ " LIMIT ?, ?");
+			offsetItemsQuery[0] = jdbc.lookupPS("SELECT record_num FROM "
+					+ "item_order_heap ORDER BY " + columnToSortBy
+					+ " LIMIT ?, ?");
 
-			itemOffsetQuery1[0] = jdbc.prepareStatement("SELECT s."
-					+ columnToSortBy
+			itemOffsetQuery1[0] = jdbc.lookupPS("SELECT s." + columnToSortBy
 					+ " FROM item_order_heap s WHERE s.record_num = ?");
 			itemOffsetQuery2[0] = jdbc
-					.prepareStatement("SELECT COUNT(*)-1 FROM item_order_heap "
+					.lookupPS("SELECT COUNT(*)-1 FROM item_order_heap "
 							+ " WHERE " + columnToSortBy + " <= ?");
 		}
 	}
 
+	private PreparedStatement itemURLPS;
+
 	int getItemFromURL(String URL) throws SQLException {
 		synchronized (itemURLPS) {
 			itemURLPS.setString(1, URL);
-			return jdbc.SQLqueryInt(itemURLPS, "Get item record_num from URL.");
+			return jdbc.SQLqueryInt(itemURLPS);
 		}
 	}
 
@@ -419,8 +419,7 @@ class Database {
 			throws SQLException, ServletException, IOException {
 		updateRelevantFacets(perspectivesToAdd, perspectivesToRemove);
 		synchronized (filteredCountQuery) {
-			ResultSet rs = jdbc.SQLquery(filteredCountQuery,
-					"Get filtered counts.");
+			ResultSet rs = jdbc.SQLquery(filteredCountQuery);
 			sendResultSet(rs, MyResultSet.SINT_PINT, out);
 		}
 	}
@@ -429,8 +428,7 @@ class Database {
 	void getFilteredCountTypes(DataOutputStream out) throws SQLException,
 			ServletException, IOException {
 		synchronized (filteredCountTypeQuery) {
-			ResultSet rs = jdbc.SQLquery(filteredCountTypeQuery,
-					"Get filtered count types.");
+			ResultSet rs = jdbc.SQLquery(filteredCountTypeQuery);
 			sendResultSet(rs, MyResultSet.SINT_PINT, out);
 		}
 	}
@@ -485,11 +483,11 @@ class Database {
 			ServletException, IOException {
 		ResultSet rs = jdbc
 				.SQLquery("SELECT facet.name, descriptionCategory, descriptionPreposition, "
-						+ "n_child_facets, first_child_offset, n_items, isOrdered "
+						+ "n_child_facets, first_child_offset, n_items, isOrdered, isCausable "
 						+ "FROM raw_facet_type ft INNER JOIN facet USING (name) "
 						+ "WHERE facet.parent_facet_id = 0 "
 						+ "ORDER BY facet.facet_id");
-		sendResultSet(rs, MyResultSet.STRING_STRING_STRING_INT_INT_INT_INT, out);
+		sendResultSet(rs, MyResultSet.STRING_STRING_STRING_INT_INT_INT_INT_INT, out);
 	}
 
 	@SuppressWarnings("unchecked")
@@ -526,13 +524,16 @@ class Database {
 	void prefetch(int facet_id, int args, DataOutputStream out)
 			throws SQLException, ServletException, IOException {
 		// log("prefetch " + facet_id + " " + args);
-		int children_offset = jdbc
-				.SQLqueryInt("SELECT first_child_offset FROM facet WHERE facet_id = "
-						+ facet_id);
+		PreparedStatement ps1 = jdbc
+				.lookupPS("SELECT first_child_offset, is_alphabetic FROM facet WHERE facet_id = ?");
+		ps1.setInt(1, facet_id);
+		ResultSet rs1 = jdbc.SQLquery(ps1);
+		myAssert(MyResultSet.nRows(rs1) == 1, "Bad nRows.");
+		rs1.next();
+		int children_offset = rs1.getInt(1);
 		writeInt(children_offset, out);
-		int isAlphabetic = jdbc
-				.SQLqueryInt("SELECT is_alphabetic FROM facet WHERE facet_id = "
-						+ facet_id);
+		int isAlphabetic = rs1.getInt(2);
+		// log(facet_id+ " is_alphabetic: "+isAlphabetic);
 
 		PreparedStatement ps;
 		List<Object> types;
@@ -566,14 +567,15 @@ class Database {
 		synchronized (ps) {
 			// try {
 			ps.setInt(1, facet_id);
-			ResultSet rs = jdbc.SQLquery(ps,
-					"getting initial counts and names of facet children");
+			ResultSet rs = jdbc.SQLquery(ps);
 			sendResultSet(rs, types, out);
 		}
 
 		writeInt(isAlphabetic, out);
-		if (isAlphabetic > 0)
-			getLetterOffsets(facet_id, "", out);
+		
+		// Assuming beginner mode is much more common, don't be so eager to getLetterOffsets
+//		if (isAlphabetic > 0)
+//			getLetterOffsets(facet_id, "", out);
 	}
 
 	private PreparedStatement getLetterOffsetsQuery;
@@ -586,8 +588,7 @@ class Database {
 			getLetterOffsetsQuery.setInt(2, facet_id);
 			getLetterOffsetsQuery.setString(3, prefix);
 			getLetterOffsetsQuery.setString(4, prefix);
-			ResultSet rs = jdbc.SQLquery(getLetterOffsetsQuery,
-					"Getting letter offsets.");
+			ResultSet rs = jdbc.SQLquery(getLetterOffsetsQuery);
 			try {
 				// If an old DB has facets alphabetized wrong, just ignore it.
 				sendResultSet(rs, MyResultSet.STRING_SINT, out);
@@ -620,7 +621,7 @@ class Database {
 			PreparedStatement s = offsetItemsQuery[table];
 			s.setInt(1, minOffset);
 			s.setInt(2, nRows);
-			ResultSet rs = jdbc.SQLquery(s, "Get offsets");
+			ResultSet rs = jdbc.SQLquery(s);
 			if (false && MyResultSet.nRows(rs) != nRows) {
 				int onCount = jdbc.SQLqueryInt("SELECT COUNT(*) FROM "
 						+ sortedResultTable(table));
@@ -658,16 +659,26 @@ class Database {
 
 	private String imageQuery;
 
+	/**
+	 * @param item
+	 * @param desiredImageW
+	 *            -1 means don't retrieve an image
+	 * @param desiredImageH
+	 * @param quality
+	 * @param out
+	 * @throws SQLException
+	 * @throws ServletException
+	 * @throws IOException
+	 */
 	@SuppressWarnings("unchecked")
-	ResultSet getDescAndImage(int item, int imageW, int imageH, int quality,
-			DataOutputStream out) throws SQLException, ServletException,
-			IOException {
+	void getDescAndImage(int item, int desiredImageW, int desiredImageH,
+			int quality, DataOutputStream out) throws SQLException,
+			ServletException, IOException {
 		// synchronized (imageQuery) {
 		// imageQuery.setInt(1, item);
 		ResultSet rs = jdbc.SQLquery(imageQuery + item);
-		sendResultSet(rs, MyResultSet.STRING_IMAGE_INT_INT, imageW, imageH,
-				quality, out);
-		return rs;
+		sendResultSet(rs, MyResultSet.STRING_IMAGE_INT_INT, desiredImageW,
+				desiredImageH, quality, out);
 		// }
 	}
 
@@ -690,20 +701,17 @@ class Database {
 	 *         found.
 	 * @throws SQLException
 	 */
-	@SuppressWarnings("unchecked")
 	int itemOffset(int item, int table) throws SQLException {
 		int offset = -1;
 		PreparedStatement s1 = itemOffsetQuery1[table];
 		synchronized (s1) {
 			s1.setInt(1, item);
 
-			int ordinal = jdbc.SQLqueryInt(s1,
-					"Get onItems offset from record_num.");
+			int ordinal = jdbc.SQLqueryInt(s1);
 			if (ordinal > 0) {
 				PreparedStatement s2 = itemOffsetQuery2[table];
 				s2.setInt(1, ordinal);
-				offset = jdbc.SQLqueryInt(s2,
-						"Get onItems offset from record_num.");
+				offset = jdbc.SQLqueryInt(s2);
 			}
 
 			// try {
@@ -740,10 +748,62 @@ class Database {
 			// } catch (SQLException e) {
 			// e.printStackTrace();
 			// }
-			ResultSet rs = jdbc.SQLquery(getItemInfoQuery,
-					"Get item facets for building FacetTree.");
+			ResultSet rs = jdbc.SQLquery(getItemInfoQuery);
 			sendResultSet(rs, MyResultSet.PINT_SINT_STRING_INT_INT_INT, out);
 		}
+	}
+
+	/**
+	 * Given facets="1,2,3" and parent="9", return the counts in the 2^3
+	 * partition of parent
+	 * 
+	 * @param facetNames
+	 *            list of facets to find co-occurence counts among
+	 * @param parent
+	 *            the 'universe' in which to count
+	 * @param out
+	 * @throws SQLException
+	 * @throws ServletException
+	 * @throws IOException
+	 */
+	@SuppressWarnings("unchecked")
+	void getPairCounts(String facetNames, String parent, DataOutputStream out)
+			throws SQLException, ServletException, IOException {
+		String[] facets = Util.splitComma(facetNames);
+		int nFacets = facets.length;
+		String[] joins = new String[nFacets];
+		String[] groups = new String[nFacets];
+		for (int i = 0; i < nFacets; i++) {
+			int facet = Integer.parseInt(facets[i]);
+			joins[i] = "LEFT JOIN item_facet_heap i" + i + " ON i" + i
+					+ ".record_num = parent.record_num AND i" + i
+					+ ".facet_id = " + facet;
+			
+			// First facet reprsented by low order bit
+			groups[i] = " i" + (nFacets-i-1) + ".facet_id";
+		}
+		String vars = Util.join(groups);
+		String parentTable = Integer.parseInt(parent) <= maxFacetTypeID() ? "item_facet_type_heap"
+				: "item_facet_heap";
+		String sql = "SELECT COUNT(*) FROM " + parentTable + " parent "
+				+ Util.join(joins, " ") + " WHERE parent.facet_id = " + parent
+				+ " GROUP BY " + vars + " ORDER BY " + vars;
+//		log(sql);
+
+		// String sql = "SELECT COUNT(*) "+
+		// "FROM item_facet_heap i1, item_facet_heap i2, item_facet_type_heap
+		// parent "+
+		// "WHERE i1.record_num = i2.record_num "+
+		// "AND parent.record_num = i1.record_num "+
+		// "AND parent.facet_id = "+parent+
+		// " AND i1.facet_id IN ("+facets+") "+
+		// "AND i2.facet_id IN ("+facets+") "+
+		// "AND i1.facet_id<i2.facet_id "+
+		// "GROUP BY i1.facet_id, i2.facet_id "+
+		// "ORDER BY i1.facet_id, i2.facet_id";
+
+		ResultSet rs = jdbc.SQLquery(sql);
+		sendResultSet(rs, MyResultSet.INT, out);
 	}
 
 	private PreparedStatement printUserActionStmt;
@@ -757,7 +817,7 @@ class Database {
 			printUserActionStmt.setInt(4, modifiers);
 			printUserActionStmt.setInt(5, session);
 			printUserActionStmt.setString(6, client);
-			jdbc.SQLupdate(printUserActionStmt, "Print user action.");
+			jdbc.SQLupdate(printUserActionStmt);
 		}
 	}
 
@@ -1102,6 +1162,8 @@ class Database {
 				.SQLquery("SELECT image, URI FROM images WHERE record_num = "
 						+ item);
 		if (rs.next()) {
+
+			// Rotate images.image
 			InputStream in = rs.getBlob(1).getBinaryStream();
 			BufferedImage im = Util.readCompatibleImage(in);
 			BufferedImage rot = Util.rotate(im, Math
@@ -1113,14 +1175,16 @@ class Database {
 					.SQLupdate("UPDATE images SET image = LOAD_FILE('C:\\\\temp\\\\temp.jpg'), w = "
 							+ w + ", h = " + h + "WHERE record_num = " + item);
 
+			// Rotate URI
 			String filename = rs.getString(2);
 			myAssert(filename.endsWith(".jpg"), "rotate filname=" + filename);
 			File f = new File(filename);
-			im = Util.read(f.toURL());
+			BufferedImage im2 = Util.read(f.toURL());
 			f.renameTo(new File(filename.substring(0, filename.length() - 4)
 					+ "_unrotated.jpg"));
-			rot = Util.rotate(im, Math.toRadians(clockwiseDegrees));
-			Util.writeImage(rot, 85, filename);
+			BufferedImage rot2 = Util.rotate(im2, Math
+					.toRadians(clockwiseDegrees));
+			Util.writeImage(rot2, 85, filename);
 		}
 	}
 
@@ -1213,12 +1277,11 @@ class Database {
 				- jdbc.SQLqueryInt("SELECT COUNT(*) FROM clusterInfo");
 		if (pValue > 0 || neededClusters > 0) {
 			ResultSet rs = null;
-			PreparedStatement addCluster = null, addClusterFacets = null;
 			try {
-				addCluster = jdbc
-						.prepareStatement("INSERT INTO clusterInfo VALUES(?, ?, ?, ?, ?)");
-				addClusterFacets = jdbc
-						.prepareStatement("INSERT INTO clusterFacets21 VALUES(?, ?, ?)");
+				PreparedStatement addCluster = jdbc
+						.lookupPS("INSERT INTO clusterInfo VALUES(?, ?, ?, ?, ?)");
+				PreparedStatement addClusterFacets = jdbc
+						.lookupPS("INSERT INTO clusterFacets21 VALUES(?, ?, ?)");
 				int q = jdbc.SQLqueryInt("SELECT COUNT(*) FROM onItems");
 				int db = jdbc.SQLqueryInt("SELECT COUNT(*) FROM item");
 				int c = jdbc
@@ -1228,7 +1291,8 @@ class Database {
 					int con = rs.getInt(1);
 					int ctot = rs.getInt(2);
 					if (con * db > q * ctot) {
-						double p = ChiSq2x2.pValue(db, q, ctot, con);
+						double p = ChiSq2x2.getInstance(this, db, q, ctot, con)
+								.pvalue();
 						myAssert(p >= 0, "p = " + p);
 						if (p < pValue || (p == pValue && neededClusters > 0)) {
 							addCluster.setInt(1, ++c);
@@ -1236,13 +1300,12 @@ class Database {
 							addCluster.setInt(3, con);
 							addCluster.setInt(4, ctot);
 							addCluster.setDouble(5, p);
-							jdbc.SQLupdate(addCluster, "Set pValue");
+							jdbc.SQLupdate(addCluster);
 							addClusterFacets.setInt(1, c);
 							for (int i = 0; i < nFacets; i++) {
 								addClusterFacets.setInt(2, rs.getInt(i + 3));
 								addClusterFacets.setInt(3, i + 1);
-								jdbc.SQLupdate(addClusterFacets,
-										"Insert cluster");
+								jdbc.SQLupdate(addClusterFacets);
 							}
 							if (--neededClusters < 0) {
 								double newPvalue = jdbc
@@ -1261,10 +1324,6 @@ class Database {
 			} finally {
 				if (rs != null)
 					rs.close();
-				if (addCluster != null)
-					addCluster.close();
-				if (addClusterFacets != null)
-					addClusterFacets.close();
 			}
 		}
 		return pValue;
@@ -1417,6 +1476,39 @@ class Database {
 		return cfExpr;
 	}
 
+	@SuppressWarnings("unchecked")
+	void caremediaPlayArgs(String items, DataOutputStream out)
+			throws SQLException, ServletException, IOException {
+		// log("caremediaPlayArgs"+item);
+		// event.segment_id is always NULL
+		ResultSet rs = jdbc
+				.SQLquery("SELECT segment.segment_id,"
+						+ " 1000*TIMESTAMPDIFF(SECOND, copyright_date, start_date),"
+						+ " 1000*TIMESTAMPDIFF(SECOND, copyright_date, end_date)"
+						+ " FROM item INNER JOIN event ON item.record_num = event.event_id"
+						+ " INNER JOIN movie USING (movie_id)"
+						+ " INNER JOIN segment ON segment.movie_id = movie.movie_id"
+						+ " WHERE record_num IN (" + items
+						+ ") ORDER BY segment.segment_id");
+		// printRecords(rs, MyResultSet.INT_INT_INT);
+		sendResultSet(rs, MyResultSet.SINT_INT_INT, out);
+	}
+
+	@SuppressWarnings("unchecked")
+	void caremediaGetItems(String segments, DataOutputStream out)
+			throws SQLException, ServletException, IOException {
+		// log("caremediaPlayArgs"+item);
+		ResultSet rs = jdbc
+				.SQLquery("SELECT record_num"
+						+ " FROM item "
+						+ " INNER JOIN movie USING (movie_id)"
+						+ " INNER JOIN segment ON segment.movie_id = movie.movie_id"
+						+ " WHERE segment_id IN (" + segments
+						+ ") ORDER BY record_num");
+		// printRecords(rs, MyResultSet.INT_INT_INT);
+		sendResultSet(rs, MyResultSet.SINT, out);
+	}
+
 	void printRecords(ResultSet result, List<Object> types) {
 		log(MyResultSet.valueOfDeep(result, types, 5));
 	}
@@ -1451,12 +1543,12 @@ class Database {
 	void setItemDescription(int item, String description) throws SQLException {
 		if (setItemDescriptionQuery == null) {
 			setItemDescriptionQuery = jdbc
-					.prepareStatement("UPDATE item SET description = ? WHERE record_num = ? ");
+					.lookupPS("UPDATE item SET description = ? WHERE record_num = ? ");
 		}
 		synchronized (setItemDescriptionQuery) {
 			setItemDescriptionQuery.setInt(2, item);
 			setItemDescriptionQuery.setString(1, description);
-			jdbc.SQLupdate(setItemDescriptionQuery, "Update item description.");
+			jdbc.SQLupdate(setItemDescriptionQuery);
 		}
 	}
 
@@ -1775,18 +1867,24 @@ class Database {
 		myAssert(dbNameList != null && dbNameList.length() > 0,
 				"Empty db name list");
 		String[] dbNames = Util.splitComma(dbNameList);
-		if (!Util.isMember(dbNames, dbName))
+		StringBuffer dbDescs = new StringBuffer();
+		for (int i = 0; i < dbNames.length; i++) {
+			dbDescsInternal(dbDescs, dbNames[i]);
+		}
+		if (!Util.isMember(dbNames, dbName)) {
 			// In case URL specified a "hidden" database, get it's description
 			// too.
-			dbNames = (String[]) Util.push(dbNames, dbName, String.class);
-
-		String[] dbDescs = new String[dbNames.length];
-		for (int i = 0; i < dbDescs.length; i++) {
-			String desc = jdbc.SQLqueryString("SELECT description FROM "
-					+ dbNames[i] + ".globals");
-			dbDescs[i] = dbNames[i] + "," + desc;
+			dbDescsInternal(dbDescs, dbName);
 		}
 		// log(Util.join(dbDescs, ";"));
-		return Util.join(dbDescs, ";");
+		return dbDescs.toString();
+	}
+
+	void dbDescsInternal(StringBuffer dbDescs, String name) throws SQLException {
+		String desc = jdbc.SQLqueryString("SELECT description FROM " + name
+				+ ".globals");
+		if (dbDescs.length() > 0)
+			dbDescs.append(";");
+		dbDescs.append(name).append(",").append(desc);
 	}
 }
