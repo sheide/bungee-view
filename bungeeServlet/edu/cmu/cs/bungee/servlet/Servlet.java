@@ -21,7 +21,7 @@ import javax.servlet.http.HttpServletResponse;
 import edu.cmu.cs.bungee.javaExtensions.Util;
 
 enum Command {
-	CONNECT, CLOSE, getCountsIgnoringFacet, ABOUT_COLLECTION, getFilteredCounts, updateOnItems, prefetch, offsetItems, getThumbs, cluster, getDescAndImage, getItemInfo, ITEM_URL, itemIndex, itemIndexFromURL, restrict, baseFacets, getFilteredCountTypes, addItemsFacet, addChildFacet, removeItemFacet, reparent, addItemFacet, writeback, rotate, rename, removeItemsFacet, getNames, reorderItems, setItemDescription, opsSpec, getLetterOffsets
+	CONNECT, CLOSE, getCountsIgnoringFacet, ABOUT_COLLECTION, getFilteredCounts, updateOnItems, prefetch, offsetItems, getThumbs, cluster, getDescAndImage, getItemInfo, ITEM_URL, itemIndex, itemIndexFromURL, restrict, baseFacets, getFilteredCountTypes, addItemsFacet, addChildFacet, removeItemFacet, reparent, addItemFacet, writeback, rotate, rename, removeItemsFacet, getNames, reorderItems, setItemDescription, opsSpec, getLetterOffsets, caremediaPlayArgs, caremediaGetItems, getPairCounts
 }
 
 public class Servlet extends HttpServlet {
@@ -117,59 +117,58 @@ public class Servlet extends HttpServlet {
 		logRequest(request);
 		doPost(request, response);
 	}
-	
+
 	@SuppressWarnings("unchecked")
 	void logRequest(HttpServletRequest request) {
-		log("Request info: "
-				+ request.getRequestURL().toString() + " "
+		log("Request info: " + request.getRequestURL().toString() + " "
 				+ request.getQueryString() + " " + request.getRemoteHost());
 		Enumeration<String> e = request.getHeaderNames();
 		while (e.hasMoreElements()) {
 			String s = e.nextElement();
 			log(s + ": " + request.getHeader(s));
-		}		
+		}
 	}
 
 	@Override
 	protected void doPost(HttpServletRequest request,
 			HttpServletResponse response) throws IOException {
 		String errMsg = null;
-		Integer xsession = getSession(request);
-		Command command = parseCommand(request.getParameter("command"));
-		// if (command != Command.prefetch)
-		// log("doPost " + request.getQueryString());
-		if (command == Command.CONNECT) {
-			String dbName = request.getParameter("arg1");
-			ServletConfig config = getServletConfig();
-			String server = config.getInitParameter("server");
-			String user = config.getInitParameter("user");
-			String pass = config.getInitParameter("pwd");
-			if (dbName == null)
-				dbName = config.getInitParameter("dbs").split(",")[0];
-			log("Connect to " + dbName + " session = " + xsession);
-			logRequest(request);
-			Database db;
-			try {
-				db = new Database(server, dbName, user, pass, this);
-				// db.jdbc.servlet = this;
-				addSession(xsession, db);
-			} catch (Exception e) {
-				errMsg = "Could not connect to database " + dbName
-						+ " because\n" + e.getMessage() + "\nbecause\n"
-						+ e.getCause() + "\n"
-						+ Util.join(e.getStackTrace(), "\n");
+		DataOutputStream out = null;
+		try {
+			Integer xsession = getSession(request);
+			Command command = parseCommand(request.getParameter("command"));
+			// if (command != Command.prefetch)
+			// log("doPost " + request.getQueryString());
+			if (command == Command.CONNECT) {
+				String dbName = request.getParameter("arg1");
+				ServletConfig config = getServletConfig();
+				String server = config.getInitParameter("server");
+				String user = config.getInitParameter("user");
+				String pass = config.getInitParameter("pwd");
+				if (dbName == null)
+					dbName = config.getInitParameter("dbs").split(",")[0];
+				log("Connect to " + dbName + " session = " + xsession);
+				logRequest(request);
+				Database db;
+				try {
+					db = new Database(server, dbName, user, pass, this);
+					// db.jdbc.servlet = this;
+					addSession(xsession, db);
+				} catch (Exception e) {
+					errMsg = "Could not connect to database " + dbName
+							+ " because\n" + e.getMessage() + "\nbecause\n"
+							+ e.getCause() + "\n"
+							+ Util.join(e.getStackTrace(), "\n");
+				}
 			}
-		}
-		Database db = sessions.get(xsession);
-		if (errMsg == null && db == null)
-			errMsg = "No database associated with session '" + xsession + "'";
+			Database db = sessions.get(xsession);
+			if (errMsg == null && db == null)
+				errMsg = "No database associated with session '" + xsession
+						+ "'";
 
-		if (errMsg == null) {
-			response.setContentType("application/octet-stream");
-			response.setHeader("pragma", "no-cache");
-
-			DataOutputStream out = null;
-			try {
+			if (errMsg == null) {
+				response.setContentType("application/octet-stream");
+				response.setHeader("pragma", "no-cache");
 				out = new DataOutputStream(new DeflaterOutputStream(
 						new BufferedOutputStream(response.getOutputStream()),
 						new Deflater(Deflater.BEST_COMPRESSION)));
@@ -189,16 +188,18 @@ public class Servlet extends HttpServlet {
 							+ Util.join(e.getStackTrace(), "\n") + "\n"
 							+ e.getCause();
 				}
-			} finally {
+			}
+			if (errMsg != null) {
+				log(errMsg);
+				if (!response.isCommitted()) {
+					response.sendError(
+							HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+							errMsg);
+				}
+			}
+		} finally {
+			if (out != null)
 				out.close();
-			}
-		}
-		if (errMsg != null) {
-			log(errMsg);
-			if (!response.isCommitted()) {
-				response.sendError(
-						HttpServletResponse.SC_INTERNAL_SERVER_ERROR, errMsg);
-			}
 		}
 		// log("...doPost " + command + " done");
 	}
@@ -321,6 +322,11 @@ public class Servlet extends HttpServlet {
 			String description = request.getParameter("arg2");
 			db.setItemDescription(item, description);
 			break;
+		case getPairCounts:
+			String facets = request.getParameter("arg1");
+			String universe = request.getParameter("arg2");
+			db.getPairCounts(facets, universe, out);
+			break;
 		case opsSpec:
 			int session = getIntParameter(request, "arg1");
 			db.opsSpec(session, out);
@@ -372,6 +378,14 @@ public class Servlet extends HttpServlet {
 			facet = getIntParameter(request, "arg1");
 			name = request.getParameter("arg2");
 			db.rename(facet, name);
+			break;
+		case caremediaPlayArgs:
+			String items = request.getParameter("arg1");
+			db.caremediaPlayArgs(items, out);
+			break;
+		case caremediaGetItems:
+			String segments = request.getParameter("arg1");
+			db.caremediaGetItems(segments, out);
 			break;
 		case CLOSE:
 			close(xsession);

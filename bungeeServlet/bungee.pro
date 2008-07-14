@@ -1,11 +1,11 @@
 -injars 'C:\Documents and Settings\mad\workspace\bungeeServlet\bungeeServlet.jar'
 #-injars 'C:\Documents and Settings\mad\workspace\mysql-connector-java-3.0.16-ga-bin.jar'
--outjars 'C:\Program Files\Apache Software Foundation\Tomcat 6.0\webapps\bungee\WEB-INF\lib\bungeeServlet.jar'
+-outjars 'C:\Program Files\Apache Software Foundation\Tomcat 6.0.16\webapps\bungee\WEB-INF\lib\bungeeServlet.jar'
 
 #-libraryjars 'C:\Program Files\Java\j2re1.4.2_11\lib\rt.jar'
 -libraryjars 'C:\Program Files\Java\jre1.5.0_06\lib\rt.jar'
 -libraryjars 'C:\Documents and Settings\mad\workspace\bungeeServlet\mysql-connector-java-5.0.3-bin.jar'
--libraryjars 'C:\Program Files\Apache Software Foundation\Tomcat 6.0\lib\servlet-api.jar'
+-libraryjars 'C:\Program Files\Apache Software Foundation\Tomcat 6.0.16\lib\servlet-api.jar'
 
 -printusage shrink.log
 -verbose

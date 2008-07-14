@@ -3,11 +3,10 @@
     PUBLIC "-//Sun Microsystems, Inc.//DTD Web Application 2.2//EN"
     "http://java.sun.com/j2ee/dtds/web-app_2_2.dtd">
     <web-app>
-    <display-name>Bungee View</display-name>
+      <display-name>Bungee View</display-name>
         <servlet>
             <servlet-name>Bungee</servlet-name>
-            <servlet-class>bungee.Bungee</servlet-class>
-    
+            <servlet-class>edu.cmu.cs.bungee.servlet.Servlet</servlet-class>
             <init-param>
                 <param-name> server </param-name>
                 <param-value> jdbc:mysql://localhost/ </param-value>
@@ -22,7 +21,7 @@
             </init-param>
             <init-param>
                 <param-name> dbs </param-name>
-                <param-value>famsf,Collection of the Fine Arts Museums of San Francisco;chipapers,CHI Conference Papers;HP2,Historic Pittsburgh Photographs;HistoryMakers,The History Makers - Interviews;loc,Library of Congress American Memory Collection;ChartresVezelay,Art and Architecture Collections;Visuals,Visuals for Foreign Language Instruction;Movie,2007 InfoVis Contest Movies;personal,My Photos;music,Music</param-value>
+                <param-value>famsf,chipapers,HistoryMakers,loc,ChartresVezelay,Visuals,Movie,personal,music,wpa,hp3,cm</param-value>
             </init-param>
         </servlet>
     <servlet-mapping>
