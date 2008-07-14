@@ -59,6 +59,7 @@ import java.awt.Transparency;
 import java.awt.color.ColorSpace;
 import java.awt.event.InputEvent;
 import java.awt.geom.AffineTransform;
+import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
 import java.awt.image.ColorModel;
 import java.awt.image.RenderedImage;
@@ -73,9 +74,12 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
+import java.util.Map.Entry;
 import java.util.regex.Pattern;
 
 import javax.imageio.ImageIO;
@@ -163,86 +167,86 @@ public final class Util {
 			return 0;
 	}
 
-	/**
-	 * @param x
-	 * @param y
-	 * @return minimum of x and y
-	 */
-	public static double min(double x, double y) {
-		if (x < y)
-			return x;
-		else
-			return y;
-	}
-
-	/**
-	 * @param x
-	 * @param y
-	 * @return minimum of x and y
-	 */
-	public static float min(float x, float y) {
-		if (x < y)
-			return x;
-		else
-			return y;
-	}
-
-	/**
-	 * @param x
-	 * @param y
-	 * @return minimum of x and y
-	 */
-	public static int min(int x, int y) {
-		if (x < y)
-			return x;
-		else
-			return y;
-	}
-
-	/**
-	 * @param x
-	 * @param y
-	 * @return maximum of x and y
-	 */
-	public static double max(double x, double y) {
-		if (x > y)
-			return x;
-		else
-			return y;
-	}
-
-	/**
-	 * @param x
-	 * @param y
-	 * @return maximum of x and y
-	 */
-	public static float max(float x, float y) {
-		if (x > y)
-			return x;
-		else
-			return y;
-	}
-
-	/**
-	 * @param x
-	 * @param y
-	 * @return maximum of x and y
-	 */
-	public static int max(int x, int y) {
-		if (x > y)
-			return x;
-		else
-			return y;
-	}
-
-	/**
-	 * @param x
-	 * @return (int) (x + 0.5)
-	 */
-	public static int round(double x) {
-		assert x >= 0;
-		return (int) (x + 0.5);
-	}
+	// /**
+	// * @param x
+	// * @param y
+	// * @return minimum of x and y
+	// */
+	// public static double min(double x, double y) {
+	// if (x < y)
+	// return x;
+	// else
+	// return y;
+	// }
+	//
+	// /**
+	// * @param x
+	// * @param y
+	// * @return minimum of x and y
+	// */
+	// public static float min(float x, float y) {
+	// if (x < y)
+	// return x;
+	// else
+	// return y;
+	// }
+	//
+	// /**
+	// * @param x
+	// * @param y
+	// * @return minimum of x and y
+	// */
+	// public static int min(int x, int y) {
+	// if (x < y)
+	// return x;
+	// else
+	// return y;
+	// }
+	//
+	// /**
+	// * @param x
+	// * @param y
+	// * @return maximum of x and y
+	// */
+	// public static double max(double x, double y) {
+	// if (x > y)
+	// return x;
+	// else
+	// return y;
+	// }
+	//
+	// /**
+	// * @param x
+	// * @param y
+	// * @return maximum of x and y
+	// */
+	// public static float max(float x, float y) {
+	// if (x > y)
+	// return x;
+	// else
+	// return y;
+	// }
+	//
+	// /**
+	// * @param x
+	// * @param y
+	// * @return maximum of x and y
+	// */
+	// public static int max(int x, int y) {
+	// if (x > y)
+	// return x;
+	// else
+	// return y;
+	// }
+	//
+	// /**
+	// * @param x
+	// * @return (int) (x + 0.5)
+	// */
+	// public static int round(double x) {
+	// assert x >= 0;
+	// return (int) (x + 0.5);
+	// }
 
 	// public static float blend(float zeroToOne, float start, float end) {
 	// return Math.round(start + zeroToOne * (end - start));
@@ -618,9 +622,6 @@ public final class Util {
 	// }
 	// }
 
-	/**
-	 * @deprecated
-	 */
 	public static Object[] append(Object[] a1, Object[] a2, Class type) {
 		if (a1 == null || a1.length == 0)
 			return a2;
@@ -635,9 +636,6 @@ public final class Util {
 		}
 	}
 
-	/**
-	 * @deprecated
-	 */
 	public static String[] append(String[] a1, String[] a2) {
 		if (a1 == null)
 			return a2;
@@ -651,9 +649,6 @@ public final class Util {
 		}
 	}
 
-	/**
-	 * @deprecated
-	 */
 	public static int[] append(int[] a1, int[] a2) {
 		if (a1 == null)
 			return a2;
@@ -667,9 +662,6 @@ public final class Util {
 		}
 	}
 
-	/**
-	 * @deprecated
-	 */
 	public static double[] append(double[] a1, double[] a2) {
 		if (a1 == null)
 			return a2;
@@ -719,6 +711,17 @@ public final class Util {
 			}
 		}
 		return false;
+	}
+
+	public static Collection inverseGet(Map map, Object value) {
+		Collection result = new LinkedList();
+		for (Iterator it = map.entrySet().iterator(); it.hasNext();) {
+			Entry name = (Entry) it.next();
+			if (equalsNullOK(value, name.getValue())) {
+				result.add(name.getKey());
+			}
+		}
+		return result;
 	}
 
 	// public static Object[] setIntersection(Object[] a1, Object[] p, Class
@@ -850,9 +853,6 @@ public final class Util {
 	// return a;
 	// }
 
-	/**
-	 * @deprecated
-	 */
 	public static Object[] setDifference(Object[] a1, Object[] a2, Class type) {
 		if (a1 == null || a2 == null)
 			return a1;
@@ -945,9 +945,6 @@ public final class Util {
 	// return a;
 	// }
 
-	/**
-	 * @deprecated
-	 */
 	public static Object delete(Object[] a1, Object p, Class type) {
 		if (a1 == null)
 			return a1;
@@ -962,9 +959,6 @@ public final class Util {
 		return a;
 	}
 
-	/**
-	 * @deprecated
-	 */
 	public static Object deleteIndex(Object[] a1, int index, Class type) {
 		int oldN = a1.length;
 		assert index >= 0;
@@ -999,9 +993,6 @@ public final class Util {
 	// return a;
 	// }
 
-	/**
-	 * @deprecated
-	 */
 	public static Object push(Object[] a1, Object p, Class type) {
 		int a1_length = a1 == null ? 0 : a1.length;
 		Object a = java.lang.reflect.Array.newInstance(type, a1_length + 1);
@@ -1011,9 +1002,6 @@ public final class Util {
 		return a;
 	}
 
-	/**
-	 * @deprecated
-	 */
 	public static Object endPush(Object[] a1, Object p, Class type) {
 		int a1_length = a1 == null ? 0 : a1.length;
 		Object a = java.lang.reflect.Array.newInstance(type, a1_length + 1);
@@ -1023,9 +1011,6 @@ public final class Util {
 		return a;
 	}
 
-	/**
-	 * @deprecated
-	 */
 	public static int[] push(int[] a1, int n) {
 		int[] a;
 		if (a1 == null) {
@@ -1076,7 +1061,6 @@ public final class Util {
 	/**
 	 * subArray includes the end'th element, so end should be less than a.length
 	 * 
-	 * @deprecated
 	 */
 	public static int[] subArray(int[] a, int start, int end) {
 		assert start <= end;
@@ -1096,9 +1080,6 @@ public final class Util {
 	// return result;
 	// }
 
-	/**
-	 * @deprecated
-	 */
 	public static Object[] subArray(Object[] a, int start, Class type) {
 		return subArray(a, start, a.length - 1, type);
 	}
@@ -1106,7 +1087,6 @@ public final class Util {
 	/**
 	 * subArray includes the end'th element, so end should be less than a.length
 	 * 
-	 * @deprecated
 	 */
 	public static Object[] subArray(Object[] a, int start, int end, Class type) {
 		assert start <= end + 1 : start + " " + end;
@@ -1210,6 +1190,17 @@ public final class Util {
 			result = buf.toString();
 		}
 		return result;
+	}
+
+	public static String joinCollection(Collection stringList, String delimiter) {
+			StringBuffer buf = new StringBuffer();
+				for (Iterator it = stringList.iterator(); it.hasNext();) {
+					Object object = it.next();
+					if (buf.length() > 0)
+						buf.append(delimiter);
+					buf.append(object);
+				}
+			return buf.toString();
 	}
 
 	/**
@@ -1613,12 +1604,28 @@ public final class Util {
 		}
 	}
 
+	public static BufferedImage read(String filename) throws IOException {
+		if (filename == null)
+			throw new IOException("null filename");
+		InputStream in = null;
+		try {
+			in = new BufferedInputStream(new FileInputStream(filename));
+			// if (in == null)
+			// throw new IOException("Can't open connection to "
+			// + filename);
+			return read(new BufferedInputStream(in));
+		} finally {
+			if (in != null)
+				in.close();
+		}
+	}
+
 	public static BufferedImage resize(Image image, int w, int h,
 			boolean alwaysCopy) {
 		int originalW = image.getWidth(null);
 		int originalH = image.getHeight(null);
-		w = min(w, originalW);
-		h = min(h, originalH);
+		w = Math.min(w, originalW);
+		h = Math.min(h, originalH);
 		if (alwaysCopy || w != originalW || h != originalH
 				|| !(image instanceof BufferedImage)) {
 			BufferedImage resized = createCompatibleImage(w, h);
@@ -1654,6 +1661,91 @@ public final class Util {
 		g.drawImage(image, at, null);
 		g.dispose();
 		return rotated;
+	}
+
+	public static AffineTransform getTransform(Point2D from1, Point2D from2,
+			Point2D to1, Point2D to2) {
+		double l1 = from1.distance(from2);
+		double l2 = to1.distance(to2);
+		double scale = l2 / l1;
+		// Point2D translate = subtract(from1, to1);
+		double angle = angle(to1, to2) - angle(from1, from2);
+		AffineTransform t = AffineTransform.getTranslateInstance(to1.getX(),
+				to1.getY());
+		t.rotate(angle);
+		t.scale(scale, scale);
+		t.translate(-from1.getX(), -from1.getY());
+		return t;
+	}
+
+	public static AffineTransform getTransform(Point2D from1, Point2D from2,
+			Point2D from3, Point2D to1, Point2D to2, Point2D to3) {
+
+		double det = -from2.getX() * from1.getY() + from3.getX() * from1.getY()
+				+ from1.getX() * from2.getY() - from3.getX() * from2.getY()
+				- from1.getX() * from3.getY() + from2.getX() * from3.getY();
+
+		Util.print("points " + det + " " + from1 + " " + to1 + " " + from2
+				+ " " + to2 + " " + from3 + " " + to3);
+
+		double a = -(to2.getX() * from1.getY() - to3.getX() * from1.getY()
+				- to1.getX() * from2.getY() + to3.getX() * from2.getY()
+				+ to1.getX() * from3.getY() - to2.getX() * from3.getY());
+		double b = -(-to2.getX() * from1.getX() + to3.getX() * from1.getX()
+				+ to1.getX() * from2.getX() - to3.getX() * from2.getX()
+				- to1.getX() * from3.getX() + to2.getX() * from3.getX());
+		double c = -to2.getY() * from1.getY() + to3.getY() * from1.getY()
+				+ to1.getY() * from2.getY() - to3.getY() * from2.getY()
+				- to1.getY() * from3.getY() + to2.getY() * from3.getY();
+		double d = -(-to2.getY() * from1.getX() + to3.getY() * from1.getX()
+				+ to1.getY() * from2.getX() - to3.getY() * from2.getX()
+				- to1.getY() * from3.getX() + to2.getY() * from3.getX());
+		double e = -(to3.getX() * from2.getX() * from1.getY() - to2.getX()
+				* from3.getX() * from1.getY() - to3.getX() * from1.getX()
+				* from2.getY() + to1.getX() * from3.getX() * from2.getY()
+				+ to2.getX() * from1.getX() * from3.getY() - to1.getX()
+				* from2.getX() * from3.getY());
+		double f = -to3.getY() * from2.getX() * from1.getY() + to2.getY()
+				* from3.getX() * from1.getY() + to3.getY() * from1.getX()
+				* from2.getY() - to1.getY() * from3.getX() * from2.getY()
+				- to2.getY() * from1.getX() * from3.getY() + to1.getY()
+				* from2.getX() * from3.getY();
+		return new AffineTransform(a / det, c / det, b / det, d / det, e / det,
+				f / det);
+	}
+
+	public static Point2D subtract(Point2D from, Point2D to) {
+		return new Point2D.Double(to.getX() - from.getX(), to.getY()
+				- from.getY());
+	}
+
+	public static double angle(Point2D from, Point2D to) {
+		Point2D delta = subtract(from, to);
+		return Math.atan2(delta.getY(), delta.getX());
+	}
+
+	/**
+	 * @param image
+	 *            image to transform
+	 * @param at
+	 *            the transform
+	 * @param crop
+	 *            after transforming, crop the new image to x=0, y=0, w=crop.X,
+	 *            h=crop.Y
+	 * @return transformed image
+	 */
+	public static BufferedImage transformImage(Image image, AffineTransform at,
+			Point2D crop) {
+		assert image != null;
+		BufferedImage transformed = createCompatibleImage((int) crop.getX(),
+				(int) crop.getY());
+		Graphics2D g = (Graphics2D) transformed.getGraphics();
+		// g.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
+		// RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+		// RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+		g.drawImage(image, at, null);
+		g.dispose();
+		return transformed;
 	}
 
 	public static BufferedImage readCompatibleImage(InputStream blobStream) {
@@ -1742,6 +1834,7 @@ public final class Util {
 	}
 
 	public static OutputStream getOutputStream(File file) {
+		assert file != null;
 		OutputStream out = null;
 		try {
 			out = new FileOutputStream(file);
@@ -1799,6 +1892,27 @@ public final class Util {
 			}
 		}
 		return false;
+	}
+
+	public static void copyFile(String from, String to) throws IOException {
+		// Util.print(to);
+		copyFile(new File(from), new File(to));
+	}
+
+	// Copies src file to dst file.
+	// If the dst file does not exist, it is created
+	public static void copyFile(File src, File dst) throws IOException {
+		InputStream in = new FileInputStream(src);
+		OutputStream out = new FileOutputStream(dst);
+
+		// Transfer bytes from in to out
+		byte[] buf = new byte[1024];
+		int len;
+		while ((len = in.read(buf)) > 0) {
+			out.write(buf, 0, len);
+		}
+		in.close();
+		out.close();
 	}
 
 	public static String commonPrefix(String s1, String s2) {

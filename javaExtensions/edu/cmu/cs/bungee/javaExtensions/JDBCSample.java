@@ -1,11 +1,25 @@
 package edu.cmu.cs.bungee.javaExtensions;
 
+import java.io.InputStream;
+import java.io.Reader;
+import java.math.BigDecimal;
+import java.net.URL;
+import java.sql.Array;
+import java.sql.Blob;
+import java.sql.Clob;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.ParameterMetaData;
 import java.sql.PreparedStatement;
+import java.sql.Ref;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.SQLWarning;
 import java.sql.Statement;
+import java.sql.Time;
+import java.sql.Timestamp;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Hashtable;
@@ -32,15 +46,13 @@ public class JDBCSample {
 
 	private static Object driver; // We don't need the driver;
 
-	// this just ensures we only do it once.
-
-	private Connection con;
+	Connection con;
 
 	private String connectString;
 
 	private GenericServlet servlet; // Used to write to log file. Call print
 
-	private String dbName;
+	public String dbName;
 
 	// instead of using this directly.
 
@@ -117,13 +129,13 @@ public class JDBCSample {
 		return initSlow(concat);
 	}
 
-	private Date initSlow(String desc) {
+	private Date initSlow(Object desc) {
 		Date start = null;
 		if (slowQueryTime >= 0) {
 			if (SwingUtilities.isEventDispatchThread())
 				print("Calling DB in EventDispatchThread: " + desc);
 			if (slowQueryTime == 0) {
-				StringBuffer buf = new StringBuffer(desc.length() + 60);
+				StringBuffer buf = new StringBuffer(2000);
 				if (nQueriesInProgress > 0)
 					buf.append("\n** ").append(nQueriesInProgress).append(
 							" in progress **  ");
@@ -145,7 +157,7 @@ public class JDBCSample {
 		}
 	}
 
-	private void showSlow(Date start, int nRows, String desc) {
+	private void showSlow(Date start, int nRows, Object desc) {
 		if (slowQueryTime >= 0) {
 			nQueriesInProgress--;
 			long delay = new Date().getTime() - start.getTime();
@@ -154,7 +166,7 @@ public class JDBCSample {
 		}
 	}
 
-	private void showSlow(Date start, ResultSet rs, String desc)
+	private void showSlow(Date start, ResultSet rs, Object desc)
 			throws SQLException {
 		if (slowQueryTime >= 0) {
 			nQueriesInProgress--;
@@ -169,12 +181,12 @@ public class JDBCSample {
 		}
 	}
 
-	private void showSlowInternal(long delay, int nRows, String desc) {
+	private void showSlowInternal(long delay, int nRows, Object desc) {
 		showSlowInternal(delay, Integer.toString(nRows), desc);
 	}
 
-	private void showSlowInternal(long delay, String nRows, String desc) {
-		StringBuffer buf = new StringBuffer(desc.length() + 60);
+	private void showSlowInternal(long delay, String nRows, Object desc) {
+		StringBuffer buf = new StringBuffer(2000);
 		if (nQueriesInProgress > 0)
 			buf.append("\n** ").append(nQueriesInProgress).append(
 					" in progress **  ");
@@ -185,12 +197,12 @@ public class JDBCSample {
 	}
 
 	public int SQLupdate(String SQL) throws SQLException {
-		return SQLupdateInternal(null, SQL);
+		return SQLupdateInternal(SQL);
 	}
 
-	public int SQLupdate(PreparedStatement SQL, String desc)
+	public int SQLupdate(PreparedStatement SQL)
 			throws SQLException {
-		return SQLupdateInternal(SQL, desc);
+		return SQLupdateInternal(SQL);
 	}
 
 	private Statement myCreateStatement(String SQL) throws SQLException {
@@ -200,29 +212,42 @@ public class JDBCSample {
 		return result;
 	}
 
-	private int SQLupdateInternal(PreparedStatement SQL, String desc)
+	private int SQLupdateInternal(PreparedStatement SQL)
 			throws SQLException {
-		Date start = initSlow(desc);
+		Date start = initSlow(SQL);
 		int nRows = 0;
-		// try {
-		if (SQL != null)
-			nRows = SQL.executeUpdate();
-		else {
-			Statement statement = null;
-			try {
-				statement = con.createStatement();
-				nRows = statement.executeUpdate(desc);
-			} finally {
-				if (statement != null)
-					statement.close();
-			}
+		try {
+				nRows = SQL.executeUpdate();
+		} catch (SQLException se) {
+			print("While executing:\n" + SQL);
+			// System.err.println("SQL Exception: " + se.getMessage());
+			// se.printStackTrace();
+			throw (se);
 		}
-		// } catch (SQLException se) {
-		// System.err.println("While executing:\n" + SQL);
-		// System.err.println("SQL Exception: " + se.getMessage());
-		// se.printStackTrace();
-		// }
-		showSlow(start, nRows, desc);
+		showSlow(start, nRows, SQL);
+		return nRows;
+	}
+
+	private int SQLupdateInternal(String SQL)
+			throws SQLException {
+		Date start = initSlow(SQL);
+		int nRows = 0;
+		try {
+				Statement statement = null;
+				try {
+					statement = con.createStatement();
+					nRows = statement.executeUpdate(SQL);
+				} finally {
+					if (statement != null)
+						statement.close();
+				}
+		} catch (SQLException se) {
+			print("While executing:\n" + SQL);
+			// System.err.println("SQL Exception: " + se.getMessage());
+			// se.printStackTrace();
+			throw (se);
+		}
+		showSlow(start, nRows, SQL);
 		return nRows;
 	}
 
@@ -231,7 +256,6 @@ public class JDBCSample {
 		assert nStatements > 0;
 		Date start = initSlow(SQL);
 		int[] nRows = null;
-		// try {
 		Statement stmt = null;
 		try {
 			stmt = con.createStatement();
@@ -240,81 +264,87 @@ public class JDBCSample {
 				stmt.addBatch(SQL[i]);
 			}
 			nRows = stmt.executeBatch();
+		} catch (SQLException se) {
+			print("While executing:\n" + SQL);
+			// System.err.println("SQL Exception: " + se.getMessage());
+			// se.printStackTrace();
+			throw (se);
 		} finally {
 			if (stmt != null)
 				stmt.close();
 		}
-		// } catch (SQLException se) {
-		// System.err.println("While executing:\n" + SQL);
-		// System.err.println("SQL Exception: " + se.getMessage());
-		// se.printStackTrace();
-		// }
 		showSlow(start, nRows, SQL);
 		return nRows;
 	}
 
 	public ResultSet SQLquery(String SQL) throws SQLException {
-		return SQLqueryInternal(null, SQL);
+		return SQLqueryInternal(SQL);
 	}
 
-	public ResultSet SQLquery(PreparedStatement SQL, String desc)
+	public ResultSet SQLquery(PreparedStatement SQL)
 			throws SQLException {
-		return SQLqueryInternal(SQL, desc);
+		return SQLqueryInternal(SQL);
 	}
 
-	private ResultSet SQLqueryInternal(PreparedStatement SQL, String desc)
+	private ResultSet SQLqueryInternal(PreparedStatement SQL)
 			throws SQLException {
-		Date start = initSlow(desc);
+		Date start = initSlow(SQL);
 		ResultSet rs = null;
-		// try {
-		if (SQL != null)
-			rs = SQL.executeQuery();
-		else {
-			// try {
-			rs = myCreateStatement(desc).executeQuery(desc);
-			// } catch (SQLException ex) {
-			// // This doesn't do any good, because all the prepared statements
-			// // will break when you try to set parameters.
-			// // Solution is to have mySetInt, etc. that catch this and call
-			// // prepareStatement again. You'd write
-			// // ps = mySetInt(ps, 1, 42)
-			// // But prepared statements don't let you get the SQL back, so
-			// // this would have to be stored in a hash table
-			// // (or in MyPreparedStatement, but it's ugly to have to write
-			// // all the required methods). Then you'd write
-			// // ps = mySetInt(ps, 1, 42, SQL)
-			//
-			// try {
-			// print("Got exception " + ex + "Try reopening connection...");
-			//
-			// close();
-			// open(info);
-			//
-			// // Now retry executing the query. If it was a time-out, this
-			// // time it should work
-			//
-			// rs = myCreateStatement(desc).executeQuery(desc);
-			// print("Retry worked!");
-			//
-			// } catch (Exception secondEx) {
-			// print("Got another exception while retrying: " + secondEx);
-			// throw ex;
-			// // this was not a time-out -- do some error handling
-			// }
-			// }
-			if (rs == null)
-				print("Null result set for: " + desc);
+		try {
+				rs = SQL.executeQuery();
+		} catch (SQLException se) {
+			print("While executing:\n" + SQL);
+			throw (se);
 		}
+		showSlow(start, rs, SQL);
+		return rs;
+	}
 
-		// Display the SQL Results
-		// while(rs.next( )) {
-		// System.out.println(rs.getString("tabl"));
-		// }
-		// } catch (SQLException se) {
-		// System.err.println("While executing:\n" + SQL);
-		// System.err.println("SQL Exception: " + se.getMessage());
-		// }
-		showSlow(start, rs, desc);
+	private ResultSet SQLqueryInternal(String SQL)
+			throws SQLException {
+		Date start = initSlow(SQL);
+		ResultSet rs = null;
+		try {
+				rs = myCreateStatement(SQL).executeQuery(SQL);
+				// } catch (SQLException ex) {
+				// // This doesn't do any good, because all the prepared
+				// statements
+				// // will break when you try to set parameters.
+				// // Solution is to have mySetInt, etc. that catch this and
+				// call
+				// // prepareStatement again. You'd write
+				// // ps = mySetInt(ps, 1, 42)
+				// // But prepared statements don't let you get the SQL back, so
+				// // this would have to be stored in a hash table
+				// // (or in MyPreparedStatement, but it's ugly to have to write
+				// // all the required methods). Then you'd write
+				// // ps = mySetInt(ps, 1, 42, SQL)
+				//
+				// try {
+				// print("Got exception " + ex + "Try reopening connection...");
+				//
+				// close();
+				// open(info);
+				//
+				// // Now retry executing the query. If it was a time-out, this
+				// // time it should work
+				//
+				// rs = myCreateStatement(desc).executeQuery(desc);
+				// print("Retry worked!");
+				//
+				// } catch (Exception secondEx) {
+				// print("Got another exception while retrying: " + secondEx);
+				// throw ex;
+				// // this was not a time-out -- do some error handling
+				// }
+				// }
+				if (rs == null)
+					print("Null result set for: " + SQL);
+		} catch (SQLException se) {
+			print("While executing:\n" + SQL);
+			throw (se);
+		}
+		showSlow(start, rs, SQL);
 		return rs;
 	}
 
@@ -322,18 +352,18 @@ public class JDBCSample {
 		return SQLqueryIntInternal(SQLquery(SQL), SQL);
 	}
 
-	public int SQLqueryInt(PreparedStatement SQL, String desc)
+	public int SQLqueryInt(PreparedStatement SQL)
 			throws SQLException {
-		return SQLqueryIntInternal(SQLquery(SQL, desc), desc);
+		return SQLqueryIntInternal(SQLquery(SQL), SQL.toString());
 	}
 
-	private int SQLqueryIntInternal(ResultSet rs, String desc)
+	private int SQLqueryIntInternal(ResultSet rs, String SQL)
 			throws SQLException {
 		int result = -1;
 		try {
 			if (rs.next()) {
 				result = rs.getInt(1);
-				assert !rs.next() : desc + " returned multiple records.";
+				assert !rs.next() : SQL + " returned multiple records.";
 			}
 		} finally {
 			close(rs);
@@ -349,9 +379,9 @@ public class JDBCSample {
 		return SQLqueryIntArrayInternal(SQLquery(SQL));
 	}
 
-	public int[] SQLqueryIntArray(PreparedStatement SQL, String desc)
+	public int[] SQLqueryIntArray(PreparedStatement SQL)
 			throws SQLException {
-		return SQLqueryIntArrayInternal(SQLquery(SQL, desc));
+		return SQLqueryIntArrayInternal(SQLquery(SQL));
 	}
 
 	private int[] SQLqueryIntArrayInternal(ResultSet rs) throws SQLException {
@@ -362,13 +392,13 @@ public class JDBCSample {
 				rs.next();
 				result[i] = rs.getInt(1);
 			}
+		} catch (SQLException se) {
+			print("SQL Exception: " + se.getMessage());
+			// se.printStackTrace();
+			throw (se);
 		} finally {
 			close(rs);
 		}
-		// } catch (SQLException se) {
-		// System.err.println("SQL Exception: " + se.getMessage());
-		// se.printStackTrace();
-		// }
 		return result;
 	}
 
@@ -376,9 +406,9 @@ public class JDBCSample {
 		return SQLqueryStringArrayInternal(SQLquery(SQL));
 	}
 
-	public String[] SQLqueryStringArray(PreparedStatement SQL, String desc)
+	public String[] SQLqueryStringArray(PreparedStatement SQL)
 			throws SQLException {
-		return SQLqueryStringArrayInternal(SQLquery(SQL, desc));
+		return SQLqueryStringArrayInternal(SQLquery(SQL));
 	}
 
 	private String[] SQLqueryStringArrayInternal(ResultSet rs)
@@ -404,12 +434,12 @@ public class JDBCSample {
 		return SQLqueryDoubleInternal(SQLquery(SQL), SQL);
 	}
 
-	public double SQLqueryDouble(PreparedStatement SQL, String desc)
+	public double SQLqueryDouble(PreparedStatement SQL)
 			throws SQLException {
-		return SQLqueryDoubleInternal(SQLquery(SQL, desc), desc);
+		return SQLqueryDoubleInternal(SQLquery(SQL), SQL);
 	}
 
-	private double SQLqueryDoubleInternal(ResultSet rs, String desc)
+	private double SQLqueryDoubleInternal(ResultSet rs, Object desc)
 			throws SQLException {
 		double result = -1;
 		try {
@@ -431,12 +461,12 @@ public class JDBCSample {
 		return SQLqueryStringInternal(SQLquery(SQL), SQL);
 	}
 
-	public String SQLqueryString(PreparedStatement SQL, String desc)
+	public String SQLqueryString(PreparedStatement SQL)
 			throws SQLException {
-		return SQLqueryStringInternal(SQLquery(SQL, desc), desc);
+		return SQLqueryStringInternal(SQLquery(SQL), SQL);
 	}
 
-	private String SQLqueryStringInternal(ResultSet rs, String desc)
+	private String SQLqueryStringInternal(ResultSet rs, Object desc)
 			throws SQLException {
 		String result = null;
 		try {
@@ -470,36 +500,359 @@ public class JDBCSample {
 		}
 	}
 
-	public PreparedStatement prepareStatement(String SQL) throws SQLException {
-		PreparedStatement result = null;
-		// try {
-		result = con.prepareStatement(SQL);
-		// } catch (SQLException e) {
-		// e.printStackTrace();
-		// }
-		return result;
-	}
-
 	public PreparedStatement prepareStatement(String SQL, int resultSetType,
 			int resultSetConcurrency) throws SQLException {
 		PreparedStatement result = null;
-		// try {
+		 try {
 		result = con.prepareStatement(SQL, resultSetType, resultSetConcurrency);
-		// } catch (SQLException e) {
-		// e.printStackTrace();
-		// }
+			} catch (SQLException e) {
+				print("While preparing: " + SQL);
+				// e.printStackTrace();
+				throw (e);
+			}
 		return result;
 	}
 
-	private Map preparedStatements = new Hashtable();
+	private Map myPreparedStatements = new Hashtable();
 
 	public PreparedStatement lookupPS(String SQL) throws SQLException {
-		PreparedStatement ps = (PreparedStatement) preparedStatements.get(SQL);
+		MyPreparedStatement ps = (MyPreparedStatement) myPreparedStatements.get(SQL);
 		if (ps == null) {
-			ps = prepareStatement(SQL);
-			preparedStatements.put(SQL, ps);
+			ps = new MyPreparedStatement(SQL);
+			myPreparedStatements.put(SQL, ps);
 		}
 		return ps;
+	}
+	
+	/**
+	 * A PreparedStatement that remembers its source SQL.
+	 * In the future, possibly remember parameter values, too, as an array of Objects or Strings.
+	 *
+	 */
+	public class MyPreparedStatement implements PreparedStatement {
+		
+		private PreparedStatement ps;
+		private String SQL;
+		
+		MyPreparedStatement(String _SQL) throws SQLException {
+			try {
+				SQL = _SQL;
+				ps = con.prepareStatement(SQL);
+			} catch (SQLException e) {
+				print("While preparing: " + SQL);
+				// e.printStackTrace();
+				throw (e);
+			}
+		}
+		
+		public String toString() {
+			return "<MyPreparedStatement " + SQL+">";
+		}
+
+		public void addBatch() throws SQLException {
+			 ps.addBatch();
+		}
+
+		public void clearParameters() throws SQLException {
+			 ps.clearParameters();
+		}
+
+		public boolean execute() throws SQLException {
+			return ps.execute();
+		}
+
+		public ResultSet executeQuery() throws SQLException {
+			return ps.executeQuery();
+		}
+
+		public int executeUpdate() throws SQLException {
+			return ps.executeUpdate();
+		}
+
+		public ResultSetMetaData getMetaData() throws SQLException {
+			return ps.getMetaData();
+		}
+
+		public ParameterMetaData getParameterMetaData() throws SQLException {
+			return ps.getParameterMetaData();
+		}
+
+		public void setArray(int i, Array x) throws SQLException {
+			 ps.setArray(i, x);
+		}
+
+		public void setAsciiStream(int parameterIndex, InputStream x, int length)
+				throws SQLException {
+			ps.setAsciiStream(parameterIndex, x, length);
+		}
+		public void setBigDecimal(int parameterIndex, BigDecimal x)
+				throws SQLException {
+			ps.setBigDecimal(parameterIndex, x);
+		}
+		public void setBinaryStream(int parameterIndex, InputStream x,
+				int length) throws SQLException {
+			ps.setBinaryStream(parameterIndex, x,
+					length);
+		}
+
+		public void setBlob(int i, Blob x) throws SQLException {
+			 ps.setBlob(i, x);
+		}
+
+		public void setBoolean(int parameterIndex, boolean x)
+				throws SQLException {
+			ps.setBoolean(parameterIndex, x);
+		}
+		public void setByte(int parameterIndex, byte x) throws SQLException {
+			 ps.setByte(parameterIndex, x);
+		}
+
+		public void setBytes(int parameterIndex, byte[] x) throws SQLException {
+			 ps.setBytes(parameterIndex, x);
+		}
+
+		public void setCharacterStream(int parameterIndex, Reader reader,
+				int length) throws SQLException {
+			ps.setCharacterStream(parameterIndex, reader,
+					length);
+		}
+
+		public void setClob(int i, Clob x) throws SQLException {
+			 ps.setClob(i, x);
+		}
+
+		public void setDate(int parameterIndex, java.sql.Date x)
+				throws SQLException {
+			ps.setDate(parameterIndex, x);
+		}
+		public void setDate(int parameterIndex, java.sql.Date x, Calendar cal)
+				throws SQLException {
+			ps.setDate(parameterIndex, x, cal);
+		}
+		public void setDouble(int parameterIndex, double x) throws SQLException {
+			 ps.setDouble(parameterIndex, x);
+		}
+
+		public void setFloat(int parameterIndex, float x) throws SQLException {
+			 ps.setFloat(parameterIndex, x);
+		}
+
+		public void setInt(int parameterIndex, int x) throws SQLException {
+			 ps.setInt(parameterIndex, x);
+		}
+
+		public void setLong(int parameterIndex, long x) throws SQLException {
+			 ps.setLong(parameterIndex, x);
+		}
+
+		public void setNull(int parameterIndex, int sqlType)
+				throws SQLException {
+			ps.setNull(parameterIndex, sqlType);
+		}
+		public void setNull(int paramIndex, int sqlType, String typeName)
+				throws SQLException {
+			ps.setNull(paramIndex, sqlType, typeName);
+		}
+		public void setObject(int parameterIndex, Object x) throws SQLException {
+			 ps.setObject(parameterIndex, x);
+		}
+
+		public void setObject(int parameterIndex, Object x, int targetSqlType)
+				throws SQLException {
+			ps.setObject(parameterIndex, x, targetSqlType);
+		}
+		public void setObject(int parameterIndex, Object x, int targetSqlType,
+				int scale) throws SQLException {
+			ps.setObject(parameterIndex, x, targetSqlType,
+					scale);
+		}
+
+		public void setRef(int i, Ref x) throws SQLException {
+			 ps.setRef(i, x);
+		}
+
+		public void setShort(int parameterIndex, short x) throws SQLException {
+			 ps.setShort(parameterIndex, x);
+		}
+
+		public void setString(int parameterIndex, String x) throws SQLException {
+			 ps.setString(parameterIndex, x);
+		}
+
+		public void setTime(int parameterIndex, Time x) throws SQLException {
+			 ps.setTime(parameterIndex, x);
+		}
+
+		public void setTime(int parameterIndex, Time x, Calendar cal)
+				throws SQLException {
+			ps.setTime(parameterIndex, x, cal);
+		}
+		public void setTimestamp(int parameterIndex, Timestamp x)
+				throws SQLException {
+			ps.setTimestamp(parameterIndex, x);
+		}
+		public void setTimestamp(int parameterIndex, Timestamp x, Calendar cal)
+				throws SQLException {
+			ps.setTimestamp(parameterIndex, x, cal);
+		}
+		public void setURL(int parameterIndex, URL x) throws SQLException {
+			 ps.setURL(parameterIndex, x);
+		}
+
+		public void setUnicodeStream(int parameterIndex, InputStream x,
+				int length) throws SQLException {
+			ps.setUnicodeStream(parameterIndex, x,
+					length);
+		}
+
+		public void addBatch(String arg0) throws SQLException {
+			 ps.addBatch(arg0);
+		}
+
+		public void cancel() throws SQLException {
+			 ps.cancel();
+		}
+
+		public void clearBatch() throws SQLException {
+			 ps.clearBatch();
+		}
+
+		public void clearWarnings() throws SQLException {
+			 ps.clearWarnings();
+		}
+
+		public void close() throws SQLException {
+			 ps.close();
+		}
+
+		public boolean execute(String arg0) throws SQLException {
+			return ps.execute(arg0);
+		}
+
+		public boolean execute(String arg0, int arg1) throws SQLException {
+			return ps.execute(arg0, arg1);
+		}
+
+		public boolean execute(String arg0, int[] arg1) throws SQLException {
+			return ps.execute(arg0, arg1);
+		}
+
+		public boolean execute(String arg0, String[] arg1) throws SQLException {
+			return ps.execute(arg0, arg1);
+		}
+
+		public int[] executeBatch() throws SQLException {
+			return null;
+		}
+
+		public ResultSet executeQuery(String arg0) throws SQLException {
+			return ps.executeQuery(arg0);
+		}
+
+		public int executeUpdate(String arg0) throws SQLException {
+			return ps.executeUpdate(arg0);
+		}
+
+		public int executeUpdate(String arg0, int arg1) throws SQLException {
+			return ps.executeUpdate(arg0, arg1);
+		}
+
+		public int executeUpdate(String arg0, int[] arg1) throws SQLException {
+			return ps.executeUpdate(arg0, arg1);
+		}
+
+		public int executeUpdate(String arg0, String[] arg1)
+				throws SQLException {
+		return ps.executeUpdate(arg0, arg1);}
+
+		public Connection getConnection() throws SQLException {
+			return ps.getConnection();
+		}
+
+		public int getFetchDirection() throws SQLException {
+			return ps.getFetchDirection();
+		}
+
+		public int getFetchSize() throws SQLException {
+			return ps.getFetchSize();
+		}
+
+		public ResultSet getGeneratedKeys() throws SQLException {
+			return ps.getGeneratedKeys();
+		}
+
+		public int getMaxFieldSize() throws SQLException {
+			return ps.getMaxFieldSize();
+		}
+
+		public int getMaxRows() throws SQLException {
+			return ps.getMaxRows();
+		}
+
+		public boolean getMoreResults() throws SQLException {
+			return ps.getMoreResults();
+		}
+
+		public boolean getMoreResults(int arg0) throws SQLException {
+			return ps.getMoreResults(arg0);
+		}
+
+		public int getQueryTimeout() throws SQLException {
+			return ps.getQueryTimeout();
+		}
+
+		public ResultSet getResultSet() throws SQLException {
+			return ps.getResultSet();
+		}
+
+		public int getResultSetConcurrency() throws SQLException {
+			return ps.getResultSetConcurrency();
+		}
+
+		public int getResultSetHoldability() throws SQLException {
+			return ps.getResultSetHoldability();
+		}
+
+		public int getResultSetType() throws SQLException {
+			return ps.getResultSetType();
+		}
+
+		public int getUpdateCount() throws SQLException {
+			return ps.getUpdateCount();
+		}
+
+		public SQLWarning getWarnings() throws SQLException {
+			return ps.getWarnings();
+		}
+
+		public void setCursorName(String arg0) throws SQLException {
+			 ps.setCursorName(arg0);
+		}
+
+		public void setEscapeProcessing(boolean arg0) throws SQLException {
+			 ps.setEscapeProcessing(arg0);
+		}
+
+		public void setFetchDirection(int arg0) throws SQLException {
+			 ps.setFetchDirection(arg0);
+		}
+
+		public void setFetchSize(int arg0) throws SQLException {
+			 ps.setFetchSize(arg0);
+		}
+
+		public void setMaxFieldSize(int arg0) throws SQLException {
+			 ps.setMaxFieldSize(arg0);
+		}
+
+		public void setMaxRows(int arg0) throws SQLException {
+			 ps.setMaxRows(arg0);
+		}
+
+		public void setQueryTimeout(int arg0) throws SQLException {
+			 ps.setQueryTimeout(arg0);
+		}
+		
 	}
 
 	public String unsignedTypeForMaxValue(int max) {
@@ -522,12 +875,18 @@ public class JDBCSample {
 		return type;
 	}
 
-	public void ensureIndex(String table, String name, String columnNames) throws SQLException {
-		ensureIndex(table, name, columnNames, "");
+	public void ensureIndex(String table, String name, String columnNames)
+			throws SQLException {
+		ensureIndex(dbName, table, name, columnNames, "");
 	}
 
 	public void ensureIndex(String table, String name, String columnNames,
 			String type) throws SQLException {
+		ensureIndex(dbName, table, name, columnNames, type);
+	}
+
+	public void ensureIndex(String db, String table, String name,
+			String columnNames, String type) throws SQLException {
 		assert type == ""
 				|| "PRIMARY, UNIQUE, FULLTEXT, SPATIAL, BTREE, HASH, RTREE"
 						.indexOf(type) >= 0;
@@ -535,15 +894,15 @@ public class JDBCSample {
 				+ "IF(sub_part IS NULL,'',CONCAT('(',sub_part,')')))) "
 				+ "FROM information_schema.STATISTICS "
 				+ "WHERE table_schema = '"
-				+ dbName
+				+ db
 				+ "' AND table_name = '"
 				+ table
 				+ "' AND index_name = '"
 				+ name
 				+ "' ORDER BY seq_in_index");
 		if (!columnNames.equals(oldColumns)) {
-			Util.print("Redoing index " + table + " " + oldColumns + " => "
-					+ columnNames);
+			Util.print("Redoing index " + table + "." + name + " " + oldColumns
+					+ " => " + columnNames);
 			if (oldColumns != null)
 				SQLupdate("ALTER TABLE " + table + " DROP INDEX " + name);
 			String indexSpec = "INDEX";
@@ -557,6 +916,18 @@ public class JDBCSample {
 			SQLupdate("ALTER TABLE " + table + " ADD " + indexSpec + " " + name
 					+ " (" + columnNames + ")");
 		}
+	}
+
+	public boolean tableExists(String table) throws SQLException {
+		return SQLqueryInt("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = '"
+				+ dbName + "' AND TABLE_NAME = '" + table + "'") > 0;
+	}
+
+	public boolean columnExists(String schema, String table, String column)
+			throws SQLException {
+		return SQLqueryInt("SELECT COUNT(*) FROM information_schema.columns "
+				+ "WHERE table_schema = '" + schema + "' AND table_name = '"
+				+ table + "' AND column_name = '" + column + "'") > 0;
 	}
 
 	public String toString() {
