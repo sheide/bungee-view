@@ -437,13 +437,13 @@ class FacetText extends APText implements FacetNode, PerspectiveObserver {
 				double y = (art.lineH - size) / 2;
 				float fadeFactor = 0;// .8f;
 
-				checkBox = new Button(checkXoffset, y, size, size, null,
+				checkBox = new Button(checkXoffset, y, size, size, null, null,
 						fadeFactor, Bungee.checkFG);
 				checkBox.setPickable(false);
 				checkBox.setState(false);
 				addChild(checkBox);
 
-				xBox = new Button(0, y, size, size, null, fadeFactor,
+				xBox = new Button(0, y, size, size, null, null, fadeFactor,
 						Bungee.xFG);
 				xBox.setPickable(false);
 				xBox.setState(false);

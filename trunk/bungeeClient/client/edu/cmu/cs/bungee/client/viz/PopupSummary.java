@@ -24,13 +24,14 @@ import edu.umd.cs.piccolo.util.PAffineTransform;
 import edu.umd.cs.piccolo.util.PBounds;
 
 /**
- * see <a href="C:\Projects\ArtMuseum\DesignSketches\popupColors.xcf">color key</a>
+ * see <a href="C:\Projects\ArtMuseum\DesignSketches\popupColors.xcf">color
+ * key</a>
  */
 final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 
 	private static final long TRANSLATE_TO_CORNER_DELAY = 10000;
 
-	private static final double MARGIN = 5.0;
+	static final double MARGIN = 6.0;
 
 	private static final double BIG_TEXT_SCALE = 1.4;
 
@@ -46,7 +47,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 	private void actions() {
 		if (getRoot() != null) {
 			// After an unrestrict, we may be left hanging
-			
+
 			massActions();
 
 			totalCountActions();
@@ -218,6 +219,8 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 
 	private PNode tempRatioLabel;
 
+	private Tetrad tetrad;
+
 	private static final float TRANSPARENT = 0;
 
 	private static final float OPAQUE = 1;
@@ -267,14 +270,19 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 
 	private static final Color countTextColor = Color.white;
 
-	private static final Color unimportantTextColor = countTextColor.darker(); // .darker();
+	private static final Color unimportantTextColor = countTextColor.darker(); // .
+																				// darker
+																				// (
+																				// )
+																				// ;
 
 	private static final Color totalLinesColor = unimportantTextColor;
 
 	/**
 	 * Color of the message "Press the spacebar for more information"
 	 */
-	private static final Color spaceBarDescTextColor = Bungee.helpColor; // unimportantTextColor;
+	private static final Color spaceBarDescTextColor = Bungee.helpColor; // unimportantTextColor
+																			// ;
 
 	private static final Color facetPercentColor = Color.getHSBColor(0.15f,
 			0.4f, 0.9f);
@@ -552,6 +560,13 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 				delay(TRANSLATE_TO_CORNER_DELAY);
 			}
 		} else if (showHelp == Step.START_FRAME) {
+			if (facet != null && facet.query().isRestricted()) {
+				tetrad = new Tetrad(facet, art);
+				addChild(tetrad);
+				tetrad.setWidth(barBG.getWidth());
+				align(tetrad, 2, barBG, 18);
+				tetrad.translate(-tetrad.getX(), -tetrad.getY() - MARGIN);
+			}
 			summary().moveToFront();
 			// setBoundsFromNode(this, barBG, 0);
 			animateToAlignment(this, 2, art.header, 2, -barBG.getX()
@@ -833,9 +848,8 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 
 		align(parentDesc, 0, siblingPercent, 2, MARGIN, 0);
 		double width = maxW() - siblingPercent.getMaxX() - MARGIN;
-		assert width >= 0 : art.getW() + " " + art.summary.w + " "
-				+ maxW() + " " + siblingPercent.getMaxX() + " " + MARGIN + " "
-				+ facet;
+		assert width >= 0 : art.getW() + " " + art.summary.w + " " + maxW()
+				+ " " + siblingPercent.getMaxX() + " " + MARGIN + " " + facet;
 		setWidth(nodes(parentDesc), width);
 	}
 
@@ -883,7 +897,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 
 			setBoundsFromNodes(significanceHeader, nodes(significanceDesc,
 					significanceTypeDesc), MARGIN);
-			
+
 			summary().colorKey.moveToFront();
 
 			// Rectangle2D barBounds = ((Bar) anchor).visibleBounds();
@@ -955,7 +969,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 			fade(nodes(ratioLines), OPAQUE);
 			ratioLines.setStroke(LazyPPath.getStrokeInstance(1));
 
-			double ratio = rank().oddsRatio(facet);
+			double ratio = facet.percentageRatio();
 			tempRatioLabel = pv()
 					.tempRatioLabel(Rank.constrainOddsRatio(ratio));
 			tempRatioLabel.moveToFront();
@@ -1060,7 +1074,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 	private void pValueString(StringBuffer buf) {
 		double pValue = facet != null ? facet.pValue() : cluster.pValue();
 		// Util.print(facet + " " + cluster + " " + pValue);
-		if (pValue >= 0&&art.getShowPvalues()) {
+		if (pValue >= 0 && art.getShowPvalues()) {
 			// If cluster is created by replayOps, pValue = -1
 			buf.append(" (");
 			MouseDocLine.formatPvalue(pValue, buf);
@@ -1111,7 +1125,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 				new Point2D.Double(attachmentX0, attachmentY0));
 		PActivity a = attachment.animateToPositionScaleRotation(goal.getX(),
 				goal.getY(), attachment.getScale(), 0, duration);
-			addAnimationJob(a);
+		addAnimationJob(a);
 	}
 
 	private static PBounds ensureGlobalBounds(PNode node) {
@@ -1434,7 +1448,8 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 			Markup medianDesc = medianContent(true);
 			StringBuffer buf = new StringBuffer();
 			buf.append(" of them satisfy all ").append(
-					query().nFilters(true, true, true, true)).append(" filters");
+					query().nFilters(true, true, true, true))
+					.append(" filters");
 			if (conditionalMedian != null) {
 				// pValueString(buf);
 			} else {
@@ -1519,7 +1534,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 	}
 
 	private void setRatioDesc() {
-		double ratio = rank().oddsRatio(facet);
+		double ratio = facet.percentageRatio();
 		String ratioLabel = PerspectiveViz.formatOddsRatio(ratio);
 		// Util.print(ratio + " " + ratioLabel);
 		String desc = "as likely to satisfy the filters, as shown by the bar height. "
@@ -1677,6 +1692,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 
 	/**
 	 * This loses prefix Markup like COLOR and PLURAL (which is a good thing)
+	 * 
 	 * @param facetDescList
 	 * @return Markup with prefixes removed
 	 */
@@ -1874,6 +1890,10 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 			animationSpeed = 0;
 			finishAnimation();
 			summaryBG.removeFromParent();
+			if (tetrad != null) {
+				removeChild(tetrad);
+				tetrad = null;
+			}
 			if (isHelp) {
 				art.summary.computeRankComponentHeights(0);
 				// animateBarTransparencies(1, 0, 0);
@@ -1896,10 +1916,11 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 	Query query() {
 		return art.query;
 	}
-	
-//	public void setVisible(boolean state) {
-//		Util.print("Popup.setVisible " + state + " " + facetDesc.getTransparency());
-//		edu.cmu.cs.bungee.piccoloUtils.gui.Util.printDescendents(this,20,false);
-//		 super.setVisible(state);
-//	}
+
+	// public void setVisible(boolean state) {
+	// Util.print("Popup.setVisible " + state + " " +
+	// facetDesc.getTransparency());
+	// edu.cmu.cs.bungee.piccoloUtils.gui.Util.printDescendents(this,20,false);
+	// super.setVisible(state);
+	// }
 }

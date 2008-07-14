@@ -1,5 +1,9 @@
 package edu.cmu.cs.bungee.client.viz;
 
+import edu.cmu.cs.bungee.faceImage.FaceImage;
+import edu.cmu.cs.bungee.faceImage.FaceImageThreePoint;
+import edu.cmu.cs.bungee.faceImage.FaceImageTwoPoint;
+
 import java.awt.Color;
 import java.awt.Image;
 import java.awt.image.BufferedImage;
@@ -53,7 +57,7 @@ final class GridImage extends PImage /* implements FacetNode */{
 		border.setTransparency(0);
 		addChild(border);
 		addInputEventListener(gridImageHandler);
-//		border.strokeW = 2;
+		// border.strokeW = 2;
 		select();
 	}
 
@@ -77,7 +81,9 @@ final class GridImage extends PImage /* implements FacetNode */{
 	// If cached value is the right size, or as big as possible, do nothing.
 	// Otherwise recompute from itemImage
 	void scale(int w, int h) {
-		// Util.print("Enter scale "+this+" " + w + "x"+h);
+//		Util.print("Enter scale " + this + " " + w + "x" + h + " "
+//				+ itemImage.currentW() + "x" + itemImage.currentH() + " "
+//				+ correctSize(w, h));
 		if (!correctSize(w, h)) {
 			int rawW = itemImage.currentW();
 			int rawH = itemImage.currentH();
@@ -91,7 +97,7 @@ final class GridImage extends PImage /* implements FacetNode */{
 			// Util.printStackTrace();
 			// Util.print(" " + scaled.getWidth() + "*" + scaled.getHeight());
 			assert getWidth() <= w : w + " " + getWidth() + " "
-					+ scaled.getWidth() + " " + newW + " " + newH;
+					+ scaled.getWidth() + " " + newW + " " + newH;				
 			// }
 		}
 		assert getWidth() <= w : w + " " + getWidth();
@@ -184,6 +190,8 @@ final class GridImage extends PImage /* implements FacetNode */{
 
 	String mouseDoc = "Select this result";
 
+	private FaceImage faceImage;
+
 	private String getMouseDoc() {
 		// if (mouseDoc == null) {
 		// mouseDoc = "Select this result"; // +
@@ -228,6 +236,20 @@ final class GridImage extends PImage /* implements FacetNode */{
 	void mayHideTransients(PNode ignore) {
 		assert Util.ignore(ignore);
 		grid().mayHideTransients();
+	}
+
+	void handleFaceWarping(PInputEvent e) {
+		Util.print(e.getPositionRelativeTo(this));
+		if (faceImage == null) {
+			faceImage = FaceImageThreePoint.getInstamce(getImage());
+		}
+		faceImage.addPoint(e.getPositionRelativeTo(this));
+		if (faceImage.isSavable()) {
+			((SelectedItem) getParent()).art.warpImage(itemImage.item,
+					faceImage);
+			// itemImage.rawImage=faceImage.getWarpedImage();
+			// ((SelectedItem) getParent()).art.selectedItem.maybeAddImage();
+		}
 	}
 }
 

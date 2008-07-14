@@ -15,7 +15,6 @@ import edu.cmu.cs.bungee.javaExtensions.*;
 import edu.cmu.cs.bungee.piccoloUtils.gui.APText;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
 import edu.cmu.cs.bungee.piccoloUtils.gui.MouseDoc;
-import edu.umd.cs.piccolo.PNode;
 
 final class ClusterViz extends LazyPNode implements MouseDoc,
 		PickFacetTextNotifier {
@@ -161,9 +160,9 @@ final class ClusterViz extends LazyPNode implements MouseDoc,
 			facetTreeViz.highlightFacet(highlightFacets);
 	}
 
-	public void setMouseDoc(PNode source, boolean state) {
-		art.setMouseDoc(source, state);
-	}
+//	public void setMouseDoc(PNode source, boolean state) {
+//		art.setMouseDoc(source, state);
+//	}
 
 	public void setMouseDoc(String doc) {
 		art.setMouseDoc(doc);

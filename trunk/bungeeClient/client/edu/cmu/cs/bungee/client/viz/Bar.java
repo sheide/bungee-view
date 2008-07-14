@@ -161,7 +161,7 @@ final class Bar extends LazyPNode implements FacetNode {
 		startY = currentY;
 		// goalY = expectedPercentOn == 1 ? 0.5 : 1 - pv.rank.warp(facet
 		// .percentOn());
-		goalY = 1 - Rank.warp(pv.rank.oddsRatio(facet));
+		goalY = 1 - Rank.warp(facet.percentageRatio());
 		updateSelection();
 
 		// Try this to increase the salience of bars that max out - so they

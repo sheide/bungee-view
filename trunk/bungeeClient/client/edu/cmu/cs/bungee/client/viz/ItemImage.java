@@ -8,7 +8,6 @@ import java.util.Map;
 import java.util.Set;
 
 import edu.cmu.cs.bungee.client.query.Query.Item;
-import edu.cmu.cs.bungee.javaExtensions.Util;
 
 final class ItemImage {
 

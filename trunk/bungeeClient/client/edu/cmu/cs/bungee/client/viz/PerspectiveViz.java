@@ -217,7 +217,7 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 
 		if (p.isOrdered()) {
 			Color color = Markup.UNASSOCIATED_COLORS[1];
-			medianArrow = new MedianArrow(color, color, 7, 0);
+			medianArrow = new MedianArrow(color, 7, 0);
 		}
 
 		front.addInputEventListener(Bungee.facetClickHandler);
@@ -1532,7 +1532,7 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 
 	double frontBottomOffset() {
 		return front.getYOffset()
-				+ Util.min(Math.round(front.getFullBounds().getHeight()), rank
+				+ Math.min(Math.round(front.getFullBounds().getHeight()), rank
 						.getHeight());
 	}
 
@@ -1758,6 +1758,9 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 					+ (leftEdge + dragStartOffset) * (deltaZoom - 1), 0,
 					newLogicalWidth - visibleWidth());
 			// rightEdge = leftEdge + viewW;
+			assert newLeftEdge >= 0
+					&& newLeftEdge + visibleWidth() <= newLogicalWidth : newLeftEdge
+					+ "/" + newLogicalWidth + " " + visibleWidth();
 		}
 		setLogicalBounds(newLeftEdge, newLogicalWidth);
 		// Util.print(zoom + " " + viewW + " " + newW + " " + leftEdge + " " +
@@ -1776,15 +1779,12 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 
 		int highlighted = 1;
 
-		MedianArrow(Paint headColor, Paint tailColor, int tailDiameter,
+		MedianArrow(Paint color, int size,
 				int length) {
-			super(headColor, tailColor, tailDiameter, length);
+			super(color, size, length);
 			setPickable(false);
 			// line.setPickable(false);
-			leftHead.addInputEventListener(medianArrowHandler);
-			rightHead.addInputEventListener(medianArrowHandler);
-			tail.addInputEventListener(medianArrowHandler);
-			line.addInputEventListener(medianArrowHandler);
+			addInputEventListener(medianArrowHandler);
 		}
 
 		void updateColor(int _significant) {
@@ -1797,8 +1797,7 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 			// Color[] colors = significant == 0 ? Markup.whites
 			// : (significant > 0 ? Markup.blues : Markup.oranges);
 			// Color color = colors[highlighted];
-			setHeadColor(color);
-			setTailColor(color);
+			setStrokePaint(color);
 		}
 
 		void highlight(boolean state) {
@@ -2255,12 +2254,12 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 									: lastWithLetter.cumCountExclusive()
 											- firstWithLetter
 													.cumCountExclusive();
-//							if ("Label".equals(p.getNameIfPossible()))
-//								Util.print("redraw " + p + " '"
-//										+ letter.getSourceString() + "' "
-//										+ firstWithLetter + "-"
-//										+ lastWithLetter + " " + iMidX + " "
-//										+ counts[iMidX]);
+							// if ("Label".equals(p.getNameIfPossible()))
+							// Util.print("redraw " + p + " '"
+							// + letter.getSourceString() + "' "
+							// + firstWithLetter + "-"
+							// + lastWithLetter + " " + iMidX + " "
+							// + counts[iMidX]);
 							// Util.print(lastWithLetter + " "
 							// + lastWithLetter.whichChild() + "/"
 							// + p.nChildren());
@@ -2295,9 +2294,9 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 				x1 = x0 + labelHprojectionW;
 			}
 			int iVisibleWidth = (int) visibleWidth();
-//			if ("Label".equals(p.getNameIfPossible()))
-//				Util.print("drawComputedLetter " + p + "." + leftCandidateX
-//						+ " " + x0 + " " + threshold);
+			// if ("Label".equals(p.getNameIfPossible()))
+			// Util.print("drawComputedLetter " + p + "." + leftCandidateX
+			// + " " + x0 + " " + threshold);
 			for (int x = x0 + 1; x < iVisibleWidth && result < 0; x++) {
 				if (x > x1)
 					threshold = 0;
@@ -2320,8 +2319,8 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 		private Map letterPTextCache = new Hashtable();
 
 		private void maybeDrawLetter(String s, int midX) {
-//			if ("Label".equals(p.getNameIfPossible()))
-//				Util.print("maybeDrawLetter " + p + "." + s + " " + midX);
+			// if ("Label".equals(p.getNameIfPossible()))
+			// Util.print("maybeDrawLetter " + p + "." + s + " " + midX);
 			int iVisibleWidth = (int) visibleWidth();
 			assert midX >= 0 : s;
 			assert midX < iVisibleWidth : s + " " + midX + " " + iVisibleWidth;

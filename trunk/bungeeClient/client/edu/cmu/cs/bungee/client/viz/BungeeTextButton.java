@@ -9,9 +9,9 @@ class BungeeTextButton extends TextButton {
 
 	private Bungee art;
 
-	BungeeTextButton(String text, Color textColor, Color bgColor, Bungee _art) {
+	BungeeTextButton(String text, Color textColor, Color bgColor, Bungee _art, String documentation) {
 		super(text, _art.font, 0, 0, -1 /*_art.getStringWidth(text) + 2 */,
-				-1 /*_art.lineH + 2 */, null, 1.8f, textColor, bgColor);
+				-1 /*_art.lineH + 2 */, null, documentation, 1.8f, textColor, bgColor);
 		art = _art;
 	}
 	

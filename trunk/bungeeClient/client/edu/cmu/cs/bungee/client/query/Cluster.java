@@ -42,7 +42,7 @@ public final class Cluster implements ItemPredicate {
 	/**
 	 * @param rs
 	 *            columns: parent_facet_id, facet_id, name, n_child_facets,
-	 *            first_child_offset, n_items, isAncestor
+	 *            first_child_offset, n_items, isAncestor, pvalue
 	 * @param q
 	 *            the query whose facets comprise this cluster
 	 */
@@ -91,6 +91,10 @@ public final class Cluster implements ItemPredicate {
 		// If cluster is created by replayOps, pValue = -1;
 //		assert 0 <= pValue && pValue <= 1;
 		return pValue;
+	}
+
+	public double percentageRatio() {
+		return 1;
 	}
 
 	/**
@@ -164,6 +168,12 @@ public final class Cluster implements ItemPredicate {
 
 	public int getTotalCount() {
 		return nItems;
+	}
+	public int parentTotalCount() {
+			return query().getTotalCount();
+	}
+	public int parentOnCount() {
+			return query().getOnCount();
 	}
 
 	public String getName() {

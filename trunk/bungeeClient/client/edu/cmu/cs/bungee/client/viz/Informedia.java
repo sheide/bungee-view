@@ -9,12 +9,17 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URLEncoder;
 import java.net.UnknownHostException;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 
 import edu.cmu.cs.bungee.client.query.Query.Item;
+import edu.cmu.cs.bungee.javaExtensions.MyResultSet;
 import edu.cmu.cs.bungee.javaExtensions.URLQuery;
 import edu.cmu.cs.bungee.javaExtensions.Util;
 
@@ -88,9 +93,9 @@ public class Informedia extends Thread {
 			Socket socket = getSendSocket();
 			PrintWriter clientOut = new PrintWriter(socket.getOutputStream(),
 					true);
-			String command = "command=play&segment=" + item.getId() + ";";
+			String command = playArgs(item);
 			Util.print("To Informedia server: " + command);
-			clientOut.println(command);
+			clientOut.print(command);
 			clientOut.close();
 			socket.close();
 			// } catch (UnknownHostException e) {
@@ -100,13 +105,111 @@ public class Informedia extends Thread {
 		}
 	}
 
+	String playArgs(Item item) {
+		String command = "command=play&segment=";
+
+		if (art.dbName.equalsIgnoreCase("historymakers")) {
+			command += item.getId();
+		} else if (art.dbName.equalsIgnoreCase("cm")) {
+			try {
+				Item[] items = { item };
+				ResultSet rs = art.query.caremediaPlayArgs(items);
+				assert MyResultSet.nRows(rs) == 1;
+				rs.next();
+				int segment = rs.getInt(1);
+				int start = rs.getInt(2);
+				int stop = rs.getInt(3);
+				command += segment + "&start=" + start + "&end=" + stop;
+				rs.close();
+			} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		} else {
+			assert false : art.dbName;
+		}
+		command += ";";
+		return command;
+	}
+
+	int getSegment(Item item) {
+		Item[] items = { item };
+		return getSegments(items)[0];
+	}
+
+	int[] getSegments(Item[] items) {
+		if (art.dbName.equalsIgnoreCase("historymakers")) {
+			int[] result = new int[items.length];
+			for (int i = 0; i < items.length; i++) {
+				result[i++] = items[i].getId();
+			}
+			return result;
+		} else if (art.dbName.equalsIgnoreCase("cm")) {
+			try {
+				ResultSet rs = art.query.caremediaPlayArgs(items);
+				Set segments = new HashSet(MyResultSet.nRows(rs));
+				while (rs.next()) {
+					segments.add(new Integer(rs.getInt(1)));
+				}
+				rs.close();
+				int[] result = new int[segments.size()];
+				int i = 0;
+				for (Iterator it = segments.iterator(); it.hasNext();) {
+					Integer segment = (Integer) it.next();
+					result[i++] = segment.intValue();
+				}
+				return result;
+			} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		} else {
+			assert false : art.dbName;
+		}
+		return null;
+	}
+
+	Item getItem(int segment) {
+		int[] segments = { segment };
+		Item[] items = getItems(segments);
+		// Might not have any items for this segment
+		return items.length > 0 ? items[0] : null;
+	}
+
+	Item[] getItems(int[] segments) {
+		if (art.dbName.equalsIgnoreCase("historymakers")) {
+			Item[] result = new Item[segments.length];
+			for (int i = 0; i < segments.length; i++) {
+				result[i] = art.ensureItem(segments[i]);
+			}
+			return result;
+		} else if (art.dbName.equalsIgnoreCase("cm")) {
+			try {
+				ResultSet rs = art.query.caremediaGetItems(segments);
+				Item[] result = new Item[MyResultSet.nRows(rs)];
+				int i = 0;
+				while (rs.next()) {
+					result[i++] = art.ensureItem(rs.getInt(1));
+				}
+				rs.close();
+				return result;
+			} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		} else {
+			assert false : art.dbName;
+		}
+		return null;
+	}
+
 	void newVideoSet() {
 		Util.print("newVideoSet ");
 
-		Map args = new TreeMap();  // Use TreeMap so "command" comes first
+		Map args = new TreeMap(); // Use TreeMap so "command" comes first
 		args.put("command", "newVideoSet");
 		args.put("name", art.query.getName());
-		args.put("segments", art.getFacetIDs(0, art.query.getOnCount()));
+		args.put("segments", art.getItems(0, art.query.getOnCount()));
 		String outputLine = argify(args);
 		Util.print("To Client: " + outputLine);
 
@@ -114,7 +217,7 @@ public class Informedia extends Thread {
 			Socket socket = getSendSocket();
 			PrintWriter clientOut = new PrintWriter(socket.getOutputStream(),
 					true);
-			clientOut.println(outputLine);
+			clientOut.print(outputLine);
 			clientOut.close();
 			socket.close();
 		} catch (IOException e) {
@@ -166,7 +269,7 @@ public class Informedia extends Thread {
 					if (output != null) {
 						String outputLine = argify(output);
 						Util.print("To Client: " + outputLine);
-						clientOut.println(outputLine);
+						clientOut.print(outputLine);
 					}
 				}
 				clientOut.close();
@@ -218,10 +321,11 @@ public class Informedia extends Thread {
 					+ selectedItem);
 			Map result = new Hashtable();
 			result.put("name", art.query.getName());
-			result.put("segments", art.getFacetIDs(startIndex, endIndex));
+			result.put("segments", getSegments(art.getItems(startIndex,
+					endIndex)));
 			if (selectedItem != null)
-				result.put("selectedSegment", String.valueOf(selectedItem
-						.getId()));
+				result.put("selectedSegment", String
+						.valueOf(getSegment(selectedItem)));
 			return result;
 		}
 
@@ -230,24 +334,34 @@ public class Informedia extends Thread {
 			final String name = nameArg.length() > 0 ? nameArg
 					: "Informedia query";
 
-			String selectedItemArg = args.getArgument("selectedSegment");
-			final int selectedItem = selectedItemArg.length() > 0 ? Integer
-					.parseInt(selectedItemArg) : -1;
+			String selectedsegmentArg = args.getArgument("selectedSegment");
+			final int selectedsegment = selectedsegmentArg.length() > 0 ? Integer
+					.parseInt(selectedsegmentArg)
+					: -1;
 
-			String itemsArg = args.getArgument("segments");
-			final String items = itemsArg.length() > 0 ? itemsArg : null;
+			String segmentsArg = args.getArgument("segments");
+			final String segmentList = segmentsArg.length() > 0 ? segmentsArg
+					: null;
 
-			Util.print("export " + selectedItem + " " + name);
-			Util.print(" " + items);
+			Util.print("export " + selectedsegment + " " + name);
+			Util.print(" " + segmentList);
 
 			Runnable doExport = new Runnable() {
 
 				public void run() {
 					art.clearQuery();
-					if (items != null)
-						art.addItemList(name, items);
-					if (selectedItem > 0) {
-						art.grid.clickThumb(art.ensureItem(selectedItem), 5);
+					if (segmentList != null) {
+						String[] segmentNames = segmentList.split(",");
+						int[] segments = new int[segmentNames.length];
+						for (int i = 0; i < segmentNames.length; i++) {
+							segments[i] = Integer.parseInt(segmentNames[i]);
+						}
+						art.addItemList(name, getItems(segments));
+					}
+					if (selectedsegment > 0) {
+						Item selectedItem = getItem(selectedsegment);
+						if (selectedItem != null)
+							art.grid.clickThumb(selectedItem, 5);
 					}
 				}
 			};

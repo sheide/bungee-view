@@ -24,6 +24,8 @@ public interface ItemPredicate {
 	 *         satisfying this predicate
 	 */
 	public abstract int getTotalCount();
+	public abstract int parentTotalCount();
+	public abstract int parentOnCount();
 
 	/**
 	 * @return human-readable naem of this predicate
@@ -120,6 +122,12 @@ public interface ItemPredicate {
 	 *         percentOn()
 	 */
 	public abstract double pValue();
+
+	/**
+	 * @return significance level of percentOn() compared to parant's
+	 *         percentOn()
+	 */
+	public abstract double percentageRatio();
 
 	/**
 	 * @param significanceThreshold

@@ -35,12 +35,10 @@ import edu.cmu.cs.bungee.client.query.Cluster;
 import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.cmu.cs.bungee.client.query.Query;
 import edu.cmu.cs.bungee.client.query.Query.ItemList;
-import edu.cmu.cs.bungee.javaExtensions.Util;
 import edu.cmu.cs.bungee.piccoloUtils.gui.APText;
 import edu.cmu.cs.bungee.piccoloUtils.gui.Boundary;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyContainer;
 import edu.cmu.cs.bungee.piccoloUtils.gui.MouseDoc;
-import edu.umd.cs.piccolo.PNode;
 import edu.umd.cs.piccolox.event.PStyledTextEventHandler;
 import edu.umd.cs.piccolox.nodes.PStyledText;
 import java.awt.Font;
@@ -499,9 +497,9 @@ final class QueryViz extends LazyContainer implements MouseDoc {
 		}
 	}
 
-	public void setMouseDoc(PNode source, boolean state) {
-		art().setMouseDoc(source, state);
-	}
+//	public void setMouseDoc(PNode source, boolean state) {
+//		art().setMouseDoc(source, state);
+//	}
 
 	public void setMouseDoc(String doc) {
 		art().setMouseDoc(doc);
@@ -514,7 +512,7 @@ final class QueryViz extends LazyContainer implements MouseDoc {
 		DeleteSearchButton() {
 			// super("X", art.font, 0, 0, art.lineH, art.lineH, null, 2.0f,
 			// Bungee.summaryFG, Bungee.summaryBG);
-			super("X", Bungee.summaryFG, Bungee.summaryBG, QueryViz.this.art());
+			super("X", Bungee.summaryFG, Bungee.summaryBG, QueryViz.this.art(), "Remove this filter");
 			setScale(0.6);
 			 mouseDoc = "Remove this filter";
 		}

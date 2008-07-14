@@ -31,10 +31,19 @@
 
 package edu.cmu.cs.bungee.client.viz;
 
+import java.awt.Transparency;
+import java.awt.color.ColorSpace;
+import java.awt.image.BufferedImage;
+import java.awt.image.ColorModel;
+import java.awt.image.ComponentColorModel;
+import java.awt.image.DataBuffer;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.InputStream;
 import java.lang.ref.SoftReference;
 import java.sql.ResultSet;
 import java.util.Hashtable;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 
@@ -55,6 +64,10 @@ import edu.umd.cs.piccolo.event.PInputEvent;
 import edu.umd.cs.piccolo.nodes.PImage;
 
 final class SelectedItem extends LazyContainer implements MouseDoc {
+
+	private static final boolean CAPTURING_FACES = true;
+
+	private static final boolean FLIPPING_FACES = false;
 
 	private final static double leftMargin = 5.0;
 
@@ -93,6 +106,59 @@ final class SelectedItem extends LazyContainer implements MouseDoc {
 		// separatorW = art.getStringWidth(" > ");
 		setPickable(false);
 		// setPaint(Bungee.selectedItemBG);
+	}
+
+	void flip() {
+		File dir = new File(
+				"C:\\Documents and Settings\\mad\\Desktop\\50thAnniversary\\FlipImages");
+		ColorSpace cs = ColorSpace.getInstance(ColorSpace.CS_GRAY);
+		int bits[] = new int[] { 8 };
+		ColorModel cm = new ComponentColorModel(cs, bits, false, false,
+				Transparency.OPAQUE, DataBuffer.TYPE_BYTE);
+		for (int j = 0; j < 100; j++) {
+			try {
+				assert dir.isDirectory() : dir;
+				String[] children = dir.list();
+				PNode prev = null;
+				if (children != null) {
+					if (j == 0)
+						Util.print("Flipping " + children.length + " images");
+					for (int i = 0; i < children.length; i++) {
+						if (children[i].endsWith(".jpg")
+								&& children[i].length() <= 6) {
+							File f = new File(dir, children[i]);
+							if (j == 0)
+								Util.print("Fliping " + f);
+							BufferedImage rawImage = Util
+									.read(new FileInputStream(f));
+							BufferedImage image = Util.convertImage(rawImage,
+									cm);
+							PImage pim = new PImage(image);
+							addChild(pim);
+							// pim.moveToBack();
+							if (prev != null)
+								prev.removeFromParent();
+							prev = pim;
+							art.getCanvas().paintImmediately();
+							pim.animateToTransparency(0, 1000);
+							Thread.sleep(100);
+							harvestPims();
+						}
+					}
+				}
+				Thread.sleep(1000);
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
+	}
+
+	void harvestPims() {
+		for (Iterator it = getChildrenIterator(); it.hasNext();) {
+			PNode child = (PNode) it.next();
+			if (child.getTransparency() == 0)
+				removeChild(child);
+		}
 	}
 
 	void init() {
@@ -141,6 +207,8 @@ final class SelectedItem extends LazyContainer implements MouseDoc {
 			facetTreeViz.validate(getTreeW(), _h);
 			boundary.validate();
 			redraw();
+			if (FLIPPING_FACES)
+				flip();
 		}
 	}
 
@@ -250,12 +318,14 @@ final class SelectedItem extends LazyContainer implements MouseDoc {
 	}
 
 	int maxImageH() {
-		return (int) (h / 2.0);
+		int result = (int) (h / 2.0);
+		// Util.print("maxImageH "+result);
+		return result;
 	}
 
 	double maybeAddImage() {
 		// int imageH = 0;
-		int y = (int) (label.getMaxY() + art.lineH / 2);
+		int y = (int) (label.getMaxY() + 0 * art.lineH / 2);
 		FacetTree ft = getFacetTree();
 		if (ft != null) {
 			// ItemImage ii = ft.image;
@@ -278,21 +348,16 @@ final class SelectedItem extends LazyContainer implements MouseDoc {
 				gridImage.mouseDoc = query().itemURLdoc;
 				gridImage.removeInputEventListener(GridImage.gridImageHandler);
 				gridImage.addInputEventListener(itemClickHandler);
-				// image.setImage(ScaleDescriptor.create(raw, new Float(scale),
-				// new Float(scale), new Float(0),
-				// new Float(0), Interpolation
-				// .getInstance(Interpolation.INTERP_NEAREST),
-				// null).getAsBufferedImage());
 
-				// image.setScale(scale);
+				if (CAPTURING_FACES)
+					gridImage.setScale(maxImageW() / gridImage.getWidth());
 
-				int x = (int) Math.round((w - gridImage.getWidth()) / 2.0);
+				int x = (int) Math.round((w - gridImage.getWidth()
+						* gridImage.getScale()) / 2.0);
 				// image.setBounds(x, y, imageW, imageH);
 				gridImage.setOffset(x, y);
-				y += gridImage.getHeight() + art.lineH / 2;
-				// Util.print("max: " + maxW + "x" + maxH);
-				// Util.print(" " + imageW + "x" + imageH + " " + scale + " " +
-				// image.getBounds());
+				y += gridImage.getHeight() * gridImage.getScale() + art.lineH
+						/ 2;
 				addChild(gridImage);
 			}
 		}
@@ -370,6 +435,7 @@ final class SelectedItem extends LazyContainer implements MouseDoc {
 				addChild(label);
 				addChild(facetTreeViz);
 				double descY = Math.ceil(maybeAddImage());
+				// if (true)return;
 				// double descY = labelH + imageH + 20.0;
 				double usableW = w - leftMargin * 2.0;
 				double usableH = h - descY - 12.0; // for desc &
@@ -433,9 +499,9 @@ final class SelectedItem extends LazyContainer implements MouseDoc {
 	// facetTreeViz.clickText(facet, modifiers);
 	// }
 
-	public void setMouseDoc(PNode source, boolean state) {
-		art.setMouseDoc(source, state);
-	}
+	// public void setMouseDoc(PNode source, boolean state) {
+	// art.setMouseDoc(source, state);
+	// }
 
 	public void setMouseDoc(String doc) {
 		art.setMouseDoc(doc);
@@ -457,7 +523,7 @@ final class SelectedItem extends LazyContainer implements MouseDoc {
 	}
 
 	void showItemInNewWindow() {
-			art.showItemInNewWindow(currentItem);
+		art.showItemInNewWindow(currentItem);
 	}
 
 	/**
@@ -524,22 +590,20 @@ final class ItemSetter extends UpdateThread {
 
 	public void process(Object i) {
 		// Util.print("ItemSetter.run");
-		// parent.art.waitForValidQuery();
-		// if (isUpToDate()) {
 		Bungee art = parent.art;
 		Query query = art.query;
 		Item item = (Item) i;
-		// if (item < 0)
-		// return;
 
 		int imageW = parent.maxImageW();
 		int imageH = parent.maxImageH();
 		ItemImage _image = art.lookupItemImage(item);
 		if (_image != null
 				&& _image.bigEnough(imageW, imageH, Bungee.ImageQuality)) {
+			// -1 means don't retrieve an image
 			imageW = -1;
 			imageH = -1;
 		}
+		// Util.print("ItemSetter.process " + i + " " + imageW + "x" + imageH);
 
 		ResultSet rs = null;
 		String description = null;
@@ -547,31 +611,7 @@ final class ItemSetter extends UpdateThread {
 			rs = query.getDescAndImage(item, imageW, imageH,
 					Bungee.ImageQuality);
 			while (rs.next()) {
-				// BufferedImage rawImage = null;
 				InputStream blobStream = ((MyResultSet) rs).getInputStream(2);
-				// if (blobStream != null) {
-				// rawImage = ImageIO.read(blobStream);
-				//
-				// // ImageReader reader1 =
-				// // (ImageReader)ImageIO.getImageReadersByFormatName("jpeg
-				// // 2000").next();
-				// // ImageInputStream iis =
-				// // ImageIO.createImageInputStream(blobStream);
-				// // reader1.setInput(iis,false,true);
-				// // J2KImageReadParam paramJ2K1 = new J2KImageReadParam();
-				// // System.out.println(paramJ2K1.getDecodingRate());
-				// // // paramJ2K1.setDecodingRate(Double.MAX_VALUE*0.9);
-				// // rawImage = reader1.read(0, paramJ2K1);
-				// // reader1.dispose();
-				//
-				// // if (rawImage.getColorModel().getNumColorComponents() < 3)
-				// // // Workaround for washed out colors when resizing
-				// // // grayscale images
-				// // rawImage = PImage.toBufferedImage(rawImage, true);
-				//
-				// // image.setRawImage(rawImage);
-				// // describeImage(im);
-				// }
 				art.ensureItemImage(item, rs.getInt(3), rs.getInt(4),
 						Bungee.ImageQuality, blobStream);
 				description = rs.getString(1);
@@ -587,18 +627,9 @@ final class ItemSetter extends UpdateThread {
 
 		DisplayTree tree = new FacetTree(item, description, query);
 		parent.addFacetTree(item, tree);
-		// ItemImage im = tree.image;
-		// // if (true || art.basicJNLPservice != null) {
-		// // if (im == null) {
-		// // im = new PImage(parent.art.grid.getMissingImage());
-		// // tree.image = im;
-		// // }
-		// im.addInputEventListener(SelectedItem.itemClickHandler);
-		// }
 		if (isUpToDate()) {
 			javax.swing.SwingUtilities.invokeLater(parent.getDoRedraw());
 		}
-		// }
 	}
 }
 
@@ -613,6 +644,13 @@ final class ItemClickHandler extends MyInputEventHandler {
 		if (maybeSelectedItem instanceof GridImage)
 			maybeSelectedItem = maybeSelectedItem.getParent();
 		return (SelectedItem) maybeSelectedItem;
+	}
+
+	GridImage getImage(PNode node) {
+		PNode maybeSelectedItem = node;
+		if (!(maybeSelectedItem instanceof GridImage))
+			maybeSelectedItem = maybeSelectedItem.getParent();
+		return (GridImage) maybeSelectedItem;
 	}
 
 	protected boolean enter(PNode node) {
@@ -630,7 +668,9 @@ final class ItemClickHandler extends MyInputEventHandler {
 
 	protected boolean click(PNode node, PInputEvent e) {
 		SelectedItem parent = getSelectedItem(node);
-		if (e.isMiddleMouseButton())
+		if (e.isControlDown())
+			getImage(node).handleFaceWarping(e);
+		else if (e.isMiddleMouseButton())
 			parent.itemMenu(false);
 		else if (e.isRightMouseButton())
 			parent.itemMenu(true);

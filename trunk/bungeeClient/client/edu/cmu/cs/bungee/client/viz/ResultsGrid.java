@@ -218,6 +218,7 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 
 		sortMenu = new Menu(Bungee.gridBG, Bungee.gridFG.darker(), doReorder,
 				art.font);
+		sortMenu.mouseDoc = "Choose how Results are Sorted";
 		sortMenu.addButton("Random", "Show thumbnails in random order",
 				new Integer(-1));
 		sortMenu.addButton("ID", "Order thumbnails by their database ID",
@@ -262,8 +263,8 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 	}
 
 	double getTopMargin() {
-		return percentLabel.getMaxY() + art.lineH / 2;
-		// return (2.0 /* label.getScale() */+ 2.0) * art.lineH + 10.0;
+//		return percentLabel.getMaxY() + art.lineH / 2;
+		return art.summary.getTopMargin();
 	}
 
 	double getBottomMargin() {
@@ -293,7 +294,7 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 			countLabel.setOffset(margin_size(), label.getMaxY());
 			countLabel.setFont(art.font);
 
-			percentLabel.setOffset(margin_size(), countLabel.getMaxY());
+			percentLabel.setOffset(margin_size(), countLabel.getMaxY()+4);
 			percentLabel.setFont(art.font);
 
 			thumbnails.setOffset(margin_size(), getTopMargin());
@@ -554,7 +555,7 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 						selectedItemOffset);
 				int originalMinOffset = visRowOffset * nCols;
 				int originalMaxOffset = (visRowOffset + nVisibleRows) * nCols;
-				originalMaxOffset = Util.min(onCount, originalMaxOffset);
+				originalMaxOffset = Math.min(onCount, originalMaxOffset);
 
 				if (!isInRange(originalMinOffset, originalMaxOffset)) {
 					// Util.print("ensureRange " + offsetItemTableRangesIndex +
@@ -909,7 +910,7 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 			// + selectedItem);
 			assert visRowOffset == 0 || onCount > nVisibleRows * nCols : visRowOffset;
 			int minOffset = visRowOffset * nCols;
-			int maxOffset = Util.min(onCount, minOffset + nVisibleRows * nCols);
+			int maxOffset = Math.min(onCount, minOffset + nVisibleRows * nCols);
 			int offset = visRowOffset * nCols - 1;
 			// int x = 0;
 			// int margin = grid - edge;
@@ -1160,9 +1161,9 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 		sortMenu.setVisible(true);
 	}
 
-	public void setMouseDoc(PNode source, boolean state) {
-		art.setMouseDoc(source, state);
-	}
+//	public void setMouseDoc(PNode source, boolean state) {
+//		art.setMouseDoc(source, state);
+//	}
 
 	public void setMouseDoc(String doc) {
 		art.setMouseDoc(doc);
@@ -1393,9 +1394,9 @@ final class Thumbnails extends LazyPNode implements MouseDoc {
 		}
 	}
 
-	public void setMouseDoc(PNode source, boolean state) {
-		((ResultsGrid) getParent()).setMouseDoc(source, state);
-	}
+//	public void setMouseDoc(PNode source, boolean state) {
+//		((ResultsGrid) getParent()).setMouseDoc(source, state);
+//	}
 
 	public void setMouseDoc(String doc) {
 		((ResultsGrid) getParent()).setMouseDoc(doc);

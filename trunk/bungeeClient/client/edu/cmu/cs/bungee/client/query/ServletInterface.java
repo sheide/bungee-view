@@ -5,6 +5,7 @@ import java.io.DataInputStream;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -43,6 +44,9 @@ final class ServletInterface {
 
 	private final MyResultSet init;
 
+	/**
+	 * status of most recent servlet response
+	 */
 	private String status;
 
 	private DescAndImage descAndImage;
@@ -52,8 +56,7 @@ final class ServletInterface {
 	 * maybe ServletInterface should have been an inner class of Query to start
 	 * with.
 	 */
-//	private Query query;
-
+	// private Query query;
 	/**
 	 * This caches answers for two functions: itemIndex: what is the itemOffset
 	 * of item? offsetItems: what are the items for a range of offsets?
@@ -116,8 +119,8 @@ final class ServletInterface {
 			}
 			if (itemOffsets != null) {
 				String records = "";
-				records = MyResultSet.valueOfDeep(itemOffsets,
-						MyResultSet.INT, 5);
+				records = MyResultSet.valueOfDeep(itemOffsets, MyResultSet.INT,
+						5);
 				buf.append(" range ").append(minIndex).append("-").append(
 						maxIndex()).append("\n").append(records);
 			}
@@ -129,43 +132,31 @@ final class ServletInterface {
 	ServletInterface(String codeBase, String dbName) {
 		System.out.print(codeBase + " " + dbName + " "
 				+ (new Date().toString()));
-//		query = _query;
+		// query = _query;
 		host = codeBase;
 		String[] args = { dbName };
 		if (dbName == null || dbName.length() == 0)
 			args = null;
 
 		DataInputStream in = getStream("CONNECT", args);
-		if (in != null) {
-			sessionID = MyResultSet.readString(in);
-			System.out.println(" session = '" + sessionID + "'");
+		assert in != null : "Could not connect " + Util.join(args);
+		sessionID = MyResultSet.readString(in);
+		System.out.println(" session = '" + sessionID + "'");
 
-			databaseDesc = MyResultSet.readString(in);
+		databaseDesc = MyResultSet.readString(in);
 
-			facetCount = MyResultSet.readInt(in);
-			itemCount = MyResultSet.readInt(in);
-			itemDescriptionFields = MyResultSet.readString(in);
-			label = MyResultSet.readString(in);
-			doc = MyResultSet.readString(in);
-			isEditable = "Y".equalsIgnoreCase(MyResultSet.readString(in));
+		facetCount = MyResultSet.readInt(in);
+		itemCount = MyResultSet.readInt(in);
+		itemDescriptionFields = MyResultSet.readString(in);
+		label = MyResultSet.readString(in);
+		doc = MyResultSet.readString(in);
+		isEditable = "Y".equalsIgnoreCase(MyResultSet.readString(in));
 
-			initPerspectives = new MyResultSet(in,
-					MyResultSet.STRING_STRING_STRING_INT_INT_INT_INT);
-			init = new MyResultSet(in, MyResultSet.INT);
+		initPerspectives = new MyResultSet(in,
+				MyResultSet.STRING_STRING_STRING_INT_INT_INT_INT_INT);
+		init = new MyResultSet(in, MyResultSet.INT);
 
-			closeNcatch(in, "CONNECT", args);
-		} else {
-			databaseDesc = null;
-			sessionID = null;
-			initPerspectives = null;
-			init = null;
-			itemDescriptionFields = null;
-			label = null;
-			doc = null;
-			facetCount = -1;
-			itemCount = -1;
-			isEditable = false;
-		}
+		closeNcatch(in, "CONNECT", args);
 	}
 
 	void close() {
@@ -213,7 +204,7 @@ final class ServletInterface {
 				s.append("&session=").append(sessionID);
 			String url = s.toString();
 			if (printOps) {
-				System.out.println(url);
+				System.out.println(URLDecoder.decode(url, "UTF-8"));
 				if (SwingUtilities.isEventDispatchThread()) {
 					// Note that during replay, most everything is called in the
 					// mouse process.
@@ -260,7 +251,9 @@ final class ServletInterface {
 				e.printStackTrace();
 			}
 		}
-		if (status != null && !status.equals("OK"))
+		if (status.equals("OK"))
+			status = null;
+		if (status != null)
 			System.err.println("getStream status: " + status);
 		if (command.equals("CONNECT")) {
 			Util.print("\nConnection using proxy? " + conn.usingProxy() + " "
@@ -457,7 +450,7 @@ final class ServletInterface {
 	}
 
 	void decacheOffsets() {
-//		Util.print("Decaching itemInfo");
+		// Util.print("Decaching itemInfo");
 		itemInfo = null;
 	}
 
@@ -514,7 +507,7 @@ final class ServletInterface {
 		}
 		ResultSet result = getResultSet("offsetItems", MyResultSet.INT,
 				minOffset, maxOffset, table);
-//		Util.print(MyResultSet.valueOfDeep(result, MyResultSet.INT, 5));
+		// Util.print(MyResultSet.valueOfDeep(result, MyResultSet.INT, 5));
 		return result;
 	}
 
@@ -737,6 +730,40 @@ final class ServletInterface {
 
 	String getSession() {
 		return sessionID;
+	}
+
+	/**
+	 * @param items
+	 * @return [record_num, segment_id, start_offset, end_offset]
+	 */
+	ResultSet caremediaPlayArgs(String items) {
+		String[] args = { items };
+		ResultSet result = getResultSet("caremediaPlayArgs", args,
+				MyResultSet.SINT_INT_INT);
+		return result;
+	}
+
+	/**
+	 * @param segments
+	 * @return [segment_id, record_num]
+	 */
+	public ResultSet caremediaGetItems(int[] segments) {
+		String[] args = { Util.join(segments) };
+		ResultSet result = getResultSet("caremediaGetItems", args,
+				MyResultSet.SINT);
+		try {
+			Util.print("caremediaGetItems " + Util.valueOfDeep(segments) + " "
+					+ MyResultSet.nRows(result));
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return result;
+	}
+
+	public ResultSet onCountMatrix(String facetsOfInterest, String parent) {
+		String[] args = { facetsOfInterest, parent };
+		return getResultSet("getPairCounts", args, MyResultSet.INT);
 	}
 
 }

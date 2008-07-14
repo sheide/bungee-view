@@ -159,7 +159,7 @@ public final class FacetTree extends DisplayTree  {
 							.getString(3), rs.getInt(5), 
 							rs.getInt(4));
 					if (!q.isRestrictedData())
-						child.totalCount = rs.getInt(6);
+						child.setTotalCount ( rs.getInt(6));
 					new FacetTree(this, child, rs, q);
 					rs.absolute(row);
 				}
