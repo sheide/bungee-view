@@ -196,7 +196,7 @@ final class SaxWFMovieHandler extends HTMLEditorKit.ParserCallback {
 
 	void moviegoods() throws SQLException, IOException {
 		moviegoods = jdbc
-				.prepareStatement("SELECT record_num FROM item WHERE keyTitle = ?");
+				.lookupPS("SELECT record_num FROM item WHERE keyTitle = ?");
 		for (int year1 = 2001; year1 < 2008; year1++) {
 			Util.print(year1);
 			for (int page = 1; page < 21; page++) {
@@ -217,8 +217,7 @@ final class SaxWFMovieHandler extends HTMLEditorKit.ParserCallback {
 							int index2 = html.indexOf("\">", index1);
 							String title = html.substring(index1 + 5, index2);
 							moviegoods.setString(1, title);
-							int recordNum = jdbc.SQLqueryInt(moviegoods,
-									"Lookup record from title");
+							int recordNum = jdbc.SQLqueryInt(moviegoods);
 							if (recordNum >= 0) {
 								int index3 = html.indexOf(".JPG\"");
 								String img1 = "http://www.moviegoods.com/Assets/product_images/"
@@ -334,7 +333,7 @@ final class SaxWFMovieHandler extends HTMLEditorKit.ParserCallback {
 			try {
 				if (lookupTitle == null) {
 					lookupTitle = jdbc
-							.prepareStatement("SELECT DISTINCT item.record_num FROM item "
+							.lookupPS("SELECT DISTINCT item.record_num FROM item "
 									+ "INNER JOIN raw_item_facet i_f ON item.record_num = i_f.record_num "
 									+ "INNER JOIN raw_facet f ON i_f.facet_id = f.facet_id "
 									+ "WHERE title = ? AND f.name = ? AND URI IS NULL");
@@ -342,16 +341,16 @@ final class SaxWFMovieHandler extends HTMLEditorKit.ParserCallback {
 				value = hackTitle(value);
 				lookupTitle.setString(1, value);
 				lookupTitle.setString(2, year);
-				int recordNum = jdbc.SQLqueryInt(lookupTitle, "Lookup title");
+				int recordNum = jdbc.SQLqueryInt(lookupTitle);
 				Util.print("title: '" + value + "' " + recordNum);
 				if (recordNum >= 0) {
 					if (setURI == null) {
 						setURI = jdbc
-								.prepareStatement("UPDATE item SET URI = ? WHERE record_num = ?");
+								.lookupPS("UPDATE item SET URI = ? WHERE record_num = ?");
 					}
 					setURI.setString(1, recordURL);
 					setURI.setInt(2, recordNum);
-					jdbc.SQLupdate(setURI, "Set URI");
+					jdbc.SQLupdate(setURI);
 					if (img != null && img.length() > 0)
 						loadImageInternal(
 								"C:\\Projects\\ArtMuseum\\InfoVisMovieContest\\images",
@@ -410,14 +409,14 @@ final class SaxWFMovieHandler extends HTMLEditorKit.ParserCallback {
 		try {
 			if (setImage == null) {
 				setImage = jdbc
-						.prepareStatement("INSERT INTO images VALUES(?, LOAD_FILE(?), ?, ?, ?)");
+						.lookupPS("INSERT INTO images VALUES(?, LOAD_FILE(?), ?, ?, ?)");
 			}
 			setImage.setInt(1, record_num);
 			setImage.setString(2, filename);
 			setImage.setString(3, URI);
 			setImage.setInt(4, w);
 			setImage.setInt(5, h);
-			jdbc.SQLupdate(setImage, "Set image");
+			jdbc.SQLupdate(setImage);
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
@@ -485,7 +484,7 @@ final class SaxMovieHandler extends DefaultHandler {
 		try {
 			if (lookupKey == null) {
 				lookupKey = jdbc
-						.prepareStatement("SELECT record_num FROM item WHERE keyTitle = ?");
+						.lookupPS("SELECT record_num FROM item WHERE keyTitle = ?");
 			}
 			BufferedReader r = new BufferedReader(new FileReader(filename));
 			String line;
@@ -494,8 +493,7 @@ final class SaxMovieHandler extends DefaultHandler {
 				if (m.matches()) {
 					String key = m.group(1);
 					lookupKey.setString(1, key);
-					recordNum = jdbc.SQLqueryInt(lookupKey,
-							"Lookup record_num from title");
+					recordNum = jdbc.SQLqueryInt(lookupKey);
 					if (recordNum >= 0) {
 						String value = m.group(2);
 						if (type.equals("Length")) {
@@ -645,7 +643,7 @@ final class SaxMovieHandler extends DefaultHandler {
 		try {
 			if (newItem == null) {
 				newItem = jdbc
-						.prepareStatement("INSERT INTO item VALUES(null, null, ?, ?, ?)");
+						.lookupPS("INSERT INTO item VALUES(null, null, ?, ?, ?)");
 			}
 			Matcher m = titlePattern.matcher(title);
 			if (!m.find()) {
@@ -655,7 +653,7 @@ final class SaxMovieHandler extends DefaultHandler {
 			newItem.setString(2, m.group(1));
 			newItem.setString(3, title);
 			if (!dontUpdate) {
-				jdbc.SQLupdate(newItem, "Add new item");
+				jdbc.SQLupdate(newItem);
 			} else
 				Util
 						.print("INSERT INTO item VALUES(null, null, <next recordNum>, null)");
@@ -735,11 +733,11 @@ final class SaxMovieHandler extends DefaultHandler {
 		try {
 			if (addTriple == null) {
 				addTriple = jdbc
-						.prepareStatement("REPLACE INTO raw_item_facet VALUES(?, ?)");
+						.lookupPS("REPLACE INTO raw_item_facet VALUES(?, ?)");
 			}
 			addTriple.setInt(1, recordNum);
 			addTriple.setInt(2, facet);
-			jdbc.SQLupdate(addTriple, "Add triple");
+			jdbc.SQLupdate(addTriple);
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
@@ -762,23 +760,23 @@ final class SaxMovieHandler extends DefaultHandler {
 		try {
 			if (lookupFacets == null) {
 				lookupFacets = jdbc
-						.prepareStatement("SELECT f.facet_id FROM raw_facet f WHERE f.name = ? AND f.parent_facet_id = ?");
+						.lookupPS("SELECT f.facet_id FROM raw_facet f WHERE f.name = ? AND f.parent_facet_id = ?");
 			}
 			// int parent = parentName == null ? type : lookupFacet(
 			// parentName, null, type);
 			lookupFacets.setString(1, name);
 			lookupFacets.setInt(2, parent);
-			result = jdbc.SQLqueryInt(lookupFacets, "Get facet ID");
+			result = jdbc.SQLqueryInt(lookupFacets);
 			if (result < 0) {
 				if (addFacet == null) {
 					addFacet = jdbc
-							.prepareStatement("INSERT INTO raw_facet VALUES(?, ?, null, ?, ?)");
+							.lookupPS("INSERT INTO raw_facet VALUES(?, ?, null, ?, ?)");
 				}
 				addFacet.setInt(1, ++facetID);
 				addFacet.setString(2, name);
 				addFacet.setInt(3, parent);
 				addFacet.setInt(4, type);
-				jdbc.SQLupdate(addFacet, "Add facet");
+				jdbc.SQLupdate(addFacet);
 				result = facetID;
 			}
 		} catch (SQLException e) {
@@ -795,10 +793,10 @@ final class SaxMovieHandler extends DefaultHandler {
 		try {
 			if (lookupFacetType == null) {
 				lookupFacetType = jdbc
-						.prepareStatement("SELECT f.facet_type_id FROM raw_facet_type f WHERE f.name = ?");
+						.lookupPS("SELECT f.facet_type_id FROM raw_facet_type f WHERE f.name = ?");
 			}
 			lookupFacetType.setString(1, name);
-			result = jdbc.SQLqueryInt(lookupFacetType, "Get facet type ID");
+			result = jdbc.SQLqueryInt(lookupFacetType);
 			if (result < 0) {
 				db("INSERT INTO raw_facet_type VALUES(null, "
 						+ JDBCSample.quote(name) + ", null, null, null, null)");
@@ -994,21 +992,21 @@ final class SaxMovieHandler extends DefaultHandler {
 			try {
 				if (lookupMonthOrder == null) {
 					lookupMonthOrder = jdbc
-							.prepareStatement("SELECT ordered_child_names FROM raw_facet WHERE name = ? AND parent_facet_id = ?");
+							.lookupPS("SELECT ordered_child_names FROM raw_facet WHERE name = ? AND parent_facet_id = ?");
 				}
 				lookupMonthOrder.setString(1, year);
 				lookupMonthOrder.setInt(2, releaseType());
-				if (jdbc.SQLqueryString(lookupMonthOrder, "Lookup month order") == null) {
+				if (jdbc.SQLqueryString(lookupMonthOrder) == null) {
 					if (setMonthOrder == null) {
 						setMonthOrder = jdbc
-								.prepareStatement("UPDATE raw_facet SET ordered_child_names = ? WHERE name = ? AND parent_facet_id = ?");
+								.lookupPS("UPDATE raw_facet SET ordered_child_names = ? WHERE name = ? AND parent_facet_id = ?");
 					}
 					setMonthOrder.setString(1,
 							"Jan ?,Feb ?,Mar ?,Apr ?,May ?,Jun ?,Jul ?,Aug ?,Sep ?,Oct ?,Nov ?,Dec ?"
 									.replaceAll("?", year));
 					setMonthOrder.setString(2, year);
 					setMonthOrder.setInt(3, releaseType());
-					jdbc.SQLupdate(setMonthOrder, "Set month order");
+					jdbc.SQLupdate(setMonthOrder);
 				}
 			} catch (SQLException e) {
 				e.printStackTrace();
