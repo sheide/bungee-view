@@ -33,11 +33,29 @@ package edu.cmu.cs.bungee.client.viz;
 /**
  * ToDo:
  * 
+ * Partial unrestrict
+ * 
+ * Copy text in text boxes; highlight search terms.
+ * 
+ * Fancy thumb scrolling: when sorted, show facet labels to the right of the
+ * scroll bar when scrolling. Label the first thumb with each facet value (on
+ * top). havea a button to lock each column.
+ * 
+ * Tabs for history (query, selected images), top tags, favorites.
+ * 
+ * XML query rep [parent query, searches, required, excluded] & list rep.
+ * Bookmark with the former; send the latter to the server, and construct the
+ * query there. Markup should have been HTML.
+ * 
+ * perspective lists aren't highlighting
+ * 
  * get rid of clusters in favor of top 10/bottom 10 lists
  * 
  * PerspectiveLists show tags that have zero totalCount in restricted set.
  * 
  * Light beams aren't right when you zoom
+ * 
+ * History mechanism
  * 
  * Query for percentage on even for deeply nested facets. Pass more arguments
  * analogous to relevantFacets, to get counts for nested facets of the selected
@@ -51,7 +69,8 @@ package edu.cmu.cs.bungee.client.viz;
  * 
  * HP database: lose centuries and only group dates by decade. Days should be '1
  * June 1944' not '1'. Music database: many Labels' names start with blank
- * space; Artists not alphabetized right.
+ * space; Artists not alphabetized right. HistoryMakers - why are there
+ * singletons, e.g. Date of Interview > 1993 > January?
  * 
  * Document BV ontology. eg are tags and categories the same kind of object?
  * They use the same color scheme, so why can't you click on Oscar to select
@@ -157,6 +176,8 @@ package edu.cmu.cs.bungee.client.viz;
  * possibly heap=all
  */
 
+import edu.cmu.cs.bungee.faceImage.FaceImage;
+
 import javax.imageio.ImageIO;
 import javax.jnlp.BasicService;
 import javax.jnlp.ClipboardService;
@@ -198,6 +219,8 @@ import java.util.ArrayList;
 
 import javax.swing.Timer;
 
+import com.sun.image.codec.jpeg.ImageFormatException;
+
 import edu.cmu.cs.bungee.client.query.Cluster;
 import edu.cmu.cs.bungee.client.query.ItemPredicate;
 import edu.cmu.cs.bungee.client.query.Markup;
@@ -205,15 +228,12 @@ import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.cmu.cs.bungee.client.query.PerspectiveObserver;
 import edu.cmu.cs.bungee.client.query.Query;
 import edu.cmu.cs.bungee.client.query.Query.Item;
-import edu.cmu.cs.bungee.client.query.Query.ItemList;
 import edu.cmu.cs.bungee.javaExtensions.QueueThread;
 import edu.cmu.cs.bungee.javaExtensions.URLQuery;
 import edu.cmu.cs.bungee.javaExtensions.UpdateNoArgsThread;
 import edu.cmu.cs.bungee.javaExtensions.Util;
 import edu.cmu.cs.bungee.piccoloUtils.gui.APText;
 import edu.cmu.cs.bungee.piccoloUtils.gui.Arrow;
-import edu.cmu.cs.bungee.piccoloUtils.gui.Boundary;
-import edu.cmu.cs.bungee.piccoloUtils.gui.Button;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
 import edu.cmu.cs.bungee.piccoloUtils.gui.Menu;
 import edu.cmu.cs.bungee.piccoloUtils.gui.MyInputEventHandler;
@@ -645,6 +665,11 @@ final class Bungee extends PFrame {
 			} catch (NumberFormatException e) {
 				e.printStackTrace();
 			}
+
+		String mode = argURLQuery.getArgument("mode");
+		if ("expert".equalsIgnoreCase(mode))
+			setFeatures(new Preferences(null, Preferences.expertFeatureNames,
+					true));
 	}
 
 	void setFeatures(Preferences options) {
@@ -749,7 +774,7 @@ final class Bungee extends PFrame {
 		PLayer layer = getCanvas().getLayer();
 		layer.removeAllChildren();
 		String errorMessage = query.errorMessage();
-		if (errorMessage == null || errorMessage.equals("OK")) {
+		if (errorMessage == null) {
 			// int dbIndex = dbIndex(_dbName);
 			// String description = databases[dbIndex][2];
 
@@ -798,8 +823,8 @@ final class Bungee extends PFrame {
 	private class InitialHelp extends LazyPNode {
 		private APText meta;
 		// private APText msg;
-		private Arrow arrow = new Arrow(Color.white, Color.white,
-				(int) (lineH / 3), (int) (2 * lineH));
+		private Arrow arrow = new Arrow(Color.white, (int) (lineH / 3),
+				(int) (2 * lineH));
 
 		InitialHelp() {
 			// setPaint(Color.yellow);
@@ -809,7 +834,7 @@ final class Bungee extends PFrame {
 
 			meta = new APText(new Font(fontFamily, Font.ITALIC, getTextSize()));
 			meta.setTextPaint(Color.white);
-			meta.setText("New Users: Watch for usage tips in orange text.");
+			meta.setText("New Users: Look here for orange usage tips.");
 			// If natural width set above is too big, positionHelp will fix it
 			meta.setConstrainWidthToTextWidth(false);
 			addChild(meta);
@@ -824,7 +849,7 @@ final class Bungee extends PFrame {
 			// addChild(msg);
 
 			arrow.setRotation(Math.PI / 2);
-			arrow.setTailColor(null);
+			arrow.setVisible(Arrow.LEFT_TAIL, false);
 			addChild(arrow);
 
 			setWidth(w);
@@ -838,8 +863,9 @@ final class Bungee extends PFrame {
 			// msg.setOffset(0, meta.getHeight() + lineH);
 			// setHeight(msg.getMaxY());
 			// return super.setWidth(w);
-			return setBounds(0, 0, w, (int) (meta.getMaxY()
-					+ arrow.getGlobalBounds().height + lineH / 2));
+//			return setBounds(0, 0, w, (int) (meta.getMaxY()
+//					+ arrow.getGlobalBounds().height + lineH / 2));
+			return setBounds(getFullBounds());
 		}
 	}
 
@@ -1264,15 +1290,18 @@ final class Bungee extends PFrame {
 		return selectedItem.currentItem;
 	}
 
-	public Object getFacetIDs(int startIndex, int endIndex) {
-		return query.getFacetIDs(startIndex, endIndex);
+	public Item[] getItems(int startIndex, int endIndex) {
+		return query.getItems(startIndex, endIndex);
 	}
 
-	void addItemList(String name, String items) {
-		query.toggleItemList(new ItemList(name, items));
-		mayHideTransients();
-		updateAllData();
-
+	void addItemList(String name, Item[] items) {
+		if (items.length > 0) {
+			query.toggleItemList(new Query.ItemList(name, items));
+			mayHideTransients();
+			updateAllData();
+		} else {
+			setTip("There are no items satisfying this filter");
+		}
 	}
 
 	void showItemInNewWindow(Item item) {
@@ -1425,7 +1454,8 @@ final class Bungee extends PFrame {
 			// .split(";");
 			// String opsSpec = argString.getArgument("ops");
 			// opsSpec =
-			// "3234,1,20,16;6209,1,35,16;12067,1,806,16;16724,1,806,16;23533,1,41,16;29001,4,32827,5;32176,4,38298,11;36182,4,36341,15;40548,6,5221,16;45165,6,1,16;50322,4,36383,7;59535,6,3,16";
+			// "3234,1,20,16;6209,1,35,16;12067,1,806,16;16724,1,806,16;23533,1,41,16;29001,4,32827,5;32176,4,38298,11;36182,4,36341,15;40548,6,5221,16;45165,6,1,16;50322,4,36383,7;59535,6,3,16"
+			// ;
 			// if (opsSpec.length() == 0) {
 			String replayArg = argURLQuery.getArgument("sessions");
 			if (replayArg.length() > 0) {
@@ -1730,18 +1760,19 @@ final class Bungee extends PFrame {
 			mouseDoc.setClickDesc(s);
 	}
 
-	void setMouseDoc(PNode source, boolean state) {
-		if (!(source instanceof Boundary) || getShowBoundaries()) {
-			String desc = null;
-			if (state) {
-				if (source instanceof Button)
-					desc = ((Button) source).mouseDoc;
-				else if (source instanceof Boundary)
-					desc = ((Boundary) source).mouseDoc;
-			}
-			setClickDesc(desc);
-		}
-	}
+	// void setMouseDoc(PNode source, boolean state) {
+	// assert false;
+	// if (!(source instanceof Boundary) || getShowBoundaries()) {
+	// String desc = null;
+	// if (state) {
+	// if (source instanceof Button)
+	// desc = ((Button) source).mouseDoc;
+	// else if (source instanceof Boundary)
+	// desc = ((Boundary) source).mouseDoc;
+	// }
+	// setClickDesc(desc);
+	// }
+	// }
 
 	void setMouseDoc(String doc) {
 		setClickDesc(doc);
@@ -1778,11 +1809,7 @@ final class Bungee extends PFrame {
 	// }
 
 	APText oneLineLabel() {
-		APText result = new APText(font);
-		result.setWrapOnWordBoundaries(false);
-		result.setConstrainHeightToTextHeight(false);
-		result.setHeight(lineH);
-		return result;
+		return APText.oneLineLabel(font);
 	}
 
 	Color clusterTextColor(Cluster cluster) {
@@ -1898,14 +1925,14 @@ final class Bungee extends PFrame {
 		return significanceColorFamily(significance)[fadeIndex];
 	}
 
-	private double pValue = 0.0001;
+	private double benjaminiYekutieliThreshold = 0.0001;
 
 	private int nBars = 0;
 
 	private int nNonZeroBars = 0;
 
 	double pValue() {
-		return pValue;
+		return benjaminiYekutieliThreshold;
 	}
 
 	// /**
@@ -1923,12 +1950,13 @@ final class Bungee extends PFrame {
 	 * Bar colors depend on this, so always have to recalculate when query
 	 * changes.
 	 * 
-	 * @see <a
-	 *      href="http://en.wikipedia.org/wiki/False_discovery_rate">Benjamini
-	 *      and Yekutieli procedure</a>
+	 * see <a *
+	 *      href="http://en.wikipedia.org/wiki/False_discovery_rate">Benjamini *
+	 *      and Yekutieli procedure< /a>
 	 */
 	void updatePvalue() {
 		assert query.isQueryValid();
+		Util.print(query + "\n" + query.topTags(10));
 		double[] pValues = summary.pValues();
 		nBars = pValues.length;
 		assert nBars == summary.nBars() : nBars + " " + summary.nBars();
@@ -1941,13 +1969,14 @@ final class Bungee extends PFrame {
 			}
 		}
 		Arrays.sort(pValues);
-		double x = 0.01 / nBars;
-		pValue = x;
-		for (int i = nNonZeroBars - 1; i > 1 && pValues[i] > pValue; i--) {
+		final double bonferroniThreshold = 0.01 / nBars;
+		benjaminiYekutieliThreshold = bonferroniThreshold;
+		for (int i = nNonZeroBars - 1; i > 1
+				&& pValues[i] > benjaminiYekutieliThreshold; i--) {
 			// if(i % 1000 == 0)
 			// Util.print(i + " " + pValues[i] + " " + (i*x) + " " + pValue);
-			if (pValues[i] <= i * x) {
-				pValue = pValues[i];
+			if (pValues[i] <= i * bonferroniThreshold) {
+				benjaminiYekutieliThreshold = pValues[i];
 				// Util.print(i);
 				break;
 			}
@@ -1961,7 +1990,8 @@ final class Bungee extends PFrame {
 	}
 
 	Color[] chiColorFamily(ItemPredicate facet) {
-		return significanceColorFamily(facet.chiColorFamily(pValue));
+		return significanceColorFamily(facet
+				.chiColorFamily(benjaminiYekutieliThreshold));
 	}
 
 	// public Color facetBarColor(Perspective facet, Perspective[] restrictions)
@@ -2503,6 +2533,33 @@ final class Bungee extends PFrame {
 		return query.aboutCollection();
 	}
 
+	/**
+	 * @param item
+	 *            warp the original image associated with this item
+	 * @param faceImage
+	 *            computes the warp parameters that map its image's actual
+	 *            points to its hardcoded desired points.
+	 */
+	void warpImage(Item item, FaceImage faceImage) {
+		String srcFilename = query.getItemURL(item);
+		assert srcFilename.endsWith(".jpg") : "warp filname=" + srcFilename;
+		String dstFilename = "C:\\Documents and Settings\\mad\\Desktop\\50thAnniversary\\FlipImages"
+				+ srcFilename.substring(srcFilename.lastIndexOf('\\'));
+		// Util.print(dstFilename);
+		try {
+			BufferedImage bigImage = Util.read(srcFilename);
+			FaceImage bigFace = faceImage.getScaledInstance(bigImage);
+			Util.writeImage(bigFace.getWarpedImage(), 85, dstFilename);
+		} catch (ImageFormatException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+	}
+
 	boolean itemMiddleMenu(Item item, boolean isRight) {
 		if (query.isEditable()) {
 			if (isRight) {
@@ -2528,7 +2585,7 @@ final class Bungee extends PFrame {
 				editMenu.pick();
 			}
 		} else
-			Util.err("Editing is disabled.");
+			Util.err("Editing is disabled (" + item + ")");
 		return query.isEditable();
 	}
 
@@ -2764,6 +2821,9 @@ final class Bungee extends PFrame {
 			Image bi = null;
 			try {
 				bi = Util.readCompatibleImage(blobStream);
+				// if (result!=null)
+				// Util.print("ensureItemImage "+item+" "+result+"
+				// "+result.bigEnough(bi, quality)+rawW+" "+rawH);
 			} catch (Exception e) {
 				Util.err("Exception reading blob for item " + item + ":\n" + e);
 			}
@@ -2885,8 +2945,18 @@ final class Bungee extends PFrame {
 				Util
 						.err("Tried to printUserAction before query is initialized: "
 								+ location + " " + modifiers + " " + object);
-			} else
+			} else {
 				query.printUserAction(location, object, modifiers);
+
+				// Useful for debugging
+				switch (location) {
+				case BAR:
+				case BAR_LABEL:
+				case FACET_TREE:
+					Util.print(query.findPerspective(Integer.parseInt(object)));
+					break;
+				}
+			}
 		}
 	}
 
@@ -2993,7 +3063,8 @@ final class Bungee extends PFrame {
 					int offset = Integer.parseInt(args[3]);
 					Util.print("  scroll - ignoring " + offset);
 					// grid.scrollTo(offset);
-					// grid.clickThumb(Item.ensureItem(Integer.parseInt(args[3])));
+					//grid.clickThumb(Item.ensureItem(Integer.parseInt(args[3]))
+					// );
 				}
 				break;
 			case 8:
@@ -3254,19 +3325,12 @@ final class Bungee extends PFrame {
 			String URLs;
 			if (objectToShow instanceof Item) {
 				Item item = (Item) objectToShow;
-				Query q = query;
-				if (q != null) {
-					URLs = q.getItemURL(item);
-					if (URLs == null || URLs.length() == 0) {
-						if (informedia != null
-								&& "historymakers".equals(dbName)) {
-							informedia.playSegment(item);
-						}
-						return;
-					}
-				} else {
+				if (informedia != null)
+					informedia.playSegment(item);
+				URLs = query == null ? null : query.getItemURL(item);
+				// Util.print("Show document " + URLs);
+				if (URLs == null || URLs.length() == 0)
 					return;
-				}
 			} else {
 				URLs = (String) objectToShow;
 			}
@@ -3293,6 +3357,12 @@ final class Bungee extends PFrame {
 				}
 			} else {
 				try {
+					// Util.print("firefox " + URLs);
+					// Util.copyFile(URLs,
+					// "C:\\Documents and
+					// Settings\\mad\\Desktop\\50thAnniversary\\FlipImages"
+					// + URLs.substring(URLs.lastIndexOf('\\')));
+					// if (false)
 					Runtime.getRuntime().exec(
 							"C:\\Program Files\\Mozilla Firefox\\firefox.exe \""
 									+ URLs + "\"");
@@ -3376,7 +3446,7 @@ final class Bungee extends PFrame {
 					javax.swing.SwingUtilities.invokeLater(getRedrawer());
 				} else {
 					assert waiting > 1;
-					Util.print("updater aborting/handleCursor false");
+					// Util.print("updater aborting/handleCursor false");
 					handleCursor(false);
 				}
 			} else {

@@ -409,7 +409,7 @@ final class FacetTreeViz extends LazyPNode implements MouseDoc {
 			// super(contractLabel+ " ", openButtonFG, openButtonBG,
 			// FacetTreeViz.this.art);
 
-			super(contractLabel + " ", art.font, 0, 0, -1, -1, null, 0,
+			super(contractLabel + " ", art.font, 0, 0, -1, -1, null, null, 0,
 					openButtonFG, openButtonBG);
 
 			// ((APText) child).setConstrainWidthToTextWidth(true);
@@ -440,9 +440,9 @@ final class FacetTreeViz extends LazyPNode implements MouseDoc {
 
 	}
 
-	public void setMouseDoc(PNode source, boolean state) {
-		art.setMouseDoc(source, state);
-	}
+//	public void setMouseDoc(PNode source, boolean state) {
+//		art.setMouseDoc(source, state);
+//	}
 
 	public void setMouseDoc(String doc) {
 		art.setMouseDoc(doc);

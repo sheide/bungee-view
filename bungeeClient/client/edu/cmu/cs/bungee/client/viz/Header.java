@@ -39,7 +39,6 @@ import edu.cmu.cs.bungee.piccoloUtils.gui.Boundary;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
 import edu.cmu.cs.bungee.piccoloUtils.gui.Menu;
 import edu.cmu.cs.bungee.piccoloUtils.gui.MouseDoc;
-import edu.umd.cs.piccolo.PNode;
 
 final class Header extends LazyPNode implements MouseDoc {
 
@@ -201,6 +200,7 @@ final class Header extends LazyPNode implements MouseDoc {
 
 			databaseMenu = new Menu(Bungee.headerBG, Bungee.headerFG,
 					setDatabase, art.font);
+			databaseMenu.mouseDoc = "Choose among Collections";
 			for (int i = 0; i < allDBdescriptions.length; i++) {
 				String dbName = allDBdescriptions[i][0];
 				String dbDesc = allDBdescriptions[i][1];
@@ -240,9 +240,9 @@ final class Header extends LazyPNode implements MouseDoc {
 		// databaseMenu.setWidth(art.getStringWidth(desc));
 	}
 
-	public void setMouseDoc(PNode source, boolean state) {
-		art.setMouseDoc(source, state);
-	}
+//	public void setMouseDoc(PNode source, boolean state) {
+//		art.setMouseDoc(source, state);
+//	}
 
 	public void setMouseDoc(String doc) {
 		art.setMouseDoc(doc);

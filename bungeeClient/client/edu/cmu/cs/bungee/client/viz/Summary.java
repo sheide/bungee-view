@@ -221,7 +221,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 		boundary.margin = art.grid.margin_size() / 2;
 		setTextSize();
 		double summaryTextY = label.getGlobalBounds().getHeight();
-		double buttonY = summaryTextY + 1.5 * art.lineH;
+		double buttonY = summaryTextY + /* 1.5 * */art.lineH + 4;
 		// Place this now so getTopMargin works
 		clear.setOffset(queryW, buttonY);
 
@@ -252,7 +252,9 @@ final class Summary extends LazyContainer implements MouseDoc {
 		label.setOffset(queryW, 0);
 
 		double ellipsisX = w - ellipsis.minWidth();
-		ellipsis.setOffset(ellipsisX, summaryTextY);
+		ellipsis.setOffset(ellipsisX, summaryTextY - 2); // -2 corrects for
+		// border, and makes
+		// text line up
 
 		summaryText.setOffset(queryW, summaryTextY);
 		summaryText.setBounds(0, 0, ellipsisX - BUTTON_MARGIN - queryW,
@@ -327,7 +329,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 
 		assert !Double.isNaN(clear.getMaxY());
 		assert !Double.isNaN(art.lineH);
-		return clear.getMaxY() + art.lineH;
+		return clear.getMaxY() + art.lineH / 2;
 	}
 
 	double getBottomMargin() {
@@ -1054,18 +1056,16 @@ final class Summary extends LazyContainer implements MouseDoc {
 	}
 
 	void setSummaryTextDoc(boolean state) {
-		setMouseDoc(summaryText, state);
+		ellipsis.setMouseDoc(state);
+		// setMouseDoc(summaryText, state);
 	}
 
-	public void setMouseDoc(PNode source, boolean state) {
-		// Util.print("Summary.setMouseDoc " + state + " "
-		// + (source == summaryText));
-		if (source == summaryText) {
-			source = ellipsis;
-			state = state && ellipsis.getVisible();
-		}
-		art.setMouseDoc(source, state);
-	}
+	// public void setMouseDoc(PNode source, boolean state) {
+	// // Util.print("Summary.setMouseDoc " + state + " "
+	// // + (source == summaryText));
+	// state = state && ellipsis.getVisible();
+	// art.setMouseDoc(state);
+	// }
 
 	public void setMouseDoc(String s) {
 		art.setMouseDoc(s);
@@ -1390,8 +1390,10 @@ final class Summary extends LazyContainer implements MouseDoc {
 			if (label1.getMaxX() > w)
 				label1.setScale(w / label1.getMaxX());
 			double buttonW = Math.round(label1.getMaxX() / nColors);
-			double y = 1.5 * art.lineH;
-			double buttonH = Math.round(h - y);
+			// double y = 1.5 * art.lineH;
+			// double buttonH = Math.round(h - y);
+			double buttonH = clear.getHeight();
+			double y = h - buttonH;
 			for (int i = 0; i < nColors; i++) {
 				PNode node = new ColorKeyKey(colors[i][0], colors[i][1],
 						msgs[i], buttonW, buttonH);
@@ -1629,13 +1631,15 @@ final class Summary extends LazyContainer implements MouseDoc {
 		}
 
 	}
-	
+
 	class SummaryButton extends BungeeTextButton {
 
 		SummaryButton(String text) {
-			super(text, Bungee.summaryBG, Util.brighten(Bungee.summaryFG, 0.6f), Summary.this.art);
+			super(text, Bungee.summaryBG,
+					Util.brighten(Bungee.summaryFG, 0.6f), Summary.this.art,
+					null);
 		}
-		
+
 	}
 
 	boolean keyPress(char key) {

@@ -5,6 +5,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.CollationKey;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -21,9 +22,11 @@ import java.util.regex.Pattern;
 
 import javax.swing.SwingUtilities;
 
+import edu.cmu.cs.bungee.client.query.Perspective.TopTags;
 import edu.cmu.cs.bungee.javaExtensions.AccumulatingQueueThread;
 import edu.cmu.cs.bungee.javaExtensions.IntHashtable;
 import edu.cmu.cs.bungee.javaExtensions.JDBCSample;
+import edu.cmu.cs.bungee.javaExtensions.MyResultSet;
 import edu.cmu.cs.bungee.javaExtensions.QueueThread;
 import edu.cmu.cs.bungee.javaExtensions.Util;
 
@@ -216,6 +219,10 @@ public final class Query implements ItemPredicate {
 
 	private Set orderedFacetTypes = new HashSet();
 
+	private Set causableFacetTypes = new HashSet();
+	
+	
+
 	NameGetter nameGetter;
 
 	/**
@@ -237,15 +244,15 @@ public final class Query implements ItemPredicate {
 	}
 
 	/**
-	 * @param restrictions
+	 * @param facets
 	 * @param connector
 	 *            e.g. 'and' or 'or'
 	 * @param descriptions
 	 *            append f1, f2, ..., fn-1 connector fn to description
 	 */
-	public static void toEnglish(SortedSet restrictions, String connector,
+	public static void toEnglish(SortedSet facets, String connector,
 			Markup descriptions) {
-		MarkupImplementation.toEnglish(restrictions, connector, descriptions);
+		MarkupImplementation.toEnglish(facets, connector, descriptions);
 	}
 
 	private void descriptionClauses(List phrases, Markup result) {
@@ -370,12 +377,12 @@ public final class Query implements ItemPredicate {
 	}
 
 	/**
-	 * @param restrictions
+	 * @param facets
 	 *            the restrictions on a facet, like {2006, 2007}
 	 * @return a rank label, like ' ->21st century\n ->2006 and 2007'
 	 */
-	public static Markup facetSetDescription(SortedSet restrictions) {
-		return MarkupImplementation.restrictionsDescription(restrictions);
+	public static Markup facetSetDescription(SortedSet facets) {
+		return MarkupImplementation.facetSetDescription(facets);
 	}
 
 	boolean isTopLevel(int facetID) {
@@ -550,9 +557,11 @@ public final class Query implements ItemPredicate {
 				// .getString(1), rs.getInt(5), rs.getInt(4));
 				// p.instantiate(rs.getString(2), rs.getString(3), this);
 				displayedPerspectives.add(p);
-				p.totalCount = rs.getInt(6);
+				p.setTotalCount(rs.getInt(6));
 				if (rs.getInt(7) != 0)
 					orderedFacetTypes.add(p);
+				if (rs.getInt(8) != 0)
+					causableFacetTypes.add(p);
 				prefetcher.add(p);
 			}
 
@@ -565,6 +574,11 @@ public final class Query implements ItemPredicate {
 			close(rs);
 		}
 		return facetTypeID;
+	}
+
+	boolean isCausable(Perspective p) {
+		Perspective type = p.getFacetType();
+		return causableFacetTypes.contains(type);
 	}
 
 	boolean isOrdered(Perspective p) {
@@ -687,7 +701,7 @@ public final class Query implements ItemPredicate {
 	 * @return SQL rendering of the current query, or null if there are no
 	 *         restrictions.
 	 */
-	String onItemsQuery(ItemPredicate toIgnore) {
+	String onItemsQuery(ItemPredicate[] toIgnore) {
 		boolean needDistinct = false;
 		StringBuffer qJOIN = new StringBuffer(
 				displayedPerspectives.size() * 100);
@@ -714,8 +728,12 @@ public final class Query implements ItemPredicate {
 					Set toRemove = new HashSet();
 					for (Iterator rit = restrictions.iterator(); rit.hasNext();) {
 						Perspective r = (Perspective) rit.next();
-						if (r.hasAncestor(toIgnore))
-							toRemove.add(r);
+						for (int i = 0; i < toIgnore.length; i++) {
+							if (r.hasAncestor(toIgnore[i])) {
+								toRemove.add(r);
+								break;
+							}
+						}
 					}
 					restrictions.removeAll(toRemove);
 				}
@@ -776,18 +794,9 @@ public final class Query implements ItemPredicate {
 	String getFilteredCountsInternal(List persps) {
 		if (persps.size() == 0)
 			return null;
-		boolean isFirst = true;
-		StringBuffer buf = new StringBuffer(persps.size() * 7);
-		for (Iterator it = persps.iterator(); it.hasNext();) {
-			Perspective p = (Perspective) it.next();
-			if (isFirst)
-				isFirst = false;
-			else
-				buf.append(", ");
-			buf.append(p.getID());
-		}
+		String result = getFacetIDs(persps);
 		persps.clear();
-		return buf.toString();
+		return result;
 	}
 
 	/**
@@ -797,10 +806,19 @@ public final class Query implements ItemPredicate {
 	 *         other Perspective is restricted; use totalCounts
 	 */
 	public ResultSet getCountsIgnoringFacet(Perspective p) {
-		String subQuery = onItemsQuery(p);
-//		 Util.print(" getCountsIgnoringFacet Query=" + p + " " + subQuery);
+		Perspective[] toIgnore = { p };
+		return getCountsIgnoringFacet(toIgnore, p);
+	}
+
+	public ResultSet getCountsIgnoringFacet(Perspective[] toIgnore,
+			Perspective parent) {
+		String subQuery = onItemsQuery(toIgnore);
+		// Util
+		// .print(" getCountsIgnoringFacet Query=" + toIgnore + " "
+		// + subQuery);
 		if (subQuery != null) {
-			ResultSet result = db.getCountsIgnoringFacet(subQuery, p.getID());
+			ResultSet result = db.getCountsIgnoringFacet(subQuery, parent
+					.getID());
 			assert result != null;
 			return result;
 		}
@@ -994,7 +1012,7 @@ public final class Query implements ItemPredicate {
 	 *            onCount == 0 or totalCount; no need to query database
 	 */
 	public void updateData(boolean resetOnly) {
-//		 Util.print("Query.updateData " + resetOnly);
+		// Util.print("Query.updateData " + resetOnly);
 		ResultSet counts = null;
 		ResultSet typeCounts = null;
 		try {
@@ -1032,7 +1050,7 @@ public final class Query implements ItemPredicate {
 			// setQueryValid();
 			// updateBigDeal();
 		}
-//		 Util.print("...updateData return");
+		// Util.print("...updateData return");
 	}
 
 	private void updateDataInternal(ResultSet rs) {
@@ -1061,13 +1079,13 @@ public final class Query implements ItemPredicate {
 					// prevPerspective = v.parent;
 					// cumCount = 0;
 					// }
-					int count = Util.min(v.totalCount, rs.getInt(2));
+					int count = Math.min(v.getTotalCount(), rs.getInt(2));
 					// not if restricted.
-					assert 0 <= count && count <= v.totalCount : count + " "
-							+ v;
+					assert 0 <= count && count <= v.getTotalCount() : count
+							+ " " + v;
 					v.onCount = count;
-//					if ("1993".equals(v.getNameIfPossible()))
-//					 Util.print("Setting " + v + ".onCount=" + count);
+					// if ("1993".equals(v.getNameIfPossible()))
+					// Util.print("Setting " + v + ".onCount=" + count);
 					// cumCount += count;
 				}
 				// if (prevPerspective != null)
@@ -1183,14 +1201,7 @@ public final class Query implements ItemPredicate {
 
 	public ResultSet[] getThumbs(SortedSet items, int imageW, int imageH,
 			int quality) {
-		StringBuffer itemIDs = new StringBuffer();
-		for (Iterator it = items.iterator(); it.hasNext();) {
-			Item item = (Item) it.next();
-			if (itemIDs.length() > 0)
-				itemIDs.append(",");
-			itemIDs.append(item.getId());
-		}
-		return db.getThumbs(itemIDs.toString(), imageW, imageH, quality);
+		return db.getThumbs(getItemIDs(items), imageW, imageH, quality);
 	}
 
 	// public ResultSet getThumbSizes(int facet) {
@@ -1400,6 +1411,8 @@ public final class Query implements ItemPredicate {
 	}
 
 	public Iterator getFacetIterator(int facet_id, int nFacets) {
+		// Util.print("Query.getFacetIterator " + facet_id + " " + nFacets);
+		assert facet_id > 0;
 		return Util.arrayIterator(allPerspectives, facet_id, nFacets);
 	}
 
@@ -1412,6 +1425,7 @@ public final class Query implements ItemPredicate {
 		// }
 		// }
 		// return result;
+		assert facet > 0;
 		assert allPerspectives[facet] != null : facet;
 		return allPerspectives[facet];
 	}
@@ -1425,15 +1439,17 @@ public final class Query implements ItemPredicate {
 	}
 
 	public boolean restrictData() {
+		waitForValidQuery();
 		name += " / " + markupToText(description(), null);
 		// Util.print("Query.restrictData " + displayedPerspectives);
 		for (int i = 0; i < allPerspectives.length; i++) {
 			Perspective p = allPerspectives[i];
 			if (p != null) {
-				assert p.onCount >= 0 || !displaysPerspective(p.parent) : p;
+				assert p.onCount >= 0 || !displaysPerspective(p.parent) : isQueryValid()
+						+ " " + p + " " + p.parent;
 				if (p.isPrefetched() && !displaysPerspective(p))
 					p.setPrefetched(false);
-				p.totalCount = p.onCount;
+				p.setTotalCount(p.onCount);
 			}
 		}
 		for (int i = displayedPerspectives.size() - 1; i >= 0; i--) {
@@ -1473,9 +1489,9 @@ public final class Query implements ItemPredicate {
 	 * @param maxClusters
 	 *            find the maxClusters'th most significant clusters
 	 * @param facetRestriction
-	 *            is the empty string or a where clause restricting facet_id, or
-	 *            even joins, e.g. INNER JOIN facet f ON f.facet_id = i.facet_id
-	 *            WHERE f.lft BETWEEN 56 AND 87
+	 *            is the empty string or a where clause restricting f.facet_id,
+	 *            or even joins, e.g. INNER JOIN facet parent ON
+	 *            f.parent_facet_id = parent.facet_id WHERE ...
 	 * @param p
 	 *            only return clusters whose p-value <= p
 	 * @param parent
@@ -1593,7 +1609,7 @@ public final class Query implements ItemPredicate {
 					cachePerspective(newID, p);
 					p.setID(newID);
 					p.setChildrenOffset(offset);
-					p.totalCount = cnt;
+					p.setTotalCount(cnt);
 					if (displaysPerspective(p)) {
 						result.add(p);
 					}
@@ -1620,7 +1636,7 @@ public final class Query implements ItemPredicate {
 					p = ensurePerspective(newID, existingParent, facetName,
 							offset, parent_facet_id == 0 ? 1 : 0);
 				}
-				p.totalCount = cnt;
+				p.setTotalCount(cnt);
 			}
 		} catch (SQLException e) {
 			e.printStackTrace();
@@ -1721,6 +1737,11 @@ public final class Query implements ItemPredicate {
 			name = _name;
 		}
 
+		public ItemList(String _name, Item[] items) {
+			string = getItemIDs(Arrays.asList(items));
+			name = _name;
+		}
+
 		public String getItems() {
 			return string;
 		}
@@ -1756,11 +1777,25 @@ public final class Query implements ItemPredicate {
 		return totalCount;
 	}
 
+	public int parentTotalCount() {
+		assert false;
+		return getTotalCount();
+	}
+
+	public int parentOnCount() {
+		assert false;
+		return getOnCount();
+	}
+
 	public int nRestrictions() {
 		return nFilters(false, true, false, false);
 	}
 
 	public double pValue() {
+		return 1;
+	}
+
+	public double percentageRatio() {
 		return 1;
 	}
 
@@ -1887,21 +1922,20 @@ public final class Query implements ItemPredicate {
 		return n;
 	}
 
-	public String getFacetIDs(int startIndex, int endIndex) {
+	public Item[] getItems(int startIndex, int endIndex) {
 		ResultSet rs = offsetItems(startIndex, endIndex);
-		StringBuffer buf = new StringBuffer();
+		Item[] result = null;
 		try {
+			result = new Item[MyResultSet.nRows(rs)];
 			int i = startIndex;
 			// rs can have extra rows if it was cached
 			while (rs.next() && i++ < endIndex) {
-				if (buf.length() > 0)
-					buf.append(",");
-				buf.append(rs.getInt(1));
+				result[i] = Item.ensureItem(rs.getInt(1));
 			}
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
-		return buf.toString();
+		return result;
 	}
 
 	/**
@@ -1914,12 +1948,55 @@ public final class Query implements ItemPredicate {
 	public void printUserAction(int location, String object, int modifiers) {
 		assert SwingUtilities.isEventDispatchThread() : "Should call this from one thread to ensure order is correct";
 		StringBuffer buf = new StringBuffer();
-		
+
 		buf.append(userActionIndex++).append(",");
 		buf.append(location).append(",");
 		buf.append(object).append(",");
 		buf.append(modifiers);
 		db.printUserAction(buf.toString());
+	}
+
+	public TopTags topTags(int n) {
+		TopTags result = new TopTags(n);
+		if (onCount < totalCount)
+			for (int i = 1; i <= nAttributes; i++)
+				findPerspective(i).updateTopTags(result, totalCount, onCount);
+		return result;
+	}
+
+	public ResultSet caremediaPlayArgs(Item[] items) {
+		return db.caremediaPlayArgs(getItemIDs(Arrays.asList(items)));
+	}
+
+	public ResultSet caremediaGetItems(int[] segments) {
+		return db.caremediaGetItems(segments);
+	}
+
+	static String getItemIDs(Collection items) {
+		StringBuffer buf = new StringBuffer();
+		for (Iterator it = items.iterator(); it.hasNext();) {
+			Item item = (Item) it.next();
+			if (buf.length() > 0)
+				buf.append(",");
+			buf.append(item.getId());
+		}
+		return buf.toString();
+	}
+
+	private String getFacetIDs(Collection facets) {
+		StringBuffer buf = new StringBuffer();
+		for (Iterator it = facets.iterator(); it.hasNext();) {
+			Perspective p = (Perspective) it.next();
+			if (buf.length() > 0)
+				buf.append(",");
+			buf.append(p.getID());
+		}
+		return buf.toString();
+	}
+
+	public ResultSet onCountMatrix(Collection facetsOfInterest,
+			Perspective parent) {
+		return db.onCountMatrix(getFacetIDs(facetsOfInterest), Integer.toString(parent.getID()));
 	}
 }
 

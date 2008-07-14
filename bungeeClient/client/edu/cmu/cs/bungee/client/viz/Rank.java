@@ -27,7 +27,6 @@
 
 package edu.cmu.cs.bungee.client.viz;
 
-import java.text.DecimalFormat;
 import java.util.Arrays;
 import java.util.Set;
 import java.util.SortedSet;
@@ -41,7 +40,7 @@ import edu.cmu.cs.bungee.javaExtensions.Util;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyContainer;
 import edu.umd.cs.piccolo.PNode;
 
-final class Rank extends LazyContainer {
+final class Rank extends LazyContainer implements PickFacetTextNotifier {
 
 	/**
 	 * Margin between multiple PVs in a rank
@@ -139,18 +138,22 @@ final class Rank extends LazyContainer {
 	 * FacetTexts with an actual facet.
 	 */
 	void hackRankLabelNotifier() {
-//		Util.print("hackRankLabelNotifier " + this);
+		// Util.print("hackRankLabelNotifier " + this);
 		TextNfacets rankLabel = perspectives[0].rankLabel;
 		for (int i = 0; i < rankLabel.getChildrenCount(); i++) {
 			FacetText ft = (FacetText) rankLabel.getChild(i);
 			Perspective ftFacet = ft.getFacet();
-			for (int j = 0; j < perspectives.length; j++) {
-				PerspectiveViz pv = perspectives[j];
-//				Util.print("vvv " + ftFacet+" " + pv.p);
-				if (pv.p == ftFacet) {
-					ft.pickFacetTextNotifier = pv;
-					// art().validatePerspectiveList();
-					// break;
+			if (ftFacet == null) {
+				ft.pickFacetTextNotifier = this;
+			} else {
+				for (int j = 0; j < perspectives.length; j++) {
+					PerspectiveViz pv = perspectives[j];
+					// Util.print("vvv " + ftFacet+" " + pv.p);
+					if (pv.p == ftFacet) {
+						ft.pickFacetTextNotifier = pv;
+						// art().validatePerspectiveList();
+						// break;
+					}
 				}
 			}
 		}
@@ -410,29 +413,21 @@ final class Rank extends LazyContainer {
 	// return -1;
 	// }
 
-	void printTable(Perspective facet) {
-		int a = facet.getOnCount();
-		int row0 = facet.getTotalCount();
-		int col0 = totalChildOnCount();
-		int itotal = totalChildTotalCount();
-		int col1 = itotal - col0;
-		int row1 = itotal - row0;
-		int b = row0 - a;
-		int c = col0 - a;
-		int d = col1 - b;
-		Util.print("\nwarp " + facet);
-		DecimalFormat f = new DecimalFormat(" 000,000");
-		DecimalFormat f2 = new DecimalFormat(" 0.000");
-		Util.print(f.format(a) + f.format(b) + f.format(row0));
-		Util.print(f.format(c) + f.format(d) + f.format(row1));
-		Util.print(f.format(col0) + f.format(col1) + f.format(itotal));
-		Util.print(
-		// f2.format(warpPercent(facet.percentOn()))
-				// + f2.format(warpCorrelation(facet))
-				// + f2.format(warpMutInf(facet, false))
-				// + f2.format(warpMutInf(facet, true))
-				f2.format(warp(oddsRatio(facet))));
-	}
+//	void printTable(Perspective facet) {
+//		Util.print("\nwarp " + facet);
+//		int a = facet.getOnCount();
+//		int row0 = facet.getTotalCount();
+//		int col0 = totalChildOnCount();
+//		int itotal = totalChildTotalCount();
+//		Util.print(ChiSq2x2.printTable(itotal, row0, col0, a));
+//		DecimalFormat f2 = new DecimalFormat(" 0.000");
+//		Util.print(
+//		// f2.format(warpPercent(facet.percentOn()))
+//				// + f2.format(warpCorrelation(facet))
+//				// + f2.format(warpMutInf(facet, false))
+//				// + f2.format(warpMutInf(facet, true))
+//				f2.format(warp(percentageRatio(facet))));
+//	}
 
 	// /**
 	// * mutual information
@@ -538,36 +533,27 @@ final class Rank extends LazyContainer {
 
 	static final double LOG_ODDS_RANGE = Math.log(100);
 
-	// facet ~facet
-	// _ a ____ b __ query
-	// _ c ____ d _ ~query
-	double oddsRatio(Perspective facet) {
-		if (!query().isQueryValid())
-			return 1;
-		int a = facet.getOnCount();
-		int aPlusc = facet.getTotalCount();
-		int aPlusb = totalChildOnCount();
-		int b = aPlusb - a;
-		int aPlusbcd = totalChildTotalCount();
-		int bPlusd = aPlusbcd - aPlusc;
-		if (!(a >= 0 && b >= 0 && bPlusd >= 0 && aPlusc >= 0))
-			assert a >= 0 && b >= 0 && bPlusd >= 0 && aPlusc >= 0 : facet + " "
-					+ a + " " + b + " " + bPlusd + " " + aPlusc;
-
-		// Util.print(facet + " " + a + " " + b + " " + aPlusc + " " + bPlusd);
-		double result;
-		if (aPlusc == 0 || bPlusd == 0 || aPlusb == 0)
-			// make sure 0/0 == 1
-			result = 1;
-		else if (b == 0)
-			result = Double.POSITIVE_INFINITY;
-		else
-			// cast to double to avoid overflow
-			result = (a * (double) bPlusd) / (b * (double) aPlusc);
-		assert result >= 0 : facet + " " + a + " " + b + " " + bPlusd + " "
-				+ aPlusc;
-		return result;
-	}
+//	// facet ~facet
+//	// _ a ____ b __ query
+//	// _ c ____ d _ ~query
+//	double percentageRatio(Perspective facet) {
+//		double result = 1;
+//		if (query().isQueryValid()) {
+//			try {
+//				int row0 = totalChildOnCount();
+//				int col0 = facet.getTotalCount();
+//				int total = totalChildTotalCount();
+//				if (col0 < total && col0 > 0 && row0 > 0 && row0 < total) {
+//					result = ChiSq2x2.percentageRatio(total, row0, col0, facet
+//							.getOnCount());
+//				}
+//			} catch (AssertionError e) {
+//				Util.err("Error calculating percentageRatio for " + this);
+//				throw (e);
+//			}
+//		}
+//		return result;
+//	}
 
 	// double warp(Perspective facet) {
 	// double result = 0.5;
@@ -617,6 +603,9 @@ final class Rank extends LazyContainer {
 				LOG_ODDS_RANGE);
 	}
 
+	/**
+	 * inefficient - just used by PopupSummary
+	 */
 	static double constrainOddsRatio(double oddsRatio) {
 		return Math.exp(constrainLogOdds(oddsRatio));
 	}
@@ -937,6 +926,28 @@ final class Rank extends LazyContainer {
 
 	boolean keyPress(char key) {
 		return perspectives[0].keyPress(key);
+	}
+
+	// Called as a result of pickFacetTextNotifier on rank label FacetTexts with
+	// no facet
+	public boolean highlight(FacetText node, boolean state, int modifiers) {
+		boolean handle = !isConnected;
+		if (handle) {
+			Markup doc = Query.emptyMarkup();
+			doc.add("open category ");
+			doc.add(perspectives[0].p);
+			art().setClickDesc(doc);
+		}
+		return handle;
+	}
+
+	// Called as a result of pickFacetTextNotifier on rank label FacetTexts with
+	// no facet
+	public boolean pick(FacetText node, int modifiers) {
+		boolean handle = !isConnected;
+		if (handle)
+			connect();
+		return handle;
 	}
 }
 

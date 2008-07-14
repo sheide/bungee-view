@@ -2,6 +2,7 @@ package edu.cmu.cs.bungee.client.query;
 
 import java.awt.Color;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -65,19 +66,19 @@ public interface Markup extends List {
 	 */
 	public static final String parentIndicatorPrefix = "\u2192"; // '\u2023'
 
-	static final Color INCLUDED_COLOR = new //Color(0xdfc27d);
-	Color(0x00ff00); //Color(0xbd0000);
+	static final Color INCLUDED_COLOR = new // Color(0xdfc27d);
+	Color(0x00ff00); // Color(0xbd0000);
 
-	static final Color POSITIVE_ASSOCIATION_COLOR = new //Color(0xa6611a);
-	Color(0x509950); //Color(0xc15151);
+	static final Color POSITIVE_ASSOCIATION_COLOR = new // Color(0xa6611a);
+	Color(0x509950); // Color(0xc15151);
 
-	static final Color EXCLUDED_COLOR = new //Color(0x80cdc1);
-	Color(0xac9200); //Color(0x4a0183);
+	static final Color EXCLUDED_COLOR = new // Color(0x80cdc1);
+	Color(0xac9200); // Color(0x4a0183);
 
-	static final Color NEGATIVE_ASSOCIATION_COLOR = new //Color(0x018571);
-	Color(0x8e784f); //Color(0x663e85);
+	static final Color NEGATIVE_ASSOCIATION_COLOR = new // Color(0x018571);
+	Color(0x8e784f); // Color(0x663e85);
 
-	static final Color UNASSOCIATED_COLOR = new Color(0x707070); 
+	static final Color UNASSOCIATED_COLOR = new Color(0x707070);
 
 	/**
 	 * Colors used for facets significantly positively associated with the
@@ -97,7 +98,7 @@ public interface Markup extends List {
 	// { new Color(0x660000),
 	// new Color(0x660000), new Color(0xBB0000), new Color(0xFF0000) };
 	{ NEGATIVE_ASSOCIATION_COLOR,
-		NEGATIVE_ASSOCIATION_COLOR.brighter().brighter() };
+			NEGATIVE_ASSOCIATION_COLOR.brighter().brighter() };
 
 	/**
 	 * Colors used for facets in positive filters
@@ -105,8 +106,7 @@ public interface Markup extends List {
 	public static final Color[] INCLUDED_COLORS =
 	// { new Color(0x003300),
 	// new Color(0x006600), new Color(0x00BB00), new Color(0x00FF00) };
-	{ INCLUDED_COLOR,
-		new Color(0xc4ffc4) };
+	{ INCLUDED_COLOR, new Color(0xc4ffc4) };
 
 	/**
 	 * Colors used for facets in negative filters
@@ -114,18 +114,16 @@ public interface Markup extends List {
 	public static final Color[] EXCLUDED_COLORS =
 	// { new Color(0x330000),
 	// new Color(0x660000), new Color(0xBB0000), new Color(0xFF0000) };
-	{ EXCLUDED_COLOR,
-		EXCLUDED_COLOR.brighter().brighter() };
+	{ EXCLUDED_COLOR, EXCLUDED_COLOR.brighter().brighter() };
 
 	/**
 	 * Colors used for facets not significantly associated with the current
 	 * filters
 	 */
-	public static final Color[] UNASSOCIATED_COLORS = 
-//	{ new Color(0x555555),
-//			new Color(0x999999), new Color(0xFFFFFF) };
-	{ UNASSOCIATED_COLOR,
-		UNASSOCIATED_COLOR.brighter().brighter() };
+	public static final Color[] UNASSOCIATED_COLORS =
+	// { new Color(0x555555),
+	// new Color(0x999999), new Color(0xFFFFFF) };
+	{ UNASSOCIATED_COLOR, UNASSOCIATED_COLOR.brighter().brighter() };
 
 	/**
 	 * @param genericObjectLabel
@@ -271,7 +269,7 @@ final class MarkupImplementation extends ArrayList implements Markup {
 	// }
 
 	static void descriptionNounPhrase(List phrases, Markup result) {
-//		Util.print("descriptionNounPhrase '" + phrases + "' '" + result+"'");
+		// Util.print("descriptionNounPhrase '" + phrases + "' '" + result+"'");
 		for (Iterator it = phrases.iterator(); it.hasNext();) {
 			Markup phrase = (Markup) it.next();
 			if (phrase.get(0).equals("object")) {
@@ -289,7 +287,7 @@ final class MarkupImplementation extends ArrayList implements Markup {
 		// for (int i = 0; i < objects.size(); i++)
 		// objects[i] = Util.pluralize(objects[i]);
 		// result.add(Util.toEnglish(result, " and "));
-//		 Util.print("  descriptionNounPhrase: " + result);
+		// Util.print(" descriptionNounPhrase: " + result);
 	}
 
 	static void descriptionClauses(List phrases, Markup result, Set searches,
@@ -372,7 +370,7 @@ final class MarkupImplementation extends ArrayList implements Markup {
 		}
 		for (Iterator it = itemLists.iterator(); it.hasNext();) {
 			ItemList itemList = (ItemList) it.next();
-			String s = "that match the Informedia query '"+itemList+"'";
+			String s = "that match the Informedia query '" + itemList + "'";
 			if (first) {
 				result.add(" ");
 				first = false;
@@ -405,14 +403,14 @@ final class MarkupImplementation extends ArrayList implements Markup {
 	// return description(facet.allRestrictions());
 	// }
 
-	static Markup restrictionsDescription(SortedSet restrictions) {
+	static Markup facetSetDescription(SortedSet facets) {
 		Markup content = Query.emptyMarkup();
-		Perspective aRestriction = (Perspective) restrictions.first();
+		Perspective aRestriction = (Perspective) facets.first();
 		// Perspective parent = aRestriction.getParent();
 		// String prefix = parent != null ? parent.namePrefix() : "";
 		// if (prefix.length() > 0)
 		content.add(aRestriction.namePrefix());
-		Query.toEnglish(restrictions, " and ", content);
+		Query.toEnglish(facets, " and ", content);
 
 		Markup[] descriptions = new Markup[2];
 		boolean[] reqtTypes = { true, false };
@@ -420,7 +418,7 @@ final class MarkupImplementation extends ArrayList implements Markup {
 			boolean reqtType = reqtTypes[type];
 
 			SortedSet info = new TreeSet();
-			for (Iterator it = restrictions.iterator(); it.hasNext();) {
+			for (Iterator it = facets.iterator(); it.hasNext();) {
 				Perspective p = (Perspective) it.next();
 				info.addAll(p.getRestrictionFacetInfos(true, reqtType));
 			}
@@ -494,25 +492,184 @@ final class MarkupImplementation extends ArrayList implements Markup {
 		return result.toString();
 	}
 
+	/**
+	 * @param info
+	 *            Set of Markup arguments
+	 * @return List of Markup arguments, including Perspective ranges
+	 */
+	static List coalescePerspectiveSequences(SortedSet info) {
+		if (!isCoalescable(info))
+			// speed up common case
+			return new ArrayList(info);
+		// Util.print("coalescePerspectiveSequences " + Util.valueOfDeep(info));
+		List result = new LinkedList();
+		Object prev = null;
+		for (Iterator it = info.iterator(); it.hasNext();) {
+			Object o = it.next();
+			if (prev != null) {
+				Object oPrime = coalesce(prev, o);
+				if (oPrime == null)
+					result.add(prev);
+				else
+					o = oPrime;
+			}
+			prev = o;
+		}
+		if (prev != null)
+			result.add(prev);
+		// Util.print("coalescePerspectiveSequences return "
+		// + Util.valueOfDeep(result));
+		return result;
+	}
+
+	/**
+	 * @param prev
+	 *            Markup argument or range
+	 * @param next
+	 *            Markup argument
+	 * @return range of the form [perspective, perspective], or null if range
+	 *         can't be found
+	 */
+	static Object coalesce(Object prev, Object next) {
+		Object result = null;
+		if (next instanceof Perspective) {
+			Perspective nextPerspective = (Perspective) next;
+			Perspective prevSibling = nextPerspective.previousSibling(false);
+			if (prevSibling != null && prev == prevSibling) {
+				Perspective[] temp = { prevSibling, nextPerspective };
+				result = temp;
+			} else if (prev instanceof Perspective[]) {
+				Perspective[] range = (Perspective[]) prev;
+				if (range[1] == prevSibling) {
+					range[1] = nextPerspective;
+					result = range;
+				}
+			}
+		}
+		return result;
+	}
+
+	// static Collection coalescePerspectiveSequencesx(Collection info) {
+	// if (!isCoalescable(info))
+	// // speed up common case
+	// return info;
+	// Util.print("coalescePerspectiveSequences " + Util.valueOfDeep(info));
+	// List result = new LinkedList();
+	// Perspective[] range = null;
+	// for (Iterator it = info.iterator(); it.hasNext();) {
+	// Object o = it.next();
+	// if (o instanceof Perspective) {
+	// Perspective p = (Perspective) o;
+	// if (range != null) {
+	// if (range[1].nextSibling() == p
+	// && p.getParent().isOrdered()) {
+	// range[1] = p;
+	// } else {
+	// result.add(range);
+	// range = null;
+	// }
+	// }
+	// if (range == null) {
+	// Perspective[] temp = { p, p };
+	// range = temp;
+	// }
+	// } else {
+	// if (range != null) {
+	// result.add(range);
+	// range = null;
+	// }
+	// result.add(o);
+	// }
+	// }
+	// if (range != null)
+	// result.add(range);
+	// // Util.print("coalescePerspectiveSequences return "
+	// // + Util.valueOfDeep(result));
+	// return result;
+	// }
+
+	static boolean isCoalescable(Collection info) {
+		Perspective prev = null;
+		for (Iterator it = info.iterator(); it.hasNext();) {
+			Object o = it.next();
+			if (o instanceof Perspective) {
+				Perspective p = (Perspective) o;
+				Perspective previousSibling = p.previousSibling(false);
+				if (previousSibling != null && previousSibling == prev)
+					return true;
+				prev = p;
+			}
+		}
+		return false;
+	}
+
 	static void toEnglish(SortedSet info, String connector, Markup descriptions) {
 		int len = info.size();
 		if (len > 0) {
+			List coalescedInfo = coalescePerspectiveSequences(info);
 			// if (len > 1)
 			// Arrays.sort(info); // , Perspective.indexComparator);
 			boolean first = true;
-			for (Iterator it = info.iterator(); it.hasNext();) {
+			for (Iterator it = coalescedInfo.iterator(); it.hasNext();) {
 				Object o = it.next();
 				if (first) {
 					first = false;
-				} else if (o == info.last()) {
+				} else if (!it.hasNext()) {
 					descriptions.add(connector);
 				} else {
 					descriptions.add(", ");
 				}
-				descriptions.add(o);
+				if (o instanceof Perspective[]) {
+					Perspective[] range = (Perspective[]) o;
+					boolean isFirst = range[0].previousSibling() == null;
+					boolean isLast = range[1].nextSibling() == null;
+					if (range[0] == range[1]) {
+						descriptions.add(range[0]);
+					} else if (isFirst == isLast) {
+						descriptions.add(range[0]);
+						descriptions.add(" - ");
+						descriptions.add(range[1]);
+					} else if (isFirst) {
+						descriptions.add("less than ");
+						descriptions.add(range[1]);
+					} else if (isLast) {
+						descriptions.add("greater than ");
+						descriptions.add(range[0]);
+					}
+				} else
+					descriptions.add(o);
 			}
 		}
 	}
+
+	// static boolean toEnglishInternal(Object o, Markup descriptions,
+	// boolean first) {
+	// if (first) {
+	// first = false;
+	// } else {
+	// descriptions.add(", ");
+	// }
+	// if (o instanceof Perspective[]) {
+	// Perspective[] range = (Perspective[]) o;
+	// boolean isFirst = range[0].previousSibling() == null;
+	// boolean isLast = range[1].nextSibling() == null;
+	// if (range[0] == range[1]) {
+	// descriptions.add(range[0]);
+	// } else if (isFirst == isLast) {
+	// descriptions.add(range[0]);
+	// descriptions.add(" - ");
+	// descriptions.add(range[1]);
+	// } else if (isFirst) {
+	// descriptions.add("less than ");
+	// descriptions.add(range[1]);
+	// } else if (isLast) {
+	// descriptions.add("greater than ");
+	// descriptions.add(range[0]);
+	// }
+	// } else
+	// descriptions.add(o);
+	// return first;
+	// }
 
 	public Markup copy() {
 		Markup result = new MarkupImplementation();

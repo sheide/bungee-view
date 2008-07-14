@@ -32,7 +32,6 @@
 package edu.cmu.cs.bungee.client.viz;
 
 import java.awt.Color;
-import java.awt.Component;
 import java.awt.event.InputEvent;
 import java.awt.geom.Rectangle2D;
 import java.sql.ResultSet;
@@ -48,16 +47,18 @@ import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.cmu.cs.bungee.client.query.PerspectiveObserver;
 import edu.cmu.cs.bungee.client.query.Query;
 import edu.cmu.cs.bungee.javaExtensions.Util;
-import edu.cmu.cs.bungee.javaExtensions.ValueComparator;
+import edu.cmu.cs.bungee.javaExtensions.IntValueComparator;
 import edu.cmu.cs.bungee.piccoloUtils.gui.APText;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPPath;
 import edu.cmu.cs.bungee.piccoloUtils.gui.MouseDoc;
+import edu.cmu.cs.bungee.piccoloUtils.gui.SortButton;
+import edu.cmu.cs.bungee.piccoloUtils.gui.SortButtons;
 import edu.cmu.cs.bungee.piccoloUtils.gui.VScrollbar;
 import edu.umd.cs.piccolo.PNode;
 
 final class PerspectiveList extends LazyPNode implements MouseDoc,
-		PerspectiveObserver {
+		PerspectiveObserver, SortButtons {
 	/**
 	 * Draw the list above the rank label (as opposed to below)?
 	 */
@@ -83,7 +84,7 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 
 	private SortButton sortByNatural;
 
-	int sortField = SortButton.SORT_BY_NATURAL_ORDER;
+	int sortField = SORT_BY_NATURAL_ORDER;
 
 	double maxNameW;
 
@@ -147,12 +148,12 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 
 		scrollbar = new VScrollbar(10, 50, Color.white, Color.lightGray, scroll);
 
-		sortBySelection = new SortButton(SortButton.SORT_BY_SELECTION);
-		sortByOnCount = new SortButton(SortButton.SORT_BY_ON_COUNT);
-		sortByNatural = new SortButton(SortButton.SORT_BY_NATURAL_ORDER);
-		sortBySelection.setJustification(Component.CENTER_ALIGNMENT);
-		sortByOnCount.setJustification(Component.CENTER_ALIGNMENT);
-		sortByNatural.setJustification(Component.CENTER_ALIGNMENT);
+		sortBySelection = new SortButton(SORT_BY_SELECTION, -1, art.font, this,
+				Color.gray, Color.getHSBColor(0, 0, 0.15f));
+		sortByOnCount = new SortButton(SORT_BY_ON_COUNT, -1, art.font, this,
+				Color.gray, Color.getHSBColor(0, 0, 0.15f));
+		sortByNatural = new SortButton(SORT_BY_NATURAL_ORDER, 1, art.font,
+				this, Color.gray, Color.getHSBColor(0, 0, 0.15f));
 
 		border.setStroke(LazyPPath.getStrokeInstance(3));
 		border.setStrokePaint(Bungee.goldBorderColor);
@@ -212,7 +213,7 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 	 * @return the y-coordinate where we can start drawing tags
 	 */
 	double validateSortButtons(double numW) {
-		setButtonOrder();
+		sortBySelection.updateButtons(sortField, sortDirection);
 		// label.setOffset(Math
 		// .round((w - label.getScale() * label.getWidth()) / 2.0), 0.0);
 		double y = label.getMaxY() + margin;
@@ -255,9 +256,9 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 			showList(lineOffset());
 	}
 
-	public void setMouseDoc(PNode source, boolean state) {
-		art.setMouseDoc(source, state);
-	}
+//	public void setMouseDoc(PNode source, boolean state) {
+//		art.setMouseDoc(source, state);
+//	}
 
 	public void setMouseDoc(String doc) {
 		art.setMouseDoc(doc);
@@ -272,7 +273,7 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 			removeFromParent();
 			// It's confusing if the arrows don't go by natural order if the
 			// list is hidden
-			sortField = SortButton.SORT_BY_NATURAL_ORDER;
+			sortField = SORT_BY_NATURAL_ORDER;
 			sortDirection = 1;
 			// art.selectedItem.setChildrenPickable(true);
 		} else if (art.getShowTagLists()) {
@@ -368,17 +369,20 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 	}
 
 	void updateLongestNamedFacet(Perspective v) {
-		if (longestNamedFacet == null) {
-			longestNamedFacet = v;
-		} else if (w < maxWidth()) {
-			String name = v.getNameIfPossible();
-			if (name != null
-					&& art.getFacetStringWidth(v, true, false) > longestNameLength()) {
+		if (v.getTotalCount() > 0) {
+			// might be <= 0 if isRestrictedData
+			if (longestNamedFacet == null) {
 				longestNamedFacet = v;
+			} else if (w < maxWidth()) {
+				String name = v.getNameIfPossible();
+				if (name != null
+						&& art.getFacetStringWidth(v, true, false) > longestNameLength()) {
+					longestNamedFacet = v;
+				}
 			}
+			// Util.print("checkName " + v + " " + longestName + " " + w + " "
+			// + art.getFacetStringWidth(v, false, false));
 		}
-		// Util.print("checkName " + v + " " + longestName + " " + w + " "
-		// + art.getFacetStringWidth(v, false, false));
 	}
 
 	void updateData() {
@@ -595,127 +599,119 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 		}
 	}
 
-	final class SortButton extends BungeeTextButton {
+	// public final class SortButton extends BungeeTextButton {
+	//
+	static final int SORT_BY_SELECTION = 1;
 
-		static final int SORT_BY_SELECTION = 1;
+	static final int SORT_BY_ON_COUNT = 2;
 
-		static final int SORT_BY_ON_COUNT = 2;
+	static final int SORT_BY_TOTAL_COUNT = 3;
 
-		static final int SORT_BY_TOTAL_COUNT = 3;
+	static final int SORT_BY_NATURAL_ORDER = 4;
 
-		static final int SORT_BY_NATURAL_ORDER = 4;
+	//
+	// private static final String z_aLabel = "\u2193";
+	//
+	// private static final String a_zLabel = "\u2191";
+	//
+	// private static final String noneLabel = " ";
+	//
+	// int order = SORT_BY_NATURAL_ORDER;
+	//
+	// // boolean reverseOrder = false;
+	//
+	// // PerspectiveList parent;
+	//
+	// SortButton(int field) {
+	// // super(field == SORT_BY_NATURAL_ORDER ? a_zLabel : noneLabel,
+	// // art.font, 0, 0, -1, -1, null, 1.8f, Color.darkGray, Color
+	// // .getHSBColor(0, 0, 0.1f));
+	// super(field == SORT_BY_NATURAL_ORDER ? a_zLabel : noneLabel,
+	// Color.gray, Color.getHSBColor(0, 0, 0.15f),
+	// PerspectiveList.this.art);
+	// mouseDoc = "Sort by this column";
+	// // parent = _parent;
+	// order = field;
+	// }
+	//
+	// void setOrder(int direction) {
+	// String s = null;
+	// switch (direction) {
+	// case 1:
+	// s = a_zLabel;
+	// break;
+	// case 0:
+	// s = noneLabel;
+	// break;
+	// case -1:
+	// s = z_aLabel;
+	// break;
+	// default:
+	// assert false : direction;
+	// }
+	// setText(s);
+	// }
+	//
+	// int getDirection() {
+	// int result = 0;
+	// String s = getText();
+	// if (s.equals(a_zLabel))
+	// result = 1;
+	// else if (s.equals(noneLabel))
+	// result = 0;
+	// else if (s.equals(z_aLabel))
+	// result = -1;
+	// else
+	// assert false : s;
+	// return result;
+	// }
+	//
+	// public void doPick() {
+	// PerspectiveList.this.setOrder(order, getDirection());
+	// }
+	//
+	// // public void mayHideTransients(PNode node) {
+	// // parent.mayHideTransients();
+	// // }
+	//
+	// }
 
-		private static final String z_aLabel = "\u2193";
-
-		private static final String a_zLabel = "\u2191";
-
-		private static final String noneLabel = " ";
-
-		int order = SORT_BY_NATURAL_ORDER;
-
-		// boolean reverseOrder = false;
-
-		// PerspectiveList parent;
-
-		SortButton(int field) {
-			// super(field == SORT_BY_NATURAL_ORDER ? a_zLabel : noneLabel,
-			// art.font, 0, 0, -1, -1, null, 1.8f, Color.darkGray, Color
-			// .getHSBColor(0, 0, 0.1f));
-			super(field == SORT_BY_NATURAL_ORDER ? a_zLabel : noneLabel,
-					Color.gray, Color.getHSBColor(0, 0, 0.15f),
-					PerspectiveList.this.art);
-			mouseDoc = "Sort by this column";
-			// parent = _parent;
-			order = field;
-		}
-
-		void setOrder(int direction) {
-			String s = null;
-			switch (direction) {
-			case 1:
-				s = a_zLabel;
-				break;
-			case 0:
-				s = noneLabel;
-				break;
-			case -1:
-				s = z_aLabel;
-				break;
-			default:
-				assert false : direction;
-			}
-			setText(s);
-		}
-
-		int getDirection() {
-			int result = 0;
-			String s = getText();
-			if (s.equals(a_zLabel))
-				result = 1;
-			else if (s.equals(noneLabel))
-				result = 0;
-			else if (s.equals(z_aLabel))
-				result = -1;
-			else
-				assert false : s;
-			return result;
-		}
-
-		public void doPick() {
-			PerspectiveList.this.setOrder(order, getDirection());
-		}
-
-		// public void mayHideTransients(PNode node) {
-		// parent.mayHideTransients();
-		// }
-
-	}
-
-	void setOrder(int order, int direction) {
+	public void setOrder(int order, int direction) {
 		// Util.print("PerspectiveList.setOrder " + order + " " + direction);
-		// Util.print(sortDirection + " " + sortField);
-		if (sortField == order) {
-			assert direction == sortDirection;
-			sortDirection = sortDirection == 1 ? -1 : 1;
-		} else {
-			assert direction == 0;
-			sortField = order;
-			sortDirection = sortField == SortButton.SORT_BY_NATURAL_ORDER ? 1
-					: -1;
-		}
-		// Util.print("... " + order + " " + direction);
+		sortField = order;
+		sortDirection = direction;
 		selected = getFacet(0);
 		redraw();
 	}
 
-	void setButtonOrder() {
-		sortBySelection
-				.setOrder(sortField == SortButton.SORT_BY_SELECTION ? sortDirection
-						: 0);
-		sortByOnCount
-				.setOrder(sortField == SortButton.SORT_BY_ON_COUNT ? sortDirection
-						: 0);
-		sortByNatural
-				.setOrder(sortField == SortButton.SORT_BY_NATURAL_ORDER ? sortDirection
-						: 0);
-	}
+	// void setButtonOrder() {
+	// sortBySelection
+	// .setOrder(sortField == SortButton.SORT_BY_SELECTION ? sortDirection
+	// : 0);
+	// sortByOnCount
+	// .setOrder(sortField == SortButton.SORT_BY_ON_COUNT ? sortDirection
+	// : 0);
+	// sortByNatural
+	// .setOrder(sortField == SortButton.SORT_BY_NATURAL_ORDER ? sortDirection
+	// : 0);
+	// }
 
 	int getSortIndex(Perspective facet) {
 		int result = -1;
 		switch (sortField) {
-		case SortButton.SORT_BY_NATURAL_ORDER:
+		case SORT_BY_NATURAL_ORDER:
 			result = facet.whichChild();
 			break;
-		case SortButton.SORT_BY_ON_COUNT:
+		case SORT_BY_ON_COUNT:
 			for (int i = 0; i < size() && result < 0; i++) {
 				ItemPredicate child = countSortedFacets()[i];
 				if (child == facet)
 					result = i;
 			}
 			break;
-		case SortButton.SORT_BY_TOTAL_COUNT:
+		case SORT_BY_TOTAL_COUNT:
 			assert false;
-		case SortButton.SORT_BY_SELECTION:
+		case SORT_BY_SELECTION:
 			result = facet.whichChild();
 			int indexOffset = 0;
 			SortedSet restrictions = pvp().allRestrictions();
@@ -730,7 +726,7 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 			assert false : sortField;
 			break;
 		}
-		if ((sortDirection == -1) == (sortField == SortButton.SORT_BY_NATURAL_ORDER))
+		if ((sortDirection == -1) == (sortField == SORT_BY_NATURAL_ORDER))
 			result = size() - result - 1;
 		assert result >= 0 && result < size() : facet + " " + result + " "
 				+ size();
@@ -740,18 +736,18 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 	Perspective getFacet(int sortIndex) {
 		Perspective result = null;
 		Perspective parent = pvp();
-		if ((sortDirection == -1) == (sortField == SortButton.SORT_BY_NATURAL_ORDER))
+		if ((sortDirection == -1) == (sortField == SORT_BY_NATURAL_ORDER))
 			sortIndex = size() - sortIndex - 1;
 		switch (sortField) {
-		case SortButton.SORT_BY_NATURAL_ORDER:
+		case SORT_BY_NATURAL_ORDER:
 			result = parent.getNthChild(sortIndex);
 			break;
-		case SortButton.SORT_BY_ON_COUNT:
+		case SORT_BY_ON_COUNT:
 			result = countSortedFacets()[sortIndex];
 			break;
-		case SortButton.SORT_BY_TOTAL_COUNT:
+		case SORT_BY_TOTAL_COUNT:
 			assert false;
-		case SortButton.SORT_BY_SELECTION:
+		case SORT_BY_SELECTION:
 			List restrictions = new ArrayList(parent.allRestrictions());
 			int nRestrictions = restrictions.size();
 			if (nRestrictions > 0) {
@@ -796,7 +792,7 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 		return countSortedFacets;
 	}
 
-	final class OnCountComparator extends ValueComparator {
+	final class OnCountComparator extends IntValueComparator {
 
 		public int value(Object data) {
 			return counts[((Perspective) data).whichChild()];
@@ -805,5 +801,10 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 
 	Query query() {
 		return art.query;
+	}
+
+	public SortButton[] getSortButtons() {
+		SortButton[] result = { sortByNatural, sortByOnCount, sortBySelection };
+		return result;
 	}
 }
