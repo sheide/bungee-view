@@ -76,6 +76,10 @@ public class MyResultSet implements ResultSet, Serializable {
 			Column.IntegerType, Column.IntegerType, Column.IntegerType, null,
 			null, null, null, null, null, null);
 
+	public static final List INT_INT_INT_INT = makeColumnTypeList(
+			Column.IntegerType, Column.IntegerType, Column.IntegerType, Column.IntegerType,
+			null, null, null, null, null, null);
+
 	public static final List INT_INT_STRING = makeColumnTypeList(
 			Column.IntegerType, Column.IntegerType, Column.StringType, null,
 			null, null, null, null, null, null);
@@ -156,10 +160,10 @@ public class MyResultSet implements ResultSet, Serializable {
 			Column.StringType, Column.SortedIntegerType, null, null, null,
 			null, null, null, null, null);
 
-	public static final List STRING_STRING_STRING_INT_INT_INT_INT = makeColumnTypeList(
+	public static final List STRING_STRING_STRING_INT_INT_INT_INT_INT = makeColumnTypeList(
 			Column.StringType, Column.StringType, Column.StringType,
 			Column.IntegerType, Column.IntegerType, Column.IntegerType,
-			Column.IntegerType, null, null, null);
+			Column.IntegerType, Column.IntegerType, null, null);
 
 	public static final List STRING_STRING_STRING_STRING = makeColumnTypeList(
 			Column.StringType, Column.StringType, Column.StringType,
