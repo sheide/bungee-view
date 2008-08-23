@@ -176,7 +176,7 @@ package edu.cmu.cs.bungee.client.viz;
  * possibly heap=all
  */
 
-import edu.cmu.cs.bungee.faceImage.FaceImage;
+//import edu.cmu.cs.bungee.faceImage.FaceImage;
 
 import javax.imageio.ImageIO;
 import javax.jnlp.BasicService;
@@ -219,19 +219,20 @@ import java.util.ArrayList;
 
 import javax.swing.Timer;
 
-import com.sun.image.codec.jpeg.ImageFormatException;
+//import com.sun.image.codec.jpeg.ImageFormatException;
 
 import edu.cmu.cs.bungee.client.query.Cluster;
 import edu.cmu.cs.bungee.client.query.ItemPredicate;
 import edu.cmu.cs.bungee.client.query.Markup;
 import edu.cmu.cs.bungee.client.query.Perspective;
-import edu.cmu.cs.bungee.client.query.PerspectiveObserver;
 import edu.cmu.cs.bungee.client.query.Query;
 import edu.cmu.cs.bungee.client.query.Query.Item;
-import edu.cmu.cs.bungee.javaExtensions.QueueThread;
+import edu.cmu.cs.bungee.client.query.tetrad.Tetrad;
+import edu.cmu.cs.bungee.javaExtensions.PerspectiveObserver;
 import edu.cmu.cs.bungee.javaExtensions.URLQuery;
-import edu.cmu.cs.bungee.javaExtensions.UpdateNoArgsThread;
 import edu.cmu.cs.bungee.javaExtensions.Util;
+import edu.cmu.cs.bungee.javaExtensions.threads.QueueThread;
+import edu.cmu.cs.bungee.javaExtensions.threads.UpdateNoArgsThread;
 import edu.cmu.cs.bungee.piccoloUtils.gui.APText;
 import edu.cmu.cs.bungee.piccoloUtils.gui.Arrow;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
@@ -863,8 +864,8 @@ final class Bungee extends PFrame {
 			// msg.setOffset(0, meta.getHeight() + lineH);
 			// setHeight(msg.getMaxY());
 			// return super.setWidth(w);
-//			return setBounds(0, 0, w, (int) (meta.getMaxY()
-//					+ arrow.getGlobalBounds().height + lineH / 2));
+			// return setBounds(0, 0, w, (int) (meta.getMaxY()
+			// + arrow.getGlobalBounds().height + lineH / 2));
 			return setBounds(getFullBounds());
 		}
 	}
@@ -1951,8 +1952,8 @@ final class Bungee extends PFrame {
 	 * changes.
 	 * 
 	 * see <a *
-	 *      href="http://en.wikipedia.org/wiki/False_discovery_rate">Benjamini *
-	 *      and Yekutieli procedure< /a>
+	 * href="http://en.wikipedia.org/wiki/False_discovery_rate">Benjamini * and
+	 * Yekutieli procedure< /a>
 	 */
 	void updatePvalue() {
 		assert query.isQueryValid();
@@ -2411,6 +2412,8 @@ final class Bungee extends PFrame {
 			} else if (Util.isMember(MyInputEventHandler.arrowKeys, key)
 					|| keyChar == CONTROL_A) {
 				return handleArrow(key, modifiers);
+			} else if (Tetrad.handleKey(keyChar, modifiers)) {
+				return summary.facetDesc.updateTetrad();
 			} else {
 				return handleKey(keyChar);
 			}
@@ -2437,7 +2440,7 @@ final class Bungee extends PFrame {
 			} else if (editMenu != null
 					&& Character.digit(keyChar, editMenu.nChoices()) > 0) {
 				editMenu.choose(keyChar - '1');
-			} else if (isNameChar(keyChar) || keyChar == '\b') {
+			} else if (summary!=null&&isNameChar(keyChar) || keyChar == '\b') {
 				printUserAction(Bungee.ZOOM, 0, keyChar);
 				return summary.keyPress(keyChar);
 			} else {
@@ -2533,32 +2536,32 @@ final class Bungee extends PFrame {
 		return query.aboutCollection();
 	}
 
-	/**
-	 * @param item
-	 *            warp the original image associated with this item
-	 * @param faceImage
-	 *            computes the warp parameters that map its image's actual
-	 *            points to its hardcoded desired points.
-	 */
-	void warpImage(Item item, FaceImage faceImage) {
-		String srcFilename = query.getItemURL(item);
-		assert srcFilename.endsWith(".jpg") : "warp filname=" + srcFilename;
-		String dstFilename = "C:\\Documents and Settings\\mad\\Desktop\\50thAnniversary\\FlipImages"
-				+ srcFilename.substring(srcFilename.lastIndexOf('\\'));
-		// Util.print(dstFilename);
-		try {
-			BufferedImage bigImage = Util.read(srcFilename);
-			FaceImage bigFace = faceImage.getScaledInstance(bigImage);
-			Util.writeImage(bigFace.getWarpedImage(), 85, dstFilename);
-		} catch (ImageFormatException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-
-	}
+//	/**
+//	 * @param item
+//	 *            warp the original image associated with this item
+//	 * @param faceImage
+//	 *            computes the warp parameters that map its image's actual
+//	 *            points to its hardcoded desired points.
+//	 */
+//	void warpImage(Item item, FaceImage faceImage) {
+//		String srcFilename = query.getItemURL(item);
+//		assert srcFilename.endsWith(".jpg") : "warp filname=" + srcFilename;
+//		String dstFilename = "C:\\Documents and Settings\\mad\\Desktop\\50thAnniversary\\FlipImages"
+//				+ srcFilename.substring(srcFilename.lastIndexOf('\\'));
+//		// Util.print(dstFilename);
+//		try {
+//			BufferedImage bigImage = Util.read(srcFilename);
+//			FaceImage bigFace = faceImage.getScaledInstance(bigImage);
+//			Util.writeImage(bigFace.getWarpedImage(), 85, dstFilename);
+//		} catch (ImageFormatException e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		} catch (IOException e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		}
+//
+//	}
 
 	boolean itemMiddleMenu(Item item, boolean isRight) {
 		if (query.isEditable()) {

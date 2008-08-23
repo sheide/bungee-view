@@ -139,24 +139,38 @@ final class ServletInterface {
 			args = null;
 
 		DataInputStream in = getStream("CONNECT", args);
-		assert in != null : "Could not connect " + Util.join(args);
-		sessionID = MyResultSet.readString(in);
-		System.out.println(" session = '" + sessionID + "'");
+		if (in != null) {
+			sessionID = MyResultSet.readString(in);
+			System.out.println(" session = '" + sessionID + "'");
 
-		databaseDesc = MyResultSet.readString(in);
+			databaseDesc = MyResultSet.readString(in);
 
-		facetCount = MyResultSet.readInt(in);
-		itemCount = MyResultSet.readInt(in);
-		itemDescriptionFields = MyResultSet.readString(in);
-		label = MyResultSet.readString(in);
-		doc = MyResultSet.readString(in);
-		isEditable = "Y".equalsIgnoreCase(MyResultSet.readString(in));
+			facetCount = MyResultSet.readInt(in);
+			itemCount = MyResultSet.readInt(in);
+			itemDescriptionFields = MyResultSet.readString(in);
+			label = MyResultSet.readString(in);
+			doc = MyResultSet.readString(in);
+			isEditable = "Y".equalsIgnoreCase(MyResultSet.readString(in));
 
-		initPerspectives = new MyResultSet(in,
-				MyResultSet.STRING_STRING_STRING_INT_INT_INT_INT_INT);
-		init = new MyResultSet(in, MyResultSet.INT);
+			initPerspectives = new MyResultSet(in,
+					MyResultSet.STRING_STRING_STRING_INT_INT_INT_INT);
+			init = new MyResultSet(in, MyResultSet.INT);
 
-		closeNcatch(in, "CONNECT", args);
+			closeNcatch(in, "CONNECT", args);
+		} else {
+			if (status == null)
+				status = "Could not connect to " + Util.join(args);
+			sessionID = null;
+			label = null;
+			itemDescriptionFields = null;
+			itemCount = -1;
+			isEditable = false;
+			initPerspectives = null;
+			init = null;
+			facetCount = -1;
+			doc = null;
+			databaseDesc = null;
+		}
 	}
 
 	void close() {
@@ -761,9 +775,9 @@ final class ServletInterface {
 		return result;
 	}
 
-	public ResultSet onCountMatrix(String facetsOfInterest, String parent) {
-		String[] args = { facetsOfInterest, parent };
-		return getResultSet("getPairCounts", args, MyResultSet.INT);
+	public ResultSet onCountMatrix(String facetsOfInterest, String table) {
+		String[] args = { facetsOfInterest, table };
+		return getResultSet("getPairCounts", args, MyResultSet.INT_INT);
 	}
 
 }

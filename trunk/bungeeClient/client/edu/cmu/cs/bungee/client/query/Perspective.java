@@ -48,10 +48,11 @@ import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
-import edu.cmu.cs.bungee.javaExtensions.DoubleValueComparator;
-import edu.cmu.cs.bungee.javaExtensions.IntValueComparator;
 import edu.cmu.cs.bungee.javaExtensions.MyResultSet;
+import edu.cmu.cs.bungee.javaExtensions.PerspectiveObserver;
 import edu.cmu.cs.bungee.javaExtensions.Util;
+import edu.cmu.cs.bungee.javaExtensions.comparator.DoubleValueComparator;
+import edu.cmu.cs.bungee.javaExtensions.comparator.IntValueComparator;
 
 import JSci.maths.statistics.ChiSq2x2;
 import JSci.maths.statistics.OutOfRangeException;
@@ -441,10 +442,10 @@ public class Perspective implements Comparable, ItemPredicate {
 		initPerspective(new MyResultSet(in, prefetchColumnTypes(fetchType)),
 				fetchType);
 		setIsAlphabetic(MyResultSet.readInt(in) > 0);
-//		if (isAlphabetic()) {
-//			createLetterOffsets(new MyResultSet(in, MyResultSet.STRING_SINT),
-//					Util.toCollationKey(""));
-//		}
+		// if (isAlphabetic()) {
+		// createLetterOffsets(new MyResultSet(in, MyResultSet.STRING_SINT),
+		// Util.toCollationKey(""));
+		// }
 		// Util.print("offset " + facet + " " + facet.childrenOffset() + " "
 		// + facet.isAlphabetic());
 	}
@@ -996,7 +997,7 @@ public class Perspective implements Comparable, ItemPredicate {
 				0, charIndex - 1));
 		CollationKey desiredLetter = Util.toCollationKey(sourceString
 				.substring(charIndex - 1));
-		// Util.print("q '"
+		// Util.print("rangeForPrefix '"
 		// + prefixButOne.getSourceString()
 		// + "' "
 		// + desiredLetter.getSourceString()
@@ -1013,8 +1014,7 @@ public class Perspective implements Comparable, ItemPredicate {
 				.get(prefix);
 		if (letterOffsets == null) {
 			// assert prefix.equals(prefix.toUpperCase());
-			ResultSet rs = query().getLetterOffsets(this, prefix);
-			letterOffsets = createLetterOffsets(rs, prefix);
+			letterOffsets = createLetterOffsets(prefix);
 			// Util.print(prefix + " " + letterOffsets);
 		}
 		// Util.print("getLetterOffsets " + this+" '"+prefix.getSourceString() +
@@ -1023,18 +1023,23 @@ public class Perspective implements Comparable, ItemPredicate {
 		return letterOffsets;
 	}
 
-	private Map createLetterOffsets(ResultSet rs, CollationKey prefix) {
+	private Map createLetterOffsets(CollationKey prefix) {
 		// Util.print("createLetterOffsets " + this + " '"
 		// + prefix.getSourceString() + "'");
 		Map letterOffsets = null;
 		try {
+			ResultSet rs = query().getLetterOffsets(this, prefix);
 			Perspective first = firstWithPrefix(prefix);
+			// assert first.couldStartWith(prefix.getSourceString());
+			assert first != null : this + " '" + prefix.getSourceString()
+					+ "'\n"
+					+ MyResultSet.valueOfDeep(rs, MyResultSet.STRING_SINT, 200);
 			letterOffsets = new LinkedHashMap(MyResultSet.nRows(rs));
 			while (rs.next()) {
 				CollationKey key = Util.toCollationKey(rs.getString(1)
 						.charAt(0));
 				Perspective last = query().findPerspective(rs.getInt(2));
-				assert first != null : this
+				assert last != null : this
 						+ " '"
 						+ prefix.getSourceString()
 						+ "' '"
@@ -1042,11 +1047,12 @@ public class Perspective implements Comparable, ItemPredicate {
 						+ "'\n"
 						+ MyResultSet.valueOfDeep(rs, MyResultSet.STRING_SINT,
 								200);
-				assert last != null;
 				Perspective[] firstLast = { first, last };
 				letterOffsets.put(key, firstLast);
 				// Util.print(" " + key.getSourceString() + " => "
 				// + Util.valueOfDeep(firstLast));
+				assert last.couldStartWith(prefix.getSourceString()
+						+ key.getSourceString());
 				first = last.nextSibling();
 			}
 			rs.close();
@@ -1057,6 +1063,13 @@ public class Perspective implements Comparable, ItemPredicate {
 		// Util.print("letter offsets for " + this + " '" + prefix + "':");
 		// Util.print(letterOffsets);
 		return letterOffsets;
+	}
+
+	private boolean couldStartWith(String prefix) {
+		String name = getNameIfPossible();
+		return name == null
+				|| (name.length() >= prefix.length() && Util.stringEquals(
+						prefix, name.substring(0, prefix.length())));
 	}
 
 	void setNchildren(int n, int child_offset) {
@@ -1111,7 +1124,10 @@ public class Perspective implements Comparable, ItemPredicate {
 	 * @see query.ItemPredicate#describeFilter()
 	 */
 	public Markup describeFilter() {
-		Markup filterDescription = getDescription(false, filterTypes); // getRestrictionName(false);
+		Markup filterDescription = getDescription(false, filterTypes); // getRestrictionName
+		// (
+		// false
+		// );
 		filterDescription.add(0, "filter ");
 		filterDescription.add(1, getFacetType());
 		// filterDescription.add(2, " = ");
@@ -2111,7 +2127,8 @@ public class Perspective implements Comparable, ItemPredicate {
 	// }
 
 	/**
-	 * @return is it sensible for Tetrad to conclude that another Perspective causes this one?
+	 * @return is it sensible for Tetrad to conclude that another Perspective
+	 *         causes this one?
 	 */
 	public boolean isCausable() {
 		return query().isCausable(this);
@@ -2160,22 +2177,29 @@ public class Perspective implements Comparable, ItemPredicate {
 	public void updateTopTags(TopTags top, int parentTotalCount,
 			int parentOnCount, int _onCount) {
 		// Util.print("updateTopTags " + this);
-		int total = getTotalCount();
-		if (_onCount < total) {
-			if (total < parentTotalCount && !isRestriction()) {
-				if (instantiatedPerspective != null) {
-					assert instantiatedPerspective.checkTable(parentTotalCount,
-							parentOnCount, total, _onCount);
-					// Util.print(instantiatedPerspective.checkTableMsg(
-					// parentTotalCount, parentOnCount, total, onCount));
-					ChiSq2x2 chiSq = ChiSq2x2.getInstance(this,
-							parentTotalCount, parentOnCount, total, _onCount);
-					boolean siblingSelected = parent != null
-							&& parent.isRestricted();
-					if (chiSq.sign() > 0 || !siblingSelected)
-						top.maybeAdd(chiSq, chiSq.myCramersPhi());
+		try {
+			int total = getTotalCount();
+			if (_onCount < total) {
+				if (total < parentTotalCount && !isRestriction()) {
+					if (instantiatedPerspective != null) {
+						assert instantiatedPerspective.checkTable(
+								parentTotalCount, parentOnCount, total,
+								_onCount);
+						// Util.print(instantiatedPerspective.checkTableMsg(
+						// parentTotalCount, parentOnCount, total, onCount));
+						ChiSq2x2 chiSq = ChiSq2x2.getInstance(this,
+								parentTotalCount, parentOnCount, total,
+								_onCount);
+						boolean siblingSelected = parent != null
+								&& parent.isRestricted();
+						if (chiSq.sign() > 0 || !siblingSelected)
+							top.maybeAdd(chiSq, chiSq.myCramersPhi());
+					}
 				}
 			}
+		} catch (AssertionError e) {
+			// Do our best even if query is invalid, but ignore errors this causes
+			assert !query().isQueryValid();
 		}
 	}
 
@@ -2193,8 +2217,8 @@ public class Perspective implements Comparable, ItemPredicate {
 			public final Object tag;
 			public final double relevance;
 
-			TagRelevance(Object facet, double _relevance) {
-				tag = facet;
+			TagRelevance(Object o, double _relevance) {
+				tag = o;
 				relevance = _relevance;
 				assert tag instanceof ChiSq2x2;
 			}
@@ -2220,12 +2244,13 @@ public class Perspective implements Comparable, ItemPredicate {
 		}
 
 		/**
-		 * @param facet
+		 * @param o
+		 *            the object having the score
 		 * @param score
 		 *            any monotonically increasing relevance function, where
 		 *            positive influences are greater than zero, and vice versa.
 		 */
-		void maybeAdd(Object facet, double score) {
+		void maybeAdd(Object o, double score) {
 			if (score > 0) {
 				if (top.size() < n || score > topThreshold) {
 					if (top.size() == n) {
@@ -2233,7 +2258,7 @@ public class Perspective implements Comparable, ItemPredicate {
 						top.remove(top.last());
 						assert top.size() < n : topThreshold + " " + top;
 					}
-					top.add(new TagRelevance(facet, score));
+					top.add(new TagRelevance(o, score));
 					topThreshold = ((TagRelevance) top.last()).relevance;
 					// updateTopThreshold();
 					// assert top.size() < n || topThresholdFacet != null :
@@ -2250,7 +2275,7 @@ public class Perspective implements Comparable, ItemPredicate {
 						assert bottom.size() < n : bottomThreshold + " "
 								+ bottom;
 					}
-					bottom.add(new TagRelevance(facet, score));
+					bottom.add(new TagRelevance(o, score));
 					bottomThreshold = ((TagRelevance) bottom.first()).relevance;
 				}
 			}
@@ -2708,12 +2733,11 @@ public class Perspective implements Comparable, ItemPredicate {
 		}
 
 		String checkTableMsg(int total, int row0, int col0, int table00) {
-			return this + " isQueryValid=" + q.isQueryValid() + " " + query()
-					+ "\n" + table00 + "\t" + (row0 - table00) + "\t" + row0
-					+ "\ton\n" + (col0 - table00) + "\t"
-					+ (total - row0 - col0 + table00) + "\t" + (total - row0)
-					+ "\toff\n" + col0 + "\t" + (total - col0) + "\t" + total
-					+ "\nfacet\tother";
+			return this + " " + query() + "\n" + table00 + "\t"
+					+ (row0 - table00) + "\t" + row0 + "\ton\n"
+					+ (col0 - table00) + "\t" + (total - row0 - col0 + table00)
+					+ "\t" + (total - row0) + "\toff\n" + col0 + "\t"
+					+ (total - col0) + "\t" + total + "\nfacet\tother";
 			// return this + " parentTotalCount=" + total + " parentOnCount="
 			// + row0 + " totalCount=" + col0 + " onCount=" + table00
 			// + " isQueryValid=" + q.isQueryValid();

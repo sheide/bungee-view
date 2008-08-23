@@ -23,12 +23,13 @@ import java.util.regex.Pattern;
 import javax.swing.SwingUtilities;
 
 import edu.cmu.cs.bungee.client.query.Perspective.TopTags;
-import edu.cmu.cs.bungee.javaExtensions.AccumulatingQueueThread;
 import edu.cmu.cs.bungee.javaExtensions.IntHashtable;
 import edu.cmu.cs.bungee.javaExtensions.JDBCSample;
 import edu.cmu.cs.bungee.javaExtensions.MyResultSet;
-import edu.cmu.cs.bungee.javaExtensions.QueueThread;
+import edu.cmu.cs.bungee.javaExtensions.PerspectiveObserver;
 import edu.cmu.cs.bungee.javaExtensions.Util;
+import edu.cmu.cs.bungee.javaExtensions.threads.AccumulatingQueueThread;
+import edu.cmu.cs.bungee.javaExtensions.threads.QueueThread;
 
 /**
  * @author mad Holds a set of filters that has been applied to a database, and
@@ -103,26 +104,36 @@ public final class Query implements ItemPredicate {
 	 */
 	public Query(String server, String dbName) {
 		db = new ServletInterface(server, dbName);
-		String[][] dbs = db.getDatabases();
-		for (int i = 0; i < dbs.length && name == null; i++) {
-			if (dbName == null || dbName.length() == 0
-					|| dbs[i][0].equalsIgnoreCase(dbName)) {
-				name = dbs[i][1];
+		
+		if (getSession() != null) {
+			String[][] dbs = db.getDatabases();
+			for (int i = 0; i < dbs.length && name == null; i++) {
+				if (dbName == null || dbName.length() == 0
+						|| dbs[i][0].equalsIgnoreCase(dbName)) {
+					name = dbs[i][1];
+				}
 			}
+			assert name != null : dbName;
+			// setQueryInvalid();
+			int nFacets = db.facetCount + 1;
+			totalCount = db.itemCount;
+			onCount = totalCount;
+			matchFieldsPrefix = getMatchFieldsPrefix(Util
+					.splitComma(db.itemDescriptionFields));
+			genericObjectLabel = Util.pluralize(db.label);
+			itemURLdoc = db.doc;
+			allPerspectives = new Perspective[nFacets];
+			nAttributes = initPerspectives();
+			isEditable = db.isEditable;
+			// Util.print("Query return");
+		} else {
+			// If there was a problem, return gracefully so parent can deal with error
+			nAttributes = -1;
+			matchFieldsPrefix = null;
+			itemURLdoc = null;
+			genericObjectLabel = null;
+
 		}
-		assert name != null : dbName;
-		// setQueryInvalid();
-		int nFacets = db.facetCount + 1;
-		totalCount = db.itemCount;
-		onCount = totalCount;
-		matchFieldsPrefix = getMatchFieldsPrefix(Util
-				.splitComma(db.itemDescriptionFields));
-		genericObjectLabel = Util.pluralize(db.label);
-		itemURLdoc = db.doc;
-		allPerspectives = new Perspective[nFacets];
-		nAttributes = initPerspectives();
-		isEditable = db.isEditable;
-		// Util.print("Query return");
 	}
 
 	private static String getMatchFieldsPrefix(String[] itemDescFields) {
@@ -220,8 +231,6 @@ public final class Query implements ItemPredicate {
 	private Set orderedFacetTypes = new HashSet();
 
 	private Set causableFacetTypes = new HashSet();
-	
-	
 
 	NameGetter nameGetter;
 
@@ -279,7 +288,7 @@ public final class Query implements ItemPredicate {
 
 	public String toString() {
 		// Util.printStackTrace();
-		return (isQueryValid() ? "<Query " : "Invalid Query ") + getName()
+		return (isQueryValid() ? "<Query " : "<Invalid Query ") + getName()
 				+ ">";
 	}
 
@@ -558,9 +567,10 @@ public final class Query implements ItemPredicate {
 				// p.instantiate(rs.getString(2), rs.getString(3), this);
 				displayedPerspectives.add(p);
 				p.setTotalCount(rs.getInt(6));
-				if (rs.getInt(7) != 0)
+				int flags = rs.getInt(7);
+				if (Util.isBit(flags, 0))
 					orderedFacetTypes.add(p);
-				if (rs.getInt(8) != 0)
+				if (Util.isBit(flags, 1))
 					causableFacetTypes.add(p);
 				prefetcher.add(p);
 			}
@@ -771,7 +781,8 @@ public final class Query implements ItemPredicate {
 			// isRestricted = true;
 
 			result = (needDistinct ? "SELECT DISTINCT" : "SELECT")
-					+ " rnd.record_num" + " FROM " + baseTable + " rnd" + qJOIN; // + "
+					+ " rnd.record_num" + " FROM " + baseTable + " rnd" + qJOIN; // +
+			// "
 			// ORDER
 			// BY
 			// random_ID";
@@ -1927,14 +1938,16 @@ public final class Query implements ItemPredicate {
 		Item[] result = null;
 		try {
 			result = new Item[MyResultSet.nRows(rs)];
-			int i = startIndex;
+			int n = endIndex - startIndex;
+			int i = 0;
 			// rs can have extra rows if it was cached
-			while (rs.next() && i++ < endIndex) {
-				result[i] = Item.ensureItem(rs.getInt(1));
+			while (rs.next() && i < n) {
+				result[i++] = Item.ensureItem(rs.getInt(1));
 			}
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
+		assert !Util.hasDuplicates(result);
 		return result;
 	}
 
@@ -1994,9 +2007,9 @@ public final class Query implements ItemPredicate {
 		return buf.toString();
 	}
 
-	public ResultSet onCountMatrix(Collection facetsOfInterest,
-			Perspective parent) {
-		return db.onCountMatrix(getFacetIDs(facetsOfInterest), Integer.toString(parent.getID()));
+	public ResultSet onCountMatrix(Collection facetsOfInterest) {
+		return db.onCountMatrix(getFacetIDs(facetsOfInterest),
+				(String) baseTable);
 	}
 }
 
@@ -2109,7 +2122,9 @@ final class NameGetter extends AccumulatingQueueThread {
 	/*
 	 * (non-Javadoc)
 	 * 
-	 * @see edu.cmu.cs.bungee.javaExtensions.QueueThread#reportError(java.lang.Throwable)
+	 * @see
+	 * edu.cmu.cs.bungee.javaExtensions.QueueThread#reportError(java.lang.Throwable
+	 * )
 	 */
 	public void reportError(Throwable e) {
 		super.reportError(e);

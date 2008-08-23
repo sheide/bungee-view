@@ -24,9 +24,15 @@ import edu.cmu.cs.bungee.javaExtensions.URLQuery;
 import edu.cmu.cs.bungee.javaExtensions.Util;
 
 // To seal jar (password is 8 digit insecure)
-
-// cd C:\Program Files\Apache Software Foundation\Tomcat 6.0\webapps\bungee
+// cd C:\Program Files\Apache Software Foundation\Tomcat 6.0.16\webapps\bungee
 // "C:\Program Files\Java\jdk1.5.0_06\bin\jarsigner" -keystore myKeys bungeeClient.jar BungeeView
+// mv bungeeClientSigned.jar bungeeClientSignedOLD.jar
+// mv bungeeClient.jar bungeeClientSigned.jar
+
+// To renew certificate
+// cd C:\Program Files\Apache Software Foundation\Tomcat 6.0.16\webapps\bungee
+// "C:\Program Files\Java\jdk1.5.0_06\bin\keytool" -keystore myKeys -delete -alias bungeeview
+// "C:\Program Files\Java\jdk1.5.0_06\bin\keytool" -keystore myKeys -genkey -alias bungeeview
 
 public class Informedia extends Thread {
 
@@ -40,6 +46,7 @@ public class Informedia extends Thread {
 		super("InformediaSocketRequestListener");
 		port = _port;
 		art = _art;
+		Util.print("Starting Informedia thread for port " + port);
 	}
 
 	public void run() {

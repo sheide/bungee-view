@@ -13,6 +13,7 @@ import java.util.SortedSet;
 import java.util.TreeSet;
 
 import edu.cmu.cs.bungee.client.query.Query.ItemList;
+import edu.cmu.cs.bungee.javaExtensions.PerspectiveObserver;
 import edu.cmu.cs.bungee.javaExtensions.Util;
 
 /**
