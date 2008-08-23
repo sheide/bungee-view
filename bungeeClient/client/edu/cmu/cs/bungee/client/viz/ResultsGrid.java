@@ -49,6 +49,7 @@ import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.cmu.cs.bungee.client.query.Query;
 import edu.cmu.cs.bungee.client.query.Query.Item;
 import edu.cmu.cs.bungee.javaExtensions.*;
+import edu.cmu.cs.bungee.javaExtensions.threads.UpdateNoArgsThread;
 import edu.cmu.cs.bungee.piccoloUtils.gui.APText;
 import edu.cmu.cs.bungee.piccoloUtils.gui.Boundary;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyContainer;

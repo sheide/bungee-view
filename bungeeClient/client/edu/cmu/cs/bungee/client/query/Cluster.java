@@ -7,6 +7,8 @@ import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
+import edu.cmu.cs.bungee.javaExtensions.PerspectiveObserver;
+
 /**
  * @author mad A set of facets treated conjunctively as a predicate on items (as
  *         are facets themselves) Created by typing 'c' in Bungee View.

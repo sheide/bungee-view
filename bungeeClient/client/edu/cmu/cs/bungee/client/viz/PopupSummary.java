@@ -12,10 +12,13 @@ import java.util.Vector;
 import edu.cmu.cs.bungee.client.query.Cluster;
 import edu.cmu.cs.bungee.client.query.Markup;
 import edu.cmu.cs.bungee.client.query.Perspective;
-import edu.cmu.cs.bungee.client.query.PerspectiveObserver;
 import edu.cmu.cs.bungee.client.query.Query;
+import edu.cmu.cs.bungee.client.query.tetrad.Tetrad;
+import edu.cmu.cs.bungee.client.query.tetrad.Tetrad.TetradDrawer;
+import edu.cmu.cs.bungee.javaExtensions.PerspectiveObserver;
 import edu.cmu.cs.bungee.javaExtensions.Util;
 import edu.cmu.cs.bungee.piccoloUtils.gui.APText;
+import edu.cmu.cs.bungee.piccoloUtils.gui.Graph;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPPath;
 import edu.umd.cs.piccolo.PNode;
@@ -27,7 +30,7 @@ import edu.umd.cs.piccolo.util.PBounds;
  * see <a href="C:\Projects\ArtMuseum\DesignSketches\popupColors.xcf">color
  * key</a>
  */
-final class PopupSummary extends LazyPNode implements PerspectiveObserver {
+final class PopupSummary extends LazyPNode implements PerspectiveObserver, TetradDrawer {
 
 	private static final long TRANSLATE_TO_CORNER_DELAY = 10000;
 
@@ -219,7 +222,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 
 	private PNode tempRatioLabel;
 
-	private Tetrad tetrad;
+	Graph tetradGraph;
 
 	private static final float TRANSPARENT = 0;
 
@@ -271,10 +274,10 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 	private static final Color countTextColor = Color.white;
 
 	private static final Color unimportantTextColor = countTextColor.darker(); // .
-																				// darker
-																				// (
-																				// )
-																				// ;
+	// darker
+	// (
+	// )
+	// ;
 
 	private static final Color totalLinesColor = unimportantTextColor;
 
@@ -282,7 +285,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 	 * Color of the message "Press the spacebar for more information"
 	 */
 	private static final Color spaceBarDescTextColor = Bungee.helpColor; // unimportantTextColor
-																			// ;
+	// ;
 
 	private static final Color facetPercentColor = Color.getHSBColor(0.15f,
 			0.4f, 0.9f);
@@ -560,13 +563,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 				delay(TRANSLATE_TO_CORNER_DELAY);
 			}
 		} else if (showHelp == Step.START_FRAME) {
-			if (facet != null && facet.query().isRestricted()) {
-				tetrad = new Tetrad(facet, art);
-				addChild(tetrad);
-				tetrad.setWidth(barBG.getWidth());
-				align(tetrad, 2, barBG, 18);
-				tetrad.translate(-tetrad.getX(), -tetrad.getY() - MARGIN);
-			}
+			setTetrad();
 			summary().moveToFront();
 			// setBoundsFromNode(this, barBG, 0);
 			animateToAlignment(this, 2, art.header, 2, -barBG.getX()
@@ -608,6 +605,52 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 			// animateBarTransparencies(OPAQUE, 0, fadeDuration());
 		} else if (showHelp == Step.HELP_SIG) {
 			waitForUserInput();
+		}
+	}
+
+	boolean updateTetrad() {
+		boolean result = tetradGraph != null;
+		if (result)
+			setTetrad();
+		return result;
+	}
+
+	boolean setTetrad() {
+		boolean result = facet != null && facet.query().isRestricted();
+		if (result) {
+			if (tetradGraph != null) {
+				removeChild(tetradGraph);
+			}
+			tetradGraph = new Graph(Tetrad.getTetradGraph(facet, this), art.font);
+			tetradGraph.setStrokePaint(BGcolor);
+			tetradGraph
+					.setLabel(tetradGraph.getNumEdges() > 0 ? "Influence Diagram"
+							: "No dependencies");
+			colorFacetGraph(tetradGraph);
+			addChild(tetradGraph);
+			tetradGraph.setWidth(barBG.getWidth());
+			align(tetradGraph, 2, barBG, 18);
+			tetradGraph.translate(-tetradGraph.getX(), -tetradGraph.getY()
+					- MARGIN);
+		}
+		return result;
+		// return false;
+	}
+
+	public void drawTetradGraph(
+			edu.cmu.cs.bungee.javaExtensions.graph.Graph graph, String status) {
+		Graph pnode = new Graph(graph, art.font);
+		pnode.printMe(status);
+	}
+	
+
+	void colorFacetGraph(Graph graph) {
+		for (Iterator it = graph.getNodeObjects().iterator(); it.hasNext();) {
+			Object object = it.next();
+			if (object instanceof Perspective) {
+				APText node = graph.getNode(object);
+				node.setTextPaint(art.facetTextColor((Perspective) object));
+			}
 		}
 	}
 
@@ -1890,9 +1933,9 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 			animationSpeed = 0;
 			finishAnimation();
 			summaryBG.removeFromParent();
-			if (tetrad != null) {
-				removeChild(tetrad);
-				tetrad = null;
+			if (tetradGraph != null) {
+				removeChild(tetradGraph);
+				tetradGraph = null;
 			}
 			if (isHelp) {
 				art.summary.computeRankComponentHeights(0);

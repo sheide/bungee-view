@@ -2,6 +2,8 @@ package edu.cmu.cs.bungee.client.query;
 
 import java.util.SortedSet;
 
+import edu.cmu.cs.bungee.javaExtensions.PerspectiveObserver;
+
 /**
  * @author mad Generalization of Perspective and Cluster
  */

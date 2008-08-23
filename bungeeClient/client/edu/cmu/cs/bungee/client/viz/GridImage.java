@@ -1,8 +1,8 @@
 package edu.cmu.cs.bungee.client.viz;
 
-import edu.cmu.cs.bungee.faceImage.FaceImage;
-import edu.cmu.cs.bungee.faceImage.FaceImageThreePoint;
-import edu.cmu.cs.bungee.faceImage.FaceImageTwoPoint;
+//import edu.cmu.cs.bungee.faceImage.FaceImage;
+//import edu.cmu.cs.bungee.faceImage.FaceImageThreePoint;
+//import edu.cmu.cs.bungee.faceImage.FaceImageTwoPoint;
 
 import java.awt.Color;
 import java.awt.Image;
@@ -190,7 +190,7 @@ final class GridImage extends PImage /* implements FacetNode */{
 
 	String mouseDoc = "Select this result";
 
-	private FaceImage faceImage;
+//	private FaceImage faceImage;
 
 	private String getMouseDoc() {
 		// if (mouseDoc == null) {
@@ -238,19 +238,19 @@ final class GridImage extends PImage /* implements FacetNode */{
 		grid().mayHideTransients();
 	}
 
-	void handleFaceWarping(PInputEvent e) {
-		Util.print(e.getPositionRelativeTo(this));
-		if (faceImage == null) {
-			faceImage = FaceImageThreePoint.getInstamce(getImage());
-		}
-		faceImage.addPoint(e.getPositionRelativeTo(this));
-		if (faceImage.isSavable()) {
-			((SelectedItem) getParent()).art.warpImage(itemImage.item,
-					faceImage);
-			// itemImage.rawImage=faceImage.getWarpedImage();
-			// ((SelectedItem) getParent()).art.selectedItem.maybeAddImage();
-		}
-	}
+//	void handleFaceWarping(PInputEvent e) {
+//		Util.print(e.getPositionRelativeTo(this));
+//		if (faceImage == null) {
+//			faceImage = FaceImageThreePoint.getInstamce(getImage());
+//		}
+//		faceImage.addPoint(e.getPositionRelativeTo(this));
+//		if (faceImage.isSavable()) {
+//			((SelectedItem) getParent()).art.warpImage(itemImage.item,
+//					faceImage);
+//			// itemImage.rawImage=faceImage.getWarpedImage();
+//			// ((SelectedItem) getParent()).art.selectedItem.maybeAddImage();
+//		}
+//	}
 }
 
 final class GridImageHandler extends MyInputEventHandler {

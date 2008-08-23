@@ -52,6 +52,7 @@ import edu.cmu.cs.bungee.client.query.FacetTree;
 import edu.cmu.cs.bungee.client.query.Query;
 import edu.cmu.cs.bungee.client.query.Query.Item;
 import edu.cmu.cs.bungee.javaExtensions.*;
+import edu.cmu.cs.bungee.javaExtensions.threads.UpdateThread;
 import edu.cmu.cs.bungee.piccoloUtils.gui.APText;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyContainer;
 import edu.cmu.cs.bungee.piccoloUtils.gui.Boundary;
@@ -668,9 +669,9 @@ final class ItemClickHandler extends MyInputEventHandler {
 
 	protected boolean click(PNode node, PInputEvent e) {
 		SelectedItem parent = getSelectedItem(node);
-		if (e.isControlDown())
-			getImage(node).handleFaceWarping(e);
-		else if (e.isMiddleMouseButton())
+		if (e.isControlDown()) {
+			// getImage(node).handleFaceWarping(e);
+		} else if (e.isMiddleMouseButton())
 			parent.itemMenu(false);
 		else if (e.isRightMouseButton())
 			parent.itemMenu(true);
