@@ -332,6 +332,7 @@ public class Database {
 		// + subfield);
 		// // Util.printStackTrace();
 		// }
+//		Util.print("new facet "+name);
 		name = truncateName(name, false);
 		if (!dontUpdate) {
 			// facetCache compares names in binary mode, so may create facets

@@ -18,7 +18,7 @@ public class Caremedia extends Options {
 		try {
 			Caremedia caremedia = new Caremedia();
 			caremedia.init(false, args);
-			caremedia.loadImages();
+			 caremedia.loadImages();
 		} catch (Exception ex) {
 			ex.printStackTrace(System.out);
 		}
@@ -51,8 +51,8 @@ public class Caremedia extends Options {
 									+ "LEFT JOIN event_types secondary"
 									+ " ON event.primary_event_id=secondary.primary_event_id"
 									+ " AND event.secondary_event_id=secondary.secondary_event_id"
-					// + " limit 1000"
-					);
+//									+ " limit 1000"
+									);
 			Attribute description = Attribute.getAttribute("description");
 			Facet camera = Facet.getGenericFacet("Camera");
 			Facet date = Facet.getDateFacet("Start Date");
@@ -80,10 +80,10 @@ public class Caremedia extends Options {
 				eventDate.insert(rs.getString("event_date"), handler);
 				location.insert(rs.getString("location"), handler);
 				assist.insert(rs.getString("assist"), handler);
-				event.insert(rs.getString("primary_name").split("\n")[0]
+				String foo = rs.getString("primary_name").split("\n|\r")[0].trim()
 						+ " -- "
-						+ rs.getString("secondary_name").split("\n")[0],
-						handler);
+						+ rs.getString("secondary_name").split("\n|\r")[0].trim();
+				event.insert(foo, handler);
 			}
 			rs.close();
 		} catch (SQLException e) {
@@ -125,8 +125,7 @@ public class Caremedia extends Options {
 						+ ") "
 
 				);
-		jdbc
-		.SQLupdate("UPDATE item SET shotbreak_id = NULL, movie_id = NULL");
+		jdbc.SQLupdate("UPDATE item SET shotbreak_id = NULL, movie_id = NULL");
 		// jdbc
 		// .SQLupdate("ALTER TABLE all_times ADD INDEX time_index(camera_name,
 		// time_z);");
