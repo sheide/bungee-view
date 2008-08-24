@@ -202,7 +202,38 @@ public class ChiSq2x2 {
 	}
 
 	public double correlation() {
-		return sampleCovariance() / sampleVariance(ROW) / sampleVariance(COL);
+		double dTotal = total();
+		double p00 = table00 / dTotal;
+		double prow0 = row0() / dTotal;
+		double pcol0 = col0() / dTotal;
+		double corr1 = (p00 - prow0 * pcol0)
+				/ Math.sqrt((prow0 - prow0 * prow0) * (pcol0 - pcol0 * pcol0));
+		// double corr2 = sampleCovariance() / Math.sqrt(sampleVariance(ROW) *
+		// sampleVariance(COL));
+		// assert corr1==corr2:corr1+" "+corr2;
+		return corr1;
+	}
+
+	/**
+	 * @return correlation divided by the maximum possible correlation with the
+	 *         same sign for the row, column, and table totals. I.e. the
+	 *         correlation when table00 = min(row0, col0) or zero.
+	 */
+	public double correlationPercent() {
+		double dTotal = total();
+		double p00 = table00 / dTotal;
+		double prow0 = row0() / dTotal;
+		double pcol0 = col0() / dTotal;
+		double prowcol = prow0 * pcol0;
+		double numerator = p00 - prowcol;
+		double p00Max = numerator >= 0 ? Math.min(row0(), col0()) / dTotal : 0;
+		double result = numerator / (p00Max - prowcol);
+		// double corr2 = sampleCovariance() / Math.sqrt(sampleVariance(ROW) *
+		// sampleVariance(COL));
+		// assert corr1==corr2:corr1+" "+corr2;
+		assert result >= 0 && result <= 1 : result + " " + numerator + " "
+				+ printTable();
+		return result;
 	}
 
 	/**
@@ -212,7 +243,7 @@ public class ChiSq2x2 {
 	 */
 	public double sampleCovariance() {
 		double dTotal = total;
-		return (table00 - col0 * (row0 / dTotal)) / (dTotal - 1);
+		return (table00 - col0 * (row0 / dTotal)) / (dTotal /*- 1*/);
 	}
 
 	public static final int ROW = 1;
@@ -222,7 +253,40 @@ public class ChiSq2x2 {
 		double nOn = whichVar == ROW ? row0() : col0();
 		double nOff = whichVar == ROW ? row1() : col1();
 		double dTotal = total;
-		return 2 * nOn * nOff / (dTotal * (dTotal - 1));
+		return nOn * nOff / (dTotal * (dTotal /*- 1*/));
+	}
+
+	public double entropy(int whichVar) {
+		assert total > 0;
+		double nOn = whichVar == ROW ? row0() : col0();
+		double nOff = whichVar == ROW ? row1() : col1();
+		double dTotal = total;
+		double nats = Math.log(dTotal) - (nLogn(nOn) + nLogn(nOff)) / dTotal;
+		double bits = nats / LOG2;
+		return bits;
+	}
+
+	public static double nLogn(double n) {
+		assert n >= 0;
+		if (n == 0)
+			return 0;
+		return n * Math.log(n);
+	}
+
+	static final double LOG2 = Math.log(2);
+
+	public double entropy() {
+		assert total > 0;
+		double dTotal = total;
+		double nats = Math.log(dTotal)
+				- (nLogn(table00) + nLogn(table01()) + nLogn(table10()) + nLogn(table11()))
+				/ dTotal;
+		double bits = nats / LOG2;
+		return bits;
+	}
+
+	public double mutInf() {
+		return entropy(ROW) + entropy(COL) - entropy();
 	}
 
 	/**
@@ -360,7 +424,8 @@ public class ChiSq2x2 {
 		return align.format("myCramersPhi") + align.format("Chi square")
 				+ align.format("p-value") + align.format("Facet Percent")
 				+ align.format("Sibling Percent")
-				+ align.format("Percentage Ratio") + align.format("Tag");
+				+ align.format("Percentage Ratio")
+				+ align.format("Correlation") + align.format("Tag");
 	}
 
 	public void setPrintObject(Object o) {
@@ -378,6 +443,7 @@ public class ChiSq2x2 {
 		buf.append(align.format(facetOnPercent(), doubleFormat));
 		buf.append(align.format(siblingOnPercent(), doubleFormat));
 		buf.append(align.format(percentageRatio(), doubleFormat));
+		buf.append(align.format(correlation(), doubleFormat));
 		Object o = printObject == null ? object : printObject;
 		buf.append(o);
 		return buf;
