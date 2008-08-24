@@ -168,9 +168,10 @@ public class Tetrad {
 								.setDirection((Node) edge.getNodes().get(
 										direction));
 					}
-					printMe("directed", subgraph);
 					if (allOnPath(subgraph) && allStrong(subgraph)) {
+						printMe("directed", subgraph);
 						result.union(subgraph);
+						printMe("result", result);
 					}
 				}
 			}
