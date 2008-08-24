@@ -142,7 +142,10 @@ class Facet extends Field {
 
 	static Facet getTimeFacet(String name) {
 		Facet facet = getParsingFacet(name, TimeFacetValueParser.getInstance());
-		facet.sortPattern = "(?:\\d+:\\d{2}:(\\d{2}))|(?:\\d+:(\\d{2}))|(\\d+)";
+		// facet.sortPattern =
+		// "(?:\\d+:\\d{2}:(\\d{2}))|(?:\\d+:(\\d{2}):00-\\d+:\\d{2}:59)|(?:(\\d+):00-\\d+:59)"
+		// ;
+		facet.sortPattern = "(?:\\d+:\\d{2}:(\\d{2}))|(?:\\d+:(\\d{2}):ss)|(?:(\\d+):mm:ss)";
 		return facet;
 	}
 
@@ -187,7 +190,10 @@ class Facet extends Field {
 	@Override
 	boolean insert(String value, Populate handler) throws SQLException {
 		String[][] facets = parser.parse(value, handler);
-		// Util.print(this+" "+value+" "+Util.valueOfDeep(facets));
+//		if (facets.length > 0 && facets[0].length > 0
+//				&& "07".equals(facets[0][0])) {
+//			Util.print(this + " " + value + " " + Util.valueOfDeep(facets));
+//		}
 		for (int i = 0; i < facets.length; i++) {
 			List<String> path = new ArrayList<String>(facets[i].length + 1);
 			path.add(name);

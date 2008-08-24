@@ -150,6 +150,9 @@ class Options extends DefaultHandler {
 			handler = new Populate(jdbc, getBooleanValue("verbose"));
 
 			if (!getBooleanValue("dont_read_data")) {
+				
+				// Allows NULLS until compile sets a value
+				jdbc.SQLupdate("ALTER TABLE item MODIFY facet_names TEXT");
 				if (getBooleanValue("reset"))
 					handler.clearTables();
 

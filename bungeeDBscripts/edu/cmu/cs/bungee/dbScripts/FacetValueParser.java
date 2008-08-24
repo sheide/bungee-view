@@ -58,7 +58,7 @@ class GenericFacetValueParser implements FacetValueParser {
 }
 
 /**
- * parse '5:51:52' or '123' (as seconds) and return ["5", "5:51", "5:51:52"]
+ * parse '5:51:52' or '123' (as seconds) and return ["5:mm:ss", "5:51:ss", "5:51:52"]
  * 
  */
 class TimeFacetValueParser implements FacetValueParser {
@@ -71,17 +71,20 @@ class TimeFacetValueParser implements FacetValueParser {
 
 	public String[][] parse(String value, Populate _handler) {
 		String[][] result = { { value } };
-		Pattern p = Pattern.compile("(\\d+):(\\d{2}):(\\d{2})");
+		
+		// This is the format we generate
+		Pattern p = Pattern.compile("(\\d+):((?:mm)|(?:\\d{2})):((?:ss)|(?:\\d{2}))");
 		Matcher m = p.matcher(value);
 		if (m.find()) {
 			String hour = m.group(1);
 			String minute = m.group(2);
 			String second = m.group(3);
-			String[][] x = { { hour, hour + ":" + minute,
+			String[][] x = { { hour+ ":mm:ss", hour + ":" + minute+ ":ss",
 					hour + ":" + minute + ":" + second } };
 			result = x;
 		}
 
+		// Integer interpreted as seconds
 		p = Pattern.compile("\\d+");
 		m = p.matcher(value);
 		if (m.matches()) {
@@ -90,15 +93,16 @@ class TimeFacetValueParser implements FacetValueParser {
 			second -= hour * 60 * 60;
 			int minute = second / 60;
 			second -= minute * 60;
-			String hourName = String.valueOf(hour);
+			// String hourName = String.valueOf(hour);
 			String minuteName = String.valueOf(minute);
 			if (minuteName.length() == 1)
 				minuteName = "0" + minuteName;
 			String secondName = String.valueOf(second);
 			if (secondName.length() == 1)
 				secondName = "0" + secondName;
-			String[][] x = { { hourName, hourName + ":" + minuteName,
-					hourName + ":" + minuteName + ":" + secondName } };
+			String[][] x = { {
+					hour + ":mm:ss",
+					hour + ":" + minuteName + ":ss", hour + ":" + minuteName + ":" + secondName } };
 			result = x;
 		}
 		return result;
@@ -243,8 +247,12 @@ class DateFacetValueParser implements FacetValueParser {
 
 		// 'Nov. 20, 1908' => '11/20/1908'
 		p = Pattern
-		// .compile("\\b\\s*([a-zA-Z]{3,})(?:\\.|,)?\\s*(\\d{0,2})[a-z]{0,2},?\\s*(\\d{4})\\z");
-				// .compile("\\b([a-zA-Z]{3,})(?:\\.|,)?\\s*(\\d{0,2})[a-z]{0,2},?\\s*(\\d{4})\\z");
+		// .compile(
+		// "\\b\\s*([a-zA-Z]{3,})(?:\\.|,)?\\s*(\\d{0,2})[a-z]{0,2},?\\s*(\\d{4})\\z"
+		// );
+				// .compile(
+				// "\\b([a-zA-Z]{3,})(?:\\.|,)?\\s*(\\d{0,2})[a-z]{0,2},?\\s*(\\d{4})\\z"
+				// );
 				.compile("\\b\\s*([a-zA-Z]{3,})(?:\\.|,)?\\s*(\\d{0,2})[a-z]{0,2},?\\s*(\\d{4})\\D");
 		m = p.matcher(result);
 		while (m.find()) {
@@ -627,7 +635,7 @@ class PlaceFacetValueParser implements FacetValueParser {
 					// ["UT"]
 					String lastBroad = broads[broads.length - 1].trim()
 							.toLowerCase(); // e.g. UT
-					String[] broad = lookupLocation(lastBroad, _handler); // e.g.
+					String[] broad = lookupLocation(lastBroad, _handler); //e.g.
 					// "Location --
 					// North America
 					// -- United

@@ -970,7 +970,7 @@ public class ConvertFromRaw {
 			jdbc.SQLupdate("UPDATE item i, item_temp it"
 					+ " SET i.facet_names = it.facet_names"
 					+ " WHERE i.record_num = it.record_num");
-			jdbc.SQLupdate("ALTER TABLE item ENABLE KEYS MODIFY facet_names TEXT NOT NULL");
+			jdbc.SQLupdate("ALTER TABLE item ENABLE KEYS, MODIFY facet_names TEXT NOT NULL");
 			jdbc.SQLupdate("DROP TABLE item_temp");
 		}
 		return nErrors;
