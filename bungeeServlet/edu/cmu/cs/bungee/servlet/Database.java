@@ -174,10 +174,13 @@ class Database {
 		// ORDER BY clause doesn't make any difference if facets are ordered
 		// correctly (by utf8_general_ci),
 		// but will correct for bad alphabetization in old databases.
+		//
+		// Used to have "LOCATE(?, name) = 1" instead of LIKE, but LOCATE
+		// doesn't respect the collation properly
 		getLetterOffsetsQuery = jdbc
-				.lookupPS("SELECT MIN(SUBSTRING(name, LENGTH(?) + 1, 1)) letter, MAX(facet_id) max_facet "
-						+ "FROM facet WHERE parent_facet_id = ? AND LOCATE(?, name) = 1 "
-						+ "GROUP BY SUBSTRING(name, LENGTH(?) + 1, 1) ORDER BY max_facet");
+				.lookupPS("SELECT MIN(SUBSTRING(name, CHAR_LENGTH(?) + 1, 1)) letter, MAX(facet_id) max_facet "
+						+ "FROM facet WHERE parent_facet_id = ? AND name LIKE CONCAT(?, '%') "
+						+ "GROUP BY SUBSTRING(name, CHAR_LENGTH(?) + 1, 1) ORDER BY max_facet");
 	}
 
 	void close() throws SQLException {
@@ -226,10 +229,12 @@ class Database {
 			 * 
 			 */
 			String itemURLgetter = rs.getString(3);
-			itemIdPS = jdbc.lookupPS("SELECT " + itemURLgetter
-					+ " FROM item WHERE record_num = ?");
-			itemURLPS = jdbc.lookupPS("SELECT record_num FROM item WHERE "
-					+ itemURLgetter + " = ?");
+			if (itemURLgetter != null && itemURLgetter.length() > 0) {
+				itemIdPS = jdbc.lookupPS("SELECT " + itemURLgetter
+						+ " FROM item WHERE record_num = ?");
+				itemURLPS = jdbc.lookupPS("SELECT record_num FROM item WHERE "
+						+ itemURLgetter + " = ?");
+			}
 
 			String[] resultx = { itemDescriptionFields, rs.getString(2),
 					rs.getString(4), rs.getString(5) };
@@ -248,19 +253,27 @@ class Database {
 	String getItemURL(int item) throws SQLException, ServletException {
 		// Util.print("itemDesc " + item);
 		// try {
-		synchronized (itemIdPS) {
-			itemIdPS.setInt(1, item);
-			String result = jdbc.SQLqueryString(itemIdPS);
-			myAssert(result != null, "Can't find "
-					+ jdbc.SQLqueryString("SELECT itemURL FROM globals")
-					+ " for record_num " + item);
-			return result;
+		String result = null;
+		if (itemIdPS != null) {
+			synchronized (itemIdPS) {
+				itemIdPS.setInt(1, item);
+				result = jdbc.SQLqueryString(itemIdPS);
+				if (result == null) {
+					myAssert(
+							false,
+							"Can't find "
+									+ jdbc
+											.SQLqueryString("SELECT itemURL FROM globals")
+									+ " for record_num " + item);
+				}
+			}
 		}
 		// } catch (SQLException se) {
 		// System.err
 		// .println("SQL Exception in getItemID: " + se.getMessage());
 		// se.printStackTrace();
 		// }
+		return result;
 	}
 
 	private void ensureDBinitted() throws SQLException {
@@ -376,10 +389,14 @@ class Database {
 	private PreparedStatement itemURLPS;
 
 	int getItemFromURL(String URL) throws SQLException {
-		synchronized (itemURLPS) {
-			itemURLPS.setString(1, URL);
-			return jdbc.SQLqueryInt(itemURLPS);
+		int result = 0;
+		if (itemURLPS != null) {
+			synchronized (itemURLPS) {
+				itemURLPS.setString(1, URL);
+				result = jdbc.SQLqueryInt(itemURLPS);
+			}
 		}
+		return result;
 	}
 
 	@SuppressWarnings("unchecked")
@@ -483,11 +500,13 @@ class Database {
 			ServletException, IOException {
 		ResultSet rs = jdbc
 				.SQLquery("SELECT facet.name, descriptionCategory, descriptionPreposition, "
-						+ "n_child_facets, first_child_offset, n_items, isOrdered, isCausable "
+						+ "n_child_facets, first_child_offset, n_items, isOrdered + 2 * isCausable "
 						+ "FROM raw_facet_type ft INNER JOIN facet USING (name) "
 						+ "WHERE facet.parent_facet_id = 0 "
 						+ "ORDER BY facet.facet_id");
-		sendResultSet(rs, MyResultSet.STRING_STRING_STRING_INT_INT_INT_INT_INT, out);
+		// Combine flags isOrdered, etc, so we don't get version skew errors from adding new flags
+		sendResultSet(rs, MyResultSet.STRING_STRING_STRING_INT_INT_INT_INT,
+				out);
 	}
 
 	@SuppressWarnings("unchecked")
@@ -572,28 +591,35 @@ class Database {
 		}
 
 		writeInt(isAlphabetic, out);
-		
-		// Assuming beginner mode is much more common, don't be so eager to getLetterOffsets
-//		if (isAlphabetic > 0)
-//			getLetterOffsets(facet_id, "", out);
+
+		// Assuming beginner mode is much more common, don't be so eager to
+		// getLetterOffsets
+		// if (isAlphabetic > 0)
+		// getLetterOffsets(facet_id, "", out);
 	}
 
 	private PreparedStatement getLetterOffsetsQuery;
 
 	@SuppressWarnings("unchecked")
-	void getLetterOffsets(int facet_id, String prefix, DataOutputStream out)
+	void getLetterOffsets(int parentFacetID, String prefix, DataOutputStream out)
 			throws SQLException, IOException {
 		synchronized (getLetterOffsetsQuery) {
 			getLetterOffsetsQuery.setString(1, prefix);
-			getLetterOffsetsQuery.setInt(2, facet_id);
+			getLetterOffsetsQuery.setInt(2, parentFacetID);
 			getLetterOffsetsQuery.setString(3, prefix);
 			getLetterOffsetsQuery.setString(4, prefix);
 			ResultSet rs = jdbc.SQLquery(getLetterOffsetsQuery);
+			if (MyResultSet.nRows(rs) == 0) {
+				// client should never ask unless there are some such facets
+				log("Found no offsets for prefix '" + prefix
+						+ "' among children of " + parentFacetID);
+			}
 			try {
 				// If an old DB has facets alphabetized wrong, just ignore it.
 				sendResultSet(rs, MyResultSet.STRING_SINT, out);
 			} catch (ServletException e) {
-				log("Exception in getLetterOffsets: " + e);
+				log("Exception in getLetterOffsets - probably mis-alphabetized facet names: '"
+						+ prefix + "' " + e);
 			}
 		}
 	}
@@ -754,41 +780,43 @@ class Database {
 	}
 
 	/**
-	 * Given facets="1,2,3" and parent="9", return the counts in the 2^3
-	 * partition of parent
+	 * Given facets="1,2,3" return the counts in the 2^3 combinations
 	 * 
 	 * @param facetNames
 	 *            list of facets to find co-occurence counts among
-	 * @param parent
-	 *            the 'universe' in which to count
+	 * @param table
+	 *            either "restricted" or "item_order"
 	 * @param out
 	 * @throws SQLException
 	 * @throws ServletException
 	 * @throws IOException
 	 */
 	@SuppressWarnings("unchecked")
-	void getPairCounts(String facetNames, String parent, DataOutputStream out)
+	void getPairCounts(String facetNames, String table, DataOutputStream out)
 			throws SQLException, ServletException, IOException {
 		String[] facets = Util.splitComma(facetNames);
 		int nFacets = facets.length;
 		String[] joins = new String[nFacets];
 		String[] groups = new String[nFacets];
+		String[] states = new String[nFacets];
 		for (int i = 0; i < nFacets; i++) {
 			int facet = Integer.parseInt(facets[i]);
-			joins[i] = "LEFT JOIN item_facet_heap i" + i + " ON i" + i
-					+ ".record_num = parent.record_num AND i" + i
+			String ifTable = facet <= maxFacetTypeID() ? "item_facet_type_heap"
+					: "item_facet_heap";
+			joins[i] = "LEFT JOIN " + ifTable + " i" + i + " ON i" + i
+					+ ".record_num = items.record_num AND i" + i
 					+ ".facet_id = " + facet;
-			
+
 			// First facet reprsented by low order bit
-			groups[i] = " i" + (nFacets-i-1) + ".facet_id";
+			int iComplement = nFacets - i - 1;
+			groups[i] = " i" + iComplement + ".facet_id";
+			states[i] = "(" + groups[i] + " IS NOT NULL)*" + (1 << iComplement);
 		}
 		String vars = Util.join(groups);
-		String parentTable = Integer.parseInt(parent) <= maxFacetTypeID() ? "item_facet_type_heap"
-				: "item_facet_heap";
-		String sql = "SELECT COUNT(*) FROM " + parentTable + " parent "
-				+ Util.join(joins, " ") + " WHERE parent.facet_id = " + parent
-				+ " GROUP BY " + vars + " ORDER BY " + vars;
-//		log(sql);
+		String sql = "SELECT " + Util.join(states, " + ") + ", COUNT(*) FROM "
+				+ table + " items " + Util.join(joins, " ") + " GROUP BY "
+				+ vars + " ORDER BY " + vars;
+		// log(sql);
 
 		// String sql = "SELECT COUNT(*) "+
 		// "FROM item_facet_heap i1, item_facet_heap i2, item_facet_type_heap
@@ -803,7 +831,7 @@ class Database {
 		// "ORDER BY i1.facet_id, i2.facet_id";
 
 		ResultSet rs = jdbc.SQLquery(sql);
-		sendResultSet(rs, MyResultSet.INT, out);
+		sendResultSet(rs, MyResultSet.INT_INT, out);
 	}
 
 	private PreparedStatement printUserActionStmt;
@@ -1497,6 +1525,7 @@ class Database {
 	@SuppressWarnings("unchecked")
 	void caremediaGetItems(String segments, DataOutputStream out)
 			throws SQLException, ServletException, IOException {
+		// Seems messed up - client sends items, not segments
 		// log("caremediaPlayArgs"+item);
 		ResultSet rs = jdbc
 				.SQLquery("SELECT record_num"
