@@ -132,6 +132,14 @@ public class Servlet extends HttpServlet {
 	@Override
 	protected void doPost(HttpServletRequest request,
 			HttpServletResponse response) throws IOException {
+
+		// This doesn't work - make sure the Tomcat Connector is configured for
+		// UTF_8, e.g. <Connector port="80" URIEncoding="UTF-8"/>. Otherwise
+		// getParameter will decode wrong.
+		//
+		// if (request.getCharacterEncoding() == null)
+		// request.setCharacterEncoding("UTF-8");
+
 		String errMsg = null;
 		DataOutputStream out = null;
 		try {
@@ -145,20 +153,39 @@ public class Servlet extends HttpServlet {
 				String server = config.getInitParameter("server");
 				String user = config.getInitParameter("user");
 				String pass = config.getInitParameter("pwd");
-				if (dbName == null)
-					dbName = config.getInitParameter("dbs").split(",")[0];
-				log("Connect to " + dbName + " session = " + xsession);
+				String[] dbNames = config.getInitParameter("dbs").split(",");
+				log(Util.valueOfDeep(dbNames)+" "+dbName+" "+request.getRemoteHost()+" "+config.getInitParameter(
+				"IPpermissions"));
+				if (dbName == null) {
+					dbName = dbNames[0];
+				} else if (!Util.isMember(dbNames, dbName)) {
+					String requestIP = dbName + request.getRemoteHost();
+					boolean isAuthorized = false;
+					String[] authorizedIPs = config.getInitParameter(
+							"IPpermissions").split(",");
+					for (int i = 0; i < authorizedIPs.length && !isAuthorized; i++) {
+						isAuthorized = requestIP.startsWith(authorizedIPs[i]);
+						log(i+" "+isAuthorized+" "+requestIP+" "+authorizedIPs[i]);
+					}
+					if (!isAuthorized)
+						errMsg = "Your IP address, " + request.getRemoteHost()
+								+ ", is not authorized to use database "
+								+ dbName;
+				}
 				logRequest(request);
-				Database db;
-				try {
-					db = new Database(server, dbName, user, pass, this);
-					// db.jdbc.servlet = this;
-					addSession(xsession, db);
-				} catch (Exception e) {
-					errMsg = "Could not connect to database " + dbName
-							+ " because\n" + e.getMessage() + "\nbecause\n"
-							+ e.getCause() + "\n"
-							+ Util.join(e.getStackTrace(), "\n");
+				if (errMsg == null) {
+					log("Connect to " + dbName + " session = " + xsession);
+					Database db;
+					try {
+						db = new Database(server, dbName, user, pass, this);
+						// db.jdbc.servlet = this;
+						addSession(xsession, db);
+					} catch (Exception e) {
+						errMsg = "Could not connect to database " + dbName
+								+ " because\n" + e.getMessage() + "\nbecause\n"
+								+ e.getCause() + "\n"
+								+ Util.join(e.getStackTrace(), "\n");
+					}
 				}
 			}
 			Database db = sessions.get(xsession);
