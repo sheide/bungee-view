@@ -1,4 +1,4 @@
-package edu.cmu.cs.bungee.javaExtensions;
+package edu.cmu.cs.bungee.javaExtensions.comparator;
 
 import java.io.Serializable;
 import java.util.Comparator;

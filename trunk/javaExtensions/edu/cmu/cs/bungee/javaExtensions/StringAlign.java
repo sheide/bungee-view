@@ -94,10 +94,10 @@ public class StringAlign extends Format {
 	 * Constructor instead of each format() call as the expected common use is
 	 * in repetitive formatting e.g., page numbers.
 	 * 
-	 * @param maxChars -
-	 *            the length of the output
-	 * @param just -
-	 *            one of JUST_LEFT, JUST_CENTRE or JUST_RIGHT
+	 * @param maxChars
+	 *            - the length of the output
+	 * @param just
+	 *            - one of JUST_LEFT, JUST_CENTRE or JUST_RIGHT
 	 */
 	public StringAlign(int maxChars, int just) {
 		switch (just) {
@@ -118,11 +118,11 @@ public class StringAlign extends Format {
 	/**
 	 * Format a String.
 	 * 
-	 * @param obj _
-	 *            the string to be aligned.
+	 * @param obj
+	 *            _ the string to be aligned.
 	 * @parm where - the StringBuffer to append it to.
-	 * @param ignore -
-	 *            a FieldPosition (may be null, not used but specified by the
+	 * @param ignore
+	 *            - a FieldPosition (may be null, not used but specified by the
 	 *            general contract of Format).
 	 */
 	public StringBuffer format(Object obj, StringBuffer where,
@@ -159,8 +159,14 @@ public class StringAlign extends Format {
 		return format(format.format(obj));
 	}
 
-	public String format(int obj, NumberFormat format) {
-		return format(format.format(obj));
+	/**
+	 * @param n
+	 * @param format
+	 *            Use this format to get a string, and then pad according to
+	 *            this StringFormat.
+	 */
+	public String format(int n, NumberFormat format) {
+		return format(format.format(n));
 	}
 
 	public String format(double obj, NumberFormat format) {
