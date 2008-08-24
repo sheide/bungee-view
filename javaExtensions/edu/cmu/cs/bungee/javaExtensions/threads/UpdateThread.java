@@ -1,4 +1,4 @@
-package edu.cmu.cs.bungee.javaExtensions;
+package edu.cmu.cs.bungee.javaExtensions.threads;
 
 /**
  * A QueueThread where only the most recently added queue entry is relevant. The

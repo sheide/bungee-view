@@ -35,6 +35,10 @@ public class MyResultSet implements ResultSet, Serializable {
 
 	private Column[] columns;
 
+	int getColumnCount() {
+		return columns.length;
+	}
+
 	static List makeColumnTypeList(Object col1, Object col2, Object col3,
 			Object col4, Object col5, Object col6, Object col7, Object col8,
 			Object col9, Object col10) {
@@ -77,8 +81,8 @@ public class MyResultSet implements ResultSet, Serializable {
 			null, null, null, null, null, null);
 
 	public static final List INT_INT_INT_INT = makeColumnTypeList(
-			Column.IntegerType, Column.IntegerType, Column.IntegerType, Column.IntegerType,
-			null, null, null, null, null, null);
+			Column.IntegerType, Column.IntegerType, Column.IntegerType,
+			Column.IntegerType, null, null, null, null, null, null);
 
 	public static final List INT_INT_STRING = makeColumnTypeList(
 			Column.IntegerType, Column.IntegerType, Column.StringType, null,
@@ -160,10 +164,10 @@ public class MyResultSet implements ResultSet, Serializable {
 			Column.StringType, Column.SortedIntegerType, null, null, null,
 			null, null, null, null, null);
 
-	public static final List STRING_STRING_STRING_INT_INT_INT_INT_INT = makeColumnTypeList(
+	public static final List STRING_STRING_STRING_INT_INT_INT_INT = makeColumnTypeList(
 			Column.StringType, Column.StringType, Column.StringType,
 			Column.IntegerType, Column.IntegerType, Column.IntegerType,
-			Column.IntegerType, Column.IntegerType, null, null);
+			Column.IntegerType, null, null, null);
 
 	public static final List STRING_STRING_STRING_STRING = makeColumnTypeList(
 			Column.StringType, Column.StringType, Column.StringType,
@@ -881,9 +885,7 @@ public class MyResultSet implements ResultSet, Serializable {
 	}
 
 	public ResultSetMetaData getMetaData() {
-		// TODO Auto-generated method stub
-		assert false;
-		return null;
+		return new MyMetaData();
 	}
 
 	public Object getObject(int arg0) {
@@ -1401,13 +1403,13 @@ public class MyResultSet implements ResultSet, Serializable {
 		resetRow(rs, row);
 		return result;
 	}
-	
+
 	static void resetRow(ResultSet rs, int row) throws SQLException {
 		if (row == 0)
 			// absolute(0) may barf
 			rs.beforeFirst();
 		else
-			rs.absolute(row);		
+			rs.absolute(row);
 	}
 
 	public static String valueOfDeep(ResultSet result, List types, int maxRows) {
@@ -1445,4 +1447,113 @@ public class MyResultSet implements ResultSet, Serializable {
 		}
 		return buf.toString();
 	}
+
+	class MyMetaData implements ResultSetMetaData {
+
+		public String getCatalogName(int column) throws SQLException {
+			// TODO Auto-generated method stub
+			return null;
+		}
+
+		public String getColumnClassName(int column) throws SQLException {
+			// TODO Auto-generated method stub
+			return null;
+		}
+
+		public int getColumnCount() throws SQLException {			
+			return MyResultSet.this.getColumnCount();
+		}
+
+		public int getColumnDisplaySize(int column) throws SQLException {
+			// TODO Auto-generated method stub
+			return 0;
+		}
+
+		public String getColumnLabel(int column) throws SQLException {
+			// TODO Auto-generated method stub
+			return null;
+		}
+
+		public String getColumnName(int column) throws SQLException {
+			// TODO Auto-generated method stub
+			return null;
+		}
+
+		public int getColumnType(int column) throws SQLException {
+			// TODO Auto-generated method stub
+			return 0;
+		}
+
+		public String getColumnTypeName(int column) throws SQLException {
+			// TODO Auto-generated method stub
+			return null;
+		}
+
+		public int getPrecision(int column) throws SQLException {
+			// TODO Auto-generated method stub
+			return 0;
+		}
+
+		public int getScale(int column) throws SQLException {
+			// TODO Auto-generated method stub
+			return 0;
+		}
+
+		public String getSchemaName(int column) throws SQLException {
+			// TODO Auto-generated method stub
+			return null;
+		}
+
+		public String getTableName(int column) throws SQLException {
+			// TODO Auto-generated method stub
+			return null;
+		}
+
+		public boolean isAutoIncrement(int column) throws SQLException {
+			// TODO Auto-generated method stub
+			return false;
+		}
+
+		public boolean isCaseSensitive(int column) throws SQLException {
+			// TODO Auto-generated method stub
+			return false;
+		}
+
+		public boolean isCurrency(int column) throws SQLException {
+			// TODO Auto-generated method stub
+			return false;
+		}
+
+		public boolean isDefinitelyWritable(int column) throws SQLException {
+			// TODO Auto-generated method stub
+			return false;
+		}
+
+		public int isNullable(int column) throws SQLException {
+			// TODO Auto-generated method stub
+			return 0;
+		}
+
+		public boolean isReadOnly(int column) throws SQLException {
+			// TODO Auto-generated method stub
+			return false;
+		}
+
+		public boolean isSearchable(int column) throws SQLException {
+			// TODO Auto-generated method stub
+			return false;
+		}
+
+		public boolean isSigned(int column) throws SQLException {
+			// TODO Auto-generated method stub
+			return false;
+		}
+
+		public boolean isWritable(int column) throws SQLException {
+			// TODO Auto-generated method stub
+			return false;
+		}
+
+	}
+
 }

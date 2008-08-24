@@ -1,4 +1,6 @@
-package edu.cmu.cs.bungee.javaExtensions;
+package edu.cmu.cs.bungee.javaExtensions.threads;
+
+import edu.cmu.cs.bungee.javaExtensions.Util;
 
 /**
  * An UpdateThread where process takes no arguments. update just means "make sure to call process when you get a chance".

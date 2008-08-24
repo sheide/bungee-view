@@ -1,8 +1,10 @@
-package edu.cmu.cs.bungee.javaExtensions;
+package edu.cmu.cs.bungee.javaExtensions.threads;
 
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
+
+import edu.cmu.cs.bungee.javaExtensions.Util;
 
 /**
  * A thread that maintains a FIFO queue of objects on which it calls process.

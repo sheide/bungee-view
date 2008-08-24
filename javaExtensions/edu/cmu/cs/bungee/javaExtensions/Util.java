@@ -66,8 +66,10 @@ import java.awt.image.RenderedImage;
 import java.awt.image.WritableRaster;
 import java.text.CollationKey;
 import java.text.Collator;
+import java.text.DecimalFormat;
 import java.text.ParseException;
 import java.text.RuleBasedCollator;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
@@ -78,6 +80,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.Map.Entry;
 import java.util.regex.Pattern;
@@ -1192,17 +1195,6 @@ public final class Util {
 		return result;
 	}
 
-	public static String joinCollection(Collection stringList, String delimiter) {
-			StringBuffer buf = new StringBuffer();
-				for (Iterator it = stringList.iterator(); it.hasNext();) {
-					Object object = it.next();
-					if (buf.length() > 0)
-						buf.append(delimiter);
-					buf.append(object);
-				}
-			return buf.toString();
-	}
-
 	/**
 	 * Opposite of split; concatenates STRINGLIST using DELIMITER as the
 	 * separator. The separator is only added between strings, so there will be
@@ -1216,23 +1208,34 @@ public final class Util {
 	 * @return string that has DELIMITER put between each of the elements of
 	 *         stringList
 	 */
-	public static String join(List stringList, String delimiter) {
-		String result = null;
-		int len = stringList == null ? 0 : stringList.size();
-		if (!stringList.isEmpty()) {
-			StringBuffer buf = new StringBuffer(len * 20);
-			synchronized (stringList) {
-				for (Iterator it = stringList.iterator(); it.hasNext();) {
-					Object o = it.next();
-					if (buf.length() > 0)
-						buf.append(delimiter);
-					buf.append(o);
-				}
-			}
-			result = buf.toString();
+
+	public static String join(Collection stringList, String delimiter) {
+		StringBuffer buf = new StringBuffer();
+		for (Iterator it = stringList.iterator(); it.hasNext();) {
+			Object object = it.next();
+			if (buf.length() > 0)
+				buf.append(delimiter);
+			buf.append(object);
 		}
-		return result;
+		return buf.toString();
 	}
+//	public static String join(List stringList, String delimiter) {
+//		String result = null;
+//		int len = stringList == null ? 0 : stringList.size();
+//		if (!stringList.isEmpty()) {
+//			StringBuffer buf = new StringBuffer(len * 20);
+//			synchronized (stringList) {
+//				for (Iterator it = stringList.iterator(); it.hasNext();) {
+//					Object o = it.next();
+//					if (buf.length() > 0)
+//						buf.append(delimiter);
+//					buf.append(o);
+//				}
+//			}
+//			result = buf.toString();
+//		}
+//		return result;
+//	}
 
 	public static String join(int[] stringList, String delimiter) {
 		String result = null;
@@ -1792,6 +1795,10 @@ public final class Util {
 			.getLocalGraphicsEnvironment().getDefaultScreenDevice()
 			.getDefaultConfiguration();
 
+	public static GraphicsConfiguration getGraphicsConfiguration() {
+		return graphicsConfiguration;
+	}
+
 	public static BufferedImage createCompatibleImage(int w, int h) {
 		return graphicsConfiguration.createCompatibleImage(w, h,
 				Transparency.OPAQUE);
@@ -1800,6 +1807,19 @@ public final class Util {
 	public static BufferedImage createCompatibleAlphaImage(int w, int h) {
 		return graphicsConfiguration.createCompatibleImage(w, h,
 				Transparency.BITMASK);
+	}
+
+	private static DecimalFormat extensionFormat = new DecimalFormat("000");
+
+	public static File uniquifyFilename(String prefix, String extension) {
+		File file = null;
+		for (int i = 0; file == null; i++) {
+			File candidate = new File(prefix + extensionFormat.format(i)
+					+ extension);
+			if (!candidate.isFile())
+				file = candidate;
+		}
+		return file;
 	}
 
 	public static BufferedReader getReader(String filename) {
@@ -1953,6 +1973,12 @@ public final class Util {
 		return toCollationKey(c1).equals(toCollationKey(c2));
 	}
 
+	public static boolean stringEquals(String c1, String c2) {
+//		print("stringEquals " + c1 + " " + c2 + " "
+//				+ (toCollationKey(c1).equals(toCollationKey(c2))));
+		return toCollationKey(c1).equals(toCollationKey(c2));
+	}
+
 	public static CollationKey toCollationKey(char c) {
 		return US_COLLATOR.getCollationKey(String.valueOf(c));
 	}
@@ -2016,6 +2042,60 @@ public final class Util {
 
 		public Object next() {
 			return array[index++];
+		}
+
+		public void remove() {
+			throw new UnsupportedOperationException();
+		}
+
+	}
+
+	public static int getBit(int i, int bit) {
+		return (i >> bit) & 1;
+	}
+
+	public static boolean isBit(int i, int bit) {
+		return getBit(i, bit) == 1;
+	}
+
+	public static int setBit(int i, int bit, boolean state) {
+		int mask = 1 << bit;
+		if (state) {
+			i |= mask;
+		} else {
+			i &= ~mask;
+		}
+		return i;
+	}
+
+	public static class CombinationIterator implements Iterator {
+
+		private final Object[] objects;
+		private int index=0;
+		private int lastIndexPlusOne;
+
+		public CombinationIterator(Collection collection) {
+			objects = collection.toArray();
+			lastIndexPlusOne=1<<objects.length;
+		}
+
+		public boolean hasNext() {
+			return index < lastIndexPlusOne;
+		}
+
+		/* 
+		 * Value is a List ordered the same way as constuctor argument
+		 */
+		public Object next() {
+			if (index>=lastIndexPlusOne)
+				throw new NoSuchElementException();
+			List result = new ArrayList(objects.length);
+			for (int i = 0; i < objects.length; i++) {
+				if (isBit(index,i))
+					result.add(objects[i]);
+			}
+			index++;
+			return result;
 		}
 
 		public void remove() {
