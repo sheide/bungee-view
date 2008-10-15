@@ -112,7 +112,7 @@ public class ConvertFromRaw {
 			nErrors += setUpFacetSearch();
 			jdbc.print("...found " + nErrors + " errors in output tables.");
 
-			findPairs(facet_idType, item_idType);
+			createPairsTable(facet_idType, item_idType);
 
 			jdbc.print("\nCleaning up...");
 			// purgeMultiples();
@@ -121,6 +121,17 @@ public class ConvertFromRaw {
 			jdbc.SQLupdate("DROP TABLE temp");
 			jdbc.SQLupdate("DROP TABLE itemCounts");
 			jdbc.SQLupdate("OPTIMIZE TABLE facet, item_facet, item ");
+
+			// Clean up in case we've created non-temporary versions for
+			// debugging
+			jdbc.SQLupdate("DROP TABLE IF EXISTS onItems");
+			jdbc.SQLupdate("DROP TABLE IF EXISTS restricted");
+			jdbc.SQLupdate("DROP TABLE IF EXISTS relevantFacets");
+			jdbc.SQLupdate("DROP TABLE IF EXISTS renames");
+			jdbc.SQLupdate("DROP TABLE IF EXISTS rft");
+			jdbc.SQLupdate("DROP TABLE IF EXISTS clusterInfo");
+			jdbc.SQLupdate("DROP TABLE IF EXISTS clusterFacets21");
+
 			jdbc.print("\nDone.");
 			// }
 		}
@@ -258,7 +269,7 @@ public class ConvertFromRaw {
 		// int maxLftRgt = jdbc
 		// .SQLqueryInt("SELECT MAX(canonical_facet_id) FROM temp") * 2;
 		// String lftRgtType = jdbc.unsignedTypeForMaxValue(maxLftRgt);
-		
+
 		facet_idType += " NOT NULL";
 
 		jdbc.SQLupdate("CREATE TABLE facet (" +
@@ -277,13 +288,13 @@ public class ConvertFromRaw {
 
 		" is_alphabetic BIT NOT NULL," +
 
-//		" usage_count MEDIUMINT," +
+		// " usage_count MEDIUMINT," +
 
-		" PRIMARY KEY (facet_id)," +
+				" PRIMARY KEY (facet_id)," +
 
-		" KEY parent (parent_facet_id)" +
+				" KEY parent (parent_facet_id)" +
 
-		") ENGINE=MyISAM DEFAULT CHARSET=utf8");
+				") ENGINE=MyISAM DEFAULT CHARSET=utf8");
 
 		// parent.canonical_facet_id and cnt will be NULL for facet types.
 		jdbc
@@ -296,7 +307,7 @@ public class ConvertFromRaw {
 						+ " facet.n_child_facets,"
 						+ " IF(facet.n_child_facets > 0, facet.children_offset, 0),"
 						+ " TRUE AS is_alphabetic"
-//						+ " 0 AS usage_count"
+						// + " 0 AS usage_count"
 						+ " FROM (temp facet"
 						+ " LEFT JOIN itemCounts ON itemCounts.facet_id = facet.facet_id)"
 						+ " LEFT JOIN temp parent ON facet.parent_facet_id = parent.facet_id");
@@ -315,7 +326,7 @@ public class ConvertFromRaw {
 		jdbc.print("\nCreating ancestor...");
 		jdbc.SQLupdate("DROP TABLE IF EXISTS ancestor");
 
-		facet_idType+= " NOT NULL";
+		facet_idType += " NOT NULL";
 		jdbc
 				.SQLupdate("CREATE TABLE ancestor ("
 						+ " facet_id "
@@ -348,14 +359,12 @@ public class ConvertFromRaw {
 			throws SQLException {
 		jdbc.print("\nCreating itemFacet...");
 		jdbc.SQLupdate("DROP TABLE IF EXISTS item_facet");
-		
-		jdbc
-		.SQLupdate("CREATE TABLE item_facet (" +
-				"record_num mediumint(6) unsigned NOT NULL default '0', " +
-				"facet_id int(10) unsigned NOT NULL default '0', " +
-				"KEY facet (facet_id), " +
-				"KEY item (record_num)) " +
-				"ENGINE=MyISAM DEFAULT CHARSET=latin1;");
+
+		jdbc.SQLupdate("CREATE TABLE item_facet ("
+				+ "record_num mediumint(6) unsigned NOT NULL default '0', "
+				+ "facet_id int(10) unsigned NOT NULL default '0', "
+				+ "KEY facet (facet_id), " + "KEY item (record_num)) "
+				+ "ENGINE=MyISAM DEFAULT CHARSET=latin1;");
 
 		jdbc
 				.SQLupdate("INSERT INTO item_facet"
@@ -385,6 +394,7 @@ public class ConvertFromRaw {
 				.SQLupdate("INSERT INTO item_facet_heap SELECT record_num, facet_id FROM item_facet");
 	}
 
+	// rgt table is used by populateRandomItemIDs
 	private void addLftRgt() throws SQLException {
 		jdbc.print("\nComputing lft & rgt ...");
 		int maxRgt = 2 * jdbc
@@ -466,7 +476,8 @@ public class ConvertFromRaw {
 		jdbc.SQLupdate("DROP TABLE IF EXISTS item_order_heap");
 
 		String countType = jdbc.unsignedTypeForMaxValue(jdbc
-				.SQLqueryInt("SELECT MAX(record_num) FROM item")); // (getMaxCount());
+				.SQLqueryInt("SELECT MAX(record_num) FROM item")); //(getMaxCount
+																	// ());
 		String item_idType = jdbc.unsignedTypeForMaxValue(jdbc
 				.SQLqueryInt("SELECT MAX(record_num) FROM item"));
 
@@ -484,7 +495,8 @@ public class ConvertFromRaw {
 
 			update.append(", 0");
 
-			create.append(" NOT NULL, ").append(name).append(" ").append(countType);
+			create.append(" NOT NULL, ").append(name).append(" ").append(
+					countType);
 
 			if (indexes.length() == 0)
 				indexes.append("ALTER TABLE item_order_heap ");
@@ -926,6 +938,8 @@ public class ConvertFromRaw {
 				jdbc.SQLupdate("UPDATE item SET " + field
 						+ " = NULL WHERE LENGTH(TRIM(" + field + ")) = 0");
 
+				// Before you create the index, make sure that MODIFY
+				// facet_names TEXT NOT NULL
 				jdbc.ensureIndex("item", "search", "facet_names," + itemDescs,
 						"FULLTEXT");
 
@@ -970,89 +984,95 @@ public class ConvertFromRaw {
 			jdbc.SQLupdate("UPDATE item i, item_temp it"
 					+ " SET i.facet_names = it.facet_names"
 					+ " WHERE i.record_num = it.record_num");
-			jdbc.SQLupdate("ALTER TABLE item ENABLE KEYS, MODIFY facet_names TEXT NOT NULL");
+			jdbc.SQLupdate("ALTER TABLE item ENABLE KEYS");
 			jdbc.SQLupdate("DROP TABLE item_temp");
 		}
 		return nErrors;
 	}
 
-	private void findPairs(String facet_idType, String item_idType)
+	private void createPairsTable(String facet_idType, String item_idType)
 			throws SQLException {
-		jdbc.print("Finding pairs with high Chi Squared...");
 		jdbc.SQLupdate(" DROP TABLE IF EXISTS pairs; ");
 		jdbc.SQLupdate("CREATE TABLE pairs ( " + "  facet1 " + facet_idType
-				+ " NOT NULL, " + "  facet2 " + facet_idType + " NOT NULL, " + "  cnt "
-				+ item_idType + " NOT NULL, "
+				+ " NOT NULL, " + "  facet2 " + facet_idType + " NOT NULL, "
+				+ "  cnt " + item_idType + " NOT NULL, "
 				// + " spMutInf FLOAT NOT NULL DEFAULT '0', "
 				+ "  p FLOAT NOT NULL, "
 				// + " spMutInfRank INT(10) UNSIGNED NOT NULL DEFAULT '0', "
 				// + " chSqRank INT(10) UNSIGNED NOT NULL DEFAULT '0' "
 				// + " INDEX facet1 (facet1), "
 				+ "  PRIMARY KEY (facet1, facet2)" + ")");
-		jdbc.SQLupdate("DROP PROCEDURE IF EXISTS mutInf");
-		jdbc
-				.SQLupdate("CREATE PROCEDURE mutInf() "
-						+ "BEGIN "
-						+ " DECLARE done INT DEFAULT 0; "
-						+ " DECLARE f1, n1 INT DEFAULT 0; "
-						+ " DECLARE curf1 CURSOR FOR SELECT facet_id, n_items FROM facet WHERE n_items > 1;"
-						+ " DECLARE CONTINUE HANDLER FOR SQLSTATE '02000' SET done = 1; "
-						+
+	}
 
-						// " SELECT COUNT(*) INTO nItems FROM item; "
-						// +
+	public static void populatePairs(JDBCSample jdbc1) throws SQLException {
+		if (jdbc1.SQLqueryInt("SELECT COUNT(*) FROM pairs") == 0) {
+			jdbc1.print("Finding pairs with high Chi Squared...");
+			jdbc1.SQLupdate("DROP PROCEDURE IF EXISTS mutInf");
+			jdbc1
+					.SQLupdate("CREATE PROCEDURE mutInf() "
+							+ "BEGIN "
+							+ " DECLARE done INT DEFAULT 0; "
+							+ " DECLARE f1, n1 INT DEFAULT 0; "
+							+ " DECLARE curf1 CURSOR FOR SELECT facet_id, n_items FROM facet WHERE n_items > 1;"
+							+ " DECLARE CONTINUE HANDLER FOR SQLSTATE '02000' SET done = 1; "
+							+
 
-						" OPEN curf1; "
-						+
+							// " SELECT COUNT(*) INTO nItems FROM item; "
+							// +
 
-						" REPEAT "
-						+ "  FETCH curf1 INTO f1, n1; "
-						+ "  IF NOT done THEN "
-						+ "   INSERT INTO pairs SELECT f1, f2.facet_id, COUNT(*) cnt, 0 "
-						+ "   FROM facet f2 INNER JOIN item_facet i2 ON f2.facet_id = i2.facet_id "
-						+ "INNER JOIN item_facet i1 ON i1.record_num = i2.record_num AND i1.facet_id = f1 "
-						+ "LEFT JOIN ancestor a ON f2.facet_id = a.facet_id AND f1 = a.ancestor_id "
-						+ "          WHERE f2.facet_id > f1 AND a.facet_id IS NULL AND f2.n_items > 1 "
-						+ "GROUP BY f2.facet_id, f2.n_items "
-						+ "HAVING cnt > 1 AND 10*cnt>n1 AND 10*cnt>f2.n_items; "
-						+
+							" OPEN curf1; "
+							+
 
-						" END IF; " + " UNTIL done END REPEAT; "
-						+ " CLOSE curf1; " + "END ");
-		jdbc.SQLupdate("CALL mutInf()");
-		jdbc.SQLupdate("DROP PROCEDURE mutInf");
+							" REPEAT "
+							+ "  FETCH curf1 INTO f1, n1; "
+							+ "  IF NOT done THEN "
+							+ "   INSERT INTO pairs SELECT f1, f2.facet_id, COUNT(*) cnt, 0 "
+							+ "   FROM facet f2 INNER JOIN item_facet i2 ON f2.facet_id = i2.facet_id "
+							+ "INNER JOIN item_facet i1 ON i1.record_num = i2.record_num AND i1.facet_id = f1 "
+							+ "LEFT JOIN ancestor a ON f2.facet_id = a.facet_id AND f1 = a.ancestor_id "
+							+ "          WHERE f2.facet_id > f1 AND a.facet_id IS NULL AND f2.n_items > 1 "
+							+ "GROUP BY f2.facet_id, f2.n_items "
+							+ "HAVING cnt > 1 AND 10*cnt>n1 AND 10*cnt>f2.n_items; "
+							+
 
-		PreparedStatement setChiSquared = jdbc
-				.lookupPS("UPDATE pairs SET p = ? WHERE facet1 = ? AND facet2 = ?");
-		int nItems = jdbc.SQLqueryInt(("SELECT COUNT(*) FROM item"));
-		int[][] table = new int[2][2];
-		ResultSet rs = jdbc
-				.SQLquery("SELECT facet1, facet2, cnt, f1.n_items, f2.n_items "
-						+ "FROM pairs INNER JOIN facet f1 on f1.facet_id = facet1 "
-						+ "INNER JOIN facet f2 ON f2.facet_id = facet2");
-		while (rs.next()) {
-			int facet1 = rs.getInt(1);
-			int facet2 = rs.getInt(2);
-			table[1][1] = rs.getInt(3);
-			int x1 = rs.getInt(4);
-			int y1 = rs.getInt(5);
-			// int x0 = nItems - x1;
-			// int y0 = nItems - y1;
-			table[0][1] = y1 - table[1][1];
-			table[1][0] = x1 - table[1][1];
-			table[0][0] = nItems - table[0][1] - table[1][0] - table[1][1];
-			if (table[0][0] < 0) {
-				Util.print(facet1 + " " + facet2 + " " + x1 + " " + y1 + " "
-						+ table[1][1] + " " + nItems);
+							" END IF; " + " UNTIL done END REPEAT; "
+							+ " CLOSE curf1; " + "END ");
+			jdbc1.SQLupdate("CALL mutInf()");
+			jdbc1.SQLupdate("DROP PROCEDURE mutInf");
+
+			PreparedStatement setChiSquared = jdbc1
+					.lookupPS("UPDATE pairs SET p = ? WHERE facet1 = ? AND facet2 = ?");
+			int nItems = jdbc1.SQLqueryInt(("SELECT COUNT(*) FROM item"));
+			int[][] table = new int[2][2];
+			ResultSet rs = jdbc1
+					.SQLquery("SELECT facet1, facet2, cnt, f1.n_items, f2.n_items "
+							+ "FROM pairs INNER JOIN facet f1 on f1.facet_id = facet1 "
+							+ "INNER JOIN facet f2 ON f2.facet_id = facet2");
+			while (rs.next()) {
+				int facet1 = rs.getInt(1);
+				int facet2 = rs.getInt(2);
+				table[1][1] = rs.getInt(3);
+				int x1 = rs.getInt(4);
+				int y1 = rs.getInt(5);
+				// int x0 = nItems - x1;
+				// int y0 = nItems - y1;
+				table[0][1] = y1 - table[1][1];
+				table[1][0] = x1 - table[1][1];
+				table[0][0] = nItems - table[0][1] - table[1][0] - table[1][1];
+				if (table[0][0] < 0) {
+					Util.print(facet1 + " " + facet2 + " " + x1 + " " + y1
+							+ " " + table[1][1] + " " + nItems);
+				}
+				float p = (float) ChiSqr.pValue(table);
+				// if (table[1][1] > 20)
+				// jdbc.print(facet1 + " " + facet2 + " " + x1 + " " + y1 + " "
+				// +
+				// table[1][1] + " " + p);
+				setChiSquared.setFloat(1, p);
+				setChiSquared.setInt(2, facet1);
+				setChiSquared.setInt(3, facet2);
+				jdbc1.SQLupdate(setChiSquared);
 			}
-			float p = (float) ChiSqr.pValue(table);
-			// if (table[1][1] > 20)
-			// jdbc.print(facet1 + " " + facet2 + " " + x1 + " " + y1 + " " +
-			// table[1][1] + " " + p);
-			setChiSquared.setFloat(1, p);
-			setChiSquared.setInt(2, facet1);
-			setChiSquared.setInt(3, facet2);
-			jdbc.SQLupdate(setChiSquared);
 		}
 	}
 

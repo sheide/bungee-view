@@ -161,6 +161,10 @@ class Facet extends Field {
 		return getParsingFacet(name, GenericFacetValueParser.getInstance());
 	}
 
+	static Facet getPreparsedFacet(String name) {
+		return getParsingFacet(name, PreparsedFacetValueParser.getInstance());
+	}	
+
 	static Facet getDate045Facet(String name) {
 		Facet facet = getParsingFacet(name, Date045FacetValueParser
 				.getInstance());
