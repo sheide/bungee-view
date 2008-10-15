@@ -4,7 +4,6 @@ import java.io.BufferedOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.sql.SQLException;
-import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -21,7 +20,7 @@ import javax.servlet.http.HttpServletResponse;
 import edu.cmu.cs.bungee.javaExtensions.Util;
 
 enum Command {
-	CONNECT, CLOSE, getCountsIgnoringFacet, ABOUT_COLLECTION, getFilteredCounts, updateOnItems, prefetch, offsetItems, getThumbs, cluster, getDescAndImage, getItemInfo, ITEM_URL, itemIndex, itemIndexFromURL, restrict, baseFacets, getFilteredCountTypes, addItemsFacet, addChildFacet, removeItemFacet, reparent, addItemFacet, writeback, rotate, rename, removeItemsFacet, getNames, reorderItems, setItemDescription, opsSpec, getLetterOffsets, caremediaPlayArgs, caremediaGetItems, getPairCounts
+	CONNECT, CLOSE, getCountsIgnoringFacet, ABOUT_COLLECTION, getFilteredCounts, updateOnItems, prefetch, offsetItems, getThumbs, cluster, getDescAndImage, getItemInfo, ITEM_URL, itemIndex, itemIndexFromURL, restrict, baseFacets, getFilteredCountTypes, addItemsFacet, addChildFacet, removeItemFacet, reparent, addItemFacet, writeback, revert, rotate, rename, removeItemsFacet, getNames, reorderItems, setItemDescription, opsSpec, getLetterOffsets, caremediaPlayArgs, caremediaGetItems, getPairCounts
 }
 
 public class Servlet extends HttpServlet {
@@ -118,15 +117,15 @@ public class Servlet extends HttpServlet {
 		doPost(request, response);
 	}
 
-	@SuppressWarnings("unchecked")
+//	@SuppressWarnings("unchecked")
 	void logRequest(HttpServletRequest request) {
 		log("Request info: " + request.getRequestURL().toString() + " "
 				+ request.getQueryString() + " " + request.getRemoteHost());
-		Enumeration<String> e = request.getHeaderNames();
-		while (e.hasMoreElements()) {
-			String s = e.nextElement();
-			log(s + ": " + request.getHeader(s));
-		}
+//		Enumeration<String> e = request.getHeaderNames();
+//		while (e.hasMoreElements()) {
+//			String s = e.nextElement();
+//			log(s + ": " + request.getHeader(s));
+//		}
 	}
 
 	@Override
@@ -154,18 +153,20 @@ public class Servlet extends HttpServlet {
 				String user = config.getInitParameter("user");
 				String pass = config.getInitParameter("pwd");
 				String[] dbNames = config.getInitParameter("dbs").split(",");
-				log(Util.valueOfDeep(dbNames)+" "+dbName+" "+request.getRemoteHost()+" "+config.getInitParameter(
-				"IPpermissions"));
+				// log(Util.valueOfDeep(dbNames)+" "+dbName+" "+request.
+				// getRemoteHost()+" "+config.getInitParameter(
+				// "IPpermissions"));
 				if (dbName == null) {
 					dbName = dbNames[0];
-				} else if (!Util.isMember(dbNames, dbName)) {
+				} else if (!isMemberIgnoringCase(dbNames, dbName)) {
 					String requestIP = dbName + request.getRemoteHost();
 					boolean isAuthorized = false;
 					String[] authorizedIPs = config.getInitParameter(
 							"IPpermissions").split(",");
 					for (int i = 0; i < authorizedIPs.length && !isAuthorized; i++) {
 						isAuthorized = requestIP.startsWith(authorizedIPs[i]);
-						log(i+" "+isAuthorized+" "+requestIP+" "+authorizedIPs[i]);
+						//log(i+" "+isAuthorized+" "+requestIP+" "+authorizedIPs
+						// [i]);
 					}
 					if (!isAuthorized)
 						errMsg = "Your IP address, " + request.getRemoteHost()
@@ -174,7 +175,7 @@ public class Servlet extends HttpServlet {
 				}
 				logRequest(request);
 				if (errMsg == null) {
-					log("Connect to " + dbName + " session = " + xsession);
+//					log("Connect to " + dbName + " session = " + xsession);
 					Database db;
 					try {
 						db = new Database(server, dbName, user, pass, this);
@@ -303,7 +304,6 @@ public class Servlet extends HttpServlet {
 			break;
 		case getDescAndImage:
 			int arg1 = getIntParameter(request, "arg1");
-			db.getItemInfo(arg1, out);
 			db.getDescAndImage(arg1, getIntParameter(request, "arg2"),
 					getIntParameter(request, "arg3"), getIntParameter(request,
 							"arg4"), out);
@@ -372,11 +372,13 @@ public class Servlet extends HttpServlet {
 			break;
 		case addItemsFacet:
 			facet = getIntParameter(request, "arg1");
-			db.addItemsFacet(facet, out);
+			table = getIntParameter(request, "arg2");
+			db.addItemsFacet(facet, table, out);
 			break;
 		case removeItemsFacet:
 			facet = getIntParameter(request, "arg1");
-			db.removeItemsFacet(facet, out);
+			table = getIntParameter(request, "arg2");
+			db.removeItemsFacet(facet, table, out);
 			break;
 		case addChildFacet:
 			facet = getIntParameter(request, "arg1");
@@ -395,6 +397,10 @@ public class Servlet extends HttpServlet {
 			break;
 		case writeback:
 			db.writeBack();
+			break;
+		case revert:
+			String date = request.getParameter("arg1");
+			db.revert(date);
 			break;
 		case rotate:
 			item = getIntParameter(request, "arg1");
@@ -461,5 +467,13 @@ public class Servlet extends HttpServlet {
 	// String arg = request.getParameter(argSpec);
 	// return Boolean.valueOf(arg).booleanValue();
 	// }
+
+	private boolean isMemberIgnoringCase(String[] dbNames, String dbName) {
+		for (int i = 0; i < dbNames.length; i++) {
+			if (dbNames[i].equalsIgnoreCase(dbName))
+				return true;
+		}
+		return false;
+	}
 
 }

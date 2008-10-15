@@ -32,11 +32,13 @@ package edu.cmu.cs.bungee.servlet;
  */
 
 import java.awt.image.BufferedImage;
+import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.sql.Blob;
 import java.sql.PreparedStatement;
@@ -44,11 +46,17 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.imageio.ImageIO;
 import javax.servlet.GenericServlet;
@@ -64,27 +72,36 @@ import edu.cmu.cs.bungee.dbScripts.ConvertFromRaw;
 import edu.cmu.cs.bungee.javaExtensions.*;
 import edu.cmu.cs.bungee.javaExtensions.MyResultSet.Column;
 
-// Permissions to add
-// GRANT SELECT, INSERT, UPDATE, CREATE, DELETE, CREATE TEMPORARY TABLES ON
+// Permissions to add (ALTER ROUTINE is for finding clusters):
+// GRANT SELECT, INSERT, UPDATE, CREATE, DELETE, ALTER ROUTINE
+// CREATE TEMPORARY TABLES ON
 // chartresvezelay.* TO p5@localhost
 
+// In order to edit, you also need these:
+//
+//GRANT DROP, ALTER, CREATE ROUTINE ON *.* TO BVeditor@localhost
+//
+// For revert, need SUPER, REPLICATION CLIENT 
+//
+// for now, we're just using root to revert
+//
 // Dump like this:
 // mysqldump -u root -p --add-drop-database --databases wpa > wpa.sql
 
-class Database {
+public class Database {
 
 	private String dbName;
 
 	private JDBCSample jdbc;
 
-	Database(String _server, String _db, String _user, String _pass,
+	public Database(String _server, String _db, String _user, String _pass,
 			GenericServlet _servlet) throws SQLException,
 			InstantiationException, IllegalAccessException,
 			ClassNotFoundException, ServletException {
 		dbName = _db;
-		String connectString = _server + _db + "?user=" + _user;
-		if (_pass != null)
-			connectString += "&password=" + _pass;
+		// String connectString = _server + _db + "?user=" + _user;
+		// if (_pass != null)
+		// connectString += "&password=" + _pass;
 		// servlet = _servlet;
 		jdbc = new JDBCSample(_server, _db, _user, _pass, _servlet);
 		ensureDBinitted();
@@ -193,7 +210,10 @@ class Database {
 	}
 
 	int facetCount() throws SQLException {
-		return jdbc.SQLqueryInt("SELECT COUNT(*) FROM facet");
+		// This is only used to initialize Query.allPersectives. If IDs are
+		// screwed up, it's better to make it big enough to not get an array
+		// index out of bounds error.
+		return jdbc.SQLqueryInt("SELECT MAX(facet_id) FROM facet");
 	}
 
 	int itemCount() throws SQLException {
@@ -210,13 +230,24 @@ class Database {
 				error("Can't get globals");
 			String itemDescriptionFields = rs.getString(1);
 
+			String[] fields = itemDescriptionFields.split(",");
+			String[] nonNullFields = new String[fields.length];
+			for (int i = 0; i < fields.length; i++) {
+				nonNullFields[i] = "IF(" + fields[i]
+						+ " IS NULL,'', CONCAT('\n" + i + "\n', " + fields[i]
+						+ "))";
+				// nonNullFields[i] = "'\n" + i + "\n', IFNULL(" + fields[i]
+				// + ", '')";
+			}
+			String desc = "CONCAT(" + Util.join(nonNullFields) + ")";
 			// Work around MySQL Connector bug: once the PreparedStatement
 			// encounters a null image, it returns null from then on.
 			imageQuery = // jdbc.prepareStatement(
-			"SELECT CONCAT_WS('\n \n', " + itemDescriptionFields
-					+ ") descript, image, w, h FROM item LEFT JOIN images "
+			"SELECT " + desc
+					+ " descript, image, w, h FROM item LEFT JOIN images "
 					+ "ON item.record_num = images.record_num "
 					+ "WHERE item.record_num = ";
+			// log(imageQuery);
 
 			/**
 			 * itemURLgetter should stick to atomic table references in any FROM
@@ -504,9 +535,9 @@ class Database {
 						+ "FROM raw_facet_type ft INNER JOIN facet USING (name) "
 						+ "WHERE facet.parent_facet_id = 0 "
 						+ "ORDER BY facet.facet_id");
-		// Combine flags isOrdered, etc, so we don't get version skew errors from adding new flags
-		sendResultSet(rs, MyResultSet.STRING_STRING_STRING_INT_INT_INT_INT,
-				out);
+		// Combine flags isOrdered, etc, so we don't get version skew errors
+		// from adding new flags
+		sendResultSet(rs, MyResultSet.STRING_STRING_STRING_INT_INT_INT_INT, out);
 	}
 
 	@SuppressWarnings("unchecked")
@@ -547,7 +578,8 @@ class Database {
 				.lookupPS("SELECT first_child_offset, is_alphabetic FROM facet WHERE facet_id = ?");
 		ps1.setInt(1, facet_id);
 		ResultSet rs1 = jdbc.SQLquery(ps1);
-		myAssert(MyResultSet.nRows(rs1) == 1, "Bad nRows.");
+		myAssert(MyResultSet.nRows(rs1) == 1, "Bad nRows: " + facet_id + " "
+				+ MyResultSet.nRows(rs1));
 		rs1.next();
 		int children_offset = rs1.getInt(1);
 		writeInt(children_offset, out);
@@ -685,6 +717,8 @@ class Database {
 
 	private String imageQuery;
 
+	private PreparedStatement getItemInfoQuery;
+
 	/**
 	 * @param item
 	 * @param desiredImageW
@@ -700,12 +734,18 @@ class Database {
 	void getDescAndImage(int item, int desiredImageW, int desiredImageH,
 			int quality, DataOutputStream out) throws SQLException,
 			ServletException, IOException {
-		// synchronized (imageQuery) {
-		// imageQuery.setInt(1, item);
+
+		synchronized (getItemInfoQuery) {
+			getItemInfoQuery.setInt(1, item);
+			ResultSet rs = jdbc.SQLquery(getItemInfoQuery);
+			sendResultSet(rs, MyResultSet.PINT_SINT_STRING_INT_INT_INT, out);
+		}
+
 		ResultSet rs = jdbc.SQLquery(imageQuery + item);
+		myAssert(MyResultSet.nRows(rs) == 1, "Non-unique result for "
+				+ imageQuery + item);
 		sendResultSet(rs, MyResultSet.STRING_IMAGE_INT_INT, desiredImageW,
 				desiredImageH, quality, out);
-		// }
 	}
 
 	/**
@@ -763,22 +803,6 @@ class Database {
 		return offset;
 	}
 
-	private PreparedStatement getItemInfoQuery;
-
-	@SuppressWarnings("unchecked")
-	void getItemInfo(int item, DataOutputStream out) throws SQLException,
-			ServletException, IOException {
-		// try {
-		synchronized (getItemInfoQuery) {
-			getItemInfoQuery.setInt(1, item);
-			// } catch (SQLException e) {
-			// e.printStackTrace();
-			// }
-			ResultSet rs = jdbc.SQLquery(getItemInfoQuery);
-			sendResultSet(rs, MyResultSet.PINT_SINT_STRING_INT_INT_INT, out);
-		}
-	}
-
 	/**
 	 * Given facets="1,2,3" return the counts in the 2^3 combinations
 	 * 
@@ -809,13 +833,13 @@ class Database {
 
 			// First facet reprsented by low order bit
 			int iComplement = nFacets - i - 1;
-			groups[i] = " i" + iComplement + ".facet_id";
+			groups[i] = "i" + iComplement + ".facet_id";
 			states[i] = "(" + groups[i] + " IS NOT NULL)*" + (1 << iComplement);
 		}
 		String vars = Util.join(groups);
 		String sql = "SELECT " + Util.join(states, " + ") + ", COUNT(*) FROM "
 				+ table + " items " + Util.join(joins, " ") + " GROUP BY "
-				+ vars + " ORDER BY " + vars;
+				+ vars /* + " ORDER BY " + vars */;
 		// log(sql);
 
 		// String sql = "SELECT COUNT(*) "+
@@ -854,41 +878,190 @@ class Database {
 		jdbc.SQLupdate("INSERT INTO restricted SELECT * FROM onItems");
 	}
 
+	private boolean facetTableMucked = false;
+
+	private void muckWithFacetTable() throws SQLException {
+		jdbc.SQLupdate("CREATE TEMPORARY TABLE IF NOT EXISTS renames"
+				+ " (old_facet_id INT, facet_id INT, PRIMARY KEY (facet_id))");
+		if (!facetTableMucked) {
+			facetTableMucked = true;
+
+			// Get the types from raw_facet, as sort type can vary. Then
+			// truncate it so we can insert the real data.
+			jdbc.SQLupdate("DROP TABLE IF EXISTS facet_map");
+			jdbc
+					.SQLupdate("CREATE TEMPORARY TABLE facet_map AS"
+							+ " (SELECT facet_id facet, parent_facet_id raw_facet, sort FROM raw_facet LIMIT 1)");
+			jdbc.SQLupdate("TRUNCATE TABLE facet_map");
+
+			// facet_types are in a different table, so can't roll these queries
+			// into ensureFacetMapInternal
+			jdbc
+					.SQLupdate("INSERT INTO facet_map (SELECT f.facet_id facet, rf.facet_type_id raw_facet, rf.sort"
+							+ " FROM facet f, raw_facet_type rf"
+							+ " WHERE f.parent_facet_id = 0 AND f.name=rf.name)");
+			ResultSet rs = jdbc
+					.SQLquery("SELECT facet, raw_facet FROM facet_map");
+			while (rs.next()) {
+				int facet = rs.getInt(1);
+				int raw_facet = rs.getInt(2);
+				ensureFacetMapInternal(facet, raw_facet);
+			}
+
+			jdbc.SQLupdate("ALTER TABLE facet_map ADD PRIMARY KEY (facet)");
+		}
+	}
+
+	private void ensureFacetMapInternal(int parent, int raw_parent)
+			throws SQLException {
+		PreparedStatement insertPS = jdbc
+				.lookupPS("INSERT INTO facet_map (SELECT f.facet_id facet, rf.facet_id raw_facet, rf.sort"
+						+ " FROM facet f, raw_facet rf"
+						+ " WHERE f.parent_facet_id = ? AND rf.parent_facet_id = ? AND f.name = rf.name)");
+		insertPS.setInt(1, parent);
+		insertPS.setInt(2, raw_parent);
+		jdbc.SQLupdate(insertPS);
+
+		PreparedStatement findPS = jdbc
+				.lookupPS("SELECT f.facet_id facet, rf.facet_id raw_facet"
+						+ " FROM facet f, raw_facet rf"
+						+ " WHERE f.parent_facet_id = ? AND rf.parent_facet_id = ? AND f.name = rf.name"
+						+ " AND f.n_child_facets > 0");
+		findPS.setInt(1, parent);
+		findPS.setInt(2, raw_parent);
+		ResultSet rs = jdbc.SQLquery(findPS);
+		int[][] rsCache = new int[MyResultSet.nRows(rs)][];
+		int i = 0;
+		while (rs.next()) {
+			// Have to store these temporarily because recursive call reuses
+			// findPS
+			int facet = rs.getInt(1);
+			int raw_facet = rs.getInt(2);
+			int[] temp = { facet, raw_facet };
+			rsCache[i++] = temp;
+		}
+		for (int j = 0; j < rsCache.length; j++) {
+			int[] is = rsCache[j];
+			ensureFacetMapInternal(is[0], is[1]);
+		}
+	}
+
+	private void changeID(int oldID, int newID) throws SQLException {
+
+		PreparedStatement ps = jdbc
+				.lookupPS("UPDATE facet_map SET facet = ? WHERE facet = ?");
+		ps.setInt(1, newID);
+		ps.setInt(2, oldID);
+		jdbc.SQLupdate(ps);
+
+		ps = jdbc.lookupPS("INSERT INTO renames VALUES(?, ?)");
+		ps.setInt(1, oldID);
+		ps.setInt(2, newID);
+		jdbc.SQLupdate(ps);
+
+		ps = jdbc
+				.lookupPS("UPDATE item_facet_heap SET facet_id = ? WHERE facet_id = ?");
+		ps.setInt(1, newID);
+		ps.setInt(2, oldID);
+		jdbc.SQLupdate(ps);
+
+		ps = jdbc.lookupPS("UPDATE facet SET facet_id = ? WHERE facet_id = ?");
+		ps.setInt(1, newID);
+		ps.setInt(2, oldID);
+		jdbc.SQLupdate(ps);
+
+		ps = jdbc
+				.lookupPS("UPDATE facet SET parent_facet_id = ? WHERE parent_facet_id = ?");
+		ps.setInt(1, newID);
+		ps.setInt(2, oldID);
+		jdbc.SQLupdate(ps);
+	}
+
+	/**
+	 * Add facet and all its ancestors to item.
+	 * 
+	 * @param facet
+	 * @param item
+	 * @param out
+	 * @throws SQLException
+	 * @throws ServletException
+	 * @throws IOException
+	 */
 	void addItemFacet(int facet, int item, DataOutputStream out)
 			throws SQLException, ServletException, IOException {
 		checkNonNegative(item); // Dummy instance has ID=0
-		checkPositive(facet);
-		int prev = facet;
-		int ancestor;
-		while ((ancestor = parentFacetID(prev)) > 0) {
-			jdbc.SQLupdate("REPLACE INTO item_facet_heap VALUES(" + item + ", "
-					+ prev + ")");
-			prev = ancestor;
-		}
-		jdbc.SQLupdate("REPLACE INTO item_facet_type_heap VALUES(" + item
-				+ ", " + prev + ")");
-		updateFacetCounts(facet, out);
+		addItemsFacet(facet, "SELECT " + item + " record_num", out);
+
+		// checkPositive(facet);
+		//
+		// for (int ancestor = facet; ancestor > 0; ancestor =
+		// parentFacetID(ancestor)) {
+		// String table = parentFacetID(ancestor) > 0 ? "item_facet_heap"
+		// : "item_facet_type_heap";
+		// jdbc.SQLupdate("REPLACE INTO " + table + " VALUES(" + item + ", "
+		// + ancestor + ")");
+		// }
+		//
+		// // int prev = facet;
+		// // int ancestor;
+		// // while ((ancestor = parentFacetID(prev)) > 0) {
+		// // jdbc.SQLupdate("REPLACE INTO item_facet_heap VALUES(" + item +
+		// ", "
+		// // + prev + ")");
+		// // prev = ancestor;
+		// // }
+		// // jdbc.SQLupdate("REPLACE INTO item_facet_type_heap VALUES(" + item
+		// // + ", " + prev + ")");
+		//
+		// updateFacetCounts(facet, out);
 	}
 
-	void addItemsFacet(int facet, DataOutputStream out) throws SQLException,
-			ServletException, IOException {
-		checkPositive(facet);
-		int prev = facet;
-		int ancestor;
-		while ((ancestor = parentFacetID(prev)) > 0) {
-			jdbc.SQLupdate("REPLACE INTO item_facet_heap SELECT record_num, "
-					+ prev + " FROM onItems");
-			prev = ancestor;
-		}
-		jdbc.SQLupdate("REPLACE INTO item_facet_type_heap SELECT record_num, "
-				+ prev + " FROM onItems");
-		updateFacetCounts(facet, out);
+	/**
+	 * Add facet to all query results (as stored in table)
+	 * 
+	 * @param facet
+	 * @param table
+	 * @param out
+	 * @throws SQLException
+	 * @throws ServletException
+	 * @throws IOException
+	 */
+	void addItemsFacet(int facet, int table, DataOutputStream out)
+			throws SQLException, ServletException, IOException {
+		String tableName = sortedResultTable(table);
+		addItemsFacet(facet, "select record_num from " + tableName, out);
 	}
 
-	Set<Integer> removeItemsFacet(int facet, DataOutputStream out)
+	private void addItemsFacet(int facet, String itemExpr, DataOutputStream out)
 			throws SQLException, ServletException, IOException {
 		checkPositive(facet);
-		jdbc.SQLupdate("DELETE FROM ifh USING item_facet_heap ifh, onItems oi "
+
+		for (int ancestor = facet; ancestor > 0; ancestor = parentFacetID(ancestor)) {
+			String heapTable = parentFacetID(ancestor) > 0 ? "item_facet_heap"
+					: "item_facet_type_heap";
+			jdbc.SQLupdate("REPLACE INTO " + heapTable + " SELECT record_num, "
+					+ ancestor + " FROM (" + itemExpr + ") foo");
+		}
+
+		// int prev = facet;
+		// int ancestor;
+		// while ((ancestor = parentFacetID(prev)) > 0) {
+		// jdbc.SQLupdate("REPLACE INTO item_facet_heap SELECT record_num, "
+		// + prev + " FROM " + tableName);
+		// prev = ancestor;
+		// }
+		//jdbc.SQLupdate("REPLACE INTO item_facet_type_heap SELECT record_num, "
+		// + prev + " FROM " + tableName);
+
+		updateFacetCounts(facet, out);
+	}
+
+	Set<Integer> removeItemsFacet(int facet, int table, DataOutputStream out)
+			throws SQLException, ServletException, IOException {
+		checkPositive(facet);
+		String tableName = sortedResultTable(table);
+		jdbc.SQLupdate("DELETE FROM ifh USING item_facet_heap ifh, "
+				+ tableName + " oi "
 				+ "WHERE ifh.record_num = oi.record_num AND ifh.facet_id = "
 				+ facet);
 		ResultSet rs = jdbc
@@ -898,7 +1071,7 @@ class Database {
 		boolean hasChildren = false;
 		while (rs.next()) {
 			hasChildren = true;
-			result.addAll(removeItemsFacet(rs.getInt(1), null));
+			result.addAll(removeItemsFacet(rs.getInt(1), table, null));
 		}
 		if (!hasChildren) {
 			result.add(facet);
@@ -912,7 +1085,9 @@ class Database {
 			int parent = parentFacetID(facet);
 			checkPositive(parent);
 			jdbc
-					.SQLupdate("DELETE FROM ifh USING item_facet_type_heap ifh, onItems oi "
+					.SQLupdate("DELETE FROM ifh USING item_facet_type_heap ifh, "
+							+ tableName
+							+ " oi "
 							+ "WHERE ifh.record_num = oi.record_num AND ifh.facet_id = "
 							+ parent);
 		}
@@ -921,7 +1096,7 @@ class Database {
 		return result;
 	}
 
-	int parentFacetID(int facet) throws SQLException {
+	private int parentFacetID(int facet) throws SQLException {
 		return jdbc
 				.SQLqueryInt("SELECT parent_facet_id FROM facet WHERE facet_id = "
 						+ facet);
@@ -965,10 +1140,23 @@ class Database {
 	void addChildFacet(int parent, String name, DataOutputStream out)
 			throws SQLException, ServletException, IOException {
 		checkNonNegative(parent);
-		int child = jdbc.SQLqueryInt("SELECT MAX(facet_id) + 1 FROM facet");
+		int child;
+		// if (parent > 0) {
+		child = jdbc.SQLqueryInt("SELECT MAX(facet_id) + 1 FROM facet");
+		// } else {
+		// child = jdbc
+		// .SQLqueryInt(
+		// "SELECT MIN(facet_id) FROM facet WHERE parent_facet_id > 0");
+		// int childParent = jdbc
+		// .SQLqueryInt("SELECT parent_facet_id FROM facet WHERE facet_id = "
+		// + child);
+		// myAssert(childParent > 0, child + "");
+		// renumber(childParent);
+		// }
+		// int child = jdbc.SQLqueryInt("SELECT MAX(facet_id) + 1 FROM facet");
 		checkPositive(child);
 		jdbc.SQLupdate("INSERT INTO facet VALUES(" + child + ", '" + name
-				+ "', " + parent + ", 1, 0, 0, 0)");
+				+ "', " + parent + ", 1, 0, 0, 1)");
 		if (parent > 0) {
 			addItemFacet(child, 0, null);
 			renumber(parent);
@@ -980,15 +1168,28 @@ class Database {
 		} else {
 			int order = jdbc
 					.SQLqueryInt("SELECT MAX(sort) + 1 FROM raw_facet_type");
-			myAssert(order < -127 || order > 127, "Bad order " + order);
-			jdbc.SQLupdate("INSERT INTO raw_facet_type VALUES(" + child + ", '"
+			int type = jdbc
+					.SQLqueryInt("SELECT MAX(facet_type_id) + 1 FROM raw_facet_type");
+			myAssert(order > 0 && order < 127, "Bad order " + order);
+			jdbc.SQLupdate("INSERT INTO raw_facet_type VALUES(" + type + ", '"
 					+ name
-					+ "', null, 'content', ' that show ; that don\\'t show ', "
-					+ order + ", 0)");
+					+ "', 'content', ' that show ; that don\\'t show ', "
+					+ order + ", 0, 1)");
 			addChildFacet(child, "dummy", out);
 		}
 	}
 
+	/**
+	 * Does not remove instances from old parent, because they might be there
+	 * for a different reason.
+	 * 
+	 * @param parent
+	 * @param child
+	 * @param out
+	 * @throws SQLException
+	 * @throws ServletException
+	 * @throws IOException
+	 */
 	void reparent(int parent, int child, DataOutputStream out)
 			throws SQLException, ServletException, IOException {
 		checkNonNegative(parent);
@@ -996,13 +1197,18 @@ class Database {
 		int oldParent = parentFacetID(child);
 		jdbc.SQLupdate("UPDATE facet SET parent_facet_id = " + parent
 				+ " WHERE facet_id = " + child);
-		ResultSet rs = jdbc
-				.SQLquery("SELECT record_num FROM item_facet_heap WHERE facet_id = "
-						+ child);
-		while (rs.next()) {
-			int item = rs.getInt(1);
-			addItemFacet(parent, item, null);
-		}
+		addItemsFacet(parent,
+				"SELECT record_num FROM item_facet_heap WHERE facet_id = "
+						+ child, null);
+
+		// ResultSet rs = jdbc
+		// .SQLquery("SELECT record_num FROM item_facet_heap WHERE facet_id = "
+		// + child);
+		// while (rs.next()) {
+		// int item = rs.getInt(1);
+		// addItemFacet(parent, item, null);
+		// }
+
 		renumber(oldParent);
 		renumber(parent);
 		child = jdbc
@@ -1014,57 +1220,57 @@ class Database {
 		updateFacetCounts(leafs, out);
 	}
 
-	private void createRename() throws SQLException {
-		jdbc
-				.SQLupdate("CREATE TEMPORARY TABLE IF NOT EXISTS renames (old_facet_id INT, facet_id INT, PRIMARY KEY (facet_id))");
-		// jdbc
-		// .SQLupdate("TRUNCATE TABLE renames");
-	}
+	/**
+	 * Renumber parent's scattered and/or unordered children by moving them to a
+	 * fresh set of IDs greater than all existing IDs and sorting by name (since
+	 * we don't know sort). Recurse on each child.
+	 * 
+	 * @param parent
+	 * @throws SQLException
+	 * @throws ServletException
+	 */
+	private void renumber(int parent) throws SQLException, ServletException {
 
-	private void renumber(int facet) throws SQLException, ServletException {
+		// Remove children (with old ID) from relevantFacets table
 		boolean relevant = jdbc
 				.SQLqueryInt("SELECT f.facet_id FROM relevantFacets "
 						+ "INNER JOIN facet f USING (facet_id) WHERE parent_facet_id = "
-						+ facet + " LIMIT 1") > 0;
+						+ parent + " LIMIT 1") > 0;
 		if (relevant)
-			updateRelevantFacets(null, Integer.toString(facet));
-		createRename();
-		int child = jdbc.SQLqueryInt("SELECT MAX(facet_id) + 1 FROM facet");
-		jdbc.SQLupdate("UPDATE facet SET first_child_offset = " + (child - 1)
-				+ " WHERE facet_id = " + facet);
+			updateRelevantFacets(null, Integer.toString(parent));
+
+		// Create facet_map table if necessary
+		muckWithFacetTable();
+
+		int firstChildID = jdbc
+				.SQLqueryInt("SELECT MAX(facet_id) + 1 FROM facet");
+		jdbc.SQLupdate("UPDATE facet SET first_child_offset = "
+				+ (firstChildID - 1) + " WHERE facet_id = " + parent);
+		PreparedStatement ps = jdbc.lookupPS("SELECT facet_id FROM facet"
+				+ " WHERE parent_facet_id = ? ORDER BY name");
+		ps.setInt(1, parent);
 		ResultSet rs = null;
+		int newChildID = firstChildID;
 		try {
-			rs = jdbc
-					.SQLquery("SELECT facet_id FROM facet WHERE parent_facet_id = "
-							+ facet + " ORDER BY name");
+			rs = jdbc.SQLquery(ps);
 			while (rs.next()) {
-				int old = rs.getInt(1);
-				// jdbc.print(old + " => " + child);
-				jdbc.SQLupdate("INSERT INTO renames VALUES(" + old + ", "
-						+ child + ")");
-				jdbc.SQLupdate("UPDATE item_facet_heap SET facet_id = " + child
-						+ " WHERE facet_id = " + old);
-				jdbc.SQLupdate("UPDATE facet SET facet_id = " + child
-						+ " WHERE facet_id = " + old);
-				jdbc.SQLupdate("UPDATE facet SET parent_facet_id = " + child
-						+ " WHERE parent_facet_id = " + old);
-				child++;
+				int oldChildID = rs.getInt(1);
+				// jdbc.print("Renumber " + oldChildID + " => " + newChildID);
+				changeID(oldChildID, newChildID++);
 			}
 		} finally {
 			rs.close();
 		}
+
+		// Replace children (with new ID) into relevantFacets table
 		if (relevant)
-			updateRelevantFacets(Integer.toString(facet), null);
-		try {
-			rs = jdbc
-					.SQLquery("SELECT facet_id FROM facet WHERE parent_facet_id = "
-							+ facet + " ORDER BY name");
-			while (rs.next()) {
-				child = rs.getInt(1);
-				renumber(child);
-			}
-		} finally {
-			rs.close();
+			updateRelevantFacets(Integer.toString(parent), null);
+
+		// Wait until all children are moved to recurse, so MAX(facet_id) will
+		// be
+		// correct
+		for (int child = firstChildID; child < newChildID; child++) {
+			renumber(child);
 		}
 	}
 
@@ -1075,6 +1281,21 @@ class Database {
 		updateFacetCounts(leafs, out);
 	}
 
+	/**
+	 * Recompute facet counts for these leafFacets and all their ancestors. Add
+	 * a dummy instance if there are no real instances yet.
+	 * 
+	 * @param leafFacets
+	 * @param out
+	 *            for all renamed facets and their ancestors, write:
+	 * 
+	 *            facet_id, old_facet_id, n_items, first_child_offset,
+	 *            parent_facet_id
+	 * 
+	 * @throws SQLException
+	 * @throws ServletException
+	 * @throws IOException
+	 */
 	@SuppressWarnings("unchecked")
 	private void updateFacetCounts(Set<Integer> leafFacets, DataOutputStream out)
 			throws SQLException, ServletException, IOException {
@@ -1110,7 +1331,7 @@ class Database {
 		}
 
 		if (out != null) {
-			createRename();
+			muckWithFacetTable();
 			// jdbc.print(jdbc.SQLqueryString("SELECT
 			// group_concat(concat(old_facet_id, ' => ', facet_id)) FROM renames
 			// GROUP BY 1"));
@@ -1131,7 +1352,26 @@ class Database {
 	}
 
 	void writeBack() throws SQLException {
-		int delta = jdbc.SQLqueryInt("SELECT MAX(facet_id) FROM facet");
+		if (facetTableMucked) {
+			int delta = jdbc.SQLqueryInt("SELECT MAX(facet_id) FROM facet");
+			updateFacetIDs(delta);
+			recomputeRawFacetType(delta);
+			recomputeRawFacet();
+
+			ConvertFromRaw converter = new ConvertFromRaw(jdbc);
+			converter.findBrokenLinks(true, 1);
+			converter.convert(1000);
+		}
+	}
+
+	/**
+	 * Renumber non-top-level facet.facet_id's to leave a big gap after the
+	 * top-level ones
+	 * 
+	 * @param delta
+	 * @throws SQLException
+	 */
+	private void updateFacetIDs(int delta) throws SQLException {
 		jdbc
 				.SQLupdate("UPDATE facet f, facet parent SET f.parent_facet_id = f.parent_facet_id + "
 						+ delta
@@ -1139,49 +1379,170 @@ class Database {
 						+ "AND parent.parent_facet_id > 0");
 		jdbc.SQLupdate("UPDATE facet SET facet_id = facet_id + " + delta
 				+ " WHERE parent_facet_id > 0");
-		jdbc.SQLupdate("UPDATE item_facet_heap SET facet_id = facet_id + "
-				+ delta);
-		jdbc.SQLupdate("delete from item_facet_heap where record_num = 0");
 
+		// It turns out to be faster to use item_facet as a scratchpad compared
+		// to item_facet_heap.
+		// item_facet may not be up to date, though, after editing
+		jdbc.SQLupdate("TRUNCATE TABLE item_facet");
+		jdbc.SQLupdate("INSERT INTO item_facet SELECT * FROM item_facet_heap");
+		jdbc.SQLupdate("UPDATE item_facet SET facet_id = facet_id + " + delta);
+		jdbc.SQLupdate("DELETE FROM item_facet WHERE record_num = 0");
+	}
+
+	private void recomputeRawFacetType(int delta) throws SQLException {
 		jdbc.SQLupdate("DROP TABLE IF EXISTS rft");
 		jdbc
-				.SQLupdate("CREATE TEMPORARY TABLE rft AS"
-						+ " SELECT IFNULL(f.facet_id, 0) oldID, COUNT(*) ID, r.name, "
-						+ "r.descriptionCategory, r.descriptionPreposition, r.sort, r.isOrdered "
+				.SQLupdate("CREATE TEMPORARY  TABLE rft AS"
+						+ " SELECT IFNULL(f.facet_id, -1) oldID, COUNT(*) ID, r.name, "
+						+ "r.descriptionCategory, r.descriptionPreposition, r.sort, r.isOrdered, r.isCausable "
 						+ "FROM raw_facet_type r LEFT JOIN facet f USING (name) "
 						+ "INNER JOIN raw_facet_type prev ON prev.name <= r.name "
 						+ "WHERE f.parent_facet_id = 0 OR f.parent_facet_id IS NULL "
 						+ "GROUP BY r.name ORDER BY null");
 
+		// Use high IDs as scratchpad for updating all parent_facet_ids in
+		// parallel
 		jdbc.SQLupdate("UPDATE facet f, rft SET f.parent_facet_id = rft.ID + "
 				+ (2 * delta) + " WHERE f.parent_facet_id = rft.oldID");
 		jdbc.SQLupdate("UPDATE facet SET parent_facet_id = parent_facet_id - "
 				+ (2 * delta) + " WHERE parent_facet_id > " + (2 * delta));
 
+		jdbc.SQLupdate("UPDATE facet f, rft SET f.facet_id = rft.ID + "
+				+ (2 * delta) + " WHERE f.facet_id = rft.oldID");
+		jdbc.SQLupdate("UPDATE facet SET facet_id = facet_id - " + (2 * delta)
+				+ " WHERE facet_id > " + (2 * delta));
+
 		jdbc.SQLupdate("TRUNCATE TABLE raw_facet_type");
 		jdbc
 				.SQLupdate("INSERT INTO raw_facet_type SELECT ID, name, "
-						+ "descriptionCategory, descriptionPreposition, sort, isOrdered FROM rft");
-		// jdbc.SQLupdate("DROP TABLE rft");
+						+ "descriptionCategory, descriptionPreposition, sort, isOrdered, "
+						+ "isCausable FROM rft");
+		jdbc.SQLupdate("DROP TABLE rft");
+	}
+
+	private void recomputeRawFacet() throws SQLException {
 		jdbc.SQLupdate("TRUNCATE TABLE raw_item_facet");
-		jdbc
-				.SQLupdate("INSERT INTO raw_item_facet SELECT * FROM item_facet_heap");
+		jdbc.SQLupdate("INSERT INTO raw_item_facet SELECT * FROM item_facet");
+
 		jdbc.SQLupdate("TRUNCATE TABLE raw_facet");
 		jdbc
-				.SQLupdate("INSERT INTO raw_facet SELECT facet_id, name, parent_facet_id, parent_facet_id, '' FROM facet "
+				.SQLupdate("INSERT INTO raw_facet SELECT facet_id, name, parent_facet_id, sort FROM facet"
+						+ " LEFT JOIN facet_map ON facet = facet_id "
 						+ "WHERE parent_facet_id > 0");
-		// while (jdbc
-		// .SQLqueryInt("SELECT 1 FROM raw_facet f, raw_facet parent WHERE
-		// f.facet_type_idxx != parent.facet_type_idxx "
-		// + "AND f.parent_facet_id = parent.facet_id LIMIT 1") > 0) {
-		// jdbc
-		// .SQLupdate("UPDATE raw_facet f, raw_facet parent SET
-		// f.facet_type_idxx = parent.facet_type_idxx "
-		// + "WHERE f.parent_facet_id = parent.facet_id");
-		// }
-		ConvertFromRaw converter = new ConvertFromRaw(jdbc);
-		converter.findBrokenLinks(true, 1);
-		converter.convert(1000);
+	}
+
+	void revert(String dateString) throws SQLException, ServletException {
+		try {
+			DateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+			Date date = format.parse(dateString);
+			File dataDir = new File(jdbc.SQLqueryString("SELECT @@datadir"));
+			File dbDir = new File(dataDir, dbName);
+			File MySQLdir = dataDir.getParentFile();
+			File bkpDir = new File(new File(MySQLdir, "dataBKP"), dbName);
+
+			// Find the date of the last restore before date, and log this
+			// restore
+			File restoreFile = new File(bkpDir, "restoreDates.txt");
+			String restoreFileString = Util.readFile(restoreFile);
+			String[] restoreDates = restoreFileString.split("\n");
+			restoreFileString += "\n" + format.format(new Date());
+			Util.writeFile(restoreFile, restoreFileString);
+			Date from = null;
+			for (int i = 0; i < restoreDates.length; i++) {
+				Date restored = format.parse(restoreDates[i]);
+				if (!restored.after(date))
+					from = restored;
+				else if (from == null)
+					myAssert(false, "Attempt to revert to " + date
+							+ ", which predates the full backup of " + restored);
+				else
+					break;
+			}
+
+			// Grab all the log files, and rely on from & date to pick out the
+			// operations we want
+			StringBuffer logFiles = new StringBuffer();
+			File[] logFileNames = dataDir.listFiles(Util
+					.getFilenameFilter(".*bin\\.\\d+"));
+			for (int i = 0; i < logFileNames.length; i++) {
+				File file = logFileNames[i];
+				if (new Date(file.lastModified()).after(from))
+					logFiles.append(" ").append(file.getName());
+			}
+
+			// This requires SUPER permission, which we don't really want to
+			// give to p5
+			// ResultSet rs = jdbc.SQLquery("SHOW BINARY LOGS");
+			// while (rs.next()) {
+			// String logfile = rs.getString("Log_name");
+			// File f = new File(dataDir, logfile);
+			// if (f.exists()) {
+			// logFiles.append(" ").append(logfile);
+			// }
+			// }
+
+			// Make sure logs are flushed and that files won't be in use when we
+			// try to delete them
+			exec("net stop \"MySQL\"");
+
+			String[] corruptTables = { "facet", "raw_facet", "raw_facet_type",
+					"raw_item_facet", "globals", "item", "item_facet",
+					"item_facet_heap", "item_facet_type_heap" };
+			for (int i = 0; i < corruptTables.length; i++) {
+				exec("del /S /Q \"" + corruptTables[i] + ".*", dbDir);
+				exec("copy \"" + bkpDir + "\\" + corruptTables[i] + ".* .",
+						dbDir);
+			}
+			exec("net start \"MySQL\"");
+
+			Pattern p = Pattern.compile(".*user=(.+?)&.*password=(.+?)&");
+			Matcher m = p.matcher(jdbc.toString());
+			m.find();
+			String user = m.group(1);
+			String pass = m.group(2);
+			// exec("dir", dataDir);
+			// exec("pwd", dataDir);
+			exec("..\\bin\\mysqlbinlog --database=" + dbName
+					+ " --start-date=\"" + format.format(from)
+					+ "\" --stop-date=\"" + format.format(date) + "\""
+					+ logFiles + " | ..\\bin\\mysql -u " + user + " -p" + pass
+			// + "root -p<insert root password here>"
+					, dataDir);
+		} catch (ParseException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
+	private void exec(String command) throws IOException {
+		exec(command, null);
+	}
+
+	private void exec(String command, File workingDirectory) throws IOException {
+		log(command);
+		Process proc = Runtime.getRuntime().exec("cmd.exe /C " + command, null,
+				workingDirectory);
+
+		// put a BufferedReader on the ls output
+		InputStream inputstream = proc.getInputStream();
+		InputStreamReader inputstreamreader = new InputStreamReader(inputstream);
+		BufferedReader bufferedreader = new BufferedReader(inputstreamreader);
+
+		// read the ls output
+		String line;
+		while ((line = bufferedreader.readLine()) != null) {
+			log(line);
+		}
+
+		// check for ls failure
+		try {
+			if (proc.waitFor() != 0) {
+				log("exit value = " + proc.exitValue());
+			}
+		} catch (InterruptedException e) {
+			log(e.toString());
+		}
 	}
 
 	void rotate(int item, int clockwiseDegrees) throws SQLException,
@@ -1217,10 +1578,17 @@ class Database {
 	}
 
 	void rename(int facet, String name) throws SQLException {
+		if (jdbc
+				.SQLqueryInt("SELECT parent_facet_id FROM facet WHERE facet_id = "
+						+ facet) == 0) {
+			String oldName = jdbc
+					.SQLqueryString("SELECT name FROM facet WHERE facet_id = "
+							+ facet);
+			jdbc.SQLupdate("UPDATE raw_facet_type SET name = '" + name
+					+ "' WHERE name = '" + oldName + "'");
+		}
 		jdbc.SQLupdate("UPDATE facet SET name = '" + name
 				+ "' WHERE facet_id = " + facet);
-		jdbc.SQLupdate("UPDATE raw_facet_type SET name = '" + name
-				+ "' WHERE facet_type_id = " + facet);
 	}
 
 	// facetRestriction is the empty string or a where clause restricting
@@ -1234,6 +1602,7 @@ class Database {
 			// MySQL crashes on size 4 query
 			maxClusterSize = 3;
 
+		ConvertFromRaw.populatePairs(jdbc);
 		createClusterTables(maxClusterSize);
 
 		for (int n = 1; n <= maxClusterSize; n++) {
@@ -1511,15 +1880,19 @@ class Database {
 		// event.segment_id is always NULL
 		ResultSet rs = jdbc
 				.SQLquery("SELECT segment.segment_id,"
-						+ " 1000*TIMESTAMPDIFF(SECOND, copyright_date, start_date),"
+						+ " 1000*TIMESTAMPDIFF(SECOND, copyright_date, start_date) start_offset,"
 						+ " 1000*TIMESTAMPDIFF(SECOND, copyright_date, end_date)"
 						+ " FROM item INNER JOIN event ON item.record_num = event.event_id"
 						+ " INNER JOIN movie USING (movie_id)"
 						+ " INNER JOIN segment ON segment.movie_id = movie.movie_id"
 						+ " WHERE record_num IN (" + items
-						+ ") ORDER BY segment.segment_id");
-		// printRecords(rs, MyResultSet.INT_INT_INT);
-		sendResultSet(rs, MyResultSet.SINT_INT_INT, out);
+
+						// Ignore events that straddle movie boundaries
+						+ ") HAVING start_offset >= 0"
+
+						+ " ORDER BY segment.segment_id");
+		// printRecords(rs, MyResultSet.SNMINT_INT_INT);
+		sendResultSet(rs, MyResultSet.SNMINT_INT_INT, out);
 	}
 
 	@SuppressWarnings("unchecked")
@@ -1567,18 +1940,66 @@ class Database {
 		}
 	}
 
-	private PreparedStatement setItemDescriptionQuery;
+	// private PreparedStatement setItemDescriptionQuery;
 
-	void setItemDescription(int item, String description) throws SQLException {
-		if (setItemDescriptionQuery == null) {
-			setItemDescriptionQuery = jdbc
-					.lookupPS("UPDATE item SET description = ? WHERE record_num = ? ");
+	// void setItemDescription(int item, String rawText) throws SQLException {
+	// // if (setItemDescriptionQuery == null) {
+	// // setItemDescriptionQuery = jdbc
+	// // .lookupPS("UPDATE item SET description = ? WHERE record_num = ? ");
+	// // }
+	// // synchronized (setItemDescriptionQuery) {
+	// // setItemDescriptionQuery.setInt(2, item);
+	// // setItemDescriptionQuery.setString(1, description);
+	// // jdbc.SQLupdate(setItemDescriptionQuery);
+	// // }
+	//
+	// String[] fields = jdbc.SQLqueryString(
+	// "SELECT itemDescriptionFields FROM globals").split(",");
+	// String[] values = rawText.split("\\n\\d+\\n");
+	// Pattern p = Pattern.compile("\\n(\\d+)\\n");
+	// Matcher m = p.matcher(rawText);
+	// int valueIndex = 1;
+	// while (m.find()) {
+	// int fieldIndex = Integer.parseInt(m.group(1));
+	// assert fieldIndex >= 0 && fieldIndex < fields.length;
+	// String value = values[valueIndex++];
+	// String field = fields[fieldIndex];
+	// jdbc.SQLupdate("UPDATE item SET " + field + " = "
+	// + JDBCSample.quote(value) + " WHERE record_num = " + item);
+	// }
+	// assert valueIndex == values.length;
+	// }
+
+	void setItemDescription(int item, String displayText) throws SQLException {
+		String[] values = displayText.split("(?:\\n|\\r)+<\\w+>(?:\\n|\\r)+");
+		// Util.print(Util.valueOfDeep(values));
+		// StringBuffer buf = new StringBuffer();
+		String fieldNames = jdbc
+				.SQLqueryString("SELECT itemDescriptionFields FROM globals");
+		String[] fields = fieldNames.split(",");
+		Pattern p = Pattern.compile("(?:\\n|\\r)+<(\\w+)>(?:\\n|\\r)+");
+		Matcher m = p.matcher(displayText);
+		int valueIndex = 1;
+		while (m.find()) {
+			String fieldName = m.group(1);
+			if (!Util.isMember(fields, fieldName)) {
+				fieldNames += "," + fieldName;
+				jdbc.SQLupdate("UPDATE globals SET itemDescriptionFields = "
+						+ JDBCSample.quote(fieldNames));
+				jdbc.SQLupdate("ALTER TABLE item ADD COLUMN `" + fieldName
+						+ "` TEXT DEFAULT NULL");
+			}
+			String value = values[valueIndex++];
+			// int fieldIndex = Util.member(fields, fieldName);
+			// Util.print("found "+fieldName+" "+fieldIndex);
+			// assert fieldIndex >= 0 : "Must add new fields manually: "
+			// + fieldName;
+			jdbc.SQLupdate("UPDATE item SET " + fieldName + " = "
+					+ JDBCSample.quote(value) + " WHERE record_num = " + item);
+			// buf.append("\n").append(fieldIndex).append("\n");
+			// buf.append(value);
 		}
-		synchronized (setItemDescriptionQuery) {
-			setItemDescriptionQuery.setInt(2, item);
-			setItemDescriptionQuery.setString(1, description);
-			jdbc.SQLupdate(setItemDescriptionQuery);
-		}
+		// Util.print("getRawText '"+displayText+"'\n'"+buf+"'");
 	}
 
 	@SuppressWarnings("unchecked")
@@ -1633,17 +2054,14 @@ class Database {
 			int imageW, int imageH, int quality, DataOutputStream out)
 			throws ServletException, SQLException, IOException {
 		result.beforeFirst();
-		boolean sorted = false;
-		boolean positive = false;
+		// boolean sorted = false;
+		// boolean positive = false;
 		if (type == Column.SortedIntegerType) {
-			sorted = true;
-			positive = true;
-			writeIntCol(result, colIndex, out, sorted, positive);
+			writeIntCol(result, colIndex, out, true, true);
 		} else if (type == Column.PositiveIntegerType) {
-			positive = true;
-			writeIntCol(result, colIndex, out, sorted, positive);
+			writeIntCol(result, colIndex, out, false, true);
 		} else if (type == MyResultSet.Column.IntegerType) {
-			writeIntCol(result, colIndex, out, sorted, positive);
+			writeIntCol(result, colIndex, out, false, false);
 		} else if (type == MyResultSet.Column.SortedNMIntegerType) {
 			writeIntCol(result, colIndex, out, true, false);
 		} else if (type == MyResultSet.Column.StringType) {
@@ -1674,6 +2092,14 @@ class Database {
 				prev = value;
 				value = diff;
 			}
+
+			// The check in writeIntOrTwo is not always sufficient to detect
+			// negative values, because it can look like a flag for 'no next
+			// value'
+			myAssert(value >= 0, "Column " + colIndex + ", row "
+					+ result.getRow() + " contains the negative integer "
+					+ value);
+
 			if (prevValue < 0) {
 				prevValue = value;
 			} else {

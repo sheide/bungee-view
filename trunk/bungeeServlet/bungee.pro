@@ -20,6 +20,12 @@
     void doPost(javax.servlet.http.HttpServletRequest, javax.servlet.http.HttpServletResponse);
 }
 
+-keep class edu.cmu.cs.bungee.javaExtensions.psk.cmdline.Token {
+    static final int optSwitch;
+    static final int optRequired;
+#    static final int *;
+}
+
 #-keep class com.mysql.jdbc.Driver {
 #    java.lang.Object newInstance();
 #}
