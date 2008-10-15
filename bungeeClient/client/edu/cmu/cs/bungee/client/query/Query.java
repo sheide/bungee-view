@@ -4,6 +4,7 @@ import java.io.DataInputStream;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.CollationKey;
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -27,6 +28,7 @@ import edu.cmu.cs.bungee.javaExtensions.IntHashtable;
 import edu.cmu.cs.bungee.javaExtensions.JDBCSample;
 import edu.cmu.cs.bungee.javaExtensions.MyResultSet;
 import edu.cmu.cs.bungee.javaExtensions.PerspectiveObserver;
+import edu.cmu.cs.bungee.javaExtensions.StringAlign;
 import edu.cmu.cs.bungee.javaExtensions.Util;
 import edu.cmu.cs.bungee.javaExtensions.threads.AccumulatingQueueThread;
 import edu.cmu.cs.bungee.javaExtensions.threads.QueueThread;
@@ -66,7 +68,7 @@ public final class Query implements ItemPredicate {
 	/**
 	 * What you call an item, e.g. 'image', 'work', etc
 	 */
-	public final String genericObjectLabel;
+	private final String genericObjectLabel;
 
 	private final List displayedPerspectives = new ArrayList();
 
@@ -104,7 +106,7 @@ public final class Query implements ItemPredicate {
 	 */
 	public Query(String server, String dbName) {
 		db = new ServletInterface(server, dbName);
-		
+
 		if (getSession() != null) {
 			String[][] dbs = db.getDatabases();
 			for (int i = 0; i < dbs.length && name == null; i++) {
@@ -118,8 +120,7 @@ public final class Query implements ItemPredicate {
 			int nFacets = db.facetCount + 1;
 			totalCount = db.itemCount;
 			onCount = totalCount;
-			matchFieldsPrefix = getMatchFieldsPrefix(Util
-					.splitComma(db.itemDescriptionFields));
+			matchFieldsPrefix = getMatchFieldsPrefix(itemDescriptionFields());
 			genericObjectLabel = Util.pluralize(db.label);
 			itemURLdoc = db.doc;
 			allPerspectives = new Perspective[nFacets];
@@ -127,7 +128,8 @@ public final class Query implements ItemPredicate {
 			isEditable = db.isEditable;
 			// Util.print("Query return");
 		} else {
-			// If there was a problem, return gracefully so parent can deal with error
+			// If there was a problem, return gracefully so parent can deal with
+			// error
 			nAttributes = -1;
 			matchFieldsPrefix = null;
 			itemURLdoc = null;
@@ -136,6 +138,14 @@ public final class Query implements ItemPredicate {
 		}
 	}
 
+	public String[] itemDescriptionFields() {
+		return Util.splitComma(db.itemDescriptionFields);
+	}
+
+	/**
+	 * @param itemDescFields
+	 * @return "AND MATCH(it.facet_names,it.description,it.title,...) AGAINST ("
+	 */
 	private static String getMatchFieldsPrefix(String[] itemDescFields) {
 		// matchFieldsPrefix = new String[2];
 		String s = " MATCH(it.facet_names";
@@ -242,7 +252,7 @@ public final class Query implements ItemPredicate {
 	}
 
 	public String markupToText(Markup markup, PerspectiveObserver _redraw) {
-		return markup.compile(genericObjectLabel).toText(_redraw);
+		return markup.compile(getGenericObjectLabel(true)).toText(_redraw);
 	}
 
 	public Markup parentDescription() {
@@ -276,11 +286,14 @@ public final class Query implements ItemPredicate {
 		Markup summary;
 		if (isRestricted()) {
 			summary = description();
-			summary.add(0, "... for ");
-			summary.add(".");
+			summary.add(0, "viewing "
+					+ Util.formatPercent(onCount
+							/ (double) query().getTotalCount(), null)
+					+ ": the " + Util.addCommas(onCount) + " ");
+			// summary.add(".");
 		} else {
 			summary = emptyMarkup();
-			summary.add("(No filters applied.)");
+			// summary.add("(No filters applied)");
 		}
 		// Util.print("description: " + summary);
 		return summary;
@@ -426,10 +439,25 @@ public final class Query implements ItemPredicate {
 	 */
 	public Perspective findPerspective(String name1, Perspective parent) {
 		if (parent != null) {
-			for (Iterator it = parent.getChildIterator(); it.hasNext();) {
-				Perspective p = (Perspective) it.next();
-				if (p.getName().equals(name1))
-					return p;
+			if (parent.nChildren() > 0) {
+
+				// Ensure that offset is set
+				parent.prefetchData();
+
+				for (Iterator it = parent.getChildIterator(); it.hasNext();) {
+					Perspective p = (Perspective) it.next();
+					String name2 = p.getNameIfPossible();
+					if (name2 == null) {
+						// It would be super inefficient to get each name with a
+						// separate server call, so just re-init, getting names
+						// even
+						// when there are more than 100 children
+						prefetch(parent, 3);
+						name2 = p.getName();
+					}
+					if (name2.equals(name1))
+						return p;
+				}
 			}
 		} else {
 			return findUsedPerspective(name1, true);
@@ -898,7 +926,7 @@ public final class Query implements ItemPredicate {
 				&& !p.getParent().isRestricted()
 				&& !p.getParent().getParent()
 						.isRestriction(p.getParent(), true)) {
-			Util.print("removeRestriction of parent " + p.parent);
+			// Util.print("removeRestriction of parent " + p.parent);
 			removeRestriction(p.getParent());
 		}
 	}
@@ -975,6 +1003,7 @@ public final class Query implements ItemPredicate {
 	 *            refresh facet counts after an edit operation
 	 */
 	public void refetch(Perspective facet) {
+		// Util.print("refetch " + facet);
 		assert isEditable;
 		extendAllPerspectives(facet.childrenOffset() + facet.nChildren());
 		facet.resetData(0);
@@ -1158,6 +1187,7 @@ public final class Query implements ItemPredicate {
 	// }
 
 	void insertPerspective(Perspective p) {
+		// Util.print("insertPerspective " + p);
 		assert SwingUtilities.isEventDispatchThread() : Util.printStackTrace();
 		boolean added = false;
 		assert !displayedPerspectives.contains(p) : displayedPerspectives;
@@ -1530,16 +1560,19 @@ public final class Query implements ItemPredicate {
 	}
 
 	public Collection addItemsFacet(Perspective facet) {
-		return updateIDnCount(db.addItemsFacet(facet.getID()), null, null);
+		return updateIDnCount(db.addItemsFacet(facet.getID(), onItemsTable()),
+				null, null);
 	}
 
 	public Collection removeItemsFacet(Perspective facet) {
-		return updateIDnCount(db.removeItemsFacet(facet.getID()), null, null);
+		return updateIDnCount(db
+				.removeItemsFacet(facet.getID(), onItemsTable()), null, null);
 	}
 
 	public Collection addChildFacet(Perspective parent, String facetName) {
-		assert findPerspective(facetName, parent) == null : facetName
-				+ " is already a child of " + parent;
+		if (findPerspective(facetName, parent) != null)
+			throw new IllegalArgumentException(facetName
+					+ " is already a child of " + parent);
 		int parent_id = parent == null ? 0 : parent.getID();
 		if (parent != null) {
 			parent.incfChildren(1);
@@ -1554,8 +1587,9 @@ public final class Query implements ItemPredicate {
 	}
 
 	public Collection reparent(Perspective parent, Perspective child) {
-		assert findPerspective(child.getName(), parent) == null : parent
-				+ " already has a child named like " + child;
+		if (findPerspective(child.getName(), parent) != null)
+			throw new IllegalArgumentException(parent
+					+ " already has a child named like " + child);
 		child.getParent().incfChildren(-1);
 		parent.incfChildren(1);
 		child.setParent(parent);
@@ -1567,51 +1601,90 @@ public final class Query implements ItemPredicate {
 		db.writeback();
 	}
 
+	public void revert(String date) {
+		db.revert(date);
+	}
+
 	public boolean isEditable() {
 		return isEditable;
 	}
 
-	Collection updateIDnCount(ResultSet rs, String facetName,
-			ItemPredicate parent) {
+	/**
+	 * @param rs
+	 *            [newID, oldID, count, offset, parent_facet_id] for all facets
+	 *            whose values for any of these attributes might have changed
+	 * @param nameOfCreatedFacet
+	 *            (only non-null for addChildFacet) Name for any new facets
+	 * @param parentOfCreatedFacet
+	 *            (only non-null for addChildFacet) Only create new facets for
+	 *            children of this parent (or if new parent_id == 0)
+	 * @return displayed perspectives to redisplay
+	 */
+	Collection updateIDnCount(ResultSet rs, String nameOfCreatedFacet,
+			ItemPredicate parentOfCreatedFacet) {
 		assert isEditable();
-		// Only create new facets for children of this parent (or if new
-		// parent_id == 0)
 		Collection result = new ArrayList();
+		boolean debug = false;
+		if (debug) {
+			StringBuffer buf = new StringBuffer();
+			buf.append("updateIDnCount ").append(parentOfCreatedFacet).append(
+					" ").append(nameOfCreatedFacet).append("\n");
+			StringAlign.format("Facet", buf, 12, StringAlign.JUST_LEFT);
+			StringAlign.format("Old ID ", buf, 8, StringAlign.JUST_RIGHT);
+			StringAlign.format("New ID ", buf, 8, StringAlign.JUST_RIGHT);
+			StringAlign.format("Parent", buf, 12, StringAlign.JUST_LEFT);
+			StringAlign.format("New ID ", buf, 8, StringAlign.JUST_RIGHT);
+			StringAlign.format("Count ", buf, 8, StringAlign.JUST_RIGHT);
+			StringAlign.format("Offset ", buf, 8, StringAlign.JUST_RIGHT);
+			Util.print(buf.toString());
+		}
+
 		try {
 			while (rs.next()) {
-				int oldID = rs.getInt(2);
 				int newID = rs.getInt(1);
+				int oldID = rs.getInt(2);
 				int cnt = rs.getInt(3);
 				int offset = rs.getInt(4);
 				int parent_facet_id = rs.getInt(5);
-				Perspective existingParent = parent_facet_id == 0 ? null
-						: findPerspectiveIfPossible(parent_facet_id);
+
 				extendAllPerspectives(Math.max(oldID, newID));
 				Perspective p = findPerspectiveIfPossible(oldID);
-				if (existingParent != null
-						&& displaysPerspective(existingParent)
-						// if it's not used, maxTotalCount == -1 and this will
+				Perspective parent = parent_facet_id == 0 ? null
+						: findPerspectiveIfPossible(parent_facet_id);
+				if (parent != null && displaysPerspective(parent)
+				// if it's not used, maxTotalCount == -1 and this will
 						// blow
-						&& cnt > existingParent.maxChildTotalCount()) {
-					Util.print("updateIDnCount setting max child count to "
-							+ cnt + " (" + p + ")");
-					existingParent.setMaxChildTotalCount(cnt);
+						&& cnt > parent.maxChildTotalCount()) {
+					// Util.print("updateIDnCount setting max child count to "
+					// + cnt + " (" + p + ")");
+					parent.setMaxChildTotalCount(cnt);
 				}
+				decacheName(p);
+				decacheName(parent);
 
-				StringBuffer buf = new StringBuffer();
-				buf.append("updateIDnCount");
-				if (p == null && facetName != null)
-					buf.append(" name='").append(facetName).append("'");
-				if (p == null)
-					buf.append(" old ID=").append(oldID);
-				else
-					buf.append(" old facet=").append(p);
-				buf.append(" old parent=").append(existingParent);
-				buf.append(" new ID=").append(newID);
-				buf.append(" new parent ID=").append(parent_facet_id);
-				buf.append(" count=").append(cnt);
-				buf.append(" offset=").append(offset);
-				Util.print(buf.toString());
+				if (debug) {
+					DecimalFormat f = new DecimalFormat("##,##0 ");
+					StringBuffer buf = new StringBuffer();
+					String s = p != null ? p.getName()
+							: nameOfCreatedFacet != null
+									&& parent == parentOfCreatedFacet ? "'"
+									+ nameOfCreatedFacet + "'" : "<unfetched>";
+					StringAlign.format(s, buf, 12, StringAlign.JUST_LEFT);
+					StringAlign.format(f.format(oldID), buf, 8,
+							StringAlign.JUST_RIGHT);
+					StringAlign.format(f.format(newID), buf, 8,
+							StringAlign.JUST_RIGHT);
+					s = parent != null ? parent.getName()
+							: parent_facet_id == 0 ? null : "<unfetched>";
+					StringAlign.format(s, buf, 12, StringAlign.JUST_LEFT);
+					StringAlign.format(f.format(parent_facet_id), buf, 8,
+							StringAlign.JUST_RIGHT);
+					StringAlign.format(f.format(cnt), buf, 8,
+							StringAlign.JUST_RIGHT);
+					StringAlign.format(f.format(offset), buf, 8,
+							StringAlign.JUST_RIGHT);
+					Util.print(buf.toString());
+				}
 
 				if (p != null) {
 					// if (p.isInstantiated())
@@ -1621,33 +1694,40 @@ public final class Query implements ItemPredicate {
 					p.setID(newID);
 					p.setChildrenOffset(offset);
 					p.setTotalCount(cnt);
-					if (displaysPerspective(p)) {
+					// if (displaysPerspective(p))
+					if (p.isPrefetched())
 						result.add(p);
-					}
 					if (p.getParent() != null) {
-						p.getParent().addFacetAllowingNulls(
-								newID - p.getParent().childrenOffset() - 1, p);
+						p.getParent().addFacetAllowingNulls(p);
 					}
-				} else if (parent_facet_id == 0) {
-					p = new Perspective(newID, existingParent, facetName,
-							offset, parent_facet_id == 0 ? 1 : 0, "content",
-							" that show ; that don't show ", this);
-					cachePerspective(newID, p);
+				} else if (nameOfCreatedFacet != null
+						&& parent == parentOfCreatedFacet) {
+					// Otherwise this is an existing perspective that we just
+					// haven't prefetched yet
 
 					// Util.print("NEW FACET " + newID + " " + name + " parent="
 					// + existingParent + " parent_facet_id="
 					// + parent_facet_id);
-					insertPerspective(p);
-					waitForPrefetch(p);
-					// parent = p;
-				} else if (existingParent != null && existingParent == parent) {
-					// Util.print("NEW FACET " + newID + " " + name + " parent="
-					// + existingParent + " parent_facet_id="
-					// + parent_facet_id);
-					p = ensurePerspective(newID, existingParent, facetName,
-							offset, parent_facet_id == 0 ? 1 : 0);
+
+					if (parent_facet_id == 0) {
+						p = new Perspective(newID, parent, nameOfCreatedFacet,
+								offset, 1, "content",
+								" that show ; that don't show ", this);
+						cachePerspective(newID, p);
+						insertPerspective(p);
+						waitForPrefetch(p);
+					} else {
+
+						// If it isn't prefetched, none of the children will be
+						// found, and they'll all be created with
+						// nameOfCreatedFacet
+						assert parent.isPrefetched();
+
+						p = ensurePerspective(newID, parent,
+								nameOfCreatedFacet, offset, 0);
+					}
+					p.setTotalCount(cnt);
 				}
-				p.setTotalCount(cnt);
 			}
 		} catch (SQLException e) {
 			e.printStackTrace();
@@ -1656,6 +1736,12 @@ public final class Query implements ItemPredicate {
 			// Do this after all the renames
 			refetch((Perspective) it.next());
 		return result;
+	}
+
+	private void decacheName(Perspective p) {
+		if (p != null && p.isInstantiated()) {
+			p.ensureInstantiatedPerspective().lettersOffsets.clear();
+		}
 	}
 
 	/**
@@ -1830,7 +1916,7 @@ public final class Query implements ItemPredicate {
 	public String getName() {
 		StringBuffer buf = new StringBuffer();
 		buf.append(getOnCount()).append(" ").append(
-				description().compile(genericObjectLabel).toText());
+				description().compile(getGenericObjectLabel(true)).toText());
 		if (isRestrictedData())
 			buf.append(" in collection ").append(name);
 		return buf.toString();
@@ -1977,15 +2063,15 @@ public final class Query implements ItemPredicate {
 		return result;
 	}
 
-	public ResultSet caremediaPlayArgs(Item[] items) {
-		return db.caremediaPlayArgs(getItemIDs(Arrays.asList(items)));
+	public ResultSet caremediaPlayArgs(String items) {
+		return db.caremediaPlayArgs(items);
 	}
 
 	public ResultSet caremediaGetItems(int[] segments) {
 		return db.caremediaGetItems(segments);
 	}
 
-	static String getItemIDs(Collection items) {
+	public static String getItemIDs(Collection items) {
 		StringBuffer buf = new StringBuffer();
 		for (Iterator it = items.iterator(); it.hasNext();) {
 			Item item = (Item) it.next();
@@ -2011,6 +2097,15 @@ public final class Query implements ItemPredicate {
 		return db.onCountMatrix(getFacetIDs(facetsOfInterest),
 				(String) baseTable);
 	}
+
+	public String getGenericObjectLabel(boolean isPlural) {
+		return isPlural ? genericObjectLabel : db.label;
+	}
+
+	/**
+	 * Bungee.replayOp secretly knows this value
+	 */
+	public static final int ERROR = 24;
 }
 
 final class FirstDoubleComparator implements Comparator {
@@ -2114,11 +2209,6 @@ final class NameGetter extends AccumulatingQueueThread {
 		}
 	}
 
-	/**
-	 * Bungee secretly knows this value, so keep synchronized
-	 */
-	static final int ERROR = 24;
-
 	/*
 	 * (non-Javadoc)
 	 * 
@@ -2128,7 +2218,7 @@ final class NameGetter extends AccumulatingQueueThread {
 	 */
 	public void reportError(Throwable e) {
 		super.reportError(e);
-		q.printUserAction(ERROR, Util.printStackTrace(e), 0);
+		q.printUserAction(Query.ERROR, Util.printStackTrace(e), 0);
 	}
 
 }

@@ -46,6 +46,7 @@ class PreferencesDialog extends JPanel implements ActionListener {
 	private JCheckBox medians;
 	private JCheckBox sortMenus;
 	private JCheckBox clustering;
+	private JCheckBox editing;
 
 	private JSpinner columnsSpinner;
 
@@ -57,20 +58,24 @@ class PreferencesDialog extends JPanel implements ActionListener {
 		Preferences features = art.features;
 		setLayout(new BoxLayout(this, BoxLayout.PAGE_AXIS));
 
+		JPanel leftPane = new JPanel(new BorderLayout());
+		leftPane.add(generalPreferencesPanel(features), BorderLayout.PAGE_START);
+		leftPane.add(expertPreferencesPanel(features), BorderLayout.CENTER);
+
+		add(leftPane, BorderLayout.LINE_START);
+
+		if (art.query.isEditable()) {
+			add(superExpertPreferencesPanel(features));
+		}
+
+		add(okCancelPanel());
+	}
+
+	private JPanel generalPreferencesPanel(Preferences features) {
 		JPanel generalPreferencesPane = new JPanel(new GridLayout(0, 1));
 		generalPreferencesPane.setBorder(BorderFactory.createCompoundBorder(
 				BorderFactory.createTitledBorder("General Preferences"),
 				BorderFactory.createEmptyBorder(5, 5, 5, 5)));
-
-		popups = new JCheckBox(
-				"Show popups on tag mouse-over (otherwise show on bottom line)");
-		popups.setSelected(features.popups);
-		generalPreferencesPane.add(popups);
-
-		openClose = new JCheckBox(
-				"Show +/- buttons to open/close tag hierarchies in Selected Result pane");
-		openClose.setSelected(features.openClose);
-		generalPreferencesPane.add(openClose);
 
 		JPanel fontPanel = new JPanel(new FlowLayout(FlowLayout.LEADING));
 		fontSpinner = new JSpinner(new SpinnerNumberModel(art.getTextSize(),
@@ -94,6 +99,20 @@ class PreferencesDialog extends JPanel implements ActionListener {
 		columnsPanel.add(textFieldLabel);
 		generalPreferencesPane.add(columnsPanel);
 
+		popups = new JCheckBox(
+				"Show popups on tag mouse-over (otherwise show on bottom line)");
+		popups.setSelected(features.popups);
+		generalPreferencesPane.add(popups);
+
+		openClose = new JCheckBox(
+				"Show +/- buttons to open/close tag hierarchies in Selected Result pane");
+		openClose.setSelected(features.openClose);
+		generalPreferencesPane.add(openClose);
+
+		return generalPreferencesPane;
+	}
+
+	private JPanel expertPreferencesPanel(Preferences features) {
 		JPanel expertFeaturesPane = new JPanel(new GridLayout(0, 1));
 		expertFeaturesPane.setBorder(BorderFactory.createCompoundBorder(
 				BorderFactory.createTitledBorder("Expert features"),
@@ -179,6 +198,10 @@ class PreferencesDialog extends JPanel implements ActionListener {
 		shortcutPanel.add(beginner);
 
 		expertFeaturesPane.add(shortcutPanel);
+		return expertFeaturesPane;
+	}
+
+	private JPanel okCancelPanel() {
 
 		JButton ok = new JButton("OK");
 		ok.setActionCommand("OK");
@@ -191,14 +214,22 @@ class PreferencesDialog extends JPanel implements ActionListener {
 		JPanel okCancelPanel = new JPanel(new FlowLayout());
 		okCancelPanel.add(ok);
 		okCancelPanel.add(cancel);
+		return okCancelPanel;
 
-		// Put everything together.
-		JPanel leftPane = new JPanel(new BorderLayout());
-		leftPane.add(generalPreferencesPane, BorderLayout.PAGE_START);
-		leftPane.add(expertFeaturesPane, BorderLayout.CENTER);
+	}
 
-		add(leftPane, BorderLayout.LINE_START);
-		add(okCancelPanel);
+	private JPanel superExpertPreferencesPanel(Preferences features) {
+
+		JPanel superExpertFeaturesPane = new JPanel(new GridLayout(0, 1));
+		superExpertFeaturesPane.setBorder(BorderFactory.createCompoundBorder(
+				BorderFactory.createTitledBorder("Do not try this at home"),
+				BorderFactory.createEmptyBorder(5, 5, 5, 5)));
+
+		editing = new JCheckBox(
+				"Allow updating the database by clicking with the middle mouse button");
+		editing.setSelected(features.editing);
+		superExpertFeaturesPane.add(editing);
+		return superExpertFeaturesPane;
 	}
 
 	SpinnerListModel nColumnsSpinnerModel(int maxCols) {
@@ -278,6 +309,8 @@ class PreferencesDialog extends JPanel implements ActionListener {
 			buf.append(",tagLists");
 		if (zoom.isSelected())
 			buf.append(",zoom");
+		if (editing != null && editing.isSelected())
+			buf.append(",editing");
 		// Util.print("kk " + new Preferences(null, buf.toString(), true));
 		return new Preferences(null, buf.toString(), true);
 	}
@@ -332,11 +365,12 @@ class Preferences {
 	final boolean sortMenus; // r
 	final boolean tagLists;
 	final boolean zoom;
+	final boolean editing;
 
 	private static final String[] featureNames = { "fontSize", "nColumns",
 			"arrows", "boundaries", "brushing", "checkboxes", "clustering",
 			"medians", "openClose", "popups", "pvalues", "shortcuts",
-			"sortMenus", "tagLists", "zoom" };
+			"sortMenus", "tagLists", "zoom", "editing" };
 
 	static String expertFeatureNames = "arrows,boundaries,brushing,checkboxes,clustering,medians,"
 			+ "pvalues,shortcuts,sortMenus,tagLists,zoom";
@@ -388,6 +422,8 @@ class Preferences {
 		tagLists = Util.isMember(options, "tagLists") ? changeTo : a
 				&& base.tagLists;
 		zoom = Util.isMember(options, "zoom") ? changeTo : a && base.zoom;
+		editing = Util.isMember(options, "editing") ? changeTo : a
+				&& base.editing;
 	}
 
 	String features2string() {
@@ -421,6 +457,8 @@ class Preferences {
 			buf.append(",tagLists");
 		if (zoom)
 			buf.append(",zoom");
+		if (editing)
+			buf.append(",editing");
 		return buf.toString();
 	}
 
@@ -441,7 +479,8 @@ class Preferences {
 				&& options.popups == popups && options.pvalues == pvalues
 				&& options.shortcuts == shortcuts
 				&& options.sortMenus == sortMenus
-				&& options.tagLists == tagLists && options.zoom == zoom;
+				&& options.tagLists == tagLists && options.zoom == zoom
+				&& options.editing == editing;
 	}
 
 	public int hashCode() {
@@ -460,6 +499,7 @@ class Preferences {
 		result = 37 * result + (sortMenus ? 0 : 1);
 		result = 37 * result + (tagLists ? 0 : 1);
 		result = 37 * result + (zoom ? 0 : 1);
+		result = 37 * result + (editing ? 0 : 1);
 		return result;
 	}
 

@@ -1,13 +1,12 @@
 package edu.cmu.cs.bungee.client.query.tetrad;
 
-import java.io.File;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
@@ -25,10 +24,12 @@ import edu.cmu.cs.bungee.client.query.tetrad.MyLinearRegressionResult;
 import edu.cmu.cs.bungee.client.query.tetrad.MyLogisticRegressionResult;
 import edu.cmu.cs.bungee.client.query.tetrad.MyRegressionParams;
 import edu.cmu.cs.bungee.client.query.tetrad.TetradRegressionResult;
+import edu.cmu.cs.bungee.javaExtensions.PerspectiveObserver;
 import edu.cmu.cs.bungee.javaExtensions.Util;
 import edu.cmu.cs.bungee.javaExtensions.graph.Edge;
 import edu.cmu.cs.bungee.javaExtensions.graph.Graph;
 import edu.cmu.cs.bungee.javaExtensions.graph.Node;
+import edu.cmu.cs.bungee.javaExtensions.graph.Graph.GraphWeigher;
 import edu.cmu.tetrad.data.ColtDataSet;
 import edu.cmu.tetrad.data.DiscreteVariable;
 import edu.cmu.tetrad.data.Knowledge;
@@ -38,7 +39,7 @@ import edu.cmu.tetrad.search.IndependenceTest;
 import edu.cmu.tetrad.search.PcSearch;
 import edu.cmu.tetrad.util.TetradLogger;
 
-public class Tetrad {
+public class Tetrad implements GraphWeigher {
 	static double ALPHA = 0.0;
 	private static final boolean IS_LOGISTIC = true;
 
@@ -47,17 +48,17 @@ public class Tetrad {
 	 * (though popupFacet and all Query restrictions will always be included).
 	 * Minimum is 1, or TopTags will barf.
 	 */
-	private static int MAX_FACETS = 6;
+	private static int MAX_FACETS = 2;
 
 	/**
 	 * Prune edges with a beta weight less than this, after graph has been
 	 * computed.
 	 */
-	private static double MIN_CORE_EDGE_BETA = 0.05;
+	static double MIN_BETA = 0.0;
 	private final Perspective popupFacet;
 	// private Graph graph;
 
-	private final int[] counts;
+	final int[] counts;
 
 	/**
 	 * The variable names in the discrete data sets for which conditional
@@ -68,23 +69,34 @@ public class Tetrad {
 	private final Map variablesInverse = new HashMap();
 	private static HashMap betaWeights = new HashMap();
 
-	private final TetradDrawer redrawer;
+	private final PerspectiveObserver redrawer;
+	private final TetradPrinter printer;
 
-	public interface TetradDrawer {
+	public interface TetradPrinter {
 
 		public void drawTetradGraph(Graph graph, String status);
 	}
 
-	public static Graph getTetradGraph(Perspective facet, TetradDrawer redrawer) {
-		return new Tetrad(facet, redrawer).computeGraph();
+	public static Graph getTetradGraph(Perspective facet,
+			TetradPrinter printer, PerspectiveObserver redrawer) {
+		Tetrad tetrad = new Tetrad(facet, printer, redrawer);
+//		printer = null;
+		if (printer != null) {
+			Graph tetradGraph = tetrad.computeGraph();
+			printer.drawTetradGraph(tetradGraph, "tetrad");
+		}
+		// return tetradGraph;
+		return new Koller(tetrad).getKollerGraph(printer);
 	}
 
-	private Tetrad(Perspective facet, TetradDrawer redrawer) {
+	private Tetrad(Perspective facet, TetradPrinter printer,
+			PerspectiveObserver redrawer) {
 		// TetradLogger.getInstance().setLogging(true);
 		// TetradLogger.getInstance().addOutputStream(System.out);
 		// TetradLogger.getInstance().setForceLog(true);
 		popupFacet = facet;
 		this.redrawer = redrawer;
+		this.printer = printer;
 
 		// Add this separately, because it has to come first (to be bit 0)
 		addPerspective(popupFacet);
@@ -98,8 +110,8 @@ public class Tetrad {
 			TagRelevance tag = (TagRelevance) it.next();
 			Perspective p = (Perspective) ((ChiSq2x2) tag.tag).object;
 			addPerspective(p);
+			removeAncestorFacets();
 		}
-		removeAncestorFacets();
 		counts = getCounts();
 		// double[] alphas = { 0, 0.001, 1 };
 		// for (MAX_FACETS = 2; MAX_FACETS < 11; MAX_FACETS++) {
@@ -108,55 +120,62 @@ public class Tetrad {
 	}
 
 	private Graph computeGraph() {
+		long start = (new Date()).getTime();
 		Graph initialGraph = getInitialGraph();
-		initialGraph.label=getlabel();
+		initialGraph.label = getlabel();
 		printMe("Initial", initialGraph);
-		Util.print("MAX_FACETS=" + MAX_FACETS + " ALPHA=" + ALPHA + " #nodes="
-				+ initialGraph.getNumNodes() + " #edges="
-				+ initialGraph.getNumDirectedEdges() + " score="
-		// + ((int) (1000 * eval(initialGraph) + 0.5))
-				);
+		Util.print("MAX_FACETS=" + MAX_FACETS + " ALPHA=" + ALPHA
+				+ "\ninitial nodes=" + initialGraph.getNumNodes() + " #edges="
+				+ initialGraph.getNumDirectedEdges() + " averageR="
+				+ ((int) (100 * averageR(initialGraph) + 0.5)));
 		// }
 		// }
-		Graph result = new Graph();
-		result.label=initialGraph.label;
-		Perspective[] primary = (Perspective[]) primaryFacets().toArray(
-				new Perspective[0]);
+		Graph result = new Graph(this);
+		result.label = initialGraph.label;
+		Node[] primary = primaryNodes(initialGraph);
 		for (int i = 0; i < primary.length; i++) {
+			result.addNode(primary[i]);
+		}
+		for (int i = 0; i < primary.length - 1; i++) {
 			for (int j = i + 1; j < primary.length; j++) {
 				Graph pairGraph = new Graph(initialGraph);
 				for (int k = 0; k < primary.length; k++) {
 					if (k != i && k != j) {
-						pairGraph.removeNode(tetradName(primary[k]));
+						pairGraph.removeNode(primary[k]);
 					}
-					// Util.print(pairGraph);
-					for (Iterator it = pairGraph.getEdges().iterator(); it
-							.hasNext();) {
-						Edge edge = (Edge) it.next();
-						edge.setBidirectional();
-					}
-					removeSatelliteNodes(pairGraph);
 				}
-				printMe("graphForPair " + primary[i] + " " + primary[j],
-						pairGraph);
-				graphForPair(result, pairGraph);
+				setBidirectional(pairGraph);
+				pairGraph.removeNonpathEdges(primary[i], primary[j]);
+				// Util.print("after pairGraph\n" + pairGraph);
+				printMe("graphForPair " + primary[i].getLabel() + " "
+						+ primary[j].getLabel(), pairGraph);
+				graphForPair(result, pairGraph, primary[i], primary[j]);
 			}
 		}
+		result.pruneWeakEdges();
 		label(result);
 		printMe("Final", result);
+		long duration = (new Date()).getTime() - start;
+		Util.print("final nodes=" + result.getNumNodes() + " #edges="
+				+ result.getNumDirectedEdges() + " averageR="
+				+ ((int) (100 * averageR(result) + 0.5))+" # regressions="+nnn+" duration="+duration);
 		return result;
 	}
 
-	private void graphForPair(Graph result, Graph pairGraph) {
+	private void graphForPair(Graph result, Graph pairGraph, Node primary1,
+			Node primary2) {
 		for (Iterator it = new Util.CombinationIterator(pairGraph.getEdges()); it
 				.hasNext();) {
 			Collection edgesToRemove = (Collection) it.next();
+			// Util.print("etr "+edgesToRemove);
 			Graph subgraph = new Graph(pairGraph);
 			for (Iterator edgeIt = edgesToRemove.iterator(); edgeIt.hasNext();) {
 				Edge edge = (Edge) edgeIt.next();
 				subgraph.removeEdge(edge);
 			}
-			if (removeSatelliteNodes(subgraph) == 0) {
+			setBidirectional(subgraph);
+			// printMe("etr", subgraph);
+			if (subgraph.allOnPath(primary1, primary2, 0)) {
 				for (Iterator it2 = new Util.CombinationIterator(subgraph
 						.getEdges()); it2.hasNext();) {
 					Collection forwardEdges = (Collection) it2.next();
@@ -168,7 +187,10 @@ public class Tetrad {
 								.setDirection((Node) edge.getNodes().get(
 										direction));
 					}
-					if (allOnPath(subgraph) && allStrong(subgraph)) {
+					if (!result.contains(subgraph)
+							&& subgraph.allOnPath(primary1, primary2, 0)
+							&& subgraph.allOnPath(primary1, primary2, MIN_BETA)) {
+						// The first two conjuncts are just for efficiency
 						printMe("directed", subgraph);
 						result.union(subgraph);
 						printMe("result", result);
@@ -178,110 +200,183 @@ public class Tetrad {
 		}
 	}
 
-	private boolean allStrong(Graph subgraph) {
-		for (Iterator it = subgraph.getEdges().iterator(); it.hasNext();) {
-			Edge edge = (Edge) it.next();
-			Node caused = edge.getCausedNode();
-			if (getBetaWeight(subgraph, edge.getCausingNode(), caused) < MIN_CORE_EDGE_BETA)
-				return false;
-		}
-		return true;
-	}
+	// private boolean allStrong(Graph subgraph) {
+	// for (Iterator it = subgraph.getEdges().iterator(); it.hasNext();) {
+	// Edge edge = (Edge) it.next();
+	// Node caused = edge.getCausedNode();
+	// if (Math
+	// .abs(getBetaWeight(subgraph, edge.getCausingNode(), caused)) <
+	// MIN_CORE_EDGE_BETA)
+	// return false;
+	// }
+	// return true;
+	// }
 
-	private boolean allOnPath(Graph subgraph) {
-		Set onPath = new HashSet();
-		for (Iterator it = primaryNodes(subgraph).iterator(); it.hasNext();) {
-			Node primary = (Node) it.next();
-			markUpstream(subgraph, primary, onPath);
-		}
-		return onPath.size() == subgraph.getNumDirectedEdges();
-	}
-
-	private void markUpstream(Graph graph, Node node, Set onPath) {
-		for (Iterator it = graph.getUpstreamEdges(node).iterator(); it
-				.hasNext();) {
-			Edge edge = (Edge) it.next();
-			assert edge.isArrowhead(node) : node + "\n" + graph;
-			if (!onPath.contains(edge)) {
-				onPath.add(edge);
-				markUpstream(graph, edge.getDistalNode(node), onPath);
-			}
-		}
-	}
-
-	/**
-	 * Remove nodes that do not lie on a path between two core nodes. Paths
-	 * cannot contain colliders (even if there are intervening edges). As
-	 * implemented, doesn't always reject collider paths (when there are
-	 * branches.)
-	 */
-	private int removeSatelliteNodes(Graph graph1) {
-		Collection primaryNodes = primaryNodes(graph1);
-		Collection nonSatelliteNodes = new HashSet();
-		nonSatelliteNodes.addAll(primaryNodes);
-		for (Iterator it = primaryNodes.iterator(); it.hasNext();) {
-			Node origin = (Node) it.next();
-			if (graph1.hasNode(origin)) {
-				Collection nodesOnPath = new HashSet();
-				removeSatelliteNodesInternal(graph1, nonSatelliteNodes,
-						nodesOnPath, origin, origin, false);
-				// Util.print("RSN " + origin + " " + nonSatelliteNodes + "\n");
-			}
-		}
-		int result = 0;
-		for (Iterator it = (new ArrayList(graph1.getNodes())).iterator(); it
-				.hasNext();) {
-			Node node = (Node) it.next();
-			if (!nonSatelliteNodes.contains(node)) {
-				// Util.print("Removing satellite node " + node);
-				graph1.removeNode(node);
-				result++;
-			}
-		}
-		return result;
-	}
-
-	private void removeSatelliteNodesInternal(Graph graph1,
-			Collection nonSatelliteNodes, Collection nodesOnPath, Node origin,
-			Node node, boolean seenArrow) {
-		for (Iterator it = graph1.getAdjacentNodes(node).iterator(); it
-				.hasNext();) {
-			Node adj = (Node) it.next();
-			// Util.print("RSNI " + node + " " + adj + " " + seenArrow);
-			if (!nodesOnPath.contains(adj) && adj != origin
-					&& (!seenArrow || graph1.getEdge(node, adj).canCause(adj))) {
-				if (!seenArrow && !graph1.getEdge(node, adj).canCause(node))
-					seenArrow = true;
-				if (nonSatelliteNodes.contains(adj)) {
-					nonSatelliteNodes.addAll(nodesOnPath);
-					nodesOnPath.clear();
-				} else {
-					nodesOnPath.add(adj);
-					removeSatelliteNodesInternal(graph1, nonSatelliteNodes,
-							nodesOnPath, origin, adj, seenArrow);
-					nodesOnPath.remove(adj);
-				}
-			}
-		}
-	}
-
-	// private double eval(Graph graph2) {
-	// double nEdges = 0;
-	// double sumR = 0;
-	// for (Iterator it = graph2.getNodes().iterator(); it.hasNext();) {
-	// Node causedNode = (Node) it.next();
-	// Perspective caused = lookupFacet(causedNode);
-	// List causes = getCauses(graph2, caused);
-	// nEdges += causes.size();
-	// for (Iterator causeIt = causes.iterator(); causeIt.hasNext();) {
-	// Perspective cause = (Perspective) causeIt.next();
-	// sumR += getBetaWeight(graph2, cause, caused);
-	// // sumR += Math.abs(getBetaWeights(cause, causes,
-	// // caused, IS_LOGISTIC).beta);
+	// private boolean allOnPath(Graph subgraph) {
+	// Set onPath = new HashSet();
+	// for (Iterator it = primaryNodes(subgraph).iterator(); it.hasNext();) {
+	// Node primary = (Node) it.next();
+	// markUpstream(subgraph, primary, onPath);
+	// }
+	// boolean result = onPath.size() == subgraph.getNumDirectedEdges();
+	// if (result)
+	// Util.print("ii "+primaryNodes(subgraph)+" "+onPath+"\n"+subgraph+"\n\n");
+	// return result;
+	// }
+	//
+	// private void markUpstream(Graph graph, Node node, Set onPath) {
+	// for (Iterator it = graph.getUpstreamEdges(node).iterator(); it
+	// .hasNext();) {
+	// Edge edge = (Edge) it.next();
+	// assert edge.isArrowhead(node) : node + "\n" + graph;
+	// if (!onPath.contains(edge)) {
+	// onPath.add(edge);
+	// markUpstream(graph, edge.getDistalNode(node), onPath);
+	// Util.print(node+" is caused by "+edge);
 	// }
 	// }
-	// return sumR / nEdges;
 	// }
+
+	// /**
+	// * downstream means in the direction of the arrow
+	// *
+	// * @return all edges in graph1 that lie on a colliderless path between two
+	// * primary nodes
+	// */
+	// private Collection pathEdges(Graph graph1, Node primary1, Node primary2,
+	// double threshold) {
+	// Collection pathEdges = new HashSet();
+	// Collection pathNodes = new HashSet();
+	// Collection seenNodes = new HashSet();
+	// Collection downhillPathNodes = new HashSet();
+	// seenNodes.add(primary1);
+	// downhillPathNodes.add(primary1);
+	// pathEdgesInternal(graph1, downhillPathNodes, primary1,
+	// pathNodes, pathEdges, primary2, seenNodes, primary1, false,
+	// false, threshold, 1);
+	// return pathEdges;
+	// }
+	//
+	// /**
+	// * Depth-first sesarch, backtracking if we're in a loop, or meet a
+	// collider.
+	// * If we reach a goal node, add the current path to pathEdges
+	// */
+	// /**
+	// * @param graph1
+	// * Graph with either all directed edges or all undirected edges
+	// * @param downhillPathNodes
+	// * There is a downhill path from these nodes to goalNode
+	// * @param pathNodes
+	// * All nodes of pathEdges
+	// * @param pathEdges
+	// * There is a path from these edges to goalNode
+	// * @param goalNode
+	// * @param seenNodes
+	// * These nodes have already been visited
+	// * @param node
+	// * current node in the depth-first search
+	// * @param downstreamPath
+	// * ???
+	// * @param downstreamOnly
+	// * whether the current search path already includes a downstream
+	// * edge
+	// * @param threshold
+	// * minimum strength of paths whose edges get added to pathEdges
+	// * @param strength
+	// * cumulative product of edges on the current search path
+	// * @return whether there is a path from node to goalNode
+	// */
+	// private boolean pathEdgesInternal(Graph graph1,
+	// Collection downhillPathNodes, Node origin,
+	// Collection pathNodes, Collection pathEdges, Node goalNode,
+	// Collection seenNodes, Node node, boolean downstreamPath,
+	// boolean downstreamOnly, double threshold, double strength) {
+	// boolean result = false;
+	// for (Iterator it = graph1.getNodeEdgeIterator(node); it.hasNext();) {
+	// Edge edge = (Edge) it.next();
+	// Node adj = edge.getDistalNode(node);
+	// // Util.print("RSNI " + node + " " + adj + " " + seenArrow);
+	// boolean isDownstream = edge.canCause(adj);
+	// if (!downstreamOnly || isDownstream) {
+	// boolean add = goalNode == adj;
+	// if (!add && seenNodes.contains(adj)) {
+	// add = pathNodes.contains(adj)
+	// && (!(downstreamOnly ||isDownstream)|| downhillPathNodes
+	// .contains(adj));
+	// } else if (!add) {
+	// seenNodes.add(adj);
+	// double beta = threshold > 0 ? Math
+	// .abs(getBetaWeight(graph1, edge.getCausingNode(),
+	// edge.getCausedNode())) : 1;
+	// double substrength = strength * beta;
+	// if (substrength >= threshold) {
+	// add = pathEdgesInternal(graph1, downhillPathNodes,
+	// origin, pathNodes, pathEdges,
+	// goalNode, seenNodes, adj, !isDownstream
+	// && (downstreamPath || downhillPathNodes
+	// .contains(node)),
+	// downstreamOnly || isDownstream, threshold,
+	// substrength);
+	// }
+	// }
+	// if (add) {
+	// pathEdges.add(edge);
+	// if (node != origin) {
+	// pathNodes.add(node);
+	// if (isDownstream) {
+	// downhillPathNodes.add(node);
+	// propagateUphill(graph1, seenNodes,
+	// downhillPathNodes, node);
+	// }
+	// }
+	// result = true;
+	// }
+	// }
+	// }
+	// return result;
+	// }
+	//
+	// private void propagateUphill(Graph graph1, Collection seenNodes,
+	// Collection downhillPathNodes, Node node) {
+	// for (Iterator it = graph1.getNodeEdgeIterator(node); it.hasNext();) {
+	// Edge edge = (Edge) it.next();
+	// Node adj = edge.getDistalNode(node);
+	// // Util.print("RSNI " + node + " " + adj + " " + seenArrow);
+	// boolean isUpstream = edge.canCause(node);
+	// if (isUpstream && seenNodes.contains(adj)
+	// && !downhillPathNodes.contains(adj)) {
+	// downhillPathNodes.add(adj);
+	// propagateUphill(graph1, seenNodes, downhillPathNodes, adj);
+	// }
+	// }
+	// }
+
+	private double averageR(Graph graph2) {
+		double nEdges = 0;
+		double sumR = 0;
+		for (Iterator it = graph2.getNodes().iterator(); it.hasNext();) {
+			Node caused = (Node) it.next();
+			Set causes = graph2.getCauses(caused);
+			nEdges += causes.size();
+			for (Iterator causeIt = causes.iterator(); causeIt.hasNext();) {
+				Node cause = (Node) causeIt.next();
+				sumR += Math.abs(getBetaWeight(graph2, cause, caused));
+			}
+		}
+		// Util.print("averageR "+nEdges+" "+sumR);
+		return sumR / nEdges;
+	}
+
+	private double R(Graph graph2, Node caused) {
+		double sumR = 0;
+		Set causes = graph2.getCauses(caused);
+		for (Iterator causeIt = causes.iterator(); causeIt.hasNext();) {
+			Node cause = (Node) causeIt.next();
+			sumR += Math.abs(getBetaWeight(graph2, cause, caused));
+		}
+		return sumR;
+	}
 
 	private Query query() {
 		return popupFacet.query();
@@ -289,7 +384,7 @@ public class Tetrad {
 
 	private List facetsOfInterest;
 
-	private List facetsOfInterest() {
+	 List facetsOfInterest() {
 		if (facetsOfInterest == null) {
 			facetsOfInterest = Collections.unmodifiableList(new ArrayList(
 					variables.values()));
@@ -302,8 +397,9 @@ public class Tetrad {
 	}
 
 	private Collection primaryFacets;
+	private int nnn;
 
-	private Collection primaryFacets() {
+	Collection primaryFacets() {
 		if (primaryFacets == null) {
 			primaryFacets = query().allRestrictions();
 			primaryFacets.add(popupFacet);
@@ -316,7 +412,7 @@ public class Tetrad {
 	}
 
 	private void addPerspective(Perspective p) {
-		String name = p.getNameIfPossible();
+		String name = p.getName(redrawer);
 		if (name == null)
 			name = "p" + p.getID();
 		else
@@ -326,12 +422,23 @@ public class Tetrad {
 		variablesInverse.put(p, name);
 	}
 
+	private void setBidirectional(Graph graph) {
+		for (Iterator it = graph.getEdges().iterator(); it.hasNext();) {
+			Edge edge = (Edge) it.next();
+			edge.setBidirectional();
+		}
+	}
+
 	private Perspective lookupFacet(Node node) {
-		return (Perspective) variables.get(node.getLabel());
+		return (Perspective) node.object;
+	}
+
+	private Perspective lookupFacet(String label) {
+		return (Perspective) variables.get(label);
 	}
 
 	private Collection lookupFacets(Collection nodes) {
-		Collection result = new LinkedList();
+		Collection result = new ArrayList(nodes.size());
 		for (Iterator it = nodes.iterator(); it.hasNext();) {
 			Node node = (Node) it.next();
 			result.add(lookupFacet(node));
@@ -339,20 +446,20 @@ public class Tetrad {
 		return result;
 	}
 
-	private String tetradName(Perspective p) {
+	String tetradName(Perspective p) {
 		return (String) variablesInverse.get(p);
 	}
 
-	private Collection primaryNodes(Graph graph1) {
+	Node[] primaryNodes(Graph graph1) {
 		Collection primaryFacets1 = primaryFacets();
 		Collection primaryNodes = new ArrayList(primaryFacets1.size());
 		for (Iterator it = primaryFacets1.iterator(); it.hasNext();) {
 			Perspective p = (Perspective) it.next();
-			Node node = graph1.getNode(tetradName(p));
+			Node node = graph1.getNode(p);
 			if (node != null)
 				primaryNodes.add(node);
 		}
-		return primaryNodes;
+		return (Node[]) primaryNodes.toArray(new Node[0]);
 	}
 
 	private void removeAncestorFacets() {
@@ -408,18 +515,17 @@ public class Tetrad {
 		Graph graph1 = getGraph(tetradGraph);
 		// Util.print("graph: " + graph1);
 
-
 		return graph1;
 	}
 
 	private Graph getGraph(edu.cmu.tetrad.graph.Graph tetradGraph) {
-		Graph result = new Graph();
+		Graph result = new Graph(this);
 		Map nodeMap = new HashMap();
 		for (Iterator it = tetradGraph.getNodes().iterator(); it.hasNext();) {
 			edu.cmu.tetrad.graph.Node node = (edu.cmu.tetrad.graph.Node) it
 					.next();
-			Node resultNode = result.addNode(node.getName());
-			resultNode.object = lookupFacet(resultNode);
+			Node resultNode = result.addNode(lookupFacet(node.getName()), node
+					.getName());
 			nodeMap.put(node, resultNode);
 		}
 		for (Iterator it = tetradGraph.getEdges().iterator(); it.hasNext();) {
@@ -447,16 +553,21 @@ public class Tetrad {
 	private BetaCache getBetaWeights(Perspective cause, Collection otherCauses,
 			Perspective caused, boolean isLogistic) {
 		// Util.print("getBetaWeights "+cause+" => "+caused);
-		List sortedCauses = new ArrayList(otherCauses.size() + 1); // all causes
+		assert otherCauses.contains(cause);
+		// assert otherCauses.size() == (new HashSet(otherCauses)).size();
+		Collection sortedCauses = otherCauses; // new
+		// ArrayList(otherCauses.size()
+		// + 1); // all causes
 		// (cause +
 		// otherCauses
 		// ) in
 		// canonical
 		// order
-		sortedCauses.addAll(otherCauses);
-		if (!otherCauses.contains(cause))
-			sortedCauses.add(cause);
-		Collections.sort(sortedCauses);
+		// sortedCauses.addAll(otherCauses);
+		// if (!otherCauses.contains(cause))
+		// sortedCauses.add(cause);
+		// too slow
+		// Collections.sort(sortedCauses);
 		assert !sortedCauses.contains(caused) : caused + " " + sortedCauses;
 
 		List args = new ArrayList(sortedCauses.size() + 1); // sortedCauses
@@ -471,18 +582,19 @@ public class Tetrad {
 			cached = new BetaCache[sortedCauses.size()];
 			MyRegressionParams params = getRegressionParams(sortedCauses,
 					caused);
-			assert params.nRows() == nRows() : Util.valueOfDeep(params.counts);
+//			assert params.nRows() == nRows() : Util.valueOfDeep(params.counts);
 			try {
+				nnn++;
 				TetradRegressionResult regression = isLogistic ? MyLogisticRegressionResult
 						.getInstance(params)
 						: MyLinearRegressionResult.getInstance(params);
 				double[] coefs = regression.getCoefs();
 				double sumCoefs = 0;
 				for (int i = 0; i < params.regressorNames.length; i++) {
-					assert params.regressorNames[i]
-							.equals(tetradName((Perspective) args.get(i))) : Util
-							.valueOfDeep(params.regressorNames)
-							+ " " + sortedCauses + " " + args;
+//					assert params.regressorNames[i]
+//							.equals(tetradName((Perspective) args.get(i))) : Util
+//							.valueOfDeep(params.regressorNames)
+//							+ " " + sortedCauses + " " + args;
 					sumCoefs += Math.abs(coefs[i + 1]);
 				}
 
@@ -526,11 +638,13 @@ public class Tetrad {
 			} catch (AssertionError e) {
 				Util.print("Ignoring AssertionError in getBetaWeights for "
 						+ cause + " => " + caused + otherCauses);
+				Util.print(params.getDiscreteData(7));
 				// e.printStackTrace();
 				BetaCache foo = new BetaCache(0, 0, "Bogus");
 				for (int i = 0; i < cached.length; i++) {
 					cached[i] = foo;
 				}
+				betaWeights.put(args, cached);
 				throw (e);
 			}
 		}
@@ -544,38 +658,55 @@ public class Tetrad {
 				lookupFacet(caused), IS_LOGISTIC).beta;
 	}
 
-	private String getBetaLabel(Graph graph, Node cause, Node caused) {
-		Collection otherCauses = graph.getCauses(caused);
-		return getBetaWeights(lookupFacet(cause), lookupFacets(otherCauses),
-				lookupFacet(caused), IS_LOGISTIC).label;
-	}
+	// private String getBetaLabel(Graph graph, Node cause, Node caused) {
+	// Collection otherCauses = graph.getCauses(caused);
+	// return getBetaWeights(lookupFacet(cause), lookupFacets(otherCauses),
+	// lookupFacet(caused), IS_LOGISTIC).label;
+	// }
 
 	private void label(Graph graph) {
 		for (Iterator it = graph.getEdges().iterator(); it.hasNext();) {
 			Edge edge = (Edge) it.next();
 			edge.setLabel(getBetaLabel(graph, edge));
 		}
+		for (Iterator it = graph.getNodes().iterator(); it.hasNext();) {
+			Node node = (Node) it.next();
+			String label = formatWeight(R(graph, node)) + " " + node.getLabel();
+			node.setLabel(label);
+		}
 	}
+
+	// private String getBetaLabel(Graph graph, Edge edge) {
+	// StringBuffer buf = new StringBuffer();
+	// for (Iterator it = edge.getNodes().iterator(); it.hasNext();) {
+	// Node caused = (Node) it.next();
+	// if (edge.canCause(caused)) {
+	// if (buf.length() > 0) {
+	// buf.append(" / ");
+	// }
+	// buf
+	// .append(
+	// getBetaLabel(graph, edge.getDistalNode(caused),
+	// caused)).append(
+	// caused.getLabel().charAt(0));
+	// }
+	// }
+	// return buf.toString();
+	// }
 
 	private String getBetaLabel(Graph graph, Edge edge) {
-		StringBuffer buf = new StringBuffer();
-		for (Iterator it = edge.getNodes().iterator(); it.hasNext();) {
-			Node caused = (Node) it.next();
-			if (edge.canCause(caused)) {
-				if (buf.length() > 0) {
-					buf.append(" / ");
-				}
-				buf
-						.append(
-								getBetaLabel(graph, edge.getDistalNode(caused),
-										caused)).append(
-								caused.getLabel().charAt(0));
-			}
-		}
-		return buf.toString();
+		List nodes = edge.getNodes();
+		Node node1 = (Node) nodes.get(0);
+		Node node2 = (Node) nodes.get(1);
+		double wt1 = edge.canCause(node1) ? getBetaWeight(graph, node2, node1)
+				: 0;
+		double wt2 = edge.canCause(node2) ? getBetaWeight(graph, node1, node2)
+				: 0;
+		String result = formatWeight(Math.abs(wt1) > Math.abs(wt2) ? wt1 : wt2);
+		return result;
 	}
 
-	private String formatWeight(double weight) {
+	static String formatWeight(double weight) {
 		if (Double.isNaN(weight))
 			return "?";
 		return Integer.toString((int) Math.rint(100 * weight));
@@ -583,6 +714,7 @@ public class Tetrad {
 
 	private MyRegressionParams getRegressionParams(Collection causes,
 			Perspective caused) {
+		// assert causes.size() == (new HashSet(causes)).size();
 		int[] xIndexes = new int[causes.size()];
 		int yIndex = facetIndex(caused);
 		String[] regressorNames = new String[causes.size()];
@@ -623,12 +755,12 @@ public class Tetrad {
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
-		
-		Util.print("primaryFacets (" + primaryFacets().size() + ") \n "
+
+		Util.print("\n" + primaryFacets().size() + " primaryFacets\n "
 				+ Util.join(primaryFacets(), "\n "));
 		List others = new LinkedList(facetsOfInterest());
 		others.removeAll(primaryFacets());
-		Util.print("facetsOfInterest (" + others.size() + ") \n "
+		Util.print(others.size() + " other facets of interest\n "
 				+ Util.join(others, "\n "));
 		// Util.print("counts: " + Util.valueOfDeep(counts));
 
@@ -704,7 +836,6 @@ public class Tetrad {
 		}
 		return result;
 	}
-
 
 	// /**
 	// *
@@ -929,30 +1060,31 @@ public class Tetrad {
 	// }
 	// }
 
-//	private String label;
+	// private String label;
 
 	private String getlabel() {
-//		if (label == null) {
-			StringBuffer base = new StringBuffer();
-			for (Iterator it = primaryFacets().iterator(); it.hasNext();) {
-				Perspective p = (Perspective) it.next();
-				if (base.length() > 0)
-					base.append(" ");
-				base.append(tetradName(p));
-			}
-			base.append(" ").append(
-					formatWeight(MIN_CORE_EDGE_BETA))/*
-													 * .append("_").append(
-													 * formatWeight
-													 * (MIN_CORE_NONCORE_EDGE_BETA
-													 * )).append("_")
-													 * .append(formatWeight
-													 * (MIN_NONCORE_EDGE_BETA))
-													 */.append("_").append(
-					MAX_FACETS).append(" ");
-			return base.toString();
-//		}
-//		return label;
+		// if (label == null) {
+		StringBuffer base = new StringBuffer();
+		for (Iterator it = primaryFacets().iterator(); it.hasNext();) {
+			Perspective p = (Perspective) it.next();
+			if (base.length() > 0)
+				base.append(" ");
+			base.append(tetradName(p));
+		}
+		base.append(" ").append(formatWeight(MIN_BETA))/*
+														 * .append("_").append (
+														 * formatWeight (
+														 * MIN_CORE_NONCORE_EDGE_BETA
+														 * ) ).append("_")
+														 * .append( formatWeight
+														 * (
+														 * MIN_NONCORE_EDGE_BETA
+														 * ))
+														 */.append("_").append(
+				MAX_FACETS).append(" ");
+		return base.toString();
+		// }
+		// return label;
 	}
 
 	static final char CONTROL_Q = 17;
@@ -966,7 +1098,7 @@ public class Tetrad {
 		double factor = shift ? 1.2 : 1 / 1.2;
 		switch (c) {
 		case CONTROL_Q:
-			MIN_CORE_EDGE_BETA *= factor;
+			MIN_BETA *= factor;
 			break;
 		// case CONTROL_W:
 		// MIN_CORE_NONCORE_EDGE_BETA *= factor;
@@ -977,36 +1109,51 @@ public class Tetrad {
 		case CONTROL_R:
 			MAX_FACETS += shift ? 1 : -1;
 			break;
-
 		default:
 			result = false;
 		}
+		if (result)
+			Util.print("MAX_FACETS=" + MAX_FACETS + ", MIN_BETA=" + MIN_BETA);
 		return result;
 	}
 
+	private int printIndex;
+
 	private void printMe(String status, Graph graph) {
-		if (redrawer != null)
-			redrawer.drawTetradGraph(graph, status);
+		if (false && printer != null) {
+			label(graph);
+			printer.drawTetradGraph(graph, Util.extensionFormat
+					.format(printIndex++)
+					+ " " + status);
+		}
+	}
+
+	public double threshold() {
+		return MIN_BETA;
+	}
+
+	public double weight(Graph graph, Node cause, Node caused) {
+		return getBetaWeight(graph, cause, caused);
 	}
 
 }
 
-//class PerspectiveParentPrinter {
-//	private final Perspective facet;
+// class PerspectiveParentPrinter {
+// private final Perspective facet;
 //
-//	private static final StringAlign align = new StringAlign(13,
-//			StringAlign.JUST_LEFT);
+// private static final StringAlign align = new StringAlign(13,
+// StringAlign.JUST_LEFT);
 //
-//	PerspectiveParentPrinter(Perspective p) {
-//		facet = p;
-//	}
+// PerspectiveParentPrinter(Perspective p) {
+// facet = p;
+// }
 //
-//	public String toString() {
-//		String result = align.format(facet);
-//		if (facet.getParent() != null) {
-//			result += " => " + facet.getParent();
-//		}
-//		return result;
-//	}
+// public String toString() {
+// String result = align.format(facet);
+// if (facet.getParent() != null) {
+// result += " => " + facet.getParent();
+// }
+// return result;
+// }
 //
-//}
+// }

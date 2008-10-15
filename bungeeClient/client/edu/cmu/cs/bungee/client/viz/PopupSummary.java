@@ -14,9 +14,10 @@ import edu.cmu.cs.bungee.client.query.Markup;
 import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.cmu.cs.bungee.client.query.Query;
 import edu.cmu.cs.bungee.client.query.tetrad.Tetrad;
-import edu.cmu.cs.bungee.client.query.tetrad.Tetrad.TetradDrawer;
+import edu.cmu.cs.bungee.client.query.tetrad.Tetrad.TetradPrinter;
 import edu.cmu.cs.bungee.javaExtensions.PerspectiveObserver;
 import edu.cmu.cs.bungee.javaExtensions.Util;
+import edu.cmu.cs.bungee.javaExtensions.graph.Node;
 import edu.cmu.cs.bungee.piccoloUtils.gui.APText;
 import edu.cmu.cs.bungee.piccoloUtils.gui.Graph;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
@@ -30,7 +31,8 @@ import edu.umd.cs.piccolo.util.PBounds;
  * see <a href="C:\Projects\ArtMuseum\DesignSketches\popupColors.xcf">color
  * key</a>
  */
-final class PopupSummary extends LazyPNode implements PerspectiveObserver, TetradDrawer {
+final class PopupSummary extends LazyPNode implements PerspectiveObserver,
+		TetradPrinter {
 
 	private static final long TRANSLATE_TO_CORNER_DELAY = 10000;
 
@@ -222,7 +224,9 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver, Tetra
 
 	private PNode tempRatioLabel;
 
-	Graph tetradGraph;
+	Graph graph;
+
+	private edu.cmu.cs.bungee.javaExtensions.graph.Graph tetradGraph;
 
 	private static final float TRANSPARENT = 0;
 
@@ -563,7 +567,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver, Tetra
 				delay(TRANSLATE_TO_CORNER_DELAY);
 			}
 		} else if (showHelp == Step.START_FRAME) {
-			setTetrad();
+//			setTetrad();
 			summary().moveToFront();
 			// setBoundsFromNode(this, barBG, 0);
 			animateToAlignment(this, 2, art.header, 2, -barBG.getX()
@@ -609,7 +613,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver, Tetra
 	}
 
 	boolean updateTetrad() {
-		boolean result = tetradGraph != null;
+		boolean result = graph != null;
 		if (result)
 			setTetrad();
 		return result;
@@ -618,37 +622,54 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver, Tetra
 	boolean setTetrad() {
 		boolean result = facet != null && facet.query().isRestricted();
 		if (result) {
-			if (tetradGraph != null) {
-				removeChild(tetradGraph);
+			if (graph != null) {
+				// If we generate a new Tetrad, the facetsOfInterest might be
+				// different, and we don't want the graph to change on redraws
+				removeChild(graph);
+				relabel(tetradGraph);
+			} else {
+				tetradGraph = Tetrad.getTetradGraph(facet, this, this);
 			}
-			tetradGraph = new Graph(Tetrad.getTetradGraph(facet, this), art.font);
-			tetradGraph.setStrokePaint(BGcolor);
-			tetradGraph
-					.setLabel(tetradGraph.getNumEdges() > 0 ? "Influence Diagram"
-							: "No dependencies");
-			colorFacetGraph(tetradGraph);
-			addChild(tetradGraph);
-			tetradGraph.setWidth(barBG.getWidth());
-			align(tetradGraph, 2, barBG, 18);
-			tetradGraph.translate(-tetradGraph.getX(), -tetradGraph.getY()
-					- MARGIN);
+			graph = getGraph();
+			addChild(graph);
+			graph.setWidth(barBG.getWidth());
+			align(graph, 2, barBG, 18);
+			graph.translate(-graph.getX(), -graph.getY() - MARGIN);
 		}
 		return result;
 		// return false;
 	}
 
+	private void relabel(
+			edu.cmu.cs.bungee.javaExtensions.graph.Graph tetradGraph2) {
+		for (Iterator it = tetradGraph2.getNodes().iterator(); it.hasNext();) {
+			Node node = (Node) it.next();
+			Perspective p = (Perspective) node.object;
+			node.setLabel(p.getName(this));
+		}
+		
+	}
+
+	private Graph getGraph() {
+		Graph graph1 = new Graph(tetradGraph, art.font);
+		graph1.setStrokePaint(BGcolor);
+		graph1.setLabel(graph1.getNumEdges() > 0 ? "Influence Diagram"
+				: "No dependencies");
+		colorFacetGraph(graph1);
+		return graph1;
+	}
+
 	public void drawTetradGraph(
-			edu.cmu.cs.bungee.javaExtensions.graph.Graph graph, String status) {
-		Graph pnode = new Graph(graph, art.font);
+			edu.cmu.cs.bungee.javaExtensions.graph.Graph graph1, String status) {
+		Graph pnode = new Graph(graph1, art.font);
 		pnode.printMe(status);
 	}
-	
 
-	void colorFacetGraph(Graph graph) {
-		for (Iterator it = graph.getNodeObjects().iterator(); it.hasNext();) {
+	void colorFacetGraph(Graph graph1) {
+		for (Iterator it = graph1.getNodeObjects().iterator(); it.hasNext();) {
 			Object object = it.next();
 			if (object instanceof Perspective) {
-				APText node = graph.getNode(object);
+				APText node = graph1.getNode(object);
 				node.setTextPaint(art.facetTextColor((Perspective) object));
 			}
 		}
@@ -941,7 +962,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver, Tetra
 			setBoundsFromNodes(significanceHeader, nodes(significanceDesc,
 					significanceTypeDesc), MARGIN);
 
-			summary().colorKey.moveToFront();
+//			summary().colorKey.moveToFront();
 
 			// Rectangle2D barBounds = ((Bar) anchor).visibleBounds();
 			// double top = barBounds.getY();
@@ -1433,7 +1454,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver, Tetra
 
 	private StringBuffer percentOn(StringBuffer buf) {
 		if (isShowFacetInfo()) {
-			buf = ResultsGrid.formatPercent(facetPercent(), buf);
+			buf = Util.formatPercent(facetPercent(), buf);
 		} else if (buf == null) {
 			buf = new StringBuffer(" ");
 		}
@@ -1472,7 +1493,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver, Tetra
 
 	private StringBuffer siblingPercentOn(StringBuffer buf) {
 		if (isShowFacetInfo()) {
-			buf = ResultsGrid.formatPercent(siblingPercentOn(), buf);
+			buf = Util.formatPercent(siblingPercentOn(), buf);
 		} else if (buf == null) {
 			buf = new StringBuffer(" ");
 		}
@@ -1933,16 +1954,16 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver, Tetra
 			animationSpeed = 0;
 			finishAnimation();
 			summaryBG.removeFromParent();
-			if (tetradGraph != null) {
-				removeChild(tetradGraph);
-				tetradGraph = null;
+			if (graph != null) {
+				graph.removeFromParent();
+				graph = null;
 			}
 			if (isHelp) {
 				art.summary.computeRankComponentHeights(0);
 				// animateBarTransparencies(1, 0, 0);
 				totalCountDescNum.setScale(1);
 				facetCount.setScale(1);
-				summary().doHideTransients();
+//				summary().doHideTransients();
 				if (pv() != null)
 					pv().loseHotZone();
 				siblingPercent.clearAttributes();

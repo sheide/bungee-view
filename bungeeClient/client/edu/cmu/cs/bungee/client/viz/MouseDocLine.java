@@ -57,17 +57,9 @@ final class MouseDocLine extends LazyPNode implements PerspectiveObserver {
 
 	private TextNfacets facetDesc;
 
-	void validate(double w, double h) {
-		// Util.print("MouseDoc.validate: " + _w + " x " + _h);
-		setBounds(0, 0, w, h);
-		clickDesc.setBounds(0, 0, w, h);
-		tip.setBounds(0, 0, w, h);
-		tip.setFont(art.font);
-	}
-
 	MouseDocLine(Bungee _art) {
 		art = _art;
-		facetDesc = new TextNfacets(art, Color.lightGray, false);
+		facetDesc = new TextNfacets(art, Bungee.mouseDocFG, false);
 		// facetDesc.setJustification(Component.CENTER_ALIGNMENT);
 		// RIGHT_ALIGNMENT);
 
@@ -86,12 +78,13 @@ final class MouseDocLine extends LazyPNode implements PerspectiveObserver {
 		facetDesc.setVisible(false);
 		facetDesc.setTrim(0, 0);
 		facetDesc.setRedrawer(this);
+		facetDesc.facetPermanentTextPaint = Bungee.mouseDocFG;
 		addChild(facetDesc);
 
 		clickDesc = new TextNfacets(art, Bungee.mouseDocFG, false);
 		// clickDesc.setPaint(Bungee.headerBG.brighter());
 		clickDesc.setVisible(false);
-		clickDesc.facetPermanentTextPaint = Color.white;
+		clickDesc.facetPermanentTextPaint = Bungee.mouseDocFG;
 		// clickDesc.setWrapText(true);
 		addChild(clickDesc);
 
@@ -107,6 +100,14 @@ final class MouseDocLine extends LazyPNode implements PerspectiveObserver {
 		setPickable(false);
 		setChildrenPickable(false);
 		setPaint(Bungee.headerBG);
+	}
+
+	void validate(double w, double h) {
+		// Util.print("MouseDoc.validate: " + _w + " x " + _h);
+		setBounds(0, 0, w, h);
+		clickDesc.setBounds(0, 0, w, h);
+		tip.setBounds(0, 0, w, h);
+		tip.setFont(art.font);
 	}
 
 	public double minHeight() {
@@ -152,10 +153,10 @@ final class MouseDocLine extends LazyPNode implements PerspectiveObserver {
 		art.getCanvas().paintImmediately();
 	}
 
-	private void setClickDescInternal(Markup s) {
+	 void setClickDescInternal(Markup s) {
 		// Util.print("setClickDescInternal " + s);
 		assert s != null;
-		if (clickDesc.setContent(s)) {
+		if (clickDesc.setContent(s.uncolor())) {
 			// Allow room for facetDoc to at least say "mmmm (100% of nnnn)
 			// P=1E-10"
 			if (art.isPopups()) {
@@ -197,7 +198,7 @@ final class MouseDocLine extends LazyPNode implements PerspectiveObserver {
 		if (facet != null) {
 			desc = Query.emptyMarkup();
 			if (facet.getParent() == null) {
-				desc.add(art.query.genericObjectLabel);
+				desc.add(art.query.getGenericObjectLabel(true));
 				desc.add(" having ");
 			}
 			desc.add(facet);
@@ -242,7 +243,7 @@ final class MouseDocLine extends LazyPNode implements PerspectiveObserver {
 		else
 			buf.append(" matches (");
 
-		ResultsGrid.formatPercent(onCount / (double) count, buf);
+		Util.formatPercent(onCount / (double) count, buf);
 
 		buf.append(" of ");
 		buf.append(Util.addCommas(count));

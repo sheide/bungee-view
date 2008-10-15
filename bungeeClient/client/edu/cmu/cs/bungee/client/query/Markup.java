@@ -149,6 +149,8 @@ public interface Markup extends List {
 	 * @return this Markup rendered as a String
 	 */
 	public String toText(PerspectiveObserver _redraw);
+
+	public Markup uncolor();
 }
 
 final class MarkupImplementation extends ArrayList implements Markup {
@@ -676,6 +678,16 @@ final class MarkupImplementation extends ArrayList implements Markup {
 		Markup result = new MarkupImplementation();
 		result.addAll(this);
 		return result;
+	}
+
+	public Markup uncolor() {
+		for (Iterator it = iterator(); it.hasNext();) {
+			Object o= it.next();
+			if (o instanceof Color) {
+				it.remove();				
+			}
+		}
+		return this;
 	}
 
 }

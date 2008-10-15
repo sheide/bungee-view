@@ -54,16 +54,16 @@ import edu.umd.cs.piccolo.PNode;
  * Used by Summary.summaryText, facet labels, mouse doc & popups
  * 
  */
-final class TextNfacets extends LazyPNode implements PerspectiveObserver {
+class TextNfacets extends LazyPNode implements PerspectiveObserver {
 
-	private final Bungee art;
+	 final Bungee art;
 
 	/**
 	 * Default text paint for Strings. Ignored for ItemPredicates.
 	 */
 	private final Paint defaultTextPaint;
 
-	private Markup content = Query.emptyMarkup();
+	protected Markup content = Query.emptyMarkup();
 
 	// static final double margin = 0;
 
@@ -141,8 +141,8 @@ final class TextNfacets extends LazyPNode implements PerspectiveObserver {
 		assert v != null;
 		assert art != null;
 		if (query() != null) {
-			assert query().genericObjectLabel != null;
-			Markup newV = v.compile(query().genericObjectLabel);
+			assert query().getGenericObjectLabel(true) != null;
+			Markup newV = v.compile(query().getGenericObjectLabel(true));
 			if (!newV.equals(content)) {
 				content = newV;
 				result = true;
@@ -283,19 +283,22 @@ final class TextNfacets extends LazyPNode implements PerspectiveObserver {
 				} else {
 					Paint paint = null;
 					String s;
-					ItemPredicate facet = null;
+					Object facet = null;
 					if (o instanceof String) {
 						assert !plural;
 						paint = color;
 						s = (String) o;
 					} else if (o instanceof Cluster) {
 						s = o.toString();
-						paint = art.clusterTextColor((Cluster) o);
+					} else if (o instanceof SearchText) {
+						s = o.toString();
+						paint = color;
+						facet = o;
 					} else {
 						assert o instanceof ItemPredicate : o
 								+ Util.valueOfDeep(content);
-						facet = (ItemPredicate) o;
-						s = art.facetLabel(facet, -1, -1, false,
+						facet = o;
+						s = art.facetLabel((ItemPredicate) o, -1, -1, false,
 								showCheckBoxAndChildIndicator,
 								showCheckBoxAndChildIndicator, false,
 								getRedrawer());
@@ -325,7 +328,7 @@ final class TextNfacets extends LazyPNode implements PerspectiveObserver {
 		}
 	}
 
-	APText myWrap(final String s, ItemPredicate facet, double x, double y,
+	APText myWrap(final String s, Object facet, double x, double y,
 			double w, double h, Paint paint, int style, boolean underline,
 			ItemPredicate[] restrictions, boolean isFirstLine) {
 //		Util.print("myWrap '" + s + "' x=" + x + " y=" + y + " w=" + w
@@ -337,8 +340,8 @@ final class TextNfacets extends LazyPNode implements PerspectiveObserver {
 				FacetText text;
 				// on recursive calls, s is just the tail end of the facet name,
 				// possibly with checkbox prefix and childindicator suffix
-				if (facet != null && isFirstLine
-						&& strip(s).equals(strip(facet.getNameIfPossible()))) {
+				if (facet instanceof ItemPredicate && isFirstLine
+						&& strip(s).equals(strip(((ItemPredicate) facet).getNameIfPossible()))) {
 					// // if we break the text, second part shouldn't show check
 					// // box
 					// boolean reallyShowCheckBox =
@@ -347,20 +350,22 @@ final class TextNfacets extends LazyPNode implements PerspectiveObserver {
 					text = FacetText.getFacetText(facet, art, -1, w - x,
 							showCheckBoxAndChildIndicator,
 							showCheckBoxAndChildIndicator,
-							facet.guessOnCount(), getRedrawer(), underline);
+							((ItemPredicate) facet).guessOnCount(), getRedrawer(), underline);
 					text.setPermanentTextPaint(facetPermanentTextPaint);
 					// ((FacetText) text).isPickable = isPickable
 					// && facet.parent != null
 					// if (!prefix.equals(text.getText())) {
 					// text.setText(s);
 					// }
+				} else if (facet instanceof SearchText) {
+					text = (FacetText) facet;
+					text.setPermanentTextPaint(facetPermanentTextPaint);
 				} else if (facet != null) {
 					text = FacetText.getFacetText(s, art, -1, w - x,
 							showCheckBoxAndChildIndicator, false, 0,
 							getRedrawer(), underline);
 					text.setObject(facet, s);
 					text.setPermanentTextPaint(facetPermanentTextPaint);
-					text.setColor();
 				} else {
 					text = FacetText.getFacetText(s, art, -1, w - x, false,
 							false, 0, getRedrawer(), underline);
@@ -478,7 +483,7 @@ final class TextNfacets extends LazyPNode implements PerspectiveObserver {
 		trimH = Ymargin;
 	}
 
-	private void trim() {
+	protected void trim() {
 		// Util.print("trim " + content.toString());
 		if (trimW >= 0 || trimH >= 0) {
 			double w = 0;
