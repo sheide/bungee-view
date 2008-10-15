@@ -7,6 +7,7 @@ import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 import java.awt.geom.Line2D.Double;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class Edge {
@@ -19,6 +20,7 @@ public class Edge {
 	private int orientation = BIDIRECTIONAL;
 	private final Node node1;
 	private final Node node2;
+	private final List nodes;
 
 	// private int x1, y1, x2, y2;
 
@@ -27,6 +29,10 @@ public class Edge {
 		this.label = label;
 		this.node1 = node1;
 		this.node2 = node2;
+		List nodes1 = new ArrayList(2);
+		nodes1.add(node1);
+		nodes1.add(node2);
+		nodes = Collections.unmodifiableList(nodes1);
 	}
 
 	boolean hasNode(Node node) {
@@ -63,18 +69,18 @@ public class Edge {
 
 	public void addDirection(Node caused) {
 		assert hasNode(caused);
+//		if (!canCause(caused))
+//		System.out.println("addDirection "+this);
 		orientation |= getMask(caused);
 	}
 
 	public void setDirection(Node caused) {
 		assert hasNode(caused);
 		orientation = getMask(caused);
+//		System.out.println("setDirection "+this);
 	}
 
 	public List getNodes() {
-		List nodes = new ArrayList(2);
-		nodes.add(node1);
-		nodes.add(node2);
 		return nodes;
 	}
 
@@ -163,10 +169,10 @@ public class Edge {
 				+ centerToCenterLine.getX2() + ", "
 				+ centerToCenterLine.getY2() + ")";
 //		Util.print("dd " + rect + " " + result);
-		assert result.getX() >= x1 : result.getX() + " " + x1;
-		assert result.getX() <= x2 : result.getX() + " " + x2;
-		assert result.getY() >= y1 : result.getY() + " " + y1;
-		assert result.getY() <= y2 : result.getY() + " " + y2;
+		assert result.getX() >= x1-0.000001 : result.getX() + " " + x1;
+		assert result.getX() <= x2+0.000001 : result.getX() + " " + x2;
+		assert result.getY() >= y1-0.000001 : result.getY() + " " + y1;
+		assert result.getY() <= y2+0.000001 : result.getY() + " " + y2;
 		return result;
 	}
 

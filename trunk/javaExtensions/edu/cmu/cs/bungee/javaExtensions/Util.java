@@ -39,6 +39,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -83,6 +84,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.Map.Entry;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import javax.imageio.ImageIO;
@@ -142,6 +144,12 @@ public final class Util {
 	 */
 	public static boolean ignore(double ignore) {
 		return ignore == 0 || ignore != 0;
+	}
+	
+	public static double log2 = Math.log(2);
+
+	public static double log2(double x) {
+		return Math.log(x)/log2;
 	}
 
 	/**
@@ -792,7 +800,7 @@ public final class Util {
 	 * @param s2
 	 * @return whether s1 and s2 have an item in common
 	 */
-	public static boolean intersects(Set s1, Set s2) {
+	public static boolean intersects(Collection s1, Collection s2) {
 		for (Iterator it = s2.iterator(); it.hasNext();) {
 			if (s1.contains(it.next()))
 				return true;
@@ -805,7 +813,7 @@ public final class Util {
 	 * @param s2
 	 * @return elements in s1 or s2 but not both.
 	 */
-	public static Set symmetricDifference(Set s1, Set s2) {
+	public static Set symmetricDifference(Collection s1, Collection s2) {
 		Set s = new HashSet(s1);
 		for (Iterator it = s2.iterator(); it.hasNext();) {
 			Object elt = it.next();
@@ -1141,6 +1149,11 @@ public final class Util {
 		return member(a, elt) >= 0;
 	}
 
+	/**
+	 * @param a
+	 * @param elt
+	 * @return index of elt in a, or -1 if not present
+	 */
 	public static int member(Object[] a, Object elt) {
 		return member(a, elt, 0);
 	}
@@ -1809,7 +1822,7 @@ public final class Util {
 				Transparency.BITMASK);
 	}
 
-	private static DecimalFormat extensionFormat = new DecimalFormat("000");
+	public static DecimalFormat extensionFormat = new DecimalFormat("000");
 
 	public static File uniquifyFilename(String prefix, String extension) {
 		File file = null;
@@ -1934,11 +1947,26 @@ public final class Util {
 		in.close();
 		out.close();
 	}
+	
+	public static FilenameFilter getFilenameFilter(String pattern) {
+		return new MyFilenameFilter(pattern);		
+	}
+	
+	private static class MyFilenameFilter implements FilenameFilter{
+		Pattern p;
+		MyFilenameFilter(String pattern){
+			p=Pattern.compile(pattern);
+		}
+		public boolean accept(File directory, String name) {
+			Matcher m = p.matcher(name);
+			return m.matches();
+		}
+	}
 
 	public static String commonPrefix(String s1, String s2) {
 		String prefix = s1;
 		for (int i = 0; i < s1.length(); i++) {
-			if (s2.length() < i || !charEquals(s1.charAt(i), s2.charAt(i))) {
+			if (s2.length() <= i || !charEquals(s1.charAt(i), s2.charAt(i))) {
 				prefix = prefix.substring(0, i);
 				break;
 			}
@@ -2019,6 +2047,19 @@ public final class Util {
 		return (modifiers & InputEvent.ALT_DOWN_MASK) != 0;
 	}
 
+	public static boolean isAnyShiftKeyDown(int modifiers) {
+		return (modifiers & modifierMask) != 0;
+	}
+
+	/**
+	 * Ignore mouse button modifiers, or any others we don't understand
+	 */
+	static final int modifierMask = InputEvent.ALT_DOWN_MASK
+			| InputEvent.ALT_MASK | InputEvent.CTRL_DOWN_MASK
+			| InputEvent.CTRL_MASK | InputEvent.META_DOWN_MASK
+			| InputEvent.META_MASK | InputEvent.SHIFT_DOWN_MASK
+			| InputEvent.SHIFT_MASK;
+
 	public static Iterator arrayIterator(Object[] array, int start,
 			int nElements) {
 		return new ArrayIterator(array, start, nElements);
@@ -2050,7 +2091,13 @@ public final class Util {
 
 	}
 
+	/**
+	 * @param i
+	 * @param bit in [0, 31]
+	 * @return 1 if bit is set in i; else 0. E.g. getBit(4, 2) = 1
+	 */
 	public static int getBit(int i, int bit) {
+		assert bit < 32;
 		return (i >> bit) & 1;
 	}
 
@@ -2058,6 +2105,12 @@ public final class Util {
 		return getBit(i, bit) == 1;
 	}
 
+	/**
+	 * @param i
+	 * @param bit
+	 * @param state
+	 * @return e.g. setBit(8, 0, 1) == 9
+	 */
 	public static int setBit(int i, int bit, boolean state) {
 		int mask = 1 << bit;
 		if (state) {
@@ -2102,5 +2155,25 @@ public final class Util {
 			throw new UnsupportedOperationException();
 		}
 
+	}
+
+	public static StringBuffer formatPercent(double fraction, StringBuffer buf) {
+		if (buf == null)
+			buf = new StringBuffer();
+		double percent = 100.0 * fraction;
+		if (percent < 0)
+			buf.append("?");
+		else if (percent >= 0.95 || percent == 0.0)
+			// Anything larger than this will round to 1.0 if we go down to
+			// tenths.
+			buf.append(((int) (percent + 0.5)));
+		else if (percent >= 0.095 || percent < 0.00095)
+			buf.append("0.").append(((int) (percent * 10.0 + 0.5)));
+		else if (percent >= 0.0095)
+			buf.append("0.0").append(((int) (percent * 100.0 + 0.5)));
+		else if (percent >= 0.00095)
+			buf.append("0.00").append(((int) (percent * 1000.0 + 0.5)));
+		buf.append("%");
+		return buf;
 	}
 }

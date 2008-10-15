@@ -127,28 +127,7 @@ public class StringAlign extends Format {
 	 */
 	public StringBuffer format(Object obj, StringBuffer where,
 			FieldPosition ignore) {
-
-		String s = obj == null ? "<null>" : obj.toString();
-		String wanted = s.substring(0, Math.min(s.length(), maxChars));
-
-		// Get the spaces in the right place.
-		switch (just) {
-		case JUST_RIGHT:
-			pad(where, maxChars - wanted.length());
-			where.append(wanted);
-			break;
-		case JUST_CENTRE:
-			int toAdd = maxChars - wanted.length();
-			pad(where, toAdd / 2);
-			where.append(wanted);
-			pad(where, toAdd - toAdd / 2);
-			break;
-		case JUST_LEFT:
-			where.append(wanted);
-			pad(where, maxChars - wanted.length());
-			break;
-		}
-		return where;
+		return format(obj, where, maxChars, just);
 	}
 
 	public StringBuffer format(Object obj, StringBuffer where) {
@@ -173,7 +152,7 @@ public class StringAlign extends Format {
 		return format(format.format(obj));
 	}
 
-	protected final void pad(StringBuffer to, int howMany) {
+	protected static final void pad(StringBuffer to, int howMany) {
 		for (int i = 0; i < howMany; i++)
 			to.append(' ');
 	}
@@ -186,6 +165,39 @@ public class StringAlign extends Format {
 	/** ParseObject is required, but not useful here. */
 	public Object parseObject(String source, ParsePosition pos) {
 		return source;
+	}
+	
+	public static StringBuffer format(Object obj, StringBuffer where,
+			int maxChars, int just) {
+		if (where==null)
+			where = new StringBuffer();
+
+		String s = obj == null ? "<null>" : obj.toString();
+		String wanted = s.substring(0, Math.min(s.length(), maxChars));
+
+		// Get the spaces in the right place.
+		switch (just) {
+		case JUST_RIGHT:
+			pad(where, maxChars - wanted.length());
+			where.append(wanted);
+			break;
+		case JUST_CENTRE:
+			int toAdd = maxChars - wanted.length();
+			pad(where, toAdd / 2);
+			where.append(wanted);
+			pad(where, toAdd - toAdd / 2);
+			break;
+		case JUST_LEFT:
+			where.append(wanted);
+			pad(where, maxChars - wanted.length());
+			break;
+		}
+		return where;		
+	}
+	
+	public static String format(Object obj,
+			int maxChars, int just) {
+		return format(obj, null, maxChars, just).toString();		
 	}
 
 }
