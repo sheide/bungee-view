@@ -1,10 +1,12 @@
 package edu.cmu.cs.bungee.javaExtensions.graph;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -12,16 +14,26 @@ import java.util.Set;
 import edu.cmu.cs.bungee.javaExtensions.PermutationIterator;
 import edu.cmu.cs.bungee.javaExtensions.Util;
 
+//import edu.cmu.cs.bungee.javaExtensions.Util;
+
 public class Graph {
+	public interface GraphWeigher {
+		double weight(Graph graph, Node cause, Node caused);
+
+		double threshold();
+	}
+
 	private static final int GRAPH_EDGE_LENGTH = 150;
 	private final Map edgesLookupTable;
 	private final Set edges;
 	private final Map nodesTable;
 	private final Map namesToNodesTable;
 	private int nodeIndex;
+	private GraphWeigher weigher;
 	public String label = "Graph";
 
-	public Graph() {
+	public Graph(GraphWeigher weigher) {
+		this.weigher = weigher;
 		edgesLookupTable = new HashMap();
 		edges = new HashSet();
 		nodesTable = new HashMap();
@@ -35,13 +47,14 @@ public class Graph {
 		namesToNodesTable = new HashMap(copyFrom.namesToNodesTable);
 		nodeIndex = copyFrom.nodeIndex;
 		label = copyFrom.label;
+		weigher = copyFrom.weigher;
 		// Util.print("hh "+nodesTable);
 	}
 
 	private boolean checkConsistency() {
 		for (Iterator it = getEdges().iterator(); it.hasNext();) {
 			Edge edge = (Edge) it.next();
-			assert edge.getNumDirections() > 0;
+			// assert edge.getNumDirections() > 0;
 			for (Iterator it2 = edge.getNodes().iterator(); it2.hasNext();) {
 				Node node = (Node) it2.next();
 				assert hasNode(node);
@@ -59,13 +72,19 @@ public class Graph {
 		return nodeIndex(node) > -1;
 	}
 
-	public Node getNode(String name) {
-		return (Node) namesToNodesTable.get(name);
+	public Node getNode(Object object) {
+		return (Node) namesToNodesTable.get(object);
 	}
 
-	public Node addNode(String name) {
+	public Node addNode(Object object, String name) {
 		assert getNode(name) == null;
-		Node node = new Node(name);
+		Node node = new Node(object, name);
+		ensureNode(node);
+		return node;
+	}
+
+	public Node addNode(Node node) {
+		assert !hasNode(node);
 		ensureNode(node);
 		return node;
 	}
@@ -73,7 +92,8 @@ public class Graph {
 	private void ensureNode(Node node) {
 		if (!hasNode(node)) {
 			nodesTable.put(node, new Integer(nodeIndex++));
-			namesToNodesTable.put(node.getLabel(), node);
+			assert node.object != null;
+			namesToNodesTable.put(node.object, node);
 			assert checkConsistency();
 		}
 	}
@@ -86,27 +106,35 @@ public class Graph {
 			removeEdge(edge);
 		}
 		nodesTable.remove(node);
-		namesToNodesTable.remove(node.getLabel());
+		assert node.object != null;
+		namesToNodesTable.remove(node.object);
 		assert checkConsistency();
 	}
 
-	public void removeNode(String label) {
-		removeNode(getNode(label));
+	public void removeNode(String label1) {
+		removeNode(getNode(label1));
 	}
 
 	public Edge getEdge(Node node1, Node node2) {
-		assert hasNode(node1) : node1 + " " + this;
-		assert hasNode(node2) : node2 + " " + this;
 		Set nodes = new HashSet(2);
 		nodes.add(node1);
 		nodes.add(node2);
+		return getEdge(nodes);
+	}
+
+	public Edge getEdge(Set nodes) {
+		assert nodes.size() == 2;
+		for (Iterator it = nodes.iterator(); it.hasNext();) {
+			Node node = (Node) it.next();
+			assert hasNode(node) : node + " " + this;
+		}
 		return (Edge) edgesLookupTable.get(nodes);
 	}
 
-	public Edge addEdge(String label, Node node1, Node node2) {
+	public Edge addEdge(String label1, Node node1, Node node2) {
 		assert hasNode(node1) && hasNode(node2);
 		assert getEdge(node1, node2) == null;
-		Edge edge = new Edge(label, node1, node2);
+		Edge edge = new Edge(label1, node1, node2);
 		Set nodes = new HashSet(2);
 		nodes.add(node1);
 		nodes.add(node2);
@@ -133,8 +161,14 @@ public class Graph {
 		return result;
 	}
 
+	public int getNumEdges() {
+		return edges.size();
+	}
+
 	public Set getEdges() {
-		return Collections.unmodifiableSet(edges);
+		// too slow
+		// return Collections.unmodifiableSet(edges);
+		return edges;
 	}
 
 	public Set getEdges(Node node) {
@@ -146,6 +180,47 @@ public class Graph {
 				result.add(edge);
 		}
 		return result;
+	}
+
+	public Iterator getNodeEdgeIterator(Node node) {
+		return new NodeEdgeIterator(node);
+	}
+
+	public class NodeEdgeIterator implements Iterator {
+		private final Node node;
+		private final Iterator edgeIterator;
+
+		private Edge next;
+
+		NodeEdgeIterator(Node node) {
+			this.node = node;
+			edgeIterator = getEdges().iterator();
+			peek();
+		}
+
+		private void peek() {
+			next = null;
+			while (edgeIterator.hasNext() && next == null) {
+				Edge edge = (Edge) edgeIterator.next();
+				if (edge.hasNode(node))
+					next = edge;
+			}
+		}
+
+		public boolean hasNext() {
+			return next != null;
+		}
+
+		public Object next() {
+			Edge result = next;
+			peek();
+			return result;
+		}
+
+		public void remove() {
+			throw new UnsupportedOperationException();
+		}
+
 	}
 
 	public Set getUpstreamEdges(Node node) {
@@ -170,6 +245,19 @@ public class Graph {
 		return result;
 	}
 
+	public void pruneNullEdges() {
+		Collection weak = new LinkedList();
+		for (Iterator it = getEdges().iterator(); it.hasNext();) {
+			Edge edge = (Edge) it.next();
+			if (edge.getNumDirections() == 0)
+				weak.add(edge);
+		}
+		for (Iterator it = weak.iterator(); it.hasNext();) {
+			Edge edge = (Edge) it.next();
+			removeEdge(edge);
+		}
+	}
+
 	/**
 	 * @param leftNode
 	 *            index of proposed left node
@@ -189,7 +277,7 @@ public class Graph {
 
 	private int netCauses(Node node) {
 		int score = 0;
-		for (Iterator it = getEdges(node).iterator(); it.hasNext();) {
+		for (Iterator it = getNodeEdgeIterator(node); it.hasNext();) {
 			Edge edge = (Edge) it.next();
 			if (edge.canCause(node))
 				score++;
@@ -295,10 +383,192 @@ public class Graph {
 	public Set getAdjacentNodes(Node node) {
 		assert hasNode(node);
 		Set result = new HashSet();
-		for (Iterator it = getEdges(node).iterator(); it.hasNext();) {
+		for (Iterator it = getNodeEdgeIterator(node); it.hasNext();) {
 			Edge edge = (Edge) it.next();
 			assert hasNode(edge.getDistalNode(node));
 			result.add(edge.getDistalNode(node));
+		}
+		return result;
+	}
+
+	public void union(Graph subgraph) {
+		for (Iterator it = subgraph.getEdges().iterator(); it.hasNext();) {
+			Edge edge = (Edge) it.next();
+			Node caused = edge.getCausedNode();
+			Node cause = edge.getCausingNode();
+			ensureNode(caused);
+			ensureNode(cause);
+			Edge myEdge = getEdge(cause, caused);
+			if (myEdge == null) {
+				myEdge = addEdge(edge.getLabel(), cause, caused);
+				myEdge.setDirection(caused);
+			} else
+				myEdge.addDirection(caused);
+
+		}
+
+	}
+
+	/**
+	 * @param subgraph
+	 * @return whether all subgraph's [directed] edges are present in this Graph
+	 */
+	public boolean contains(Graph subgraph) {
+		if (subgraph.getNumEdges() > getNumEdges())
+			return false;
+		for (Iterator it = subgraph.getEdges().iterator(); it.hasNext();) {
+			Edge subedge = (Edge) it.next();
+			List nodes = subedge.getNodes();
+			Node node1 = (Node) nodes.get(0);
+			if (!hasNode(node1))
+				return false;
+			Node node2 = (Node) nodes.get(1);
+			if (!hasNode(node2))
+				return false;
+			Edge edge = getEdge(node1, node2);
+			if (edge == null)
+				return false;
+			if (subedge.canCause(node1) && !edge.canCause(node1))
+				return false;
+			if (subedge.canCause(node2) && !edge.canCause(node2))
+				return false;
+		}
+		return true;
+	}
+
+	// Might be worthwhile to prune in order of strength
+	public void pruneWeakEdges() {
+		if (weigher != null) {
+			int result = 1;
+			while (result > 0) {
+				// Unlikely but possible that pruning weakens another edge
+				result = 0;
+				for (Iterator it = getEdges().iterator(); it.hasNext();) {
+					Edge edge = (Edge) it.next();
+					for (Iterator nodeIt = edge.getNodes().iterator(); nodeIt
+							.hasNext();) {
+						Node caused = (Node) nodeIt.next();
+						if (edge.canCause(caused)) {
+							double beta = Math.abs(weigher.weight(this, edge
+									.getDistalNode(caused), caused));
+							// Util.print("prune? "+edge+" "+beta);
+							if (beta < weigher.threshold()) {
+								edge.removeDirection(caused);
+								result++;
+							}
+						}
+					}
+				}
+				pruneNullEdges();
+			}
+		}
+	}
+
+	/**
+	 * Makes graph1 undirected, and removes nodes that do not lie on a path
+	 * between two core nodes.
+	 */
+	public int removeNonpathEdges(Node primary1, Node primary2) {
+		Collection pathEdges = pathEdges(primary1, primary2, 0);
+		return retainAllEdges(pathEdges);
+	}
+
+	private int retainAllEdges(Collection pathEdges) {
+		int result = 0;
+		for (Iterator it = (new ArrayList(getEdges())).iterator(); it.hasNext();) {
+			Edge edge = (Edge) it.next();
+			if (!pathEdges.contains(edge)) {
+				// Util.print("Removing satellite node " + node);
+				removeEdge(edge);
+				result++;
+			}
+		}
+		return result;
+	}
+
+	/**
+	 * Makes graph1 undirected, and removes nodes that do not lie on a path
+	 * between two core nodes.
+	 */
+	public int removeNonpathEdges(Node[] primaryNodes) {
+		Collection pathEdges = new HashSet();
+		for (int i = 0; i < primaryNodes.length; i++) {
+			Node primary1 = primaryNodes[i];
+			for (int j = i + 1; j < primaryNodes.length; j++) {
+				Node primary2 = primaryNodes[j];
+				pathEdges.addAll(pathEdges(primary1, primary2, 0));
+			}
+		}
+		//Util.print("removeNPE "+Util.valueOfDeep(primaryNodes)+" "+pathEdges);
+		int result = retainAllEdges(pathEdges);
+		Collection nodesToRemove = new LinkedList();
+		for (Iterator it = getNodes().iterator(); it.hasNext();) {
+			Node node = (Node) it.next();
+			if (!Util.isMember(primaryNodes, node)
+					&& getEdges(node).size() == 0)
+				nodesToRemove.add(node);
+		}
+		for (Iterator it = nodesToRemove.iterator(); it.hasNext();) {
+			Node node = (Node) it.next();
+			removeNode(node);
+		}
+		return result;
+	}
+
+	public boolean allOnPath(Node primary1, Node primary2, double threahold) {
+		return pathEdges(primary1, primary2, threahold).size() == getNumEdges();
+	}
+
+	/**
+	 * downstream means in the direction of the arrow
+	 * 
+	 * @return all edges in graph1 that lie on a colliderless path between two
+	 *         primary nodes
+	 */
+	private Collection pathEdges(Node primary1, Node primary2, double threshold) {
+		Collection pathEdges = new HashSet();
+		Collection nodeStack = new HashSet();
+		nodeStack.add(primary1);
+		pathEdgesInternal(pathEdges, primary2, nodeStack, primary1, false,
+				threshold, 1);
+		return pathEdges;
+	}
+
+	/**
+	 * Depth-first sesarch, backtracking if we're in a loop, or meet a collider.
+	 * If we reach a goal node, add the current path to pathEdges
+	 */
+	private boolean pathEdgesInternal(Collection pathEdges, Node goalNode,
+			Collection nodeStack, Node node, boolean downstreamOnly,
+			double threshold, double strength) {
+		boolean result = false;
+		for (Iterator it = getNodeEdgeIterator(node); it.hasNext();) {
+			Edge edge = (Edge) it.next();
+			Node adj = edge.getDistalNode(node);
+			// Util.print("RSNI " + node + " " + adj + " " + seenArrow);
+			boolean isDownstream = edge.canCause(adj);
+			// It's always OK to go downstream, but once you have, you can't go
+			// up again
+			if (!nodeStack.contains(adj) && (!downstreamOnly || isDownstream)) {
+				double beta = threshold > 0 && weigher != null ? Math
+						.abs(weigher.weight(this, edge.getCausingNode(), edge
+								.getCausedNode())) : 1;
+				double substrength = strength * beta;
+				if (substrength >= threshold) {
+					boolean add = goalNode == adj;
+					if (!add) {
+						nodeStack.add(adj);
+						add = pathEdgesInternal(pathEdges, goalNode, nodeStack,
+								adj, downstreamOnly || isDownstream, threshold,
+								substrength);
+						nodeStack.remove(adj);
+					}
+					if (add) {
+						pathEdges.add(edge);
+						result = true;
+					}
+				}
+			}
 		}
 		return result;
 	}
@@ -310,23 +580,6 @@ public class Graph {
 			buf.append(edge).append("\n");
 		}
 		return buf.toString();
-	}
-
-	public void union(Graph subgraph) {
-		for (Iterator it = subgraph.getEdges().iterator(); it.hasNext();) {
-			Edge edge = (Edge) it.next();
-			Node caused = edge.getCausedNode();
-			Node cause = edge.getCausingNode();
-			ensureNode(caused);
-			ensureNode(cause);
-			Edge oldEdge = getEdge(cause, caused);
-			if (oldEdge == null) {
-				addEdge(edge.getLabel(), cause, caused).setDirection(caused);
-			} else
-				oldEdge.addDirection(caused);
-
-		}
-
 	}
 
 }

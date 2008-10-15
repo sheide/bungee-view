@@ -23,6 +23,7 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
@@ -31,7 +32,7 @@ public class MyResultSet implements ResultSet, Serializable {
 
 	private int currentRow;
 
-	private int nRows;
+	int nRows;
 
 	private Column[] columns;
 
@@ -44,24 +45,15 @@ public class MyResultSet implements ResultSet, Serializable {
 			Object col9, Object col10) {
 		List temp = new ArrayList();
 		addCol(col1, temp);
-		if (col2 != null)
-			addCol(col2, temp);
-		if (col3 != null)
-			addCol(col3, temp);
-		if (col4 != null)
-			addCol(col4, temp);
-		if (col5 != null)
-			addCol(col5, temp);
-		if (col6 != null)
-			addCol(col6, temp);
-		if (col7 != null)
-			addCol(col7, temp);
-		if (col8 != null)
-			addCol(col8, temp);
-		if (col9 != null)
-			addCol(col9, temp);
-		if (col10 != null)
-			addCol(col10, temp);
+		addCol(col2, temp);
+		addCol(col3, temp);
+		addCol(col4, temp);
+		addCol(col5, temp);
+		addCol(col6, temp);
+		addCol(col7, temp);
+		addCol(col8, temp);
+		addCol(col9, temp);
+		addCol(col10, temp);
 		return Collections.unmodifiableList(temp);
 	}
 
@@ -132,14 +124,14 @@ public class MyResultSet implements ResultSet, Serializable {
 			Column.SortedIntegerType, Column.IntegerType, null, null, null,
 			null, null, null, null, null);
 
-	public static final List SINT_INT_INT = makeColumnTypeList(
-			Column.SortedIntegerType, Column.IntegerType, Column.IntegerType,
-			null, null, null, null, null, null, null);
-
 	public static final List SINT_INT_INT_INT_INT = makeColumnTypeList(
-			Column.SortedIntegerType, Column.IntegerType, Column.IntegerType,
+			Column.PositiveIntegerType, Column.IntegerType, Column.IntegerType,
 			Column.IntegerType, Column.IntegerType, null, null, null, null,
 			null);
+
+	public static final List SNMINT_INT_INT = makeColumnTypeList(
+			Column.SortedNMIntegerType, Column.IntegerType, Column.IntegerType,
+			null, null, null, null, null, null, null);
 
 	public static final List SNMINT_PINT = makeColumnTypeList(
 			Column.SortedNMIntegerType, Column.PositiveIntegerType, null, null,
@@ -151,6 +143,9 @@ public class MyResultSet implements ResultSet, Serializable {
 	public static final List STRING_IMAGE_INT_INT = makeColumnTypeList(
 			Column.StringType, Column.ImageType, Column.IntegerType,
 			Column.IntegerType, null, null, null, null, null, null);
+
+	public static final List STRING_INT = makeColumnTypeList(Column.StringType,
+			Column.IntegerType, null, null, null, null, null, null, null, null);
 
 	public static final List STRING_INT_INT = makeColumnTypeList(
 			Column.StringType, Column.IntegerType, Column.IntegerType, null,
@@ -185,26 +180,35 @@ public class MyResultSet implements ResultSet, Serializable {
 				boolean sorted = false;
 				boolean positive = false;
 				Object type = types.get(i);
-				if (type == Column.SortedIntegerType) {
-					sorted = true;
-					positive = true;
-					columns[i] = new IntColumn(s, nRows, sorted, positive);
-				} else if (type == Column.PositiveIntegerType) {
-					positive = true;
-					columns[i] = new IntColumn(s, nRows, sorted, positive);
-				} else if (type == Column.IntegerType) {
-					columns[i] = new IntColumn(s, nRows, sorted, positive);
-				} else if (type == Column.SortedNMIntegerType) {
-					sorted = true;
-					columns[i] = new IntColumn(s, nRows, sorted, positive);
-				} else if (type == Column.StringType) {
-					columns[i] = new StringColumn(s, nRows);
-				} else if (type == Column.DoubleType) {
-					columns[i] = new DoubleColumn(s, nRows);
-				} else if (type == Column.ImageType) {
-					columns[i] = new BlobColumn(s, nRows);
-				} else {
-					assert false : "Unknown column type: " + type;
+				try {
+					if (type == Column.SortedIntegerType) {
+						sorted = true;
+						positive = true;
+						columns[i] = new IntColumn(s, nRows, sorted, positive);
+					} else if (type == Column.PositiveIntegerType) {
+						positive = true;
+						columns[i] = new IntColumn(s, nRows, sorted, positive);
+					} else if (type == Column.IntegerType) {
+						columns[i] = new IntColumn(s, nRows, sorted, positive);
+					} else if (type == Column.SortedNMIntegerType) {
+						sorted = true;
+						columns[i] = new IntColumn(s, nRows, sorted, positive);
+					} else if (type == Column.StringType) {
+						columns[i] = new StringColumn(s, nRows);
+					} else if (type == Column.DoubleType) {
+						columns[i] = new DoubleColumn(s, nRows);
+					} else if (type == Column.ImageType) {
+						columns[i] = new BlobColumn(s, nRows);
+					} else {
+						assert false : "Unknown column type: " + type;
+					}
+				} catch (IOException e) {
+					Util.err("While reading " + type + " column " + i + " of "
+							+ types);
+					for (int j = 0; j < i; j++) {
+						Util.err(Util.valueOfDeep(columns[j].getValues()));
+					}
+					e.printStackTrace();
 				}
 			}
 		}
@@ -306,42 +310,39 @@ public class MyResultSet implements ResultSet, Serializable {
 	// 10 xxxxxx,xxxxxxxx
 	// 110 xxxxx,xxxxxxxx,xxxxxxxx
 	// 111 xxxxx,xxxxxxxx,xxxxxxxx,xxxxxxxx
-	static int readIntOrTwo(DataInputStream in, int[] second) {
+	static int readIntOrTwo(DataInputStream in, int[] second)
+			throws IOException {
 		int result = -1;
 		second[0] = -1;
-		try {
-			int n = in.readUnsignedByte();
-			// Util.print("riot " + n);
-			if (n >= 64) {
-				if (n >= 128) {
-					if (n >= 192) {
-						if (n >= 224) {
-							// starts 111; read 4 bytes
-							result = ((n & 31) << 24)
-									+ (in.readUnsignedByte() << 16)
-									+ (in.readUnsignedByte() << 8)
-									+ in.readUnsignedByte();
-						} else {
-							// starts 110; read 3 bytes
-							result = ((n & 31) << 16)
-									+ (in.readUnsignedByte() << 8)
-									+ in.readUnsignedByte();
-						}
+		int n = in.readUnsignedByte();
+		// Util.print("riot " + n);
+		if (n >= 64) {
+			if (n >= 128) {
+				if (n >= 192) {
+					if (n >= 224) {
+						// starts 111; read 4 bytes
+						result = ((n & 31) << 24)
+								+ (in.readUnsignedByte() << 16)
+								+ (in.readUnsignedByte() << 8)
+								+ in.readUnsignedByte();
 					} else {
-						// starts 10; read 2 bytes
-						result = ((n & 63) << 8) + in.readUnsignedByte();
+						// starts 110; read 3 bytes
+						result = ((n & 31) << 16)
+								+ (in.readUnsignedByte() << 8)
+								+ in.readUnsignedByte();
 					}
 				} else {
-					// starts 01; read two half-bytes
-					result = (n & 56) >> 3;
-					second[0] = n & 7;
+					// starts 10; read 2 bytes
+					result = ((n & 63) << 8) + in.readUnsignedByte();
 				}
 			} else {
-				// starts 0; read 1 bytes
-				result = n;
+				// starts 01; read two half-bytes
+				result = (n & 56) >> 3;
+				second[0] = n & 7;
 			}
-		} catch (IOException e) {
-			e.printStackTrace();
+		} else {
+			// starts 0; read 1 bytes
+			result = n;
 		}
 		// System.out.println("readIntOrTwo " + result + " " + second[0]);
 		return result;
@@ -608,33 +609,42 @@ public class MyResultSet implements ResultSet, Serializable {
 		private int[] values;
 
 		public IntColumn(DataInputStream s, int nRows1, boolean sorted,
-				boolean positive) {
+				boolean positive) throws IOException {
 			// Util.print("IntColumn " + sorted + " " + positive + " " + nRows);
 			values = new int[nRows1];
 			int[] vals = new int[1];
 			int prev = 0;
 			for (int i = 0; i < nRows1; i++) {
-				if (sorted) {
-					prev += readIntOrTwo(s, vals);
-					if (positive)
-						prev++;
-					values[i] = prev;
-					if (vals[0] >= 0) {
-						prev += vals[0];
+				try {
+					if (sorted) {
+						prev += readIntOrTwo(s, vals);
 						if (positive)
 							prev++;
-						values[++i] = prev;
+						values[i] = prev;
+						if (vals[0] >= 0) {
+							prev += vals[0];
+							if (positive)
+								prev++;
+							values[++i] = prev;
+						}
+					} else if (positive) {
+						values[i] = readIntOrTwo(s, vals) + 1;
+						if (vals[0] >= 0) {
+							values[++i] = vals[0] + 1;
+						}
+					} else {
+						values[i] = readIntOrTwo(s, vals);
+						if (vals[0] >= 0) {
+							values[++i] = vals[0];
+						}
 					}
-				} else if (positive) {
-					values[i] = readIntOrTwo(s, vals) + 1;
-					if (vals[0] >= 0) {
-						values[++i] = vals[0] + 1;
+				} catch (IOException e) {
+					Util.err("While reading integer from row " + i + " of "
+							+ nRows);
+					for (int j = 0; j <= i; j++) {
+						Util.err("row " + j + " = " + values[j]);
 					}
-				} else {
-					values[i] = readIntOrTwo(s, vals);
-					if (vals[0] >= 0) {
-						values[++i] = vals[0];
-					}
+					throw (e);
 				}
 			}
 		}
@@ -657,6 +667,14 @@ public class MyResultSet implements ResultSet, Serializable {
 		protected double getDouble(int row) {
 			assert false;
 			return values[row - 1];
+		}
+
+		public Object[] getValues() {
+			Integer[] result = new Integer[values.length];
+			for (int i = 0; i < values.length; i++) {
+				result[i] = new Integer(values[i]);
+			}
+			return result;
 		}
 	}
 
@@ -1412,13 +1430,31 @@ public class MyResultSet implements ResultSet, Serializable {
 			rs.absolute(row);
 	}
 
+	public String valueOfDeep(int maxRows) {
+		List types = new LinkedList();
+		for (int i = 0; i < columns.length; i++) {
+			Column column = columns[i];
+			Object type = null;
+			if (column instanceof IntColumn)
+				type = Column.IntegerType;
+			else if (column instanceof BlobColumn)
+				type = Column.ImageType;
+			else if (column instanceof StringColumn)
+				type = Column.ImageType;
+			else if (column instanceof StringColumn)
+				type = Column.StringType;
+			types.add(type);
+		}
+		return valueOfDeep(this, types, maxRows);
+	}
+
 	public static String valueOfDeep(ResultSet result, List types, int maxRows) {
 		StringBuffer buf = new StringBuffer();
 		try {
 			int nRows = MyResultSet.nRows(result);
 			int nCols = types.size();
-			buf.append(nRows).append(" rows, ").append(nCols).append(
-					" cols in result set");
+			// buf.append(nRows).append(" rows, ").append(nCols).append(
+			// " cols in result set");
 			int row = result.getRow();
 			result.beforeFirst();
 			for (int i = 0; i < nRows && (maxRows < 0 || i < maxRows); i++) {
@@ -1441,6 +1477,10 @@ public class MyResultSet implements ResultSet, Serializable {
 						assert false : "Unknown ColumnType: " + type;
 				}
 			}
+			if (nRows > maxRows) {
+				buf.append("\n... ").append(nRows - maxRows).append(
+						" more records");
+			}
 			resetRow(result, row);
 		} catch (SQLException e) {
 			e.printStackTrace();
@@ -1460,7 +1500,7 @@ public class MyResultSet implements ResultSet, Serializable {
 			return null;
 		}
 
-		public int getColumnCount() throws SQLException {			
+		public int getColumnCount() throws SQLException {
 			return MyResultSet.this.getColumnCount();
 		}
 

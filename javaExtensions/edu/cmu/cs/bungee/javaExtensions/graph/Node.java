@@ -9,10 +9,11 @@ public class Node {
 
 	private int centerX;
 	private int centerY;
-	public Object object;
+	public final Object object;
 
-	public Node(String label) {
+	public Node(Object object,String label) {
 		this.label = label;
+		this.object=object;
 	}
 
 	public int getCenterX() {
