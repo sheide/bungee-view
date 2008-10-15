@@ -211,6 +211,7 @@ public class ChiSq2x2 {
 		// double corr2 = sampleCovariance() / Math.sqrt(sampleVariance(ROW) *
 		// sampleVariance(COL));
 		// assert corr1==corr2:corr1+" "+corr2;
+		assert !Double.isNaN(corr1) : printTable();
 		return corr1;
 	}
 
