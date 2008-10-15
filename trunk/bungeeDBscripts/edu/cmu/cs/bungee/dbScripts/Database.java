@@ -27,7 +27,7 @@ public class Database {
 	JDBCSample jdbc;
 	String descriptionFields;
 
-	private int recordNum;
+	 int recordNum;
 
 	/**
 	 * Truncate names to this length before inserting
