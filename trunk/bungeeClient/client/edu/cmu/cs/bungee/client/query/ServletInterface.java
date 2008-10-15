@@ -148,9 +148,15 @@ final class ServletInterface {
 			facetCount = MyResultSet.readInt(in);
 			itemCount = MyResultSet.readInt(in);
 			itemDescriptionFields = MyResultSet.readString(in);
+			// Util.print("itemDescriptionFields "+itemDescriptionFields);
 			label = MyResultSet.readString(in);
 			doc = MyResultSet.readString(in);
-			isEditable = "Y".equalsIgnoreCase(MyResultSet.readString(in));
+			String isEditableVal = MyResultSet.readString(in);
+			assert isEditableVal == null || isEditableVal.length() == 0
+					|| isEditableVal.equalsIgnoreCase("N")
+					|| isEditableVal.equalsIgnoreCase("Y") : "Suspicious globals.isEditable value: "
+					+ isEditableVal;
+			isEditable = "Y".equalsIgnoreCase(isEditableVal);
 
 			initPerspectives = new MyResultSet(in,
 					MyResultSet.STRING_STRING_STRING_INT_INT_INT_INT);
@@ -194,8 +200,9 @@ final class ServletInterface {
 		DataInputStream in = null;
 		HttpURLConnection conn = null;
 		status = null;
+		StringBuffer s = null;
 		try {
-			StringBuffer s = new StringBuffer();
+			s = new StringBuffer();
 			s.append("?command=").append(command);
 			if (args != null) {
 				for (int i = 0; i < args.length; i++) {
@@ -268,11 +275,12 @@ final class ServletInterface {
 		if (status.equals("OK"))
 			status = null;
 		if (status != null)
-			System.err.println("getStream status: " + status);
-		if (command.equals("CONNECT")) {
-			Util.print("\nConnection using proxy? " + conn.usingProxy() + " "
-					+ conn.getRequestMethod() + " ");
-		}
+			System.err.println("\ngetStream status: " + status
+					+ "\nin response to " + s + "\n");
+		// if (command.equals("CONNECT")) {
+		// Util.print("\nConnection using proxy? " + conn.usingProxy() + " "
+		// + conn.getRequestMethod() + " ");
+		// }
 
 		return in;
 	}
@@ -674,15 +682,15 @@ final class ServletInterface {
 		return result;
 	}
 
-	ResultSet addItemsFacet(int facet) {
-		String[] args = { Integer.toString(facet) };
+	ResultSet addItemsFacet(int facet, int table) {
+		String[] args = { Integer.toString(facet), Integer.toString(table) };
 		ResultSet result = getResultSet("addItemsFacet", args,
 				MyResultSet.SINT_INT_INT_INT_INT);
 		return result;
 	}
 
-	ResultSet removeItemsFacet(int facet) {
-		String[] args = { Integer.toString(facet) };
+	ResultSet removeItemsFacet(int facet, int table) {
+		String[] args = { Integer.toString(facet), Integer.toString(table) };
 		ResultSet result = getResultSet("removeItemsFacet", args,
 				MyResultSet.SINT_INT_INT_INT_INT);
 		return result;
@@ -712,6 +720,11 @@ final class ServletInterface {
 	void writeback() {
 		String[] args = {};
 		dontGetStream("writeback", args);
+	}
+
+	void revert(String date) {
+		String[] args = { date };
+		dontGetStream("revert", args);
 	}
 
 	void rotate(int item, String theta) {
@@ -753,7 +766,7 @@ final class ServletInterface {
 	ResultSet caremediaPlayArgs(String items) {
 		String[] args = { items };
 		ResultSet result = getResultSet("caremediaPlayArgs", args,
-				MyResultSet.SINT_INT_INT);
+				MyResultSet.SNMINT_INT_INT);
 		return result;
 	}
 

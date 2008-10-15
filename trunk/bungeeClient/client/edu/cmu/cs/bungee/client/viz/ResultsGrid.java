@@ -52,6 +52,7 @@ import edu.cmu.cs.bungee.javaExtensions.*;
 import edu.cmu.cs.bungee.javaExtensions.threads.UpdateNoArgsThread;
 import edu.cmu.cs.bungee.piccoloUtils.gui.APText;
 import edu.cmu.cs.bungee.piccoloUtils.gui.Boundary;
+import edu.cmu.cs.bungee.piccoloUtils.gui.AbstractMenuItem;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyContainer;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPPath;
@@ -119,9 +120,7 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 
 	RangeEnsurer rangeEnsurer;
 
-	private APText countLabel;
-
-	private APText percentLabel;
+//	private APText countLabel;
 
 	private LazyPPath outline;
 
@@ -153,15 +152,15 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 		label.scale(2.0);
 		label.setTextPaint(Bungee.gridFG);
 		label.setPickable(false);
-		label.setText("Results");
+		label.setText("Matching " + art.query.getGenericObjectLabel(true));
 
-		countLabel = art.oneLineLabel();
-		countLabel.setTextPaint(Bungee.gridFG);
-		countLabel.setPickable(false);
+//		countLabel = art.oneLineLabel();
+//		countLabel.setTextPaint(Bungee.gridFG);
+//		countLabel.setPickable(false);
 
-		percentLabel = art.oneLineLabel();
-		percentLabel.setTextPaint(Bungee.gridFG);
-		percentLabel.setPickable(false);
+//		percentLabel = art.oneLineLabel();
+//		percentLabel.setTextPaint(Bungee.gridFG);
+//		percentLabel.setPickable(false);
 
 		thumbnails = new Thumbnails();
 
@@ -211,24 +210,22 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 		if (art.getShowSortMenu())
 			addChild(sortLabel);
 
-		Runnable doReorder = new Runnable() {
-			public void run() {
-				reorder(((Integer) sortMenu.getData()).intValue());
-			}
-		};
+		// Runnable doReorder = new Runnable() {
+		// public void run() {
+		// reorder(((Integer) sortMenu.getData()).intValue());
+		// }
+		// };
 
-		sortMenu = new Menu(Bungee.gridBG, Bungee.gridFG.darker(), doReorder,
-				art.font);
+		sortMenu = new Menu(Bungee.gridBG, Bungee.gridFG.darker(), art.font);
 		sortMenu.mouseDoc = "Choose how Results are Sorted";
-		sortMenu.addButton("Random", "Show thumbnails in random order",
-				new Integer(-1));
-		sortMenu.addButton("ID", "Order thumbnails by their database ID",
-				new Integer(0));
+		sortMenu.addButton(new ReorderCommand("Random",
+				"Show thumbnails in random order", -1));
+		sortMenu.addButton(new ReorderCommand("ID",
+				"Order thumbnails by their database ID", 0));
 		for (int i = 1; i <= query().nAttributes; i++) {
 			ItemPredicate facetType = query().findPerspective(i);
-			sortMenu.addButton(facetType.getName(),
-					"Order thumbnails by this category of tags ",
-					new Integer(i));
+			sortMenu.addButton(new ReorderCommand(facetType.getName(),
+					"Order thumbnails by this category of tags ", i));
 		}
 		sortMenu.setVisible(false);
 		// sortMenu.setScale(0.8);
@@ -236,6 +233,21 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 			addChild(sortMenu);
 
 		validate(w, h);
+	}
+
+	private class ReorderCommand extends AbstractMenuItem {
+
+		int facetType;
+
+		public ReorderCommand(String label, String mouseDoc, int facetType) {
+			super(label, mouseDoc);
+			this.facetType = facetType;
+		}
+
+		public String doCommand() {
+			reorder(facetType);
+			return getLabel();
+		}
 	}
 
 	void setFeatures() {
@@ -264,15 +276,15 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 	}
 
 	double getTopMargin() {
-//		return percentLabel.getMaxY() + art.lineH / 2;
+		// return percentLabel.getMaxY() + art.lineH / 2;
 		return art.summary.getTopMargin();
 	}
 
 	double getBottomMargin() {
 		if (art.getShowSortMenu())
-			return h - sortLabel.getYOffset() + art.lineH;
+			return h - sortLabel.getYOffset() ;
 		else
-			return art.lineH;
+			return 0;
 	}
 
 	// void validate(double _w, double _h, double _minW, double _maxW) {
@@ -292,11 +304,11 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 			label.setFont(art.font);
 			// label.setHeight(art.lineH);
 
-			countLabel.setOffset(margin_size(), label.getMaxY());
-			countLabel.setFont(art.font);
+//			countLabel.setOffset(margin_size(), label.getMaxY());
+//			countLabel.setFont(art.font);
 
-			percentLabel.setOffset(margin_size(), countLabel.getMaxY()+4);
-			percentLabel.setFont(art.font);
+//			percentLabel.setOffset(margin_size(), countLabel.getMaxY() + 4);
+//			percentLabel.setFont(art.font);
 
 			thumbnails.setOffset(margin_size(), getTopMargin());
 			gridScrollBar.setOffset(w - margin_size() - art.scrollBarWidth,
@@ -343,7 +355,7 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 
 	void computeMinWidth() {
 		minWidth = art.getStringWidth("(0.001% of 999,999 "
-				+ query().genericObjectLabel + ")")
+				+ query().getGenericObjectLabel(true) + ")")
 				+ 2 * margin_size();
 		// Util.print("Grid.computeMinWidth " + minWidth);
 	}
@@ -359,57 +371,11 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 		return w + art.selectedItem.w - art.selectedItem.minWidth();
 	}
 
-	void setDescription() {
-		StringBuffer result = new StringBuffer();
-		result.append(Util.addCommas(onCount));
-		if (onCount == 1)
-			result.append(" match");
-		else
-			result.append(" matches");
-		countLabel.setText(result.toString());
-		assert w > countLabel.getWidth() : w + " " + countLabel.getWidth()
-				+ countLabel.getText();
-
-		result = formatPercent(onCount / (double) query().getTotalCount(), null);
-		result.insert(0, "(");
-		result.append(" of ");
-
-		result.append(Util.addCommas(query().getTotalCount()));
-
-		result.append(" ");
-		String object = query().genericObjectLabel;
-		result.append(object);
-		result.append(")");
-		percentLabel.setText(result.toString());
-		assert w > percentLabel.getWidth() : w + " " + percentLabel.getWidth()
-				+ percentLabel.getText();
-	}
-
-	static StringBuffer formatPercent(double fraction, StringBuffer buf) {
-		if (buf == null)
-			buf = new StringBuffer();
-		double percent = 100.0 * fraction;
-		if (percent < 0)
-			buf.append("?");
-		else if (percent >= 0.95 || percent == 0.0)
-			// Anything larger than this will round to 1.0 if we go down to
-			// tenths.
-			buf.append(((int) (percent + 0.5)));
-		else if (percent >= 0.095 || percent < 0.00095)
-			buf.append("0.").append(((int) (percent * 10.0 + 0.5)));
-		else if (percent >= 0.0095)
-			buf.append("0.0").append(((int) (percent * 100.0 + 0.5)));
-		else if (percent >= 0.00095)
-			buf.append("0.00").append(((int) (percent * 1000.0 + 0.5)));
-		buf.append("%");
-		return buf;
-	}
-
 	void dataUpdated() {
 		// Util.print("Grid.dataUpdated " + query().getOnCount());
 		onItemsInvalid = false;
 		onCount = query().getOnCount();
-		setDescription();
+//		setDescription();
 		offsetItemTableRangesIndex = 0;
 		if (onCount > 0) {
 			thumbnails.removeAllChildren();
@@ -624,7 +590,7 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 						javax.swing.SwingUtilities.invokeLater(getDoRedraw());
 						// if (toLoad != null) {
 						// loadThumbs(toLoad);
-						// javax.swing.SwingUtilities.invokeLater(getDoRedraw());
+						//javax.swing.SwingUtilities.invokeLater(getDoRedraw());
 					}
 					// }
 				}
@@ -711,8 +677,8 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 				}
 				// Util.print(" " + minOffset + " " + maxOffset + " "
 				// + rs.getRow());
-				assert i == maxOffset : minOffset + "-" + maxOffset + " " + i+" "
-						+ rs.getRow() + "/" + MyResultSet.nRows(rs);
+				assert i == maxOffset : minOffset + "-" + maxOffset + " " + i
+						+ " " + rs.getRow() + "/" + MyResultSet.nRows(rs);
 			} catch (Throwable e) {
 				e.printStackTrace();
 			} finally {
@@ -900,8 +866,8 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 		// Util.print("Enter drawGrid " + onCount);
 		if (art.removeInitialHelp()) {
 			addChild(label);
-			addChild(countLabel);
-			addChild(percentLabel);
+//			addChild(countLabel);
+//			addChild(percentLabel);
 			addChild(gridScrollBar);
 			addChild(thumbnails);
 		}
@@ -1162,9 +1128,9 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 		sortMenu.setVisible(true);
 	}
 
-//	public void setMouseDoc(PNode source, boolean state) {
-//		art.setMouseDoc(source, state);
-//	}
+	// public void setMouseDoc(PNode source, boolean state) {
+	// art.setMouseDoc(source, state);
+	// }
 
 	public void setMouseDoc(String doc) {
 		art.setMouseDoc(doc);
@@ -1395,9 +1361,9 @@ final class Thumbnails extends LazyPNode implements MouseDoc {
 		}
 	}
 
-//	public void setMouseDoc(PNode source, boolean state) {
-//		((ResultsGrid) getParent()).setMouseDoc(source, state);
-//	}
+	// public void setMouseDoc(PNode source, boolean state) {
+	// ((ResultsGrid) getParent()).setMouseDoc(source, state);
+	// }
 
 	public void setMouseDoc(String doc) {
 		((ResultsGrid) getParent()).setMouseDoc(doc);

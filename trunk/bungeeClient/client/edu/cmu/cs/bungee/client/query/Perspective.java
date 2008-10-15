@@ -154,6 +154,7 @@ public class Perspective implements Comparable, ItemPredicate {
 	}
 
 	void setTotalCount(int count) {
+		// Util.print("setTotalCount "+this+" "+count);
 		totalCount = count;
 	}
 
@@ -397,7 +398,7 @@ public class Perspective implements Comparable, ItemPredicate {
 			String name = child.getNameIfPossible();
 			if (name != null) {
 				if (name.compareToIgnoreCase(prev) < 0) {
-					Util.print(prev + " >>> " + name);
+					// Util.print(prev + " >>> " + name);
 					result = false;
 				}
 				prev = name;
@@ -420,8 +421,12 @@ public class Perspective implements Comparable, ItemPredicate {
 
 					int fetchType = 1;
 					if (query().isRestrictedData())
+						// The database treats this case specially, but it is
+						// treated as 1 in initPerspective
 						fetchType = 5;
 					else if (instantiatedPerspective.totalChildTotalCount > 0)
+						// This indicates that we've already retrieved the
+						// counts, which can only be true for top-level tags
 						fetchType = 3;
 					if (nChildren() > 100)
 						fetchType += 1;
@@ -473,17 +478,16 @@ public class Perspective implements Comparable, ItemPredicate {
 
 	// cases:
 	// 0: initFacetTypes: count
-	// 1: prefetch a new facet: count, nChildren, offset, name
-	// 2: prefetch a new facet: count, nChildren, offset
-	// 3: prefetch a top-level facet (count is already set): nChildren, offset,
-	// name
-	// 4: prefetch a top-level facet (count is already set): nChildren, offset
+	// 1: prefetch a new facet: count, nChildren, name
+	// 2: prefetch a new facet: count, nChildren
+	// 3: prefetch a top-level facet (count is already set): nChildren, name
+	// 4: prefetch a top-level facet (count is already set): nChildren
 	void initPerspective(ResultSet rs, int fetchType) {
 		assert isInstantiated();
 		try {
 			boolean isCount = fetchType <= 2;
 			boolean isName = fetchType == 1 || fetchType == 3;
-			boolean isOffset = fetchType > 0;
+			boolean isNchildren = fetchType > 0;
 			// Map cHist = new TreeMap();
 			// Map offHist = new TreeMap();
 			// Map ncHist = new TreeMap();
@@ -502,12 +506,14 @@ public class Perspective implements Comparable, ItemPredicate {
 			while (--nRemainingChildren >= 0) {
 				rs.next();
 				Perspective v;
-				if (isOffset) {
+				if (isNchildren) {
 					int fieldOffset = isCount ? 1 : 0;
 					// int childrenOffset = rs.getInt(fieldOffset + 2);
 					int nChildren = rs.getInt(fieldOffset + 1);
 					if (isName)
 						name1 = rs.getString(fieldOffset + 2);
+
+					// offset is set in v.initPerspective(stream, fetchType)
 					v = ensureChild(++child_facet_id, name1, nChildren);
 
 					// incf(offHist, childrenOffset);
@@ -659,7 +665,7 @@ public class Perspective implements Comparable, ItemPredicate {
 		} else
 			result = totalCount;
 		// if (parent == null)
-		// Util.print(this + " " + result + " " + totalCount);
+		// Util.print("getOnCount "+this + " " + result + " " + totalCount);
 		return result;
 	}
 
@@ -678,9 +684,10 @@ public class Perspective implements Comparable, ItemPredicate {
 		// }
 		Query q = query();
 		if (!q.isRestrictedData() || getParent() == null
-				|| q.displaysPerspective(parent))
+				|| q.displaysPerspective(parent)) {
+			// Util.print("getTotalCount "+this+" "+totalCount);
 			return totalCount;
-		else
+		} else
 			return -1;
 	}
 
@@ -1034,8 +1041,14 @@ public class Perspective implements Comparable, ItemPredicate {
 			assert first != null : this + " '" + prefix.getSourceString()
 					+ "'\n"
 					+ MyResultSet.valueOfDeep(rs, MyResultSet.STRING_SINT, 200);
+			// Util.print("CLO "+MyResultSet.valueOfDeep(rs,
+			// MyResultSet.STRING_SINT, 200));
 			letterOffsets = new LinkedHashMap(MyResultSet.nRows(rs));
 			while (rs.next()) {
+				// assert first.couldStartWith(prefix.getSourceString());
+				assert rs.getString(1).length() > 0 : this + ": '"
+						+ prefix.getSourceString()
+						+ "' is a maximal child name; there are no extensions";
 				CollationKey key = Util.toCollationKey(rs.getString(1)
 						.charAt(0));
 				Perspective last = query().findPerspective(rs.getInt(2));
@@ -1461,8 +1474,8 @@ public class Perspective implements Comparable, ItemPredicate {
 	}
 
 	Markup facetDoc(Perspective facet, int modifiers) {
-		boolean require = (modifiers == 0 && isRestriction(facet, false)) ? false
-				: !isExcludeAction(modifiers);
+		boolean require = (!Util.isAnyShiftKeyDown(modifiers) && isRestriction(
+				facet, false)) ? false : !isExcludeAction(modifiers);
 		// Util.print("\nPerspective.facetDoc " + facet + "\nrequire=" + require
 		// + " nRestrictions=" + nRestrictions()
 		// + " isRestriction(require)=" + isRestricted(require)
@@ -1484,7 +1497,7 @@ public class Perspective implements Comparable, ItemPredicate {
 				// clicks on deeply nested SelectedItem facets.
 				result = selectFacetDoc(facet, require);
 		} else if (isRestriction(facet, require)) {
-			if (nRestrictions() == 1 || modifiers == 0)
+			if (nRestrictions() == 1 || !Util.isAnyShiftKeyDown(modifiers))
 				result = deselectAllFacetsDoc(require);
 			else if (Util.isControlDown(modifiers) || !require)
 				result = deselectFacetDoc(facet, require);
@@ -1678,8 +1691,8 @@ public class Perspective implements Comparable, ItemPredicate {
 		// + isRestriction(facet, true) + " " + isRestricted() + " "
 		// + allRestrictions());
 		boolean result = true;
-		boolean require = !(isExcludeAction(modifiers) || (modifiers == 0 && isRestriction(
-				facet, false)));
+		boolean require = !(isExcludeAction(modifiers) || (!Util
+				.isAnyShiftKeyDown(modifiers) && isRestriction(facet, false)));
 		if (isRestriction(facet, require)) {
 			if (Util.isControlDown(modifiers) || isExcludeAction(modifiers)) {
 				deselectFacet(facet, require);
@@ -1924,8 +1937,8 @@ public class Perspective implements Comparable, ItemPredicate {
 	// return true;
 	// }
 
-	void addFacetAllowingNulls(int index, Perspective facet) {
-		instantiatedPerspective.addFacetAllowingNulls(index, facet);
+	void addFacetAllowingNulls(Perspective facet) {
+		instantiatedPerspective.addFacetAllowingNulls(facet);
 	}
 
 	// public boolean isSortedByOn() {
@@ -2198,7 +2211,8 @@ public class Perspective implements Comparable, ItemPredicate {
 				}
 			}
 		} catch (AssertionError e) {
-			// Do our best even if query is invalid, but ignore errors this causes
+			// Do our best even if query is invalid, but ignore errors this
+			// causes
 			assert !query().isQueryValid();
 		}
 	}
@@ -2784,9 +2798,12 @@ public class Perspective implements Comparable, ItemPredicate {
 			return -1.0;
 		}
 
-		void addFacetAllowingNulls(int index, Perspective facet) {
+		void addFacetAllowingNulls(Perspective facet) {
 			// Util.print("addFacet " + this + " " + index + " " + facet);
 			assert facet != null : this;
+			int index = facet.getID() - childrenOffset() - 1;
+			assert dataIndex.length > index : this + " " + index + " " + facet
+					+ " " + childrenOffset();
 			// sortDataIndexByIndexAllowingNulls();
 			// isSortedByOn = false;
 			assert dataIndex[index] == facet
@@ -2855,7 +2872,8 @@ public class Perspective implements Comparable, ItemPredicate {
 		}
 
 		Iterator getChildIterator() {
-			assert children_offset > 0 : this + " has no children!";
+			assert children_offset > 0 : this + " has no children! "
+					+ nChildren();
 			return q.getFacetIterator(children_offset + 1, nChildren);
 		}
 

@@ -8,6 +8,7 @@ import edu.cmu.cs.bungee.javaExtensions.StringAlign;
 import edu.cmu.cs.bungee.javaExtensions.Util;
 import edu.cmu.tetrad.data.ColtDataSet;
 import edu.cmu.tetrad.data.ContinuousVariable;
+import edu.cmu.tetrad.data.DiscreteVariable;
 import edu.cmu.tetrad.search.LogisticRegression;
 import edu.cmu.tetrad.search.LogisticRegressionResult;
 import edu.cmu.tetrad.search.RegressionResult;
@@ -105,7 +106,7 @@ class MyRegressionParams {
 	/**
 	 * @return form of data for linear regression.
 	 */
-	ColtDataSet getData() {
+	ColtDataSet getContinuousData() {
 		List vars = new ArrayList(nVars());
 		vars.add(new ContinuousVariable(targetName));
 		for (int i = 0; i < regressorNames.length; i++) {
@@ -126,6 +127,37 @@ class MyRegressionParams {
 			}
 		}
 		return data1;
+	}
+
+	ColtDataSet getDiscreteData(int maxNameLength) {
+		List vars = new ArrayList(nVars());
+		vars.add(new DiscreteVariable(truncateName(targetName, maxNameLength)));
+		for (int i = 0; i < regressorNames.length; i++) {
+			vars.add(new DiscreteVariable(truncateName(regressorNames[i],
+					maxNameLength)));
+		}
+		ColtDataSet data1 = new ColtDataSet(nNonZeroStates(), vars);
+		int row = 0;
+		for (int state = 0; state < counts.length; state++) {
+			if (counts[state] > 0) {
+				for (int var = 0; var < nXs(); var++) {
+					int value = Util.getBit(state, var + 1);
+					data1.setInt(row, var + 1, value);
+				}
+				int value = Util.getBit(state, 0);
+				data1.setInt(row, 0, value);
+				data1.setMultiplier(row, counts[state]);
+				row++;
+			}
+		}
+		return data1;
+	}
+
+	private String truncateName(String name, int maxNameLength) {
+		if (name.length() > maxNameLength)
+			return name.substring(0, maxNameLength);
+		else
+			return name;
 	}
 
 	private int nNonZeroStates() {
@@ -258,7 +290,7 @@ class MyLogisticRegressionResult extends TetradRegressionResult {
 		regression.setAlpha(Tetrad.ALPHA);
 
 		report = regression.regress((double[]) data[1], params.targetName);
-		Util.ignore(report);
+		// Util.ignore(report);
 		// Util.print(report);
 		logisticResult = regression.getResult();
 
@@ -314,7 +346,7 @@ class MyLogisticRegressionResult extends TetradRegressionResult {
 		// Util.print("pseudoRsquared=" + Rsquare + " for "
 		// + Util.valueOfDeep(params.counts) + " " + residuals + "/"
 		// + base);
-		assert Rsquare >= -0.001 && Rsquare <= 1.001 : Rsquare + " " + base + " "
+		assert Rsquare >= -0.01 && Rsquare <= 1.01 : Rsquare + " " + base + " "
 				+ residuals + " " + params.yCount() + " " + sumYhat + "\n"
 				+ report + "\n" + yHats();
 		return Rsquare;
@@ -367,7 +399,7 @@ class MyLinearRegressionResult extends TetradRegressionResult {
 
 	MyLinearRegressionResult(MyRegressionParams _params) {
 		params = _params;
-		ColtDataSet data2 = params.getData();
+		ColtDataSet data2 = params.getContinuousData();
 		List regressors = new ArrayList(params.regressorNames.length);
 		for (int i = 0; i < params.regressorNames.length; i++) {
 			regressors.add(data2.getVariable(params.regressorNames[i]));
@@ -517,7 +549,7 @@ abstract class TetradRegressionResult {
 			int offstate = substate * 2;
 			int onstate = offstate + 1;
 			int count = params.counts[offstate] + params.counts[onstate];
-			if (count <2)
+			if (count < 2)
 				result++;
 		}
 		return result;

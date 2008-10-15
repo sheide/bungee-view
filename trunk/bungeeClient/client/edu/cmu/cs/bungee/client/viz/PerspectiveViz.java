@@ -1436,9 +1436,9 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 	// Called by Bar.highlight
 	void highlightFacet(Perspective facet, int modifiers, PInputEvent e) {
 		// Util.print("PV.highlightFacet " + facet);
-		if (query().isEditable() && e.isRightMouseButton()) {
+		if (art().getIsEditing() && e.isRightMouseButton()) {
 			art().setClickDesc("Set selected for edit");
-		} else if (query().isEditable() && e.isMiddleMouseButton()) {
+		} else if (art().getIsEditing() && e.isMiddleMouseButton()) {
 			art().setClickDesc("Open edit menu");
 		} else if (isConnected() || facet == null) {
 			art()
@@ -1459,11 +1459,11 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 
 	// Called as a result of pickFacetTextNotifier on rank label FacetTexts
 	boolean pickFacet(Perspective facet, int modifiers) {
-		// Util.print("PV.pick " + p + " " + node + " " + modifiers + " "
-		// + node.isPickable);
 		// Skip if over checkboxes and therefore modifiers != 0 (should not
 		// happen for top-level ranks)
 		boolean handle = isHandlePickFacetText(facet, modifiers);
+//		Util.print("PV.pick " + p + "." + facet + " " + modifiers + " "
+//				+ handle);
 		if (handle) {
 			art().printUserAction(Bungee.RANK_LABEL, facet, modifiers);
 			if (!isConnected()) {
@@ -1502,7 +1502,7 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 
 	boolean isHandlePickFacetText(Perspective facet, int modifiers) {
 		return facet != null
-				&& (modifiers == 0 && facet == p || !isConnected());
+				&& (!Util.isAnyShiftKeyDown(modifiers) && facet == p || !isConnected());
 	}
 
 	boolean highlight(Perspective facet, int modifiers) {

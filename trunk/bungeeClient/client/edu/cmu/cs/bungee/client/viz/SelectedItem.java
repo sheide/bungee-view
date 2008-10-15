@@ -31,6 +31,8 @@
 
 package edu.cmu.cs.bungee.client.viz;
 
+import java.awt.Color;
+import java.awt.Font;
 import java.awt.Transparency;
 import java.awt.color.ColorSpace;
 import java.awt.image.BufferedImage;
@@ -46,9 +48,12 @@ import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import edu.cmu.cs.bungee.client.query.DisplayTree;
 import edu.cmu.cs.bungee.client.query.FacetTree;
+import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.cmu.cs.bungee.client.query.Query;
 import edu.cmu.cs.bungee.client.query.Query.Item;
 import edu.cmu.cs.bungee.javaExtensions.*;
@@ -74,7 +79,7 @@ final class SelectedItem extends LazyContainer implements MouseDoc {
 
 	double minTextBoxH;
 
-	TextBox selectedItemSummaryTextBox = null;
+	FieldedTextBox selectedItemSummaryTextBox = null;
 
 	transient SoftReference facetTrees;
 
@@ -102,7 +107,7 @@ final class SelectedItem extends LazyContainer implements MouseDoc {
 		label.setTextPaint(Bungee.selectedItemFG);
 		label.setPickable(false);
 		// labelH = 2 * art.lineH;
-		label.setText("Selected Result");
+		label.setText("Selected " + art.query.getGenericObjectLabel(false));
 
 		// separatorW = art.getStringWidth(" > ");
 		setPickable(false);
@@ -365,6 +370,21 @@ final class SelectedItem extends LazyContainer implements MouseDoc {
 		return y;
 	}
 
+	boolean hasFacet(Perspective facet) {
+		// Util.print("hasFacet " + gridImage.itemImage.facets);
+		// If there is no selected item (so gridImage is null) middle menu
+		// should not offer to add this facet.
+		return gridImage == null || facet.getOnCount() < 0
+				|| gridImage.itemImage != null
+				&& gridImage.itemImage.facets.contains(facet);
+	}
+
+	boolean lacksFacet(Perspective facet) {
+		return gridImage == null || facet.getOnCount() >= 0
+				&& gridImage.itemImage != null
+				&& !gridImage.itemImage.facets.contains(facet);
+	}
+
 	boolean isHidden() {
 		return selectedItemSummaryTextBox == null;
 	}
@@ -449,11 +469,12 @@ final class SelectedItem extends LazyContainer implements MouseDoc {
 					double maxDescH = Math.max(minTextBoxH, usableH
 							- nSelectedItemTreeMinLines * art.lineH);
 
-					selectedItemSummaryTextBox = new TextBox(usableW, maxDescH,
-							facetTree.description(), Bungee.textScrollBG,
-							Bungee.textScrollFG, Bungee.selectedItemFG,
-							art.lineH, art.font);
-					if (query().isEditable())
+					selectedItemSummaryTextBox = new FieldedTextBox(usableW,
+							maxDescH, facetTree.description(),
+							Bungee.textScrollBG, Bungee.textScrollFG,
+							Bungee.selectedItemFG, art.lineH, art.font, query()
+									.itemDescriptionFields());
+					if (art.getIsEditing())
 						selectedItemSummaryTextBox.setEditable(true, art
 								.getCanvas(), getEdit());
 					// selectedItemSummaryTextBox.startEditing(art.getCanvas());
@@ -483,6 +504,62 @@ final class SelectedItem extends LazyContainer implements MouseDoc {
 				setter.set(currentItem);
 			}
 		}
+	}
+
+	class FieldedTextBox extends TextBox {
+		final String[] fields;
+		String rawText;
+
+		public FieldedTextBox(double w, double max, String _s, Color Scroll_BG,
+				Color Scroll_FG, Color _color, double lineH, Font font,
+				String[] fields) {
+			super(w, max, null, Scroll_BG, Scroll_FG, _color, lineH, font);
+			assert fields.length > 0;
+			this.fields = fields;
+
+			// Have to do this after setting fields
+			setText(_s);
+		}
+
+		/*
+		 * return the displayable text
+		 */
+		public String getText() {
+			String displayText = null;
+			if (rawText != null) {
+				String[] values = rawText.split("\\n\\d+\\n");
+				StringBuffer buf = new StringBuffer();
+				Pattern p = Pattern.compile("\\n(\\d+)\\n");
+				Matcher m = p.matcher(rawText);
+				int valueIndex = 1;
+				while (m.find()) {
+					if (valueIndex > 1) {
+						buf.append("\n \n");
+					}
+					int fieldIndex = Integer.parseInt(m.group(1));
+					assert fieldIndex >= 0 && fieldIndex < fields.length;
+					String value = values[valueIndex++];
+					if (isEditing()) {
+						buf.append("<").append(fields[fieldIndex])
+								.append(">\n");
+					}
+					buf.append(value);
+				}
+				assert valueIndex == values.length;
+				displayText = buf.toString();
+			}
+			return displayText;
+		}
+
+		public void setText(String rawText) {
+			this.rawText = rawText;
+			super.setText(getText());
+		}
+
+		public String getRawText() {
+			return super.getText();
+		}
+
 	}
 
 	void highlightFacet(Set facets) {
@@ -559,7 +636,8 @@ final class SelectedItem extends LazyContainer implements MouseDoc {
 			edit = new Runnable() {
 
 				public void run() {
-					String description = selectedItemSummaryTextBox.getText();
+					String description = selectedItemSummaryTextBox
+							.getRawText();
 					art.setItemDescription(currentItem, description);
 				}
 			};
@@ -616,7 +694,7 @@ final class ItemSetter extends UpdateThread {
 				art.ensureItemImage(item, rs.getInt(3), rs.getInt(4),
 						Bungee.ImageQuality, blobStream);
 				description = rs.getString(1);
-				if (query.isEditable()
+				if (art.getIsEditing()
 						&& (description == null || description.length() == 0))
 					description = "click to add a description";
 			}
@@ -669,6 +747,7 @@ final class ItemClickHandler extends MyInputEventHandler {
 
 	protected boolean click(PNode node, PInputEvent e) {
 		SelectedItem parent = getSelectedItem(node);
+		// Util.print("SI.click "+e+" "+e.isMiddleMouseButton());
 		if (e.isControlDown()) {
 			// getImage(node).handleFaceWarping(e);
 		} else if (e.isMiddleMouseButton())

@@ -160,6 +160,13 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 		border.setPickable(false);
 	}
 
+	void setSelected(Perspective _selected) {
+		// Util.print("PL.setSelected " + isHidden());
+		assert _selected.getParent() != null : _selected;
+		art.setArrowFocus(_selected);
+		init(_selected);
+	}
+
 	void validate() {
 		if (!isHidden()) {
 			Summary summary = art.summary;
@@ -327,9 +334,11 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 
 				// If query is invalid, we'll recount soon. In the mean time,
 				// make all counts non-zero so arrows will still function.
-				// If isRestricted by rs == null, must have no other
+				// If isRestricted but rs == null, must have no other
 				// restrictions, and need to use totalCount.
 				counts[i] = isRestricted ? v.getTotalCount() : v.guessOnCount();
+				
+//				Util.print("no rs "+v+" "+counts[i]+" "+isRestricted+" "+query().isQueryValid());
 
 				if (counts[i] > maxCount)
 					maxCount = counts[i];
@@ -344,6 +353,9 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 					int count = rs.getInt(2);
 					assert count <= v.getTotalCount() : count + " " + v;
 					counts[i] = count;
+					
+					Util.print("rs "+v+" "+count);
+					
 					if (counts[i] > maxCount)
 						maxCount = counts[i];
 					updateLongestNamedFacet(v);
@@ -392,13 +404,6 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 			// displayed
 			// pv's
 		}
-	}
-
-	void setSelected(Perspective _selected) {
-		// Util.print("PL.setSelected " + isHidden());
-		assert _selected.getParent() != null : _selected;
-		art.setArrowFocus(_selected);
-		init(_selected);
 	}
 
 	/**

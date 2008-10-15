@@ -268,8 +268,8 @@ class FacetText extends APText implements FacetNode, PerspectiveObserver {
 	// underline = isPickable
 	// isPickable = showCheckBox
 	// showCheckBox = _showCheckBox && _facet != null && _facet.parent != null
-	private FacetText(Object treeObject, Bungee a, double _numW, double _nameW,
-			boolean _showChildIndicator, boolean _showCheckBox,
+	protected FacetText(Object treeObject, Bungee a, double _numW,
+			double _nameW, boolean _showChildIndicator, boolean _showCheckBox,
 			boolean _underline, int onCount, PerspectiveObserver _redraw) {
 		super(a.font);
 		if (treeObject instanceof Perspective) {
@@ -392,6 +392,7 @@ class FacetText extends APText implements FacetNode, PerspectiveObserver {
 	}
 
 	void setPermanentTextPaint(Paint paint) {
+		// Util.print("FacetText.setPermanentTextPaint " + paint + " " + this);
 		if (paint != permanentTextPaint) {
 			permanentTextPaint = paint;
 			setColor();
@@ -407,10 +408,10 @@ class FacetText extends APText implements FacetNode, PerspectiveObserver {
 		setColor();
 	}
 
-//	void setColor() {
-//		int onCount = facet != null ? facet.guessOnCount() : 1;
-//		setColor(onCount);
-//	}
+	// void setColor() {
+	// int onCount = facet != null ? facet.guessOnCount() : 1;
+	// setColor(onCount);
+	// }
 
 	void setColor() {
 		if (permanentTextPaint != null) {
@@ -586,6 +587,10 @@ class FacetText extends APText implements FacetNode, PerspectiveObserver {
 
 	void printUserAction(int modifiers) {
 		art.printUserAction(Bungee.FACET_TREE, facet, modifiers);
+	}
+
+	public String toString() {
+		return "<FacetText " + treeObject() + " ("+treeObject().getClass()+")>";
 	}
 
 	public Bungee art() {

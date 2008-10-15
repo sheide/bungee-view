@@ -31,8 +31,6 @@
 
 package edu.cmu.cs.bungee.client.viz;
 
-import java.awt.Color;
-import java.awt.geom.Point2D;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -41,7 +39,6 @@ import java.util.List;
 import java.util.Set;
 
 import edu.cmu.cs.bungee.client.query.Cluster;
-import edu.cmu.cs.bungee.client.query.Markup;
 import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.cmu.cs.bungee.client.query.Query;
 import edu.cmu.cs.bungee.javaExtensions.*;
@@ -50,22 +47,15 @@ import edu.cmu.cs.bungee.piccoloUtils.gui.Boundary;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyContainer;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
 import edu.cmu.cs.bungee.piccoloUtils.gui.MouseDoc;
-import edu.cmu.cs.bungee.piccoloUtils.gui.MyInputEventHandler;
 import edu.umd.cs.piccolo.PNode;
 import edu.umd.cs.piccolo.activities.PActivity;
 import edu.umd.cs.piccolo.activities.PInterpolatingActivity;
-import edu.umd.cs.piccolo.event.PInputEvent;
 import edu.umd.cs.piccolo.util.PPaintContext;
 import edu.umd.cs.piccolo.util.PPickPath;
 
 final class Summary extends LazyContainer implements MouseDoc {
 
 	// static int updateCount = 0;
-
-	/**
-	 * Horizontal space between buttons
-	 */
-	private final static int BUTTON_MARGIN = 8;
 
 	Bungee art;
 
@@ -77,21 +67,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 
 	APText label;
 
-	private TextNfacets summaryText;
-
-	ClearButton clear;
-
-	private BookmarkButton bookmark;
-
-	private APText clearMessage;
-
-	private EllipsisButton ellipsis;
-
 	private Boundary boundary;
-
-	private RestrictButton restrict;
-
-	ColorKey colorKey;
 
 	PopupSummary facetDesc;
 
@@ -117,46 +93,8 @@ final class Summary extends LazyContainer implements MouseDoc {
 		label.setScale(2.0);
 		label.setTextPaint(Bungee.summaryFG);
 		label.setPickable(false);
-		label.setText("Search");
+		label.setText("Tag Wall");
 		addChild(label);
-
-		summaryText = new TextNfacets(art, Bungee.summaryFG, false);
-		summaryText.setWrapText(false);
-		summaryText.setWrapOnWordBoundaries(false);
-		// summaryText.setTextPaint(summaryTextColor);
-		summaryText.setPaint(Bungee.summaryBG);
-		// summaryText.setFont(Art.font);
-		// summaryText.setConstrainWidthToTextWidth(false);
-		// summaryText.setConstrainHeightToTextHeight(false);
-		// summaryText.setPickable(false);
-		summaryText.addInputEventListener(new SummaryTextHover());
-		addChild(summaryText);
-
-		clearMessage = art.oneLineLabel();
-		// clearMessage.setPaint(Bungee.summaryFG);
-		clearMessage.setTextPaint(Bungee.helpColor);
-		clearMessage.setPickable(false);
-		clearMessage
-				.setText(" (To clear a single filter, click on the tag again.) ");
-
-		ellipsis = new EllipsisButton();
-		ellipsis.setVisible(false);
-		addChild(ellipsis);
-
-		clear = new ClearButton();
-		// clear.addInputEventListener(new ClearQueryHandler());
-		clear.setVisible(false);
-		addChild(clear);
-
-		if (true || art.jnlpClipboardService != null) {
-			bookmark = new BookmarkButton();
-			bookmark.setVisible(false);
-			addChild(bookmark);
-		}
-
-		restrict = new RestrictButton();
-		restrict.setVisible(false);
-		addChild(restrict);
 
 		// highlighter = new Highlighter(this);
 		// highlighter.start();
@@ -220,10 +158,6 @@ final class Summary extends LazyContainer implements MouseDoc {
 		// setBounds(0, 0, _w, h);
 		boundary.margin = art.grid.margin_size() / 2;
 		setTextSize();
-		double summaryTextY = label.getGlobalBounds().getHeight();
-		double buttonY = summaryTextY + /* 1.5 * */art.lineH + 4;
-		// Place this now so getTopMargin works
-		clear.setOffset(queryW, buttonY);
 
 		{
 			// computeRankComponentHeights depends on queryW, because we don't
@@ -249,30 +183,8 @@ final class Summary extends LazyContainer implements MouseDoc {
 				// }
 			}
 		}
+		queryViz.validate(queryW, h);
 		label.setOffset(queryW, 0);
-
-		double ellipsisX = w - ellipsis.minWidth();
-		ellipsis.setOffset(ellipsisX, summaryTextY - 2); // -2 corrects for
-		// border, and makes
-		// text line up
-
-		summaryText.setOffset(queryW, summaryTextY);
-		summaryText.setBounds(0, 0, ellipsisX - BUTTON_MARGIN - queryW,
-				art.lineH);
-		summaryText.layoutBestFit();
-
-		clear.setOffset(queryW, buttonY);
-		clearMessage.setOffset(queryW, clear.getYOffset());
-
-		if (bookmark != null) {
-			bookmark.setOffset(w - bookmark.minWidth(), clear.getYOffset());
-
-			restrict.setOffset(
-					(clear.getMaxX() + bookmark.getXOffset() - restrict
-							.minWidth()) / 2, clear.getYOffset());
-		} else
-			restrict.setOffset(clear.getMaxX() + BUTTON_MARGIN, clear
-					.getYOffset());
 
 		for (Iterator it = ranks.iterator(); it.hasNext();) {
 			Rank r = (Rank) it.next();
@@ -283,24 +195,9 @@ final class Summary extends LazyContainer implements MouseDoc {
 		// boundary.setMaxX(maxW);
 		boundary.validate();
 
-		queryViz.validate(queryW, h);
 		// colorKey.fit();
 		if (perspectiveList != null)
 			perspectiveList.validate();
-
-		validateColorKey();
-	}
-
-	void validateColorKey() {
-		if (colorKey != null)
-			colorKey.removeFromParent();
-		double topMargin = summaryText.getYOffset();
-		colorKey = new ColorKey(queryW - Rank.LABEL_RIGHT_MARGIN
-				- Rank.LABEL_LEFT_MARGIN, clear.getMaxY() - topMargin);
-		colorKey.setOffset(Rank.LABEL_LEFT_MARGIN, topMargin);
-		colorKey.setVisible(art.query.isRestricted());
-		colorKey.setPickable(false);
-		addChild(colorKey);
 	}
 
 	void setTextSize() {
@@ -308,12 +205,6 @@ final class Summary extends LazyContainer implements MouseDoc {
 		// label.getGlobalScale());
 		label.setFont(art.font);
 		// label.setHeight(art.lineH);
-
-		ellipsis.setFont(art.font);
-		clear.setFont(art.font);
-		bookmark.setFont(art.font);
-		restrict.setFont(art.font);
-		// colorKey.setSize();
 	}
 
 	double internalH() {
@@ -327,9 +218,9 @@ final class Summary extends LazyContainer implements MouseDoc {
 		// return label.getScale() * art.lineH + clear.getScale() * art.lineH
 		// + art.lineH /2;
 
-		assert !Double.isNaN(clear.getMaxY());
+//		assert !Double.isNaN(clear.getMaxY());
 		assert !Double.isNaN(art.lineH);
-		return clear.getMaxY() + art.lineH / 2;
+		return label.getMaxY() + art.lineH / 2;
 	}
 
 	double getBottomMargin() {
@@ -362,9 +253,8 @@ final class Summary extends LazyContainer implements MouseDoc {
 		return minWidth(false);
 	}
 
-	double widgetWidth() {
-		return clear.minWidth() + restrict.minWidth() + bookmark.minWidth() + 2
-				* BUTTON_MARGIN;
+	double minTagWallWidth() {
+		return Math.round(label.getGlobalBounds().getWidth()*1.5);
 	}
 
 	double minWidth(boolean recomputeQueryW) {
@@ -373,7 +263,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 		// b = bookmark;
 		// if (restrict != null)
 		// b = restrict;
-		return widgetWidth()
+		return minTagWallWidth()
 				+ (recomputeQueryW ? queryViz.minWidth() : queryViz.getWidth());
 	}
 
@@ -401,37 +291,6 @@ final class Summary extends LazyContainer implements MouseDoc {
 	// / (float) nColors, 0.25f, 0.5f);
 	// }
 	// }
-
-	void setDescription() {
-		Markup description = q.descriptionVerbPhrase();
-		// if (summaryText.getText() == null
-		// || !summaryText.getText().equals(description)) {
-		// Util.print("Summary.setDescription");
-		summaryText.setContent(description);
-		summaryText.layoutBestFit();
-		// summaryText.setTextPaint(q.isRestricted() ? summaryTextColor : FG);
-
-		setEllipsisVisibility();
-
-		boolean buttonsVisible = q.isRestricted();
-		clear.setNumFilters();
-		clear.setVisible(buttonsVisible || q.isRestrictedData());
-		if (bookmark != null) {
-			bookmark.setVisible(buttonsVisible);
-		}
-		if (restrict != null) {
-			restrict.setVisible(buttonsVisible);
-		}
-	}
-
-	void setEllipsisVisibility() {
-		boolean incomplete = false;
-		if (summaryText.getWidth() > 0)
-			incomplete = summaryText.isIncomplete();
-		// Util.print("setEllipsisVisibility " + incomplete);
-		ellipsis.setVisible(incomplete);
-		// summaryText.setPickable(incomplete);
-	}
 
 	int nRanks() {
 		return ranks.size();
@@ -739,12 +598,6 @@ final class Summary extends LazyContainer implements MouseDoc {
 
 		if (perspectiveList != null)
 			perspectiveList.updateData();
-		if (colorKey != null)
-			colorKey.setVisible(art.query.isRestricted());
-		if (bookmark != null)
-			bookmark.showDisabledState();
-		if (restrict != null)
-			restrict.showDisabledState();
 	}
 
 	// void redrawLabels() {
@@ -769,7 +622,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 			if (inRank)
 				r.updatePerspectiveSelections(facets);
 		}
-		summaryText.updateSelections(facets);
+//		summaryText.updateSelections(facets);
 	}
 
 	PerspectiveViz lookupPV(Perspective facet) {
@@ -808,7 +661,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 		// and
 		// deletes.
 		// queryViz.positionSearchBox(h);
-		queryViz.synchronizeWithQuery();
+//		queryViz.synchronizeWithQuery();
 		for (Iterator it = ranks.iterator(); it.hasNext();) {
 			Rank r = (Rank) it.next();
 			// r.updateHeights();
@@ -827,20 +680,10 @@ final class Summary extends LazyContainer implements MouseDoc {
 			perspectiveList.highlightFacet();
 	}
 
-	void highlightCluster(Set facets) {
-		// if (facet != null) {
-		queryViz.highlightCluster(facets);
-		summaryText.updateSelections(facets);
-	}
-
-	void clearQuery() {
-		art.printUserAction(Bungee.BUTTON, "Clear", 0);
-		boolean isMultipleFilters = q.nFilters(false, true, false, false) > 1;
-		art.clearQuery();
-		if (isMultipleFilters) {
-			addChild(clearMessage);
-		}
-	}
+//	void highlightCluster(Set facets) {
+//		// if (facet != null) {
+//		queryViz.highlightCluster(facets);
+//	}
 
 	// static Color colorForIndex(int index) {
 	// return colors[index % nColors];
@@ -930,8 +773,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 		// // If we removed the connected rank above, it might have had
 		// perspective list showing
 		// hidePerspectiveList();
-		setDescription();
-		queryViz.synchronizeWithQuery();
+//		queryViz.synchronizeWithQuery();
 		computeRankComponentHeights();
 
 		synchronizeSelections(previousRestrictions);
@@ -968,10 +810,21 @@ final class Summary extends LazyContainer implements MouseDoc {
 			result.validate(w);
 			addChild(result);
 			// Util.print("addRank for " + p);
-			if (parentRank == null)
-				ranks.add(result);
-			else
-				ranks.add(ranks.indexOf(parentRank) + 1, result);
+			if (parentRank == null) {
+				// It's a top-level rank
+
+				// When editing, there may be gaps and unordered IDs, but the
+				// "parent" is still the greatest top-level rank less than p
+				for (Iterator it = ranks.iterator(); it.hasNext();) {
+					Rank rank = (Rank) it.next();
+					if (rank.parentRank == null
+							&& rank.perspectives[0].p.getID() < p.getID()) {
+						parentRank = rank;
+					}
+				}
+				// ranks.add(result);
+			} // else
+			ranks.add(ranks.indexOf(parentRank) + 1, result);
 		}
 		result.addPerspective(pv);
 		return result;
@@ -992,8 +845,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 	}
 
 	void flagConnectedRank(Rank r) {
-		// Util.print("connectToRank " + r.getName() + " " + r.isConnected + " "
-		// + connectedRank());
+//		Util.print("flagConnectedRank " + r + " " + connectedRank());
 		Rank current = connectedRank();
 		if (r != current) {
 			// Util.print("summary.flagConnectedRank " + r + " old was "
@@ -1004,7 +856,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 			}
 			if (r != null)
 				r.setConnected(true);
-			queryViz.setSearchVisibility(r != null);
+			art.header.textSearch.setSearchVisibility(r != null);
 			art.setHelpVisibility();
 		}
 	}
@@ -1055,11 +907,6 @@ final class Summary extends LazyContainer implements MouseDoc {
 		return result;
 	}
 
-	void setSummaryTextDoc(boolean state) {
-		ellipsis.setMouseDoc(state);
-		// setMouseDoc(summaryText, state);
-	}
-
 	// public void setMouseDoc(PNode source, boolean state) {
 	// // Util.print("Summary.setMouseDoc " + state + " "
 	// // + (source == summaryText));
@@ -1077,70 +924,13 @@ final class Summary extends LazyContainer implements MouseDoc {
 	// assert false;
 	// }
 
-	boolean toggleSummary() {
-		return summaryText.getHeight() > art.lineH ? contractSummary()
-				: expandSummary();
-	}
-
-	boolean expandSummary() {
-		art.printUserAction(Bungee.BUTTON, "Ellipsis", 0);
-		if (summaryText.getHeight() <= art.lineH && summaryText.isIncomplete()) {
-			// Util.print("expandSummary");
-			summaryText.setWrapText(true);
-			summaryText.setWrapOnWordBoundaries(true);
-			summaryText.setTrim(-1, (int) (art.lineH / 2));
-			// double summaryH =
-			summaryText.layout(summaryText.getWidth(), h
-					- summaryText.getYOffset());
-			// summaryText.setHeight(summaryH + 10.0); // Easier to read with a
-			// little extra margin at
-			// the bottom
-			summaryText.moveToFront();
-			// summaryText.setPickable(false);
-			// ellipsis.setVisible(false);
-			ellipsis.setState(false);
-			ellipsis.mouseDoc = "Truncate the summary";
-			return true;
-		}
-		return false;
-	}
-
-	boolean contractSummary() {
-		if (summaryText.getHeight() > art.lineH) {
-			// Util.print("contractSummary");
-			summaryText.setTrim(-1, -1);
-			summaryText.setWrapText(false);
-			summaryText.setWrapOnWordBoundaries(false);
-			summaryText.setHeight(art.lineH);
-			summaryText.layout();
-			// ellipsis.moveToFront();
-			ellipsis.setState(true);
-			ellipsis.mouseDoc = "Show the rest of the summary";
-			setEllipsisVisibility();
-			return true;
-		}
-		return false;
-	}
-
-	void maybeHideTransients(PInputEvent e) {
-		// Util.print(summaryText);
-		Point2D p = e.getPositionRelativeTo(summaryText);
-		if (p.getX() < 0 || p.getY() < 0 || p.getX() >= summaryText.getWidth()
-				|| p.getY() >= summaryText.getHeight() - 10)
-			contractSummary();
-	}
-
 	void mayHideTransients() {
 		art.mayHideTransients();
 	}
 
-	void doHideTransients() {
-		if (clearMessage.getParent() != null)
-			removeChild(clearMessage);
-		contractSummary();
-		// colorKey.fit();
-		queryViz.doHideTransients();
-	}
+//	void doHideTransients() {
+//		queryViz.doHideTransients();
+//	}
 
 	/**
 	 * Only called by replayOps
@@ -1155,17 +945,9 @@ final class Summary extends LazyContainer implements MouseDoc {
 		lookupPV(facet).pickFacet(facet, modifiers);
 	}
 
-	boolean removeSearch(String string) {
-		return queryViz.removeSearch(string);
-	}
-
-	void clickEllipsis() {
-		ellipsis.doPick();
-	}
-
-	void clickClear() {
-		clear.doPick();
-	}
+//	boolean removeSearch(String string) {
+//		return queryViz.removeSearch(string);
+//	}
 
 	boolean doneDelayedInit = false;
 
@@ -1196,10 +978,6 @@ final class Summary extends LazyContainer implements MouseDoc {
 		boolean result = super.pickAfterChildren(pickPath);
 		Util.print("summary.pickAfterChildren " + result);
 		return result;
-	}
-
-	void setSelectedForEdit(Perspective facet) {
-		queryViz.setSelectedForEdit(facet);
 	}
 
 	void showPopup(Perspective facet) {
@@ -1358,288 +1136,6 @@ final class Summary extends LazyContainer implements MouseDoc {
 		// Util.printStackTrace();
 		if (perspectiveList != null && !perspectiveList.isHidden())
 			perspectiveList.toggle();
-	}
-
-	// void expandColorKey() {
-	// colorKey.expand();
-	// }
-
-	final class ColorKey extends LazyPNode {
-
-		final ColorKeyHover colorKeyHover = new ColorKeyHover();
-
-		ColorKey(double w, double h) {
-			Color[][] colors = { Markup.INCLUDED_COLORS,
-					Markup.POSITIVE_ASSOCIATION_COLORS,
-					Markup.UNASSOCIATED_COLORS,
-					Markup.NEGATIVE_ASSOCIATION_COLORS, Markup.EXCLUDED_COLORS };
-			String[] msgs = {
-					"Tag required by filters",
-					"Tag associated with filters; Items with this tag are more likely than others to satisfy the filters",
-					"Unassociated tag; There is no statistically significant association between this tag and the filters",
-					"Tag negatively associated with filters; Items with this tag are less likely than others to satisfy the filters",
-					"Tag prohibited by filters" };
-			int nColors = colors.length;
-			if (!art.getIsShortcuts() && !art.getShowCheckboxes())
-				nColors--;
-			APText label1 = art.oneLineLabel();
-			label1.setTextPaint(Bungee.summaryFG);
-			label1.setText("Color Key");
-			label.setPickable(false);
-			addChild(label1);
-			if (label1.getMaxX() > w)
-				label1.setScale(w / label1.getMaxX());
-			double buttonW = Math.round(label1.getMaxX() / nColors);
-			// double y = 1.5 * art.lineH;
-			// double buttonH = Math.round(h - y);
-			double buttonH = clear.getHeight();
-			double y = h - buttonH;
-			for (int i = 0; i < nColors; i++) {
-				PNode node = new ColorKeyKey(colors[i][0], colors[i][1],
-						msgs[i], buttonW, buttonH);
-				node.setOffset(i * buttonW, y);
-				addChild(node);
-			}
-		}
-
-		private class ColorKeyKey extends LazyPNode {
-			Color color;
-			Color highlight;
-			String msg;
-
-			ColorKeyKey(Color _color, Color _highlight, String _msg, double w,
-					double h) {
-				color = _color;
-				highlight = _highlight;
-				msg = _msg;
-				setBounds(0, 0, w, h);
-				setPaint(color);
-				addInputEventListener(colorKeyHover);
-			}
-
-			void enter() {
-				setPaint(highlight);
-				APText text = art.oneLineLabel();
-				text.setPaint(Bungee.summaryBG);
-				text.setTextPaint(Bungee.helpColor);
-				text.setText(msg);
-				text.setOffset(getX(), getMaxY() - text.getHeight());
-				addChild(text);
-			}
-
-			void exit() {
-				setPaint(color);
-				removeAllChildren();
-			}
-		}
-
-		private final class ColorKeyHover extends MyInputEventHandler {
-
-			// private ColorKey colorKey;
-
-			ColorKeyHover() {
-				super(ColorKeyKey.class);
-				// colorKey = _colorKey;
-			}
-
-			protected boolean enter(PNode node) {
-				// Util.print("SummaryTextHover.enter " + node);
-				((ColorKeyKey) node).enter();
-				return true;
-			}
-
-			protected boolean exit(PNode node, PInputEvent e) {
-				((ColorKeyKey) node).exit();
-				return true;
-			}
-		}
-
-	}
-
-	final class SummaryTextHover extends MyInputEventHandler {
-
-		// private Summary summary;
-
-		SummaryTextHover() {
-			super(TextNfacets.class);
-			// summary = _summary;
-		}
-
-		// LazyPNode getSource(LazyPNode node) {
-		// if (node == null)
-		// return null;
-		// LazyPNode parent = node.getParent();
-		// if (parent instanceof Summary)
-		// // Could be ellipsis, summaryText, or one of its children.
-		// return node;
-		// else
-		// return getSource(parent);
-		// }
-
-		protected boolean click(PNode node) {
-			return expandSummary();
-			// ((Summary) parent).setMouseDoc(node, false);
-		}
-
-		protected boolean enter(PNode node) {
-			// Util.print("SummaryTextHover.enter " + node);
-			setSummaryTextDoc(true);
-			return true;
-		}
-
-		protected boolean exit(PNode node, PInputEvent e) {
-			setSummaryTextDoc(false);
-			maybeHideTransients(e);
-			return true;
-		}
-
-		protected void mayHideTransients(PNode node) {
-			Summary.this.mayHideTransients();
-		}
-	}
-
-	final class EllipsisButton extends SummaryButton {
-
-		private static final String label1 = "...";
-
-		EllipsisButton() {
-			// super("...", art.font, 0, 0, art.getStringWidth("...") + 2,
-			// art.lineH + 2, null, 1.5f, color, Bungee.summaryBG);
-			super(label1);
-			mouseDoc = "Show the rest of the summary";
-			// ((PText) child).setTextPaint(color);
-		}
-
-		public void doPick() {
-			toggleSummary();
-		}
-
-		public void exit() {
-			Summary summary = (Summary) getParent();
-			summary.contractSummary();
-		}
-
-		public void mayHideTransients(PNode node) {
-			// ((Summary) getParent()).mayHideTransients();
-		}
-
-	}
-
-	final class ClearButton extends SummaryButton {
-
-		private static final String label1 = " Clear  ";
-
-		ClearButton() {
-			// super(label1, art.font, 0, 0, art.getStringWidth(" Unrestrict "),
-			// art.lineH /* / scale */+ 2, null, 1.8f, color,
-			// Bungee.summaryBG);
-			super(label1);
-			((APText) child).setConstrainWidthToTextWidth(true);
-			mouseDoc = "Remove all text and category filters";
-
-			// nFiltersLabel = art.oneLineLabel();
-			// nFiltersLabel.setTextPaint(color);
-			// nFiltersLabel.setJustification(Component.CENTER_ALIGNMENT);
-			// // nFiltersLabel.setScale(1.0 / scale);
-			// nFiltersLabel.setText(label);
-			// nFiltersLabel.setOffset(Math.round((child.getWidth() -
-			// nFiltersLabel
-			// .getWidth()) / 2.0), 0.0);
-			// child.addChild(nFiltersLabel);
-
-			// setScale(scale);
-		}
-
-		public void doPick() {
-			if (getText().equals(label1))
-				clearQuery();
-			else
-				art.setDatabase(art.dbName);
-		}
-
-		void setNumFilters() {
-			if (!q.isRestricted() && q.isRestrictedData()) {
-				mouseDoc = "Revert to exploring the entire database";
-				setText(" Unrestrict  ");
-			} else {
-				mouseDoc = "Remove " + q.describeNfilters();
-				setText(label1);
-			}
-		}
-	}
-
-	final class BookmarkButton extends SummaryButton {
-
-		private static final String label1 = " Bookmark  ";
-
-		BookmarkButton() {
-			// super(label1, art.font, 0, 0, art.getStringWidth(label1),
-			// art.lineH /* / scale */+ 2, null, 1.8f, color,
-			// Bungee.summaryBG);
-			super(label1);
-			((APText) child).setConstrainWidthToTextWidth(true);
-			mouseDoc = "Copy a URL for your current query to the system Clipboard";
-			setDisabledMessage("There are no results to bookmark");
-			if (art.informedia != null) {
-				setText("New Video Set");
-				mouseDoc = "Save these results as an Informedia video set";
-				setDisabledMessage("There are no results to save");
-			}
-		}
-
-		public boolean isEnabled() {
-			return art.query.getOnCount() > 0;
-		}
-
-		public void doPick() {
-			if (art.informedia != null)
-				art.saveVideoSet();
-			else
-				art.copyBookmark();
-		}
-
-		public void mayHideTransients(PNode node) {
-			Summary.this.mayHideTransients();
-		}
-
-	}
-
-	final class RestrictButton extends SummaryButton {
-
-		private static final String label1 = " Restrict  ";
-
-		RestrictButton() {
-			// super(label1, art.font, 0, 0, art.getStringWidth(label1),
-			// art.lineH /* / scale */+ 2, null, 1.8f, color,
-			// Bungee.summaryBG);
-			super(label1);
-			((APText) child).setConstrainWidthToTextWidth(true);
-			mouseDoc = "Explore within the current results";
-			setDisabledMessage("There are no results to restrict to");
-		}
-
-		public boolean isEnabled() {
-			return art.query.getOnCount() > 0;
-		}
-
-		public void doPick() {
-			art.restrict();
-		}
-
-		public void mayHideTransients(PNode node) {
-			Summary.this.mayHideTransients();
-		}
-
-	}
-
-	class SummaryButton extends BungeeTextButton {
-
-		SummaryButton(String text) {
-			super(text, Bungee.summaryBG,
-					Util.brighten(Bungee.summaryFG, 0.6f), Summary.this.art,
-					null);
-		}
-
 	}
 
 	boolean keyPress(char key) {

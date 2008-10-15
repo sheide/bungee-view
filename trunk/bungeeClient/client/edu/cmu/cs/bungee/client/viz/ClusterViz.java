@@ -11,7 +11,7 @@ import edu.cmu.cs.bungee.client.query.ItemPredicate;
 import edu.cmu.cs.bungee.client.query.Markup;
 import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.cmu.cs.bungee.client.query.Query;
-import edu.cmu.cs.bungee.javaExtensions.*;
+import edu.cmu.cs.bungee.javaExtensions.Util;
 import edu.cmu.cs.bungee.javaExtensions.threads.UpdateNoArgsThread;
 import edu.cmu.cs.bungee.piccoloUtils.gui.APText;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
@@ -183,7 +183,7 @@ final class ClusterViz extends LazyPNode implements MouseDoc,
 	}
 
 	public boolean pick(FacetText node, int modifiers) {
-		if (modifiers == 0) {
+		if (!Util.isAnyShiftKeyDown(modifiers)) {
 			ItemPredicate facet = node.facet;
 			if (facet != null) {
 				toggleClusterExclusion((Perspective) facet);
@@ -209,7 +209,7 @@ final class ClusterViz extends LazyPNode implements MouseDoc,
 	public boolean highlight(FacetText node, boolean state, int modifiers) {
 		// Util.print("ClusterViz.highlight " + node + " " + state + " "
 		// + modifiers);
-		if (modifiers == 0) {
+		if (!Util.isAnyShiftKeyDown(modifiers)) {
 			Perspective facet = node.facet;
 			if (facet != null) {
 				art.highlightFacet(state ? facet : null, modifiers);

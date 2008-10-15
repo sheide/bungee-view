@@ -177,7 +177,6 @@ package edu.cmu.cs.bungee.client.viz;
  */
 
 //import edu.cmu.cs.bungee.faceImage.FaceImage;
-
 import javax.imageio.ImageIO;
 import javax.jnlp.BasicService;
 import javax.jnlp.ClipboardService;
@@ -207,7 +206,6 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Hashtable;
@@ -234,7 +232,6 @@ import edu.cmu.cs.bungee.javaExtensions.Util;
 import edu.cmu.cs.bungee.javaExtensions.threads.QueueThread;
 import edu.cmu.cs.bungee.javaExtensions.threads.UpdateNoArgsThread;
 import edu.cmu.cs.bungee.piccoloUtils.gui.APText;
-import edu.cmu.cs.bungee.piccoloUtils.gui.Arrow;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
 import edu.cmu.cs.bungee.piccoloUtils.gui.Menu;
 import edu.cmu.cs.bungee.piccoloUtils.gui.MyInputEventHandler;
@@ -307,15 +304,18 @@ final class Bungee extends PFrame {
 
 	// Color(0xFF9900);
 
-	static final Color headerBG = new Color(0x333333);
+	static final Color headerBG = new Color(0x001a66);
 
-	static final Color headerFG = new Color(0x669999);
+	static final Color headerFG = new Color(0x699999);
 
 	static final Color helpColor = Color.orange;
 
-	static final Color mouseDocFG = helpColor; // new Color(0x99CCCC);
+	static final Color mouseDocFG = headerFG; // helpColor; // new
+	// Color(0x99CCCC);
 
-	static final Color summaryFG = new Color(0x666699);
+	static final Color summaryFG = Markup.UNASSOCIATED_COLORS[0]; // new Color(
+	// 0x666699
+	// );
 
 	static final Color summaryBG = Color.black;
 	// summaryFG.darker().darker().darker().darker().darker();
@@ -330,7 +330,8 @@ final class Bungee extends PFrame {
 	final static Color selectedItemBG = Color.black;
 	// selectedItemFG.darker().darker().darker().darker().darker();
 
-	final static Color gridFG = new Color(0x896699); // new Color(0x669966);
+	final static Color gridFG = selectedItemFG; // new Color(0x896699); // new
+												// Color(0x669966);
 
 	final static Color gridBG = Color.black;
 	// gridFG.darker().darker().darker().darker().darker();
@@ -421,7 +422,7 @@ final class Bungee extends PFrame {
 	 */
 	double scrollMarginSize;
 
-	double headerH;
+	// double headerH;
 
 	double mouseDocH;
 
@@ -463,21 +464,6 @@ final class Bungee extends PFrame {
 	// ActionPrinter actionPrinter;
 
 	Replayer replayer;
-
-	/**
-	 * This is the "argument" facet, in case the command needs more than the
-	 * facet clicked on. Also used by the right-click addItemFacet gesture
-	 */
-	Perspective selectedForEdit;
-
-	Menu editMenu;
-
-	/**
-	 * This is the facet we [middle] clicked on.
-	 */
-	Perspective editMenuPerspective;
-
-	Item editMenuItem;
 
 	private final KeyEventHandler keyHandler = new KeyEventHandler();
 
@@ -540,6 +526,8 @@ final class Bungee extends PFrame {
 
 	Informedia informedia;
 
+	Editing editing;
+
 	public static void main(String[] args) {
 		// Util.print("Starting Art");
 		new Bungee(args);
@@ -579,7 +567,7 @@ final class Bungee extends PFrame {
 	public void initialize() {
 		Runtime.runFinalizersOnExit(true);
 		argString = getTitle();
-		Util.print("argString=" + argString);
+		// Util.print("argString=" + argString);
 		URLQuery argURLQuery = new URLQuery(argString);
 		setTitle("Bungee View Image Collection Browser.  See the forest AND the trees.");
 		// userActions = new StringBuffer();
@@ -726,7 +714,7 @@ final class Bungee extends PFrame {
 			childIndicatorWidth = getStringWidth(childIndicatorSuffix);
 			parentIndicatorWidth = getStringWidth(Markup.parentIndicatorPrefix);
 			checkBoxWidth = getStringWidth(checkBoxPrefix);
-			headerH = Math.ceil(3.5 * lineH);
+			// headerH = Math.ceil(4.5 * lineH);
 			mouseDocH = lineH;
 			scrollBarWidth = Math.round(0.67 * lineH);
 			scrollMarginSize = Math.round(0.17 * lineH);
@@ -755,12 +743,14 @@ final class Bungee extends PFrame {
 			stop();
 
 			dbName = _dbName;
-			updater = new DataUpdater();
-			updater.start();
+			if (_dbName != null) {
+				updater = new DataUpdater();
+				updater.start();
+			}
 		}
 	}
 
-	private void clearTextCaches() {
+	void clearTextCaches() {
 		facetNameWidths = null;
 		truncatedStrings = null;
 		facetTexts = null;
@@ -822,10 +812,11 @@ final class Bungee extends PFrame {
 	}
 
 	private class InitialHelp extends LazyPNode {
-		private APText meta;
+		private APText msg;
+
 		// private APText msg;
-		private Arrow arrow = new Arrow(Color.white, (int) (lineH / 3),
-				(int) (2 * lineH));
+		// private Arrow arrow = new Arrow(Color.white, (int) (lineH / 3),
+		// (int) (2 * lineH));
 
 		InitialHelp() {
 			// setPaint(Color.yellow);
@@ -833,33 +824,34 @@ final class Bungee extends PFrame {
 			setPickable(false);
 			setChildrenPickable(false);
 
-			meta = new APText(new Font(fontFamily, Font.ITALIC, getTextSize()));
-			meta.setTextPaint(Color.white);
-			meta.setText("New Users: Look here for orange usage tips.");
-			// If natural width set above is too big, positionHelp will fix it
-			meta.setConstrainWidthToTextWidth(false);
-			addChild(meta);
+			// meta = new APText(new Font(fontFamily, Font.ITALIC,
+			// getTextSize()));
+			// meta.setTextPaint(Color.white);
+			// meta.setText("New Users: Look here for orange usage tips.");
+			// // If natural width set above is too big, positionHelp will fix
+			// it
+			// meta.setConstrainWidthToTextWidth(false);
+			// addChild(meta);
 
-			// msg = new APText(new Font(fontFamily, Font.ITALIC, textH));
-			// msg.setTextPaint(helpColor);
-			// msg.setPickable(false);
-			// msg
-			// .setText("Click on a category,\nand then click on its tags\nto
-			// start diving into the collection.");
-			// msg.setConstrainWidthToTextWidth(false);
-			// addChild(msg);
+			msg = new APText(new Font(fontFamily, Font.ITALIC, getTextSize()));
+			msg.setTextPaint(Color.white);
+			msg.setPickable(false);
+			msg
+					.setText("Click on a category,\nand then click on its tags\nto start diving into the collection.");
+			msg.setConstrainWidthToTextWidth(false);
+			addChild(msg);
 
-			arrow.setRotation(Math.PI / 2);
-			arrow.setVisible(Arrow.LEFT_TAIL, false);
-			addChild(arrow);
+			// arrow.setRotation(Math.PI / 2);
+			// arrow.setVisible(Arrow.LEFT_TAIL, false);
+			// addChild(arrow);
 
 			setWidth(w);
 		}
 
 		public boolean setWidth(double w) {
 			w = Math.round(w / getScale());
-			meta.setWidth(w);
-			arrow.setOffset(lineH, meta.getMaxY());
+			msg.setWidth(w);
+			// arrow.setOffset(lineH, meta.getMaxY());
 			// msg.setWidth(w);
 			// msg.setOffset(0, meta.getHeight() + lineH);
 			// setHeight(msg.getMaxY());
@@ -984,7 +976,7 @@ final class Bungee extends PFrame {
 				// getCanvas().setBounds(0, 0, kludgeW, kludgeH);
 				PLayer layer = getCanvas().getLayer();
 				layer.setBounds(0, 0, w, h);
-				header.validate(w, headerH);
+				double headerH = header.validate(w);
 				mouseDoc.validate(w, mouseDocH);
 
 				double internalH = h - headerH - mouseDocH;
@@ -998,15 +990,15 @@ final class Bungee extends PFrame {
 						+ "\ngridW " + gridW + " summaryW " + summaryW
 						+ " selectedItemW " + selectedItemW;
 				summary.validate(summaryW, internalH);
-				summary.setOffset(0.0, headerH);
+				summary.setOffset(0.0, headerH + mouseDocH);
 				grid.validate(gridW, internalH);
-				grid.setOffset(summaryW + regionMargins, headerH);
+				grid.setOffset(summaryW + regionMargins, headerH + mouseDocH);
 				selectedItem.validate(selectedItemW, internalH);
 				selectedItem.setOffset(summaryW + gridW + 2 * regionMargins,
-						headerH);
+						headerH + mouseDocH);
 				if (clusterViz != null)
 					clusterViz.validate();
-				mouseDoc.setOffset(0.0, h - mouseDocH);
+				mouseDoc.setOffset(0.0, headerH);
 
 				positionHelp();
 			}
@@ -1017,9 +1009,8 @@ final class Bungee extends PFrame {
 		// Util.print("positionHelp ") + isShowingInitialHelp());
 		if (isShowingInitialHelp()) {
 			help.moveToFront();
-			double xOffset = 2 * lineH; // summary.getMaxX() + lineH;
-			double yOffset = h - mouseDocH - help.getHeight(); // headerH + 4 *
-			// lineH;
+			double xOffset = summary.getMaxX() + lineH;
+			double yOffset = header.getHeight() + 4 * lineH;
 			help.setOffset(xOffset, yOffset);
 			double helpRight = help.getMaxX();
 			if (helpRight > w) {
@@ -1260,6 +1251,10 @@ final class Bungee extends PFrame {
 		return features.zoom;
 	}
 
+	boolean getIsEditing() {
+		return query.isEditable() && features.editing;
+	}
+
 	void setSelectedItem(Item item) {
 		setSelectedItem(item, -1, -1, -1, -1, false);
 	}
@@ -1287,7 +1282,7 @@ final class Bungee extends PFrame {
 			clusterViz.hide();
 	}
 
-	Item selectedItem() {
+	Item selectedItemItem() {
 		return selectedItem.currentItem;
 	}
 
@@ -1330,11 +1325,11 @@ final class Bungee extends PFrame {
 					.lookup("javax.jnlp.ClipboardService");
 		} catch (Throwable e) {
 			// Expect UnavailableServiceException or NoClassDefFoundError
-			if (s == null)
-				Util.err("jnlp.BasicService is not available");
-			if (jnlpClipboardService == null)
-				Util.err("jnlp.ClipboardService is not available");
-			Util.err("because " + e);
+			// if (s == null)
+			// Util.err("jnlp.BasicService is not available");
+			// if (jnlpClipboardService == null)
+			// Util.err("jnlp.ClipboardService is not available");
+			// Util.err("because " + e);
 		}
 		return s;
 	}
@@ -1351,14 +1346,14 @@ final class Bungee extends PFrame {
 			buf.append("db=").append(URLEncoder.encode(dbName, "UTF-8"));
 			assert selectedItem != null;
 			assert query != null;
-			if (selectedItem.currentItem != null) {
-				String url = query.getItemURL(selectedItem.currentItem);
+			if (selectedItemItem() != null) {
+				String url = query.getItemURL(selectedItemItem());
 				if (url != null) {
 					buf.append("&SelectedItem=").append(
 							URLEncoder.encode(url, "UTF-8"));
 				} else {
 					buf.append("&SelectedItemID=").append(
-							selectedItem.currentItem.getId());
+							selectedItemItem().getId());
 				}
 			}
 			ItemPredicate cp = summary.connectedPerspective();
@@ -1583,7 +1578,8 @@ final class Bungee extends PFrame {
 		}
 		assert !prevFacets.isEmpty();
 
-		summary.highlightCluster(prevFacets);
+		header.updateSelections(prevFacets);
+//		summary.highlightCluster(prevFacets);
 		summary.showCluster(cluster);
 		// prevModifiers = -9999;
 		// updateItemPredicateClickDesc(0, true);
@@ -1644,6 +1640,8 @@ final class Bungee extends PFrame {
 			summary.repaintNow();
 			getCanvas().paintImmediately();
 
+			header.updateSelections(prevFacets);
+			
 			// prevModifiers = -9999;
 			// updateItemPredicateClickDesc(modifiers, true);
 			// Util.print("PI mouse");
@@ -1730,10 +1728,12 @@ final class Bungee extends PFrame {
 		// }
 
 		// may on the way up; do on the way down
-		if (summary != null)
-			summary.doHideTransients();
+		if (header != null)
+			header.doHideTransients();
 		if (selectedItem != null)
 			selectedItem.doHideTransients();
+		if (editMenu() != null)
+			editMenu().removeFromParent();
 
 		// Lose ClusterViz iff selectedItem changes or query changes
 		// if (clusterViz != null)
@@ -1743,6 +1743,44 @@ final class Bungee extends PFrame {
 		// // if (perspectiveList != null)
 		// // perspectiveList.show(false);
 		// }
+	}
+
+	Menu editMenu() {
+		return editing == null ? null : editing.editMenu;
+	}
+
+	Perspective selectedForEdit() {
+		return editing == null ? null : editing.selectedForEdit;
+	}
+
+	boolean setSelectedForEdit(Perspective facet, int modifiersEx) {
+		return ensureEditing() ? editing.setSelectedForEdit(facet, modifiersEx)
+				: false;
+	}
+
+	boolean facetMiddleMenu(Perspective facet) {
+		return ensureEditing() ? editing.facetMiddleMenu(facet) : false;
+	}
+
+	boolean itemMiddleMenu(Item currentItem, boolean isRight) {
+		return ensureEditing() ? editing.itemMiddleMenu(currentItem, isRight)
+				: false;
+	}
+
+	private boolean ensureEditing() {
+		if (!getIsEditing())
+			// In case user has turned off editing using the Custom menu
+			editing = null;
+		if (editing == null) {
+			if (getIsEditing()) {
+				editing = new Editing(this);
+			} else if (query.isEditable()) {
+				setTip("Updating the Database is disabled. Enable it using the Custom Mode menu");
+			} else {
+				setTip("Updating this Database is disabled. Enable it by setting globals.isEditable = 'Y'");
+			}
+		}
+		return editing != null;
 	}
 
 	void setTip(String s) {
@@ -1777,6 +1815,17 @@ final class Bungee extends PFrame {
 
 	void setMouseDoc(String doc) {
 		setClickDesc(doc);
+	}
+
+	void setNonClickMouseDoc(String s) {
+		if (mouseDoc != null) {
+			Markup v = null;
+			if (s != null) {
+				v = Query.emptyMarkup();
+				v.add(s);
+			}
+			mouseDoc.setClickDescInternal(v);
+		}
 	}
 
 	/**
@@ -1957,7 +2006,7 @@ final class Bungee extends PFrame {
 	 */
 	void updatePvalue() {
 		assert query.isQueryValid();
-		Util.print(query + "\n" + query.topTags(10));
+		// Util.print(query + "\n" + query.topTags(10));
 		double[] pValues = summary.pValues();
 		nBars = pValues.length;
 		assert nBars == summary.nBars() : nBars + " " + summary.nBars();
@@ -2022,7 +2071,7 @@ final class Bungee extends PFrame {
 		printUserAction(Bungee.RESTRICT, 0, 0);
 		if (query.getOnCount() > 0 && query.isRestricted()) {
 			query.restrictData();
-			header.setDBdescription(query.getName());
+			header.setDBdescription(query.getNameIfPossible());
 			updateAllData();
 			summary.restrict();
 		} else {
@@ -2056,7 +2105,7 @@ final class Bungee extends PFrame {
 	/**
 	 * All query changes go through here
 	 */
-	private void updateAllData(Perspective toConnect) {
+	void updateAllData(Perspective toConnect) {
 		// Util.print("Art.updateAllData ");
 		query.setQueryInvalid();
 		summary.synchronizeWithQuery(toConnect);
@@ -2132,6 +2181,7 @@ final class Bungee extends PFrame {
 							// assert highlightedFacet != null;
 							showPopup(singleHighlightedFacet());
 							summary.updateData();
+							header.updateData();
 							selectedItem.setVisibility();
 							selectedItem.updateColors();
 							if (clusterViz != null)
@@ -2412,8 +2462,8 @@ final class Bungee extends PFrame {
 			} else if (Util.isMember(MyInputEventHandler.arrowKeys, key)
 					|| keyChar == CONTROL_A) {
 				return handleArrow(key, modifiers);
-			} else if (Tetrad.handleKey(keyChar, modifiers)) {
-				return summary.facetDesc.updateTetrad();
+				// } else if (Tetrad.handleKey(keyChar, modifiers)) {
+				// return summary.facetDesc.updateTetrad();
 			} else {
 				return handleKey(keyChar);
 			}
@@ -2437,15 +2487,19 @@ final class Bungee extends PFrame {
 					setTip("Finding clusters is disabled in beginner mode");
 					return false;
 				}
-			} else if (editMenu != null
-					&& Character.digit(keyChar, editMenu.nChoices()) > 0) {
-				editMenu.choose(keyChar - '1');
-			} else if (summary!=null&&isNameChar(keyChar) || keyChar == '\b') {
+			} else if (editMenu() != null
+					&& Character.digit(keyChar, editMenu().nChoices()) > 0) {
+				editMenu().choose(keyChar - '1');
+			} else if (summary != null && isNameChar(keyChar)
+					|| keyChar == '\b') {
 				printUserAction(Bungee.ZOOM, 0, keyChar);
 				return summary.keyPress(keyChar);
+
+				// This is the default for typing any character
+				// } else if (keyChar == java.awt.event.KeyEvent.VK_ESCAPE) {
+				// mayHideTransients(null);
+
 			} else {
-				// Bungee.this.mayHideTransients();
-				// artHideTransients();
 				return false;
 			}
 			return true;
@@ -2483,8 +2537,8 @@ final class Bungee extends PFrame {
 		if (!getUseArrowKeys()) {
 			setTip("Arrow keys are disabled in beginner mode");
 			return false;
-		} else if (Util.isAltDown(modifiers) && editArrow(key)) {
-			return true;
+			// } else if (Util.isAltDown(modifiers) && editArrow(key)) {
+			// return true;
 		} else if (arrowFocus == null) {
 			grid.handleArrow(key);
 			return true;
@@ -2536,192 +2590,33 @@ final class Bungee extends PFrame {
 		return query.aboutCollection();
 	}
 
-//	/**
-//	 * @param item
-//	 *            warp the original image associated with this item
-//	 * @param faceImage
-//	 *            computes the warp parameters that map its image's actual
-//	 *            points to its hardcoded desired points.
-//	 */
-//	void warpImage(Item item, FaceImage faceImage) {
-//		String srcFilename = query.getItemURL(item);
-//		assert srcFilename.endsWith(".jpg") : "warp filname=" + srcFilename;
-//		String dstFilename = "C:\\Documents and Settings\\mad\\Desktop\\50thAnniversary\\FlipImages"
-//				+ srcFilename.substring(srcFilename.lastIndexOf('\\'));
-//		// Util.print(dstFilename);
-//		try {
-//			BufferedImage bigImage = Util.read(srcFilename);
-//			FaceImage bigFace = faceImage.getScaledInstance(bigImage);
-//			Util.writeImage(bigFace.getWarpedImage(), 85, dstFilename);
-//		} catch (ImageFormatException e) {
-//			// TODO Auto-generated catch block
-//			e.printStackTrace();
-//		} catch (IOException e) {
-//			// TODO Auto-generated catch block
-//			e.printStackTrace();
-//		}
-//
-//	}
-
-	boolean itemMiddleMenu(Item item, boolean isRight) {
-		if (query.isEditable()) {
-			if (isRight) {
-				if (selectedForEdit != null) {
-					Item oldItem = selectedItem.currentItem;
-					selectedItem.currentItem = item;
-					doEdit("Add to Selected Result: ");
-					selectedItem.currentItem = oldItem;
-				} else {
-					Util
-							.err("Can't add facet to item because selectedForEdit is null");
-				}
-			} else {
-				if (editMenu != null)
-					editMenu.removeFromParent();
-				editMenu = new Menu(Color.black, Color.white, getEdit(), font);
-				editMenuItem = item;
-				addEditButton("Rotate 90 degrees clockwise: " + item);
-				addEditButton("Rotate 180 degrees clockwise: " + item);
-				addEditButton("Rotate 270 degrees clockwise: " + item);
-				editMenu.setText("");
-				getCanvas().getLayer().addChild(editMenu);
-				editMenu.pick();
-			}
-		} else
-			Util.err("Editing is disabled (" + item + ")");
-		return query.isEditable();
-	}
-
-	boolean facetMiddleMenu(Perspective facet) {
-		if (query.isEditable()) {
-			if (editMenu != null)
-				editMenu.removeFromParent();
-			editMenu = new Menu(Color.black, Color.white, getEdit(), font);
-			editMenuPerspective = facet;
-			addEditButton("Set edit selection to " + facet);
-			addEditButton("Add to Selected Result: " + facet);
-			addEditButton("Add to Result Set: " + facet);
-			String name = summary.queryViz.editor.getText().trim();
-			if (name.length() > 0) {
-				addEditButton("Add child facet " + name + " to " + facet);
-				addEditButton("Rename " + facet + " to " + name);
-			}
-			// addEditButton("Delete this facet");
-			addEditButton("Remove from Selected Result: " + facet);
-			addEditButton("Remove from Result Set: " + facet);
-			// addEditButton("Remove from Result Set");
-			if (selectedForEdit != null) {
-				addEditButton("Reparent " + selectedForEdit + " to " + facet);
-			}
-			if (name.length() > 0)
-				addEditButton("Add new facet type " + name);
-			addEditButton("Writeback");
-			editMenu.setText("");
-			getCanvas().getLayer().addChild(editMenu);
-			editMenu.pick();
-		} else
-			Util.err("Editing is disabled.");
-		return query.isEditable();
-	}
-
-	void addEditButton(String s) {
-		editMenu.addButton((editMenu.nChoices() + 1) + ". " + s, s, s);
-	}
-
-	private transient Runnable edit;
-
-	Runnable getEdit() {
-		if (edit == null)
-			edit = new Runnable() {
-
-				public void run() {
-					String which = (String) editMenu.getData();
-					doEdit(which);
-					editMenu.removeFromParent();
-					editMenu = null;
-				}
-			};
-		return edit;
-	}
-
-	void doEdit(String which) {
-		Util.print(editMenuPerspective + " " + which);
-		Perspective connected = summary.connectedPerspective();
-		Collection updated = null;
-		if (which.startsWith("Set edit selection to ")) {
-			setSelectedForEdit(editMenuPerspective, 0);
-		} else if (which.startsWith("Add to Selected Result: ")) {
-			decacheItem(selectedItem.currentItem);
-			updated = query.addItemFacet(editMenuPerspective,
-					selectedItem.currentItem);
-			updateSelectedItem();
-		} else if (which.startsWith("Add to Result Set: ")) {
-			decacheItems();
-			updated = query.addItemsFacet(editMenuPerspective);
-			updateSelectedItem();
-		} else if (which.startsWith("Add child facet ")) {
-			updated = query.addChildFacet(editMenuPerspective, which.substring(
-					16).split(" to ")[0]);
-		} else if (which.startsWith("Remove from Selected Result: ")) {
-			decacheItem(selectedItem.currentItem);
-			updated = query.removeItemFacet(editMenuPerspective,
-					selectedItem.currentItem);
-			updateSelectedItem();
-		} else if (which.startsWith("Remove from Result Set: ")) {
-			decacheItems();
-			updated = query.removeItemsFacet(editMenuPerspective);
-			updateSelectedItem();
-		} else if (which.startsWith("Reparent ")) {
-			updated = query.reparent(editMenuPerspective, selectedForEdit);
-		} else if (which.startsWith("Rename ")) {
-			String newName = which.split(" to ")[1];
-			query.rename(editMenuPerspective, newName);
-			editMenuPerspective.setName(newName);
-		} else if (which.equals("Writeback")) {
-			query.writeback();
-			dispose();
-		} else if (which.startsWith("Add new facet type ")) {
-			updated = query.addChildFacet(null, which.substring(19));
-		} else if (which.startsWith("Rotate ")) {
-			decacheItem(selectedItem.currentItem);
-			query.rotate(editMenuItem, which.substring(7, 10).trim());
-			updateSelectedItem();
-		} else {
-			Util.err("Unknown choice: " + which);
-		}
-		if (updated != null && updated.size() > 0) {
-			Util.print("Reverting PerspectiveViz's for "
-					+ Util.valueOfDeep(updated));
-			Collection unchanged = new ArrayList(query.displayedPerspectives());
-			unchanged.removeAll(updated);
-			summary.synchronizePerspectives(unchanged, null);
-		}
-		updateAllData();
-		if (connected != null && summary.connectedPerspective() != connected)
-			summary.connectToPerspective(connected);
-	}
-
-	boolean setSelectedForEdit(Perspective facet, int modifiers) {
-		if (query.isEditable()) {
-			// Util.print("setSelectedForEdit " + facet + " " + modifiers + " "
-			// + InputEvent.CTRL_DOWN_MASK + " "
-			// + (modifiers & InputEvent.CTRL_DOWN_MASK) + " "
-			// + Perspective.isControlDown(modifiers) + " "
-			// + selectedItem.currentItem);
-			selectedForEdit = facet;
-			editMenuPerspective = facet;
-			summary.setSelectedForEdit(facet);
-			if (Util.isControlDown(modifiers)
-					&& selectedItem.currentItem != null) {
-				doEdit("Add to Selected Result: ");
-				if (selectedForEdit.nChildren() > 0) {
-					toggleFacetLater();
-				}
-			}
-		} else
-			Util.err("Editing is disabled.");
-		return query.isEditable();
-	}
+	// /**
+	// * @param item
+	// * warp the original image associated with this item
+	// * @param faceImage
+	// * computes the warp parameters that map its image's actual
+	// * points to its hardcoded desired points.
+	// */
+	// void warpImage(Item item, FaceImage faceImage) {
+	// String srcFilename = query.getItemURL(item);
+	// assert srcFilename.endsWith(".jpg") : "warp filname=" + srcFilename;
+	// String dstFilename =
+	// "C:\\Documents and Settings\\mad\\Desktop\\50thAnniversary\\FlipImages"
+	// + srcFilename.substring(srcFilename.lastIndexOf('\\'));
+	// // Util.print(dstFilename);
+	// try {
+	// BufferedImage bigImage = Util.read(srcFilename);
+	// FaceImage bigFace = faceImage.getScaledInstance(bigImage);
+	// Util.writeImage(bigFace.getWarpedImage(), 85, dstFilename);
+	// } catch (ImageFormatException e) {
+	// // TODO Auto-generated catch block
+	// e.printStackTrace();
+	// } catch (IOException e) {
+	// // TODO Auto-generated catch block
+	// e.printStackTrace();
+	// }
+	//
+	// }
 
 	/**
 	 * Waits for valid query and then calls toggleFacet(selectedForEdit, 0)
@@ -2741,55 +2636,55 @@ final class Bungee extends PFrame {
 			doSelectFacet = new Runnable() {
 
 				public void run() {
-					toggleFacet(selectedForEdit, 0);
+					toggleFacet(selectedForEdit(), 0);
 				}
 			};
 		return doSelectFacet;
 	}
 
-	boolean editArrow(char key) {
-		if (query.isEditable()) {
-			if (selectedForEdit != null) {
-				ItemPredicate updated = null;
-				ItemPredicate parent = selectedForEdit.getParent();
-				switch (key) {
-				case java.awt.event.KeyEvent.VK_KP_LEFT:
-				case java.awt.event.KeyEvent.VK_LEFT:
-					if (parent != null) {
-						updated = parent;
-						if (parent.isRestriction(selectedForEdit, true)) {
-							toggleFacetLater();
-						}
-					}
-					break;
-				case java.awt.event.KeyEvent.VK_KP_UP:
-				case java.awt.event.KeyEvent.VK_UP:
-					updated = selectedForEdit.previousSibling();
-					break;
-				case java.awt.event.KeyEvent.VK_KP_RIGHT:
-				case java.awt.event.KeyEvent.VK_RIGHT:
-					if (selectedForEdit.isEffectiveChildren()) {
-						selectedForEdit.prefetchData();
-						// query.waitForPrefetch(selectedForEdit);
-						updated = selectedForEdit.getNthChild(0);
-					}
-					break;
-				case java.awt.event.KeyEvent.VK_KP_DOWN:
-				case java.awt.event.KeyEvent.VK_DOWN:
-					updated = selectedForEdit.nextSibling();
-					break;
-				default:
-					assert false : key;
-				}
-				if (updated != null) {
-					setSelectedForEdit((Perspective) updated, 0);
-					return true;
-				}
-			}
-		} else
-			Util.err("Editing is disabled.");
-		return false;
-	}
+	// boolean editArrow(char key) {
+	// if (getIsEditing()) {
+	// if (selectedForEdit() != null) {
+	// ItemPredicate updated = null;
+	// ItemPredicate parent = selectedForEdit().getParent();
+	// switch (key) {
+	// case java.awt.event.KeyEvent.VK_KP_LEFT:
+	// case java.awt.event.KeyEvent.VK_LEFT:
+	// if (parent != null) {
+	// updated = parent;
+	// if (parent.isRestriction(selectedForEdit(), true)) {
+	// toggleFacetLater();
+	// }
+	// }
+	// break;
+	// case java.awt.event.KeyEvent.VK_KP_UP:
+	// case java.awt.event.KeyEvent.VK_UP:
+	// updated = selectedForEdit().previousSibling();
+	// break;
+	// case java.awt.event.KeyEvent.VK_KP_RIGHT:
+	// case java.awt.event.KeyEvent.VK_RIGHT:
+	// if (selectedForEdit().isEffectiveChildren()) {
+	// selectedForEdit().prefetchData();
+	// // query.waitForPrefetch(selectedForEdit);
+	// updated = selectedForEdit().getNthChild(0);
+	// }
+	// break;
+	// case java.awt.event.KeyEvent.VK_KP_DOWN:
+	// case java.awt.event.KeyEvent.VK_DOWN:
+	// updated = selectedForEdit().nextSibling();
+	// break;
+	// default:
+	// assert false : key;
+	// }
+	// if (updated != null) {
+	// editing.setSelectedForEdit((Perspective) updated, 0);
+	// return true;
+	// }
+	// }
+	// } else
+	// Util.err("Editing is disabled.");
+	// return false;
+	// }
 
 	private transient BufferedImage missingImage;
 
@@ -2860,16 +2755,19 @@ final class Bungee extends PFrame {
 		return table == null ? null : (ItemImage) table.get(item);
 	}
 
-	void decacheItem(Item item) {
-		Util.print("decacheItem " + item);
+	void decacheCurrentItem() {
+		Item item = selectedItemItem();
+		// Util.print("decacheItem " + item);
 		selectedItem.removeFacetTree(item);
 		Map table = getItemImagesTable();
 		if (table != null)
 			table.remove(item);
+		updateSelectedItem();
 	}
 
 	void decacheItems() {
 		selectedItem.facetTrees = null;
+		updateSelectedItem();
 	}
 
 	private transient SoftReference facetTexts;
@@ -2899,7 +2797,7 @@ final class Bungee extends PFrame {
 	 * Only called when editing
 	 */
 	void updateSelectedItem() {
-		Item item = selectedItem.currentItem;
+		Item item = selectedItemItem();
 		selectedItem.currentItem = null;
 		setSelectedItem(item);
 	}
@@ -2909,11 +2807,13 @@ final class Bungee extends PFrame {
 	}
 
 	void showPopup(Perspective facet) {
-		if (isPopups() && !isShowingInitialHelp()) {
-			summary.showPopup(facet);
-			mouseDoc.showPopup(null);
-		} else
-			mouseDoc.showPopup(facet);
+		if (!isShowingInitialHelp()) {
+			if (isPopups()) {
+				summary.showPopup(facet);
+				mouseDoc.showPopup(null);
+			} else
+				mouseDoc.showPopup(facet);
+		}
 	}
 
 	void showMoreHelp() {
@@ -2924,9 +2824,8 @@ final class Bungee extends PFrame {
 	}
 
 	void setItemDescription(Item currentItem, String description) {
-		decacheItem(currentItem);
 		query.setItemDescription(currentItem, description);
-		updateSelectedItem();
+		decacheCurrentItem();
 	}
 
 	String getBugInfo() {
@@ -2952,13 +2851,13 @@ final class Bungee extends PFrame {
 				query.printUserAction(location, object, modifiers);
 
 				// Useful for debugging
-				switch (location) {
-				case BAR:
-				case BAR_LABEL:
-				case FACET_TREE:
-					Util.print(query.findPerspective(Integer.parseInt(object)));
-					break;
-				}
+				// switch (location) {
+				// case BAR:
+				// case BAR_LABEL:
+				// case FACET_TREE:
+				// Util.print(query.findPerspective(Integer.parseInt(object)));
+				// break;
+				// }
 			}
 		}
 	}
@@ -3012,7 +2911,8 @@ final class Bungee extends PFrame {
 	/**
 	 * Query secretly knows this value, so keep synchronized
 	 */
-	static final int ERR = 24;
+	// static final int ERROR = 24;
+	static final int WRITEBACK = 25;
 
 	void replayOp() {
 		try {
@@ -3090,11 +2990,12 @@ final class Bungee extends PFrame {
 			case BUTTON:
 				Util.print("  button " + args[2]);
 				if (args[2].equals("Clear")) {
-					summary.clickClear();
+					header.clickClear();
 				} else if (args[2].equals("Ellipsis")) {
-					summary.clickEllipsis();
+					// summary.clickEllipsis();
 				} else {
-					summary.removeSearch(args[2]);
+//					summary.removeSearch(args[2]);
+					query.removeTextSearch(args[2]);
 				}
 				break;
 			case SEARCH:
@@ -3158,8 +3059,11 @@ final class Bungee extends PFrame {
 				Util.print("  Change mode to " + mode);
 				setFeatures(new Preferences(null, mode, true));
 				break;
-			case ERR:
+			case Query.ERROR:
 				Util.print(args[2]);
+				break;
+			case WRITEBACK:
+				Util.print("Writeback");
 				break;
 			default:
 				assert false : args[1];
@@ -3324,53 +3228,58 @@ final class Bungee extends PFrame {
 			super("DocumentShower", 0);
 		}
 
+		// Handle both Items and Strings in one class to minimize the number of
+		// Threads. For items, look up the URL and recurse.
 		public void process(final Object objectToShow) {
-			String URLs;
 			if (objectToShow instanceof Item) {
 				Item item = (Item) objectToShow;
-				if (informedia != null)
+				if (informedia != null) {
 					informedia.playSegment(item);
-				URLs = query == null ? null : query.getItemURL(item);
-				// Util.print("Show document " + URLs);
-				if (URLs == null || URLs.length() == 0)
 					return;
-			} else {
-				URLs = (String) objectToShow;
-			}
-			if (URLs.equals("About this collection"))
-				URLs = aboutCollection();
-			if (URLs.indexOf("library.pitt.edu") > 0) {
-				// LoC & MedART can't handle additional query args
-				String prefix = "?";
-				if (URLs.indexOf('?') > 0)
-					prefix = "&";
-				try {
-					URLs += prefix + "referer="
-							+ URLEncoder.encode(bookmark(), "UTF-8");
-				} catch (UnsupportedEncodingException e) {
-					e.printStackTrace();
 				}
-			}
+				String URLs = query == null ? null : query.getItemURL(item);
+				// Util.print("Show document " + URLs);
+				if (URLs != null && URLs.length() != 0)
+					process(URLs);
+			} else {
+				String URLs = (String) objectToShow;
+				// if (URLs.equals("About this collection"))
+				// URLs = aboutCollection();
+				// if (URLs.indexOf("library.pitt.edu") > 0) {
+				// // LoC & MedART can't handle additional query args
+				// String prefix = "?";
+				// if (URLs.indexOf('?') > 0)
+				// prefix = "&";
+				// try {
+				// URLs += prefix + "referer="
+				// + URLEncoder.encode(bookmark(), "UTF-8");
+				// } catch (UnsupportedEncodingException e) {
+				// e.printStackTrace();
+				// }
+				// }
 
-			if (basicJNLPservice != null) {
+				URL url = null;
 				try {
-					basicJNLPservice.showDocument(new URL(URLs));
-				} catch (MalformedURLException e) {
-					e.printStackTrace();
+					url = new URL(new URL(codeBase()), URLs);
+				} catch (MalformedURLException e1) {
+					e1.printStackTrace();
 				}
-			} else {
-				try {
-					// Util.print("firefox " + URLs);
-					// Util.copyFile(URLs,
-					// "C:\\Documents and
-					// Settings\\mad\\Desktop\\50thAnniversary\\FlipImages"
-					// + URLs.substring(URLs.lastIndexOf('\\')));
-					// if (false)
-					Runtime.getRuntime().exec(
-							"C:\\Program Files\\Mozilla Firefox\\firefox.exe \""
-									+ URLs + "\"");
-				} catch (IOException e) {
-					e.printStackTrace();
+				if (basicJNLPservice != null) {
+					basicJNLPservice.showDocument(url);
+				} else {
+					try {
+						// Util.print("firefox " + URLs);
+						// Util.copyFile(URLs,
+						// "C:\\Documents and
+						// Settings\\mad\\Desktop\\50thAnniversary\\FlipImages"
+						// + URLs.substring(URLs.lastIndexOf('\\')));
+						// if (false)
+						Runtime.getRuntime().exec(
+								"C:\\Program Files\\Mozilla Firefox\\firefox.exe \""
+										+ url + "\"");
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
 				}
 			}
 		}
