@@ -188,7 +188,7 @@ final class GridImage extends PImage /* implements FacetNode */{
 		return true;
 	}
 
-	String mouseDoc = "Select this result";
+	String mouseDoc = "Select this match";
 
 //	private FaceImage faceImage;
 

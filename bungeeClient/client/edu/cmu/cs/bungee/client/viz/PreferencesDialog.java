@@ -95,12 +95,12 @@ class PreferencesDialog extends JPanel implements ActionListener {
 				.setValue(desiredColumns > 0 ? new Integer(desiredColumns)
 						: (Object) "Bungee's choice");
 		columnsPanel.add(columnsSpinner);
-		textFieldLabel = new JLabel("Number of columns in Results pane");
+		textFieldLabel = new JLabel("Number of columns in Matches pane");
 		columnsPanel.add(textFieldLabel);
 		generalPreferencesPane.add(columnsPanel);
 
 		popups = new JCheckBox(
-				"Show popups on tag mouse-over (otherwise show on bottom line)");
+				"Show popups on tag mouse-over (otherwise show in header)");
 		popups.setSelected(features.popups);
 		generalPreferencesPane.add(popups);
 
@@ -124,7 +124,7 @@ class PreferencesDialog extends JPanel implements ActionListener {
 
 		checkboxes = new JCheckBox("using checkboxes");
 		checkboxes.setSelected(features.checkboxes);
-		shortcuts = new JCheckBox("using control, shift, and alt");
+		shortcuts = new JCheckBox("using control and shift keys");
 		shortcuts.setSelected(features.shortcuts);
 		JPanel multipleSelectionCheckboxesPanel = new JPanel(new FlowLayout(
 				FlowLayout.LEADING));
@@ -140,7 +140,7 @@ class PreferencesDialog extends JPanel implements ActionListener {
 		expertFeaturesPane.add(multipleSelectionShortcutPanel);
 
 		brushing = new JCheckBox(
-				"Use linked highlighting to show which results have a tag, and which tags a result has");
+				"Use linked highlighting to show which matches have a tag, and which tags a result has");
 		brushing.setSelected(features.brushing);
 		expertFeaturesPane.add(brushing);
 
@@ -158,12 +158,12 @@ class PreferencesDialog extends JPanel implements ActionListener {
 		expertFeaturesPane.add(medians);
 
 		sortMenus = new JCheckBox(
-				"Show a menu for sorting the result list by a tag category");
+				"Show a menu for sorting matches by a tag category");
 		sortMenus.setSelected(features.sortMenus);
 		expertFeaturesPane.add(sortMenus);
 
 		arrows = new JCheckBox(
-				"Use arrow keys to navigate through Tags and Results");
+				"Use arrow keys to navigate through Tags and Matches");
 		arrows.setSelected(features.arrows);
 		expertFeaturesPane.add(arrows);
 

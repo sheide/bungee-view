@@ -503,6 +503,8 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 					childFraction = 0.0;
 					bar = (Bar) barTable.get(p.getNthChild(++medianIndex));
 				}
+//				Util.print("layoutMedianArrow " + medianChild + " "
+//						+ childFraction + " " + bar);
 				if (bar != null) {
 					int left = minBarPixelRaw(medianChild);
 					int right = maxBarPixelRaw(medianChild);
@@ -513,7 +515,7 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 					// double x = bar.getXOffset() + childFraction *
 					// bar.getWidth();
 					double length = x - medianArrow.getXOffset();
-					medianArrow.setLength((int) length);
+					 medianArrow.setLengthAndDirection((int) length);
 					// Color color = null;
 					medianArrow.updateColor(p.medianTestSignificant());
 					// Util.print("median: " + p + " " + median + " " + bar + "
@@ -1462,8 +1464,8 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 		// Skip if over checkboxes and therefore modifiers != 0 (should not
 		// happen for top-level ranks)
 		boolean handle = isHandlePickFacetText(facet, modifiers);
-//		Util.print("PV.pick " + p + "." + facet + " " + modifiers + " "
-//				+ handle);
+		// Util.print("PV.pick " + p + "." + facet + " " + modifiers + " "
+		// + handle);
 		if (handle) {
 			art().printUserAction(Bungee.RANK_LABEL, facet, modifiers);
 			if (!isConnected()) {

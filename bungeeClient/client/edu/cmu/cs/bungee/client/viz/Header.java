@@ -119,7 +119,7 @@ final class Header extends LazyPNode implements MouseDoc {
 				// };
 
 				helpMenu = new Menu(Bungee.headerBG, Bungee.headerFG, art.font);
-				helpMenu.mouseDoc="Show Help Topics";
+				helpMenu.mouseDoc = "Show Help Topics";
 				helpMenu.setJustification(Component.RIGHT_ALIGNMENT);
 				helpMenu.addButton(new HelpMenuItem("Abo.html?"
 						+ URLEncoder.encode(art.getBugInfo(), "UTF-8"),
@@ -132,8 +132,10 @@ final class Header extends LazyPNode implements MouseDoc {
 						.addButton(new HelpMenuItem("Sea.html", "Search Syntax"));
 				helpMenu.addButton(new HelpMenuItem("Tip.html",
 						"Tips and Tricks"));
-				helpMenu.addButton(new HelpMenuItem("Edi.html",
-						"Editing the database"));
+				if (art.query.isEditable()) {
+					helpMenu.addButton(new HelpMenuItem("Edi.html",
+							"Editing the database"));
+				}
 				helpMenu.setText("Help");
 				addChild(helpMenu);
 			} catch (UnsupportedEncodingException e) {
@@ -155,7 +157,7 @@ final class Header extends LazyPNode implements MouseDoc {
 			// };
 
 			modeMenu = new Menu(Bungee.headerBG, Bungee.headerFG, art.font);
-			modeMenu.mouseDoc="Set Preferences";
+			modeMenu.mouseDoc = "Set Preferences";
 			modeMenu.addButton(new BeginnerModeCommand());
 			modeMenu.addButton(new ExpertModeCommand());
 			modeMenu.addButton(new CustomModeCommand());
@@ -203,7 +205,7 @@ final class Header extends LazyPNode implements MouseDoc {
 
 			databaseMenu = new Menu(Bungee.headerBG, Bungee.headerFG, art.font);
 			databaseMenu.setJustification(Component.LEFT_ALIGNMENT);
-			databaseMenu.mouseDoc="Choose among Collections";
+			databaseMenu.mouseDoc = "Choose among Collections";
 			for (int i = 0; i < allDBdescriptions.length; i++) {
 				String dbName = allDBdescriptions[i][0];
 				String dbDesc = allDBdescriptions[i][1];
@@ -231,7 +233,7 @@ final class Header extends LazyPNode implements MouseDoc {
 		addChild(summaryText);
 
 		boundary = new Boundary(this, true);
-		boundary.mouseDoc="Start dragging boundary to change font size";
+		boundary.mouseDoc = "Start dragging boundary to change font size";
 		addChild(boundary);
 
 		setPickable(false);
@@ -239,7 +241,7 @@ final class Header extends LazyPNode implements MouseDoc {
 
 	double validate(double w) {
 		double h = Math.ceil(4.5 * art.lineH);
-//		Util.print("Header.validate " + w + "x" + h);
+		// Util.print("Header.validate " + w + "x" + h);
 		setBounds(0, 0, w, h);
 		label.setFont(art.font);
 		countLabel.setFont(art.font);
@@ -250,16 +252,17 @@ final class Header extends LazyPNode implements MouseDoc {
 
 		validateColorKey();
 
-		summaryText.setOffset(countLabel.getXOffset() + 10, countLabel.getMaxY());
+		summaryText.setOffset(countLabel.getXOffset() + 10, countLabel
+				.getMaxY());
 		// Util.print("ttt " + summaryText.getXOffset() + " "
 		// + colorKey.getFullBounds().getWidth() + " " + w);
 		summaryText.validate(w - colorKey.getFullBounds().getWidth()
 				- summaryText.getXOffset() - 20);
-		
-		double toolY = summaryText.getMaxY()+BUTTON_MARGIN;
+
+		double toolY = summaryText.getMaxY() + BUTTON_MARGIN;
 		modeMenu.setFont(art.font);
 		modeMenu.setOffset(x, label.getMaxY());
-		x+=modeMenu.getWidth()+BUTTON_MARGIN;
+		x += modeMenu.getWidth() + BUTTON_MARGIN;
 		boundary.validate();
 		updateData();
 
@@ -271,14 +274,15 @@ final class Header extends LazyPNode implements MouseDoc {
 									.getHeight()) / 2.0));
 		}
 
-		double buttonY = toolY+(modeMenu.getHeight()-clear.getHeight())/2.0;
-		x=summaryText.getXOffset();
+		double buttonY = toolY + (modeMenu.getHeight() - clear.getHeight())
+				/ 2.0;
+		x = summaryText.getXOffset();
 
 		// Place this now so getTopMargin works
 		clear.setFont(art.font);
 		clear.setOffset(x, buttonY);
 		clearMessage.setOffset(x, buttonY);
-		x+=clear.getWidth()+BUTTON_MARGIN;
+		x += clear.getWidth() + BUTTON_MARGIN;
 
 		// double ellipsisX = w - ellipsis.minWidth();
 		// ellipsis.setOffset(ellipsisX, summaryTextY - 2); // -2 corrects for
@@ -296,8 +300,8 @@ final class Header extends LazyPNode implements MouseDoc {
 
 		x += 2 * BUTTON_MARGIN;
 		textSearch.setWidth(colorKey.getXOffset() - x - 3 * BUTTON_MARGIN);
-//		Util.print("iii " + clear.getHeight() + " "
-//				+ textSearch.getFullBounds().getHeight());
+		// Util.print("iii " + clear.getHeight() + " "
+		// + textSearch.getFullBounds().getHeight());
 		textSearch.setOffset(x, toolY);
 		textSearch.positionLabels();
 		validateColorKey();
@@ -322,9 +326,11 @@ final class Header extends LazyPNode implements MouseDoc {
 		if (colorKey != null)
 			colorKey.removeFromParent();
 		colorKey = new ColorKey(art);
-//		Util.print("validateColorKey "+colorKey.getFullBounds()+" "+textSearch.getFullBounds());
+		//Util.print("validateColorKey "+colorKey.getFullBounds()+" "+textSearch
+		// .getFullBounds());
 		colorKey.setOffset(getWidth() - colorKey.getFullBounds().getWidth()
-				- 10, textSearch.getFullBounds().getMaxY()-colorKey.getFullBounds().getHeight());
+				- 10, textSearch.getFullBounds().getMaxY()
+				- colorKey.getFullBounds().getHeight());
 		colorKey.setVisible(art.query.isRestricted());
 		colorKey.setPickable(false);
 		addChild(colorKey);
@@ -484,7 +490,7 @@ final class Header extends LazyPNode implements MouseDoc {
 	}
 
 	public void updateSelections(Set facets) {
-//		Util.print("Header.updateSelections");
+		// Util.print("Header.updateSelections");
 		summaryText.updateSelections(facets);
 	}
 
@@ -581,11 +587,11 @@ final class Header extends LazyPNode implements MouseDoc {
 			super(label1);
 			((APText) child).setConstrainWidthToTextWidth(true);
 			mouseDoc = "Copy a URL for your current query to the system Clipboard";
-			setDisabledMessage("There are no results to bookmark");
+			setDisabledMessage("There are no matches to bookmark");
 			if (art.informedia != null) {
 				setText("New Video Set");
-				mouseDoc = "Save these results as an Informedia video set";
-				setDisabledMessage("There are no results to save");
+				mouseDoc = "Save these matches as an Informedia video set";
+				setDisabledMessage("There are no matches to save");
 			}
 		}
 
@@ -616,8 +622,8 @@ final class Header extends LazyPNode implements MouseDoc {
 			// Bungee.summaryBG);
 			super(label1);
 			((APText) child).setConstrainWidthToTextWidth(true);
-			mouseDoc = "Explore within the current results";
-			setDisabledMessage("There are no results to restrict to");
+			mouseDoc = "Explore within the current matches";
+			setDisabledMessage("There are no matches to restrict to");
 		}
 
 		public boolean isEnabled() {

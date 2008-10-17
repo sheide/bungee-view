@@ -240,7 +240,7 @@ public final class Query implements ItemPredicate {
 
 	private Set orderedFacetTypes = new HashSet();
 
-	private Set causableFacetTypes = new HashSet();
+//	private Set causableFacetTypes = new HashSet();
 
 	NameGetter nameGetter;
 
@@ -598,8 +598,8 @@ public final class Query implements ItemPredicate {
 				int flags = rs.getInt(7);
 				if (Util.isBit(flags, 0))
 					orderedFacetTypes.add(p);
-				if (Util.isBit(flags, 1))
-					causableFacetTypes.add(p);
+//				if (Util.isBit(flags, 1))
+//					causableFacetTypes.add(p);
 				prefetcher.add(p);
 			}
 
@@ -614,10 +614,10 @@ public final class Query implements ItemPredicate {
 		return facetTypeID;
 	}
 
-	boolean isCausable(Perspective p) {
-		Perspective type = p.getFacetType();
-		return causableFacetTypes.contains(type);
-	}
+//	boolean isCausable(Perspective p) {
+//		Perspective type = p.getFacetType();
+//		return causableFacetTypes.contains(type);
+//	}
 
 	boolean isOrdered(Perspective p) {
 		return orderedFacetTypes.contains(p);

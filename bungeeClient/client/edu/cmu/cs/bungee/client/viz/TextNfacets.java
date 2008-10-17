@@ -519,9 +519,10 @@ class TextNfacets extends LazyPNode implements PerspectiveObserver {
 	}
 
 	void updateSelections(Set facets) {
-		for (int i = 0; i < getChildrenCount(); i++) {
-			if (getChild(i) instanceof FacetText) {
-				FacetText child = (FacetText) getChild(i);
+		for (Iterator it = getChildrenIterator(); it.hasNext();) {
+			PNode node = (PNode) it.next();
+			if (node instanceof FacetText) {
+				FacetText child = (FacetText) node;
 				Perspective childFacet = child.getFacet();
 				if (childFacet != null && facets.contains(childFacet)) {
 					child.highlightFacet();
