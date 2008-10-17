@@ -531,7 +531,7 @@ public class Database {
 			ServletException, IOException {
 		ResultSet rs = jdbc
 				.SQLquery("SELECT facet.name, descriptionCategory, descriptionPreposition, "
-						+ "n_child_facets, first_child_offset, n_items, isOrdered + 2 * isCausable "
+						+ "n_child_facets, first_child_offset, n_items, isOrdered "
 						+ "FROM raw_facet_type ft INNER JOIN facet USING (name) "
 						+ "WHERE facet.parent_facet_id = 0 "
 						+ "ORDER BY facet.facet_id");
@@ -1394,7 +1394,7 @@ public class Database {
 		jdbc
 				.SQLupdate("CREATE TEMPORARY  TABLE rft AS"
 						+ " SELECT IFNULL(f.facet_id, -1) oldID, COUNT(*) ID, r.name, "
-						+ "r.descriptionCategory, r.descriptionPreposition, r.sort, r.isOrdered, r.isCausable "
+						+ "r.descriptionCategory, r.descriptionPreposition, r.sort, r.isOrdered "
 						+ "FROM raw_facet_type r LEFT JOIN facet f USING (name) "
 						+ "INNER JOIN raw_facet_type prev ON prev.name <= r.name "
 						+ "WHERE f.parent_facet_id = 0 OR f.parent_facet_id IS NULL "
@@ -1415,8 +1415,8 @@ public class Database {
 		jdbc.SQLupdate("TRUNCATE TABLE raw_facet_type");
 		jdbc
 				.SQLupdate("INSERT INTO raw_facet_type SELECT ID, name, "
-						+ "descriptionCategory, descriptionPreposition, sort, isOrdered, "
-						+ "isCausable FROM rft");
+						+ "descriptionCategory, descriptionPreposition, sort, isOrdered "
+						+ "FROM rft");
 		jdbc.SQLupdate("DROP TABLE rft");
 	}
 
