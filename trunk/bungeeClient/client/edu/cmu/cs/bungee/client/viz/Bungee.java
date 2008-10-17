@@ -331,7 +331,7 @@ final class Bungee extends PFrame {
 	// selectedItemFG.darker().darker().darker().darker().darker();
 
 	final static Color gridFG = selectedItemFG; // new Color(0x896699); // new
-												// Color(0x669966);
+	// Color(0x669966);
 
 	final static Color gridBG = Color.black;
 	// gridFG.darker().darker().darker().darker().darker();
@@ -444,6 +444,8 @@ final class Bungee extends PFrame {
 	ResultsGrid grid;
 
 	SelectedItem selectedItem;
+
+	ExtremeTags extremeTags;
 
 	ClusterViz clusterViz;
 
@@ -780,6 +782,7 @@ final class Bungee extends PFrame {
 			selectedItem = new SelectedItem(this);
 			grid = new ResultsGrid(this);
 			summary = new Summary(this);
+			extremeTags = new ExtremeTags(this);
 
 			help = new InitialHelp();
 
@@ -787,6 +790,7 @@ final class Bungee extends PFrame {
 			// UPDATE! Now we use setBackground
 			// layer.setPaint(Color.black);
 
+			layer.addChild(extremeTags);
 			layer.addChild(grid);
 			layer.addChild(selectedItem);
 			layer.addChild(help);
@@ -915,7 +919,7 @@ final class Bungee extends PFrame {
 		int result = 1;
 		if (selectedItem != null)
 			result = (int) (selectedItem.minWidth() + summary.minWidth(true)
-					+ grid.minWidth() + regionMargins * 2);
+					+ extremeTags.minWidth() + grid.minWidth() + regionMargins * 3);
 		return result;
 	}
 
@@ -945,8 +949,8 @@ final class Bungee extends PFrame {
 		assert power <= 1;
 		double minWidth = minWidth();
 		assert w >= minWidth : w + " " + minWidth + " " + minWidth() + " "
-				+ selectedItem.minWidth() + " " + summary.minWidth(true) + " "
-				+ grid.minWidth();
+				+ selectedItem.minWidth() + " " + extremeTags.minWidth() + " "
+				+ summary.minWidth(true) + " " + grid.minWidth();
 		return Math.pow(w / minWidth, power);
 	}
 
@@ -983,7 +987,8 @@ final class Bungee extends PFrame {
 
 				double selectedItemW = (int) (selectedItem.minWidth() * scaleRatio(0.5));
 				double summaryW = (int) (summary.minWidth(true) * scaleRatio(1.0));
-				double gridW = (w - summaryW - selectedItemW - 2 * regionMargins);
+				double extremeW = (int) (extremeTags.minWidth() * scaleRatio(0.5));
+				double gridW = (w - summaryW - selectedItemW - extremeW - 3 * regionMargins);
 				assert gridW >= grid.minWidth() : "gridMinW " + grid.minWidth()
 						+ " summaryMinW " + summary.minWidth(true)
 						+ " selectedItemMinW " + selectedItem.minWidth()
@@ -991,11 +996,15 @@ final class Bungee extends PFrame {
 						+ " selectedItemW " + selectedItemW;
 				summary.validate(summaryW, internalH);
 				summary.setOffset(0.0, headerH + mouseDocH);
-				grid.validate(gridW, internalH);
-				grid.setOffset(summaryW + regionMargins, headerH + mouseDocH);
-				selectedItem.validate(selectedItemW, internalH);
-				selectedItem.setOffset(summaryW + gridW + 2 * regionMargins,
+				extremeTags.validate(extremeW, internalH);
+				extremeTags.setOffset(summary.getMaxX() + regionMargins,
 						headerH + mouseDocH);
+				grid.validate(gridW, internalH);
+				grid.setOffset(extremeTags.getMaxX() + regionMargins, headerH
+						+ mouseDocH);
+				selectedItem.validate(selectedItemW, internalH);
+				selectedItem.setOffset(grid.getMaxX() + regionMargins, headerH
+						+ mouseDocH);
 				if (clusterViz != null)
 					clusterViz.validate();
 				mouseDoc.setOffset(0.0, headerH);
@@ -1020,19 +1029,29 @@ final class Bungee extends PFrame {
 		}
 	}
 
+	void updateSummaryBoundary() {
+		double offset = summary.getMaxX();
+		extremeTags.setXoffset(offset);
+		extremeTags.validate(grid.getXOffset() - offset, extremeTags
+				.getHeight());
+		// positionHelp();
+	}
+
+	void updateExtremesBoundary() {
+		double offset = extremeTags.getMaxX();
+		// Util.print("updateExtremesBoundary " + offset + " "
+		// + (w - offset - selectedItem.getWidth()));
+		grid.setXoffset(offset);
+		grid.validate(w - offset - selectedItem.getWidth(), grid.getHeight());
+		// positionHelp();
+	}
+
 	void updateGridBoundary() {
 		double offset = grid.getXOffset() + grid.getWidth();
-		selectedItem.setOffset(offset, selectedItem.getYOffset());
+		selectedItem.setXoffset(offset);
 		selectedItem.validate(w - offset, selectedItem.getHeight());
 		if (clusterViz != null)
 			clusterViz.validate();
-	}
-
-	void updateSummaryBoundary() {
-		double offset = summary.getXOffset() + summary.getWidth();
-		grid.setOffset(offset, grid.getYOffset());
-		grid.validate(w - offset - selectedItem.getWidth(), grid.getHeight());
-		// positionHelp();
 	}
 
 	private boolean setTooSmall() {
@@ -1062,8 +1081,11 @@ final class Bungee extends PFrame {
 	}
 
 	private void setNormalPaneVisibility(boolean isVisible) {
+		// Util.print("setNormalPaneVisibility "+isVisible);
 		if (summary != null)
 			summary.setVisible(isVisible);
+		if (extremeTags != null)
+			extremeTags.setVisible(isVisible);
 		if (grid != null)
 			grid.setVisible(isVisible);
 		if (selectedItem != null)
@@ -1187,6 +1209,7 @@ final class Bungee extends PFrame {
 		selectedItem = null;
 		grid = null;
 		summary = null;
+		extremeTags = null;
 		clusterViz = null;
 	}
 
@@ -1195,7 +1218,7 @@ final class Bungee extends PFrame {
 		boolean state = !isPopups();
 		features = new Preferences(features, "popups", state);
 		setTip(state ? "Will now show tag information with popups"
-				: "Will now show tag information in the lower right corner of the window");
+				: "Will now show tag information here in the header");
 		return state;
 	}
 
@@ -1515,7 +1538,7 @@ final class Bungee extends PFrame {
 		assert facet.getParent() != null : facet;
 		// arrowFocus = facet;
 		if (query.isQueryValid() && query.zeroHits(facet, modifiers))
-			setTip("There would be no results if you added this filter.  (There are now "
+			setTip("There would be no matches if you added this filter.  (There are now "
 					+ query.describeNfilters() + ")");
 		else if (query.toggleFacet(facet, modifiers)) {
 			Perspective toConnect = summary.connectedPerspective();
@@ -1579,7 +1602,7 @@ final class Bungee extends PFrame {
 		assert !prevFacets.isEmpty();
 
 		header.updateSelections(prevFacets);
-//		summary.highlightCluster(prevFacets);
+		// summary.highlightCluster(prevFacets);
 		summary.showCluster(cluster);
 		// prevModifiers = -9999;
 		// updateItemPredicateClickDesc(0, true);
@@ -1641,7 +1664,8 @@ final class Bungee extends PFrame {
 			getCanvas().paintImmediately();
 
 			header.updateSelections(prevFacets);
-			
+			extremeTags.highlightFacet(prevFacets);
+
 			// prevModifiers = -9999;
 			// updateItemPredicateClickDesc(modifiers, true);
 			// Util.print("PI mouse");
@@ -1663,6 +1687,8 @@ final class Bungee extends PFrame {
 				selectedItem.highlightFacet(prevFacets);
 				if (clusterViz != null)
 					clusterViz.highlightFacet(prevFacets);
+				header.updateSelections(prevFacets);
+				extremeTags.highlightFacet(prevFacets);
 
 				showPopup(singleHighlightedFacet());
 			}
@@ -1847,7 +1873,7 @@ final class Bungee extends PFrame {
 				result = Query.emptyMarkup();
 				result.add("Arrow keys will move through: ");
 				result.add(Bungee.gridFG);
-				result.add("Results");
+				result.add("Matches");
 			}
 		}
 		// Util.print("defaultClickDesc " + result);
@@ -2180,6 +2206,7 @@ final class Bungee extends PFrame {
 							updatePvalue();
 							// assert highlightedFacet != null;
 							showPopup(singleHighlightedFacet());
+							extremeTags.updateData();
 							summary.updateData();
 							header.updateData();
 							selectedItem.setVisibility();
@@ -2223,17 +2250,20 @@ final class Bungee extends PFrame {
 	// }
 
 	double numWidth(int n) {
-		assert n >= 0 : n;
+		// space width is about the same as minus sign width
+		double result = n >= 0 ? 0 : spaceWidth;
+		n = Math.abs(n);
 		if (n < 10)
-			return digitWidth;
+			result += digitWidth;
 		else if (n < 100)
-			return 2 * digitWidth;
+			result += 2 * digitWidth;
 		else if (n < 1000)
-			return 3 * digitWidth;
+			result += 3 * digitWidth;
 		else if (n < 10000)
-			return 4 * digitWidth + commaWidth;
+			result += 4 * digitWidth + commaWidth;
 		else
-			return 5 * digitWidth + commaWidth;
+			result += 5 * digitWidth + commaWidth;
+		return result;
 	}
 
 	private static String[] strings = spaceStrings(100);
@@ -2994,7 +3024,7 @@ final class Bungee extends PFrame {
 				} else if (args[2].equals("Ellipsis")) {
 					// summary.clickEllipsis();
 				} else {
-//					summary.removeSearch(args[2]);
+					// summary.removeSearch(args[2]);
 					query.removeTextSearch(args[2]);
 				}
 				break;

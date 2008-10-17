@@ -168,7 +168,8 @@ final class Summary extends LazyContainer implements MouseDoc {
 			if (recomputeQueryW) {
 				// double minW = clear.getWidth() + restrict.getWidth()
 				// + bookmark.getWidth() + 2 * BUTTON_MARGIN;
-				queryW = queryViz.maxWidth();
+				queryW = Math.round(Math.max(queryViz.minWidth(), Math.min(
+						_w / 3, queryViz.maxWidth())));
 			}
 			computeRankComponentHeights();
 			if (recomputeQueryW) {
@@ -177,6 +178,8 @@ final class Summary extends LazyContainer implements MouseDoc {
 				// minW
 				queryW = Math.round(Math.min(queryW, Math.max(_w * 0.22,
 						rankComponentHeights.labelsH() - art.lineH)));
+//				Util.print("vi " + queryW + " " + (_w * 0.22) + " "
+//						+ (rankComponentHeights.labelsH() - art.lineH));
 				// if (updatedQueryW != queryW) {
 				// queryW = updatedQueryW;
 				// computeRankComponentHeights();
@@ -218,7 +221,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 		// return label.getScale() * art.lineH + clear.getScale() * art.lineH
 		// + art.lineH /2;
 
-//		assert !Double.isNaN(clear.getMaxY());
+		// assert !Double.isNaN(clear.getMaxY());
 		assert !Double.isNaN(art.lineH);
 		return label.getMaxY() + art.lineH / 2;
 	}
@@ -254,7 +257,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 	}
 
 	double minTagWallWidth() {
-		return Math.round(label.getGlobalBounds().getWidth()*1.5);
+		return Math.round(label.getGlobalBounds().getWidth() * 1.5);
 	}
 
 	double minWidth(boolean recomputeQueryW) {
@@ -268,7 +271,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 	}
 
 	public double maxWidth() {
-		return w + art.grid.w - art.grid.minWidth();
+		return w + art.extremeTags.w - art.extremeTags.minWidth();
 	}
 
 	public double minHeight() {
@@ -622,7 +625,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 			if (inRank)
 				r.updatePerspectiveSelections(facets);
 		}
-//		summaryText.updateSelections(facets);
+		// summaryText.updateSelections(facets);
 	}
 
 	PerspectiveViz lookupPV(Perspective facet) {
@@ -661,7 +664,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 		// and
 		// deletes.
 		// queryViz.positionSearchBox(h);
-//		queryViz.synchronizeWithQuery();
+		// queryViz.synchronizeWithQuery();
 		for (Iterator it = ranks.iterator(); it.hasNext();) {
 			Rank r = (Rank) it.next();
 			// r.updateHeights();
@@ -680,10 +683,10 @@ final class Summary extends LazyContainer implements MouseDoc {
 			perspectiveList.highlightFacet();
 	}
 
-//	void highlightCluster(Set facets) {
-//		// if (facet != null) {
-//		queryViz.highlightCluster(facets);
-//	}
+	// void highlightCluster(Set facets) {
+	// // if (facet != null) {
+	// queryViz.highlightCluster(facets);
+	// }
 
 	// static Color colorForIndex(int index) {
 	// return colors[index % nColors];
@@ -773,7 +776,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 		// // If we removed the connected rank above, it might have had
 		// perspective list showing
 		// hidePerspectiveList();
-//		queryViz.synchronizeWithQuery();
+		// queryViz.synchronizeWithQuery();
 		computeRankComponentHeights();
 
 		synchronizeSelections(previousRestrictions);
@@ -845,7 +848,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 	}
 
 	void flagConnectedRank(Rank r) {
-//		Util.print("flagConnectedRank " + r + " " + connectedRank());
+		// Util.print("flagConnectedRank " + r + " " + connectedRank());
 		Rank current = connectedRank();
 		if (r != current) {
 			// Util.print("summary.flagConnectedRank " + r + " old was "
@@ -928,9 +931,9 @@ final class Summary extends LazyContainer implements MouseDoc {
 		art.mayHideTransients();
 	}
 
-//	void doHideTransients() {
-//		queryViz.doHideTransients();
-//	}
+	// void doHideTransients() {
+	// queryViz.doHideTransients();
+	// }
 
 	/**
 	 * Only called by replayOps
@@ -945,9 +948,9 @@ final class Summary extends LazyContainer implements MouseDoc {
 		lookupPV(facet).pickFacet(facet, modifiers);
 	}
 
-//	boolean removeSearch(String string) {
-//		return queryViz.removeSearch(string);
-//	}
+	// boolean removeSearch(String string) {
+	// return queryViz.removeSearch(string);
+	// }
 
 	boolean doneDelayedInit = false;
 

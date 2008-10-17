@@ -120,7 +120,7 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 
 	RangeEnsurer rangeEnsurer;
 
-//	private APText countLabel;
+	// private APText countLabel;
 
 	private LazyPPath outline;
 
@@ -139,7 +139,6 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 	ResultsGrid(Bungee a) {
 		art = a;
 		setPickable(false);
-		// setPaint(Bungee.gridBG);
 	}
 
 	void init() {
@@ -154,13 +153,13 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 		label.setPickable(false);
 		label.setText("Matching " + art.query.getGenericObjectLabel(true));
 
-//		countLabel = art.oneLineLabel();
-//		countLabel.setTextPaint(Bungee.gridFG);
-//		countLabel.setPickable(false);
+		// countLabel = art.oneLineLabel();
+		// countLabel.setTextPaint(Bungee.gridFG);
+		// countLabel.setPickable(false);
 
-//		percentLabel = art.oneLineLabel();
-//		percentLabel.setTextPaint(Bungee.gridFG);
-//		percentLabel.setPickable(false);
+		// percentLabel = art.oneLineLabel();
+		// percentLabel.setTextPaint(Bungee.gridFG);
+		// percentLabel.setPickable(false);
 
 		thumbnails = new Thumbnails();
 
@@ -217,7 +216,7 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 		// };
 
 		sortMenu = new Menu(Bungee.gridBG, Bungee.gridFG.darker(), art.font);
-		sortMenu.mouseDoc = "Choose how Results are Sorted";
+		sortMenu.mouseDoc = "Choose how Matches are Sorted";
 		sortMenu.addButton(new ReorderCommand("Random",
 				"Show thumbnails in random order", -1));
 		sortMenu.addButton(new ReorderCommand("ID",
@@ -282,7 +281,7 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 
 	double getBottomMargin() {
 		if (art.getShowSortMenu())
-			return h - sortLabel.getYOffset() ;
+			return h - sortLabel.getYOffset();
 		else
 			return 0;
 	}
@@ -304,11 +303,11 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 			label.setFont(art.font);
 			// label.setHeight(art.lineH);
 
-//			countLabel.setOffset(margin_size(), label.getMaxY());
-//			countLabel.setFont(art.font);
+			// countLabel.setOffset(margin_size(), label.getMaxY());
+			// countLabel.setFont(art.font);
 
-//			percentLabel.setOffset(margin_size(), countLabel.getMaxY() + 4);
-//			percentLabel.setFont(art.font);
+			// percentLabel.setOffset(margin_size(), countLabel.getMaxY() + 4);
+			// percentLabel.setFont(art.font);
 
 			thumbnails.setOffset(margin_size(), getTopMargin());
 			gridScrollBar.setOffset(w - margin_size() - art.scrollBarWidth,
@@ -354,16 +353,16 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 	}
 
 	void computeMinWidth() {
-		minWidth = art.getStringWidth("(0.001% of 999,999 "
-				+ query().getGenericObjectLabel(true) + ")")
-				+ 2 * margin_size();
+		minWidth = art.getStringWidth("Matching "
+				+ art.query.getGenericObjectLabel(true))
+				* 2 + 2 * margin_size();
 		// Util.print("Grid.computeMinWidth " + minWidth);
 	}
 
 	public double minWidth() {
 		// Util.print("minWidth " + minWidth);
-		if (minWidth <= 0)
-			computeMinWidth();
+		// if (minWidth <= 0)
+		computeMinWidth();
 		return minWidth;
 	}
 
@@ -375,7 +374,7 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 		// Util.print("Grid.dataUpdated " + query().getOnCount());
 		onItemsInvalid = false;
 		onCount = query().getOnCount();
-//		setDescription();
+		// setDescription();
 		offsetItemTableRangesIndex = 0;
 		if (onCount > 0) {
 			thumbnails.removeAllChildren();
@@ -866,8 +865,8 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 		// Util.print("Enter drawGrid " + onCount);
 		if (art.removeInitialHelp()) {
 			addChild(label);
-//			addChild(countLabel);
-//			addChild(percentLabel);
+			// addChild(countLabel);
+			// addChild(percentLabel);
 			addChild(gridScrollBar);
 			addChild(thumbnails);
 		}
@@ -1343,7 +1342,9 @@ final class Thumbnails extends LazyPNode implements MouseDoc {
 	}
 
 	public void enterBoundary(Boundary boundary) {
-		if (!grid().art.getShowBoundaries()) {
+		if (grid().art.getShowBoundaries()) {
+			setBoundariesVisible(true);
+		} else {
 			boundary.exit();
 		}
 	}

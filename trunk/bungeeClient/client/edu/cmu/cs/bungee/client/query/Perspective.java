@@ -2139,13 +2139,13 @@ public class Perspective implements Comparable, ItemPredicate {
 	// return null;
 	// }
 
-	/**
-	 * @return is it sensible for Tetrad to conclude that another Perspective
-	 *         causes this one?
-	 */
-	public boolean isCausable() {
-		return query().isCausable(this);
-	}
+//	/**
+//	 * @return is it sensible for Tetrad to conclude that another Perspective
+//	 *         causes this one?
+//	 */
+//	public boolean isCausable() {
+//		return query().isCausable(this);
+//	}
 
 	/**
 	 * @return does this Perspective have a natural ordering (like Date or
@@ -2228,13 +2228,17 @@ public class Perspective implements Comparable, ItemPredicate {
 		// private Object bottomThresholdFacet;
 
 		public static class TagRelevance {
-			public final Object tag;
+			public final ChiSq2x2 tag;
 			public final double relevance;
 
-			TagRelevance(Object o, double _relevance) {
+			TagRelevance(ChiSq2x2 o, double _relevance) {
 				tag = o;
 				relevance = _relevance;
-				assert tag instanceof ChiSq2x2;
+//				assert tag instanceof ChiSq2x2;
+			}
+
+			public String toString() {
+				return "<TagRelevance " + relevance + " " + tag.object + ">";
 			}
 		}
 
@@ -2264,7 +2268,7 @@ public class Perspective implements Comparable, ItemPredicate {
 		 *            any monotonically increasing relevance function, where
 		 *            positive influences are greater than zero, and vice versa.
 		 */
-		void maybeAdd(Object o, double score) {
+		void maybeAdd(ChiSq2x2 o, double score) {
 			if (score > 0) {
 				if (top.size() < n || score > topThreshold) {
 					if (top.size() == n) {
@@ -2315,7 +2319,7 @@ public class Perspective implements Comparable, ItemPredicate {
 				buf.append(which).append(whichSet.size()).append(" tags:\n");
 				for (Iterator it = whichSet.iterator(); it.hasNext();) {
 					TagRelevance tagRelevance = (TagRelevance) it.next();
-					ChiSq2x2 pvalue = (ChiSq2x2) tagRelevance.tag;
+					ChiSq2x2 pvalue = tagRelevance.tag;
 					pvalue.statisticsLine(buf).append("\n");
 				}
 			}
