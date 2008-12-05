@@ -4,7 +4,6 @@ import java.awt.Color;
 
 import edu.cmu.cs.bungee.client.query.Markup;
 import edu.cmu.cs.bungee.client.query.Query;
-import edu.cmu.cs.bungee.javaExtensions.Util;
 
 public class SearchText extends FacetText implements PickFacetTextNotifier {
 

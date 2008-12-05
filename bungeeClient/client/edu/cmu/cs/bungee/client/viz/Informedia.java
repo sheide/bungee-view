@@ -139,8 +139,8 @@ public class Informedia extends Thread {
 				assert MyResultSet.nRows(rs) == 1;
 				rs.next();
 				int segment = rs.getInt(1);
-				int start = rs.getInt(2);
-				int stop = rs.getInt(3);
+				int start = rs.getInt(2)*1000;
+				int stop = rs.getInt(3)*1000;
 				command += segment + "&start=" + start + "&end=" + stop;
 				rs.close();
 			} catch (SQLException e) {
@@ -189,6 +189,8 @@ public class Informedia extends Thread {
 		}
 		Util.print("getSegments returning "
 				+ (result == null ? 0 : result.length) + " segments");
+		Util.print(Util.valueOfDeep(result));
+		assert !Util.hasDuplicates(result);
 		return result;
 	}
 
@@ -230,6 +232,8 @@ public class Informedia extends Thread {
 		}
 		Util.print("getItems returning " + (result == null ? 0 : result.length)
 				+ " items");
+		Util.print(Util.valueOfDeep(result));
+		assert !Util.hasDuplicates(result);
 		return result;
 	}
 

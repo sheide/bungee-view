@@ -250,12 +250,14 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 	}
 
 	void setFeatures() {
-		if (art.getShowSortMenu()) {
-			addChild(sortLabel);
-			addChild(sortMenu);
-		} else {
-			sortLabel.removeFromParent();
-			sortMenu.removeFromParent();
+		if (sortLabel != null) {
+			if (art.getShowSortMenu()) {
+				addChild(sortLabel);
+				addChild(sortMenu);
+			} else {
+				sortLabel.removeFromParent();
+				sortMenu.removeFromParent();
+			}
 		}
 	}
 

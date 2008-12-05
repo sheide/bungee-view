@@ -7,14 +7,13 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
-import JSci.maths.statistics.ChiSq2x2;
 
 import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.cmu.cs.bungee.client.query.Query;
@@ -55,10 +54,12 @@ public class Tetrad implements GraphWeigher {
 	 * computed.
 	 */
 	static double MIN_BETA = 0.0;
-	private final Perspective popupFacet;
+	// private final Perspective popupFacet;
 	// private Graph graph;
 
 	final int[] counts;
+	private List facetsOfInterest;
+	final Collection primaryFacets;
 
 	/**
 	 * The variable names in the discrete data sets for which conditional
@@ -67,7 +68,7 @@ public class Tetrad implements GraphWeigher {
 	 */
 	private final Map variables = new LinkedHashMap();
 	private final Map variablesInverse = new HashMap();
-	private static HashMap betaWeights = new HashMap();
+	private final HashMap betaWeights = new HashMap();
 
 	private final PerspectiveObserver redrawer;
 	private final TetradPrinter printer;
@@ -79,8 +80,19 @@ public class Tetrad implements GraphWeigher {
 
 	public static Graph getTetradGraph(Perspective facet,
 			TetradPrinter printer, PerspectiveObserver redrawer) {
-		Tetrad tetrad = new Tetrad(facet, printer, redrawer);
-//		printer = null;
+		Set primary = new HashSet(facet.query().allRestrictions());
+		primary.add(facet);
+		Set other = new HashSet();
+		TopTags topTags = facet.query().topTags(2 * MAX_FACETS);
+		for (Iterator it = topTags.topIterator(); it.hasNext()
+				&& other.size() < MAX_FACETS;) {
+			TagRelevance tag = (TagRelevance) it.next();
+			Perspective p = (Perspective) tag.tag.object;
+			other.add(p);
+			removeAncestorFacets(primary, other, facet);
+		}
+		Tetrad tetrad = new Tetrad(facet, primary, other, printer, redrawer);
+		// printer = null;
 		if (printer != null) {
 			Graph tetradGraph = tetrad.computeGraph();
 			printer.drawTetradGraph(tetradGraph, "tetrad");
@@ -89,28 +101,24 @@ public class Tetrad implements GraphWeigher {
 		return new Koller(tetrad).getKollerGraph(printer);
 	}
 
-	private Tetrad(Perspective facet, TetradPrinter printer,
-			PerspectiveObserver redrawer) {
+	Tetrad(Perspective popupFacet, Set primaryFacets, Set allFacets,
+			TetradPrinter printer, PerspectiveObserver redrawer) {
 		// TetradLogger.getInstance().setLogging(true);
 		// TetradLogger.getInstance().addOutputStream(System.out);
 		// TetradLogger.getInstance().setForceLog(true);
-		popupFacet = facet;
+
+		primaryFacets.add(popupFacet);
+		allFacets.addAll(primaryFacets);
+
+		this.primaryFacets = primaryFacets;
 		this.redrawer = redrawer;
 		this.printer = printer;
 
 		// Add this separately, because it has to come first (to be bit 0)
 		addPerspective(popupFacet);
-		for (Iterator it = primaryFacets().iterator(); it.hasNext();) {
+		for (Iterator it = allFacets.iterator(); it.hasNext();) {
 			Perspective p = (Perspective) it.next();
 			addPerspective(p);
-		}
-		TopTags topTags = query().topTags(2 * MAX_FACETS);
-		for (Iterator it = topTags.topIterator(); it.hasNext()
-				&& nFacets() < MAX_FACETS;) {
-			TagRelevance tag = (TagRelevance) it.next();
-			Perspective p = (Perspective) ((ChiSq2x2) tag.tag).object;
-			addPerspective(p);
-			removeAncestorFacets();
 		}
 		counts = getCounts();
 		// double[] alphas = { 0, 0.001, 1 };
@@ -119,7 +127,7 @@ public class Tetrad implements GraphWeigher {
 		// ALPHA = alphas[i];
 	}
 
-	private Graph computeGraph() {
+	Graph computeGraph() {
 		long start = (new Date()).getTime();
 		Graph initialGraph = getInitialGraph();
 		initialGraph.label = getlabel();
@@ -158,7 +166,8 @@ public class Tetrad implements GraphWeigher {
 		long duration = (new Date()).getTime() - start;
 		Util.print("final nodes=" + result.getNumNodes() + " #edges="
 				+ result.getNumDirectedEdges() + " averageR="
-				+ ((int) (100 * averageR(result) + 0.5))+" # regressions="+nnn+" duration="+duration);
+				+ ((int) (100 * averageR(result) + 0.5)) + " # regressions="
+				+ nnn + " duration=" + duration);
 		return result;
 	}
 
@@ -368,7 +377,7 @@ public class Tetrad implements GraphWeigher {
 		return sumR / nEdges;
 	}
 
-	private double R(Graph graph2, Node caused) {
+	double R(Graph graph2, Node caused) {
 		double sumR = 0;
 		Set causes = graph2.getCauses(caused);
 		for (Iterator causeIt = causes.iterator(); causeIt.hasNext();) {
@@ -378,13 +387,11 @@ public class Tetrad implements GraphWeigher {
 		return sumR;
 	}
 
-	private Query query() {
-		return popupFacet.query();
-	}
+	// private Query query() {
+	// return popupFacet.query();
+	// }
 
-	private List facetsOfInterest;
-
-	 List facetsOfInterest() {
+	List facetsOfInterest() {
 		if (facetsOfInterest == null) {
 			facetsOfInterest = Collections.unmodifiableList(new ArrayList(
 					variables.values()));
@@ -396,16 +403,15 @@ public class Tetrad implements GraphWeigher {
 		return facetsOfInterest().indexOf(facet);
 	}
 
-	private Collection primaryFacets;
 	private int nnn;
 
-	Collection primaryFacets() {
-		if (primaryFacets == null) {
-			primaryFacets = query().allRestrictions();
-			primaryFacets.add(popupFacet);
-		}
-		return primaryFacets;
-	}
+	// Collection primaryFacets() {
+	// if (primaryFacets == null) {
+	// primaryFacets = query().allRestrictions();
+	// primaryFacets.add(popupFacet);
+	// }
+	// return primaryFacets;
+	// }
 
 	private int nFacets() {
 		return variables.size();
@@ -437,8 +443,8 @@ public class Tetrad implements GraphWeigher {
 		return (Perspective) variables.get(label);
 	}
 
-	private Collection lookupFacets(Collection nodes) {
-		Collection result = new ArrayList(nodes.size());
+	private List lookupFacets(Collection nodes) {
+		List result = new ArrayList(nodes.size());
 		for (Iterator it = nodes.iterator(); it.hasNext();) {
 			Node node = (Node) it.next();
 			result.add(lookupFacet(node));
@@ -451,7 +457,7 @@ public class Tetrad implements GraphWeigher {
 	}
 
 	Node[] primaryNodes(Graph graph1) {
-		Collection primaryFacets1 = primaryFacets();
+		Collection primaryFacets1 = primaryFacets;
 		Collection primaryNodes = new ArrayList(primaryFacets1.size());
 		for (Iterator it = primaryFacets1.iterator(); it.hasNext();) {
 			Perspective p = (Perspective) it.next();
@@ -462,23 +468,18 @@ public class Tetrad implements GraphWeigher {
 		return (Node[]) primaryNodes.toArray(new Node[0]);
 	}
 
-	private void removeAncestorFacets() {
-		Collection facets = new ArrayList(variables.values());
+	private static void removeAncestorFacets(Collection primary,
+			Collection facets, Perspective popupFacet) {
 		for (Iterator it = facets.iterator(); it.hasNext();) {
 			Perspective facet = (Perspective) it.next();
 			Collection ancestors = facet.ancestors();
+			// Never remove popupFacet
 			ancestors.remove(popupFacet);
 			for (Iterator ancIt = ancestors.iterator(); ancIt.hasNext();) {
 				Perspective ancestor = (Perspective) ancIt.next();
-				if (primaryFacets().contains(facet)
-						|| !primaryFacets().contains(ancestor)) {
-					String ancestorName = (String) variablesInverse
-							.get(ancestor);
-					if (ancestorName != null) {
-						variables.remove(ancestorName);
-						variablesInverse.remove(ancestor);
-						primaryFacets.remove(ancestor);
-					}
+				if (primary.contains(facet) || !primary.contains(ancestor)) {
+					primary.remove(ancestor);
+					facets.remove(ancestor);
 				}
 			}
 		}
@@ -533,27 +534,51 @@ public class Tetrad implements GraphWeigher {
 					.next();
 			Node node1 = (Node) nodeMap.get(edge.getNode1());
 			Node node2 = (Node) nodeMap.get(edge.getNode2());
-			result.addEdge(null, node1, node2);
+			result.addEdge((String) null, node1, node2);
 		}
 		return result;
 	}
 
 	private class BetaCache {
-		final double beta;
-		final double relativeBeta;
+		final double coef;
+		final double beta; // this is now normalized coef
+		final double relativeBeta; // this is now beta (coef * r)
 		final String label;
 
-		BetaCache(double beta, double relativeBeta, String label) {
+		BetaCache(double coef, double beta, double relativeBeta, String label) {
+			this.coef = coef;
 			this.beta = beta;
 			this.relativeBeta = relativeBeta;
 			this.label = label;
 		}
+
+		public double getBeta() {
+			return relativeBeta;
+		}
+
+		public double getCoef() {
+			return coef;
+		}
+
+		public String getLabel() {
+			return label;
+		}
+
+		public String toString() {
+			return "<BetaCache " + coef + ">";
+		}
 	}
 
-	private BetaCache getBetaWeights(Perspective cause, Collection otherCauses,
+	private BetaCache getBetaWeights(Perspective cause, List otherCauses,
 			Perspective caused, boolean isLogistic) {
 		// Util.print("getBetaWeights "+cause+" => "+caused);
-		assert otherCauses.contains(cause);
+		int index = otherCauses.indexOf(cause) + 1;
+		return getBetas(cause, otherCauses, caused, isLogistic)[index];
+	}
+
+	private List getBetaArgs(Perspective cause, Collection otherCauses,
+			Perspective caused) {
+		assert cause == null || otherCauses.contains(cause);
 		// assert otherCauses.size() == (new HashSet(otherCauses)).size();
 		Collection sortedCauses = otherCauses; // new
 		// ArrayList(otherCauses.size()
@@ -577,12 +602,18 @@ public class Tetrad implements GraphWeigher {
 		// Collections.sort(args);
 		// List sortedCauses = new ArrayList(args); // causes in canonical order
 		args.add(caused);
+		return args;
+	}
+
+	private BetaCache[] getBetas(Perspective cause, Collection otherCauses,
+			Perspective caused, boolean isLogistic) {
+		List args = getBetaArgs(cause, otherCauses, caused);
 		BetaCache[] cached = (BetaCache[]) betaWeights.get(args);
 		if (cached == null) {
-			cached = new BetaCache[sortedCauses.size()];
-			MyRegressionParams params = getRegressionParams(sortedCauses,
-					caused);
-//			assert params.nRows() == nRows() : Util.valueOfDeep(params.counts);
+			cached = new BetaCache[otherCauses.size() + 1];
+			MyRegressionParams params = getRegressionParams(otherCauses, caused);
+			// assert params.nRows() == nRows() :
+			// Util.valueOfDeep(params.counts);
 			try {
 				nnn++;
 				TetradRegressionResult regression = isLogistic ? MyLogisticRegressionResult
@@ -591,10 +622,10 @@ public class Tetrad implements GraphWeigher {
 				double[] coefs = regression.getCoefs();
 				double sumCoefs = 0;
 				for (int i = 0; i < params.regressorNames.length; i++) {
-//					assert params.regressorNames[i]
-//							.equals(tetradName((Perspective) args.get(i))) : Util
-//							.valueOfDeep(params.regressorNames)
-//							+ " " + sortedCauses + " " + args;
+					// assert params.regressorNames[i]
+					// .equals(tetradName((Perspective) args.get(i))) : Util
+					// .valueOfDeep(params.regressorNames)
+					// + " " + sortedCauses + " " + args;
 					sumCoefs += Math.abs(coefs[i + 1]);
 				}
 
@@ -614,7 +645,7 @@ public class Tetrad implements GraphWeigher {
 				// + " / " + formatWeight(Math.sqrt(maxRsquared));
 
 				double r = Math.sqrt(rSquared);
-				double maxR = 1;
+				// double maxR = 1;
 				// // try {
 				// maxR = Math.sqrt(regression.maxRsquared());
 				// // } catch (AssertionError e) {
@@ -622,12 +653,13 @@ public class Tetrad implements GraphWeigher {
 				// // + cause + " => " + caused + " " + otherCauses);
 				// // }
 
-				for (int i = 0; i < cached.length; i++) {
-					double coef = coefs[i + 1] / sumCoefs;
+				cached[0] = new BetaCache(coefs[0], 0, 0, null);
+				for (int i = 1; i < cached.length; i++) {
+					double coef = coefs[i] / sumCoefs;
 					double beta = r * coef;
 					String label = formatWeight(coef) + " * " + formatWeight(r)
 					/* + " / " + formatWeight(maxR) */;
-					cached[i] = new BetaCache(beta, beta / maxR, label);
+					cached[i] = new BetaCache(coefs[i], coef, beta, label);
 				}
 
 				betaWeights.put(args, cached);
@@ -640,7 +672,7 @@ public class Tetrad implements GraphWeigher {
 						+ cause + " => " + caused + otherCauses);
 				Util.print(params.getDiscreteData(7));
 				// e.printStackTrace();
-				BetaCache foo = new BetaCache(0, 0, "Bogus");
+				BetaCache foo = new BetaCache(0, 0, 0, "Bogus");
 				for (int i = 0; i < cached.length; i++) {
 					cached[i] = foo;
 				}
@@ -648,14 +680,31 @@ public class Tetrad implements GraphWeigher {
 				throw (e);
 			}
 		}
-		int index = args.indexOf(cause);
-		return cached[index];
+		return cached;
 	}
 
 	private double getBetaWeight(Graph graph, Node cause, Node caused) {
 		Collection otherCauses = graph.getCauses(caused);
 		return getBetaWeights(lookupFacet(cause), lookupFacets(otherCauses),
-				lookupFacet(caused), IS_LOGISTIC).beta;
+				lookupFacet(caused), IS_LOGISTIC).getBeta();
+	}
+
+	double getWeight(List otherCauses, Perspective cause, Perspective caused) {
+		return getBetaWeights(cause, otherCauses, caused, IS_LOGISTIC)
+				.getBeta();
+	}
+
+	String getLabel(List otherCauses, Perspective cause, Perspective caused) {
+		return getBetaWeights(cause, otherCauses, caused, IS_LOGISTIC)
+				.getLabel();
+	}
+
+	double getBias(Collection otherCauses, Perspective caused) {
+		// Tetrad barfs on regression with no inputs, and we don't really care
+		// inn that case anyway
+		double result = otherCauses.isEmpty() ? 1 : getBetas(null, otherCauses,
+				caused, IS_LOGISTIC)[0].getCoef();
+		return result;
 	}
 
 	// private String getBetaLabel(Graph graph, Node cause, Node caused) {
@@ -664,10 +713,18 @@ public class Tetrad implements GraphWeigher {
 	// lookupFacet(caused), IS_LOGISTIC).label;
 	// }
 
-	private void label(Graph graph) {
+	void label(Graph graph) {
 		for (Iterator it = graph.getEdges().iterator(); it.hasNext();) {
 			Edge edge = (Edge) it.next();
-			edge.setLabel(getBetaLabel(graph, edge));
+			List nodes = edge.getNodes();
+			Node node1 = (Node) nodes.get(0);
+			Node node2 = (Node) nodes.get(1);
+			double wt1 = edge.canCause(node1) ? getBetaWeight(graph, node2,
+					node1) : 0;
+			double wt2 = edge.canCause(node2) ? getBetaWeight(graph, node1,
+					node2) : 0;
+			edge.setLabel("   " + formatWeight(wt1) + "   ", Edge.LEFT_LABEL);
+			edge.setLabel("   " + formatWeight(wt2) + "   ", Edge.RIGHT_LABEL);
 		}
 		for (Iterator it = graph.getNodes().iterator(); it.hasNext();) {
 			Node node = (Node) it.next();
@@ -693,18 +750,6 @@ public class Tetrad implements GraphWeigher {
 	// }
 	// return buf.toString();
 	// }
-
-	private String getBetaLabel(Graph graph, Edge edge) {
-		List nodes = edge.getNodes();
-		Node node1 = (Node) nodes.get(0);
-		Node node2 = (Node) nodes.get(1);
-		double wt1 = edge.canCause(node1) ? getBetaWeight(graph, node2, node1)
-				: 0;
-		double wt2 = edge.canCause(node2) ? getBetaWeight(graph, node1, node2)
-				: 0;
-		String result = formatWeight(Math.abs(wt1) > Math.abs(wt2) ? wt1 : wt2);
-		return result;
-	}
 
 	static String formatWeight(double weight) {
 		if (Double.isNaN(weight))
@@ -744,9 +789,16 @@ public class Tetrad implements GraphWeigher {
 	}
 
 	private int[] getCounts() {
+		return getCountsInternal(facetsOfInterest());
+	}
+
+	static int[] getCountsInternal(List facetsOfInterest2) {
 		// if (counts == null) {
-		int[] counts1 = new int[1 << nFacets()];
-		ResultSet rs = query().onCountMatrix(facetsOfInterest());
+		int nFacets = facetsOfInterest2.size();
+		int[] counts1 = new int[1 << nFacets];
+		Perspective popupFacet1 = (Perspective) facetsOfInterest2.get(0);
+		Query query = popupFacet1.query();
+		ResultSet rs = query.onCountMatrix(facetsOfInterest2);
 		try {
 			while (rs.next()) {
 				counts1[rs.getInt(1)] = rs.getInt(2);
@@ -756,26 +808,24 @@ public class Tetrad implements GraphWeigher {
 			e.printStackTrace();
 		}
 
-		Util.print("\n" + primaryFacets().size() + " primaryFacets\n "
-				+ Util.join(primaryFacets(), "\n "));
-		List others = new LinkedList(facetsOfInterest());
-		others.removeAll(primaryFacets());
+		Util.print("\n" + nFacets + " primaryFacets\n "
+				+ Util.join(facetsOfInterest2, "\n "));
+		List others = new LinkedList(facetsOfInterest2);
+		others.removeAll(facetsOfInterest2);
 		Util.print(others.size() + " other facets of interest\n "
 				+ Util.join(others, "\n "));
 		// Util.print("counts: " + Util.valueOfDeep(counts));
 
 		// The low order bit represents the first facet (popupFacet)
-		assert getCountInUniverse(counts1, 0) == popupFacet.getTotalCount() : popupFacet
-				+ " "
-				+ popupFacet.getTotalCount()
-				+ " "
-				+ getCountInUniverse(counts1, 0);
+		int countInUniverse = getCountInUniverse(counts1, 0);
+		assert countInUniverse == popupFacet1.getTotalCount() : popupFacet1
+				+ " " + popupFacet1.getTotalCount() + " " + countInUniverse;
 		// }
 		return counts1;
 	}
 
-	private int getCountInUniverse(int[] counts1, int varIndex) {
-		assert varIndex >= 0 && varIndex < nFacets();
+	private static int getCountInUniverse(int[] counts1, int varIndex) {
+		assert varIndex >= 0 && 1 << varIndex < counts1.length;
 		int total = 0;
 		for (int j = 0; j < counts1.length; j++) {
 			if (Util.isBit(j, varIndex))
@@ -785,7 +835,12 @@ public class Tetrad implements GraphWeigher {
 	}
 
 	private int nRows() {
-		return query().getTotalCount();
+		// return query().getTotalCount();
+		int result = 0;
+		for (int i = 0; i < counts.length; i++) {
+			result += counts[i];
+		}
+		return result;
 	}
 
 	private ColtDataSet getData() {
@@ -1065,7 +1120,7 @@ public class Tetrad implements GraphWeigher {
 	private String getlabel() {
 		// if (label == null) {
 		StringBuffer base = new StringBuffer();
-		for (Iterator it = primaryFacets().iterator(); it.hasNext();) {
+		for (Iterator it = primaryFacets.iterator(); it.hasNext();) {
 			Perspective p = (Perspective) it.next();
 			if (base.length() > 0)
 				base.append(" ");

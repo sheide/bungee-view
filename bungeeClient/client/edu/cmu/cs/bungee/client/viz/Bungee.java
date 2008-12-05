@@ -262,6 +262,8 @@ final class Bungee extends PFrame {
 
 	private int minH = 459;
 
+	boolean smallWindowOK;
+
 	/**
 	 * The margin between Summary/Results and Results/SelectedItem. Redundant
 	 * with ResultsGrid.marginSize
@@ -495,7 +497,7 @@ final class Bungee extends PFrame {
 	 */
 	boolean isReady = false;
 
-	private APText tooSmall;
+	// private APText tooSmall;
 
 	BasicService basicJNLPservice;
 
@@ -686,6 +688,10 @@ final class Bungee extends PFrame {
 		return features.fontSize;
 	}
 
+	int getLegacyTextSize() {
+		return selectedItem.getFontSize();
+	}
+
 	int getDesiredNumResultsColumns() {
 		return features.nColumns;
 	}
@@ -700,8 +706,8 @@ final class Bungee extends PFrame {
 	 */
 	boolean updateTextSize(int fontSize) {
 		// Util.print("Art.updateTextSize " + fontSize + " " + maxTextSize());
-		assert fontSize >= MIN_TEXT_HEIGHT;
-		assert fontSize <= maxTextSize();
+		// assert fontSize >= MIN_TEXT_HEIGHT;
+		// assert fontSize <= maxTextSize();
 		boolean result = font == null || fontSize != font.getSize();
 		if (result) {
 			// Util.print("Art.setTextSize " + fontSize);
@@ -732,15 +738,13 @@ final class Bungee extends PFrame {
 			// Util.print("setDatabase/handleCursor true");
 			handleCursor(true);
 			isReady = false;
-
-			PLayer layer = getCanvas().getLayer();
-			layer.removeAllChildren();
+			removeAllChildren();
 
 			APText stop = oneLineLabel();
 			stop.setText("Waiting for " + server + "   ...");
 			stop.setScale(1.5);
 			stop.setOffset(lineH, lineH);
-			layer.addChild(stop);
+			addChild(stop);
 
 			stop();
 
@@ -750,6 +754,11 @@ final class Bungee extends PFrame {
 				updater.start();
 			}
 		}
+	}
+
+	private void addChild(PNode node) {
+		PLayer layer = getCanvas().getLayer();
+		layer.addChild(node);
 	}
 
 	void clearTextCaches() {
@@ -764,10 +773,10 @@ final class Bungee extends PFrame {
 	 * Scheduled by DataUpdater initialization after query is set
 	 */
 	void initializeFrames() {
-		PLayer layer = getCanvas().getLayer();
-		layer.removeAllChildren();
+		removeAllChildren();
 		String errorMessage = query.errorMessage();
 		if (errorMessage == null) {
+			Util.print("initializeFrames " + font);
 			// int dbIndex = dbIndex(_dbName);
 			// String description = databases[dbIndex][2];
 
@@ -790,13 +799,13 @@ final class Bungee extends PFrame {
 			// UPDATE! Now we use setBackground
 			// layer.setPaint(Color.black);
 
-			layer.addChild(extremeTags);
-			layer.addChild(grid);
-			layer.addChild(selectedItem);
-			layer.addChild(help);
-			layer.addChild(summary);
-			layer.addChild(mouseDoc);
-			layer.addChild(header); // Last, to let menu overlap
+			addChild(extremeTags);
+			addChild(grid);
+			addChild(selectedItem);
+			addChild(help);
+			addChild(summary);
+			addChild(mouseDoc);
+			addChild(header); // Last, to let menu overlap
 			// other panes.
 			summary.init();
 			isReady = true;
@@ -899,14 +908,12 @@ final class Bungee extends PFrame {
 	// }
 
 	int maxTextSize() {
-		// assume minWidth is proportional to font size
-		// Util.print("maxTextSize " + w + " "
-		// + ((int) (textH * w / (double) minWidth())));
-		if (w > 0)
-			return (int) (getTextSize() * Math.min(w / (double) minWidth(), h
-					/ (double) minHeight()));
-		else
-			return Integer.MAX_VALUE;
+		// assume minWidth is proportional to font size, with a fudge factor
+		int result = w > 0 ? (int) (getLegacyTextSize() * 0.9 * Math.min(w
+				/ (double) minWidth(), h / (double) minHeight()))
+				: Integer.MAX_VALUE;
+		Util.print("maxTextSize " + w + " " + result);
+		return result;
 	}
 
 	/**
@@ -948,9 +955,10 @@ final class Bungee extends PFrame {
 		// gridW >= grid.minWidth() as long as w >= minWidth() and power <= 1
 		assert power <= 1;
 		double minWidth = minWidth();
-		assert w >= minWidth : w + " " + minWidth + " " + minWidth() + " "
-				+ selectedItem.minWidth() + " " + extremeTags.minWidth() + " "
-				+ summary.minWidth(true) + " " + grid.minWidth();
+		assert w >= minWidth : "text size=" + getTextSize() + " w=" + w
+				+ " minWidth=" + minWidth + ", " + minWidth() + " SI:"
+				+ selectedItem.minWidth() + " ET:" + extremeTags.minWidth()
+				+ " Sum:" + summary.minWidth(true) + " Grid:" + grid.minWidth();
 		return Math.pow(w / minWidth, power);
 	}
 
@@ -967,19 +975,13 @@ final class Bungee extends PFrame {
 
 	void validateIfReady() {
 		if (isReady) { // && !setTextSize(textH)) {
-			// Util.print("Bungee.setSize " + w + " " + h);
+			Util.print("validateIfReady " + w + " " + h);
 			// Util.printStackTrace();
 			// This will reduce text size if necessary to fit in the window.
 			// If it changes the text size, it will call validate itself
 			printUserAction(SETSIZE, w, h);
 			if (!setTooSmall()) {
-				// Don't understand why I need to add these constants.
-				// int kludgeW = w + 8;
-				// int kludgeH = h + 34;
-				// setBounds(0, 0, kludgeW, kludgeH);
-				// getCanvas().setBounds(0, 0, kludgeW, kludgeH);
-				PLayer layer = getCanvas().getLayer();
-				layer.setBounds(0, 0, w, h);
+				getCanvas().getLayer().setBounds(0, 0, w, h);
 				double headerH = header.validate(w);
 				mouseDoc.validate(w, mouseDocH);
 
@@ -1009,6 +1011,8 @@ final class Bungee extends PFrame {
 					clusterViz.validate();
 				mouseDoc.setOffset(0.0, headerH);
 
+				Util.print("validateIfReady OK " + header);
+
 				positionHelp();
 			}
 		}
@@ -1017,7 +1021,7 @@ final class Bungee extends PFrame {
 	void positionHelp() {
 		// Util.print("positionHelp ") + isShowingInitialHelp());
 		if (isShowingInitialHelp()) {
-			help.moveToFront();
+			// help.moveToFront();
 			double xOffset = summary.getMaxX() + lineH;
 			double yOffset = header.getHeight() + 4 * lineH;
 			help.setOffset(xOffset, yOffset);
@@ -1055,12 +1059,10 @@ final class Bungee extends PFrame {
 	}
 
 	private boolean setTooSmall() {
-		if (tooSmall != null) {
-			tooSmall.removeFromParent();
-			tooSmall = null;
-		}
-		// Util.print("setTooSmall " + w + "x"+h+" " + minWidth() + "x"+minH);
-		boolean isTooSmall = w < minWidth() || h < minH;
+		removeTooSmall();
+		boolean isTooSmall = !smallWindowOK && (w < minWidth() || h < minH);
+		Util.print("setTooSmall " + isTooSmall + " " + w + "x" + h + " "
+				+ minWidth() + "x" + minH);
 		if (isTooSmall) {
 			getCanvas().setBackground(Color.white);
 			// if (maxTextSize() >= minTextH) {
@@ -1069,15 +1071,58 @@ final class Bungee extends PFrame {
 			// isReady = true;
 			// isTooSmall = false;
 			// } else {
-			showError("Bungee View requires at least " + minWidth() + " x "
-					+ minH + " pixels," + "\n but your window is only " + w
-					+ " wide x " + h
-					+ " high.\n  1. Make sure your window is maximized, or"
-					+ "\n  2. Increase your screen resolution.");
+			APText tooSmall = showError("For best results,\nBungee View requires at least "
+					+ minWidth()
+					+ " x "
+					+ minH
+					+ " pixels,"
+					+ "\nbut your window is only "
+					+ w
+					+ " wide x "
+					+ h
+					+ " high.\n\n  1. Make sure your window is maximized, or"
+					+ "\n  2. Increase your screen resolution, or");
+			SmallWindowButton goAhead = new SmallWindowButton();
+			goAhead.setOffset(tooSmall.getXOffset(), tooSmall.getMaxY());
+			goAhead.setScale(tooSmall.getScale());
+			addChild(goAhead);
 		} else
 			getCanvas().setBackground(Color.black);
 		setNormalPaneVisibility(!isTooSmall);
 		return isTooSmall;
+	}
+
+	final class SmallWindowButton extends BungeeTextButton {
+
+		private static final String label1 = "  3. Use this window size anyway";
+
+		SmallWindowButton() {
+			// super(label1, art.font, 0, 0, art.getStringWidth(label1),
+			// art.lineH /* / scale */+ 2, null, 1.8f, color,
+			// Bungee.summaryBG);
+			super(label1, Color.black, Color.lightGray, Bungee.this,
+					"Reduce font size and truncate text as necessary");
+			((APText) child).setConstrainWidthToTextWidth(true);
+		}
+
+		public boolean isEnabled() {
+			return true;
+		}
+
+		public void doPick() {
+			smallWindowOK = true;
+			isReady = false;
+			try {
+				setTextSize(maxTextSize());
+			} catch (AssertionError e) {
+			}
+			initializeFrames();
+		}
+
+		// public void mayHideTransients(PNode node) {
+		// art.mayHideTransients();
+		// }
+
 	}
 
 	private void setNormalPaneVisibility(boolean isVisible) {
@@ -1102,13 +1147,10 @@ final class Bungee extends PFrame {
 			header.setVisible(isVisible);
 	}
 
-	private void showError(String msg) {
-		if (tooSmall != null) {
-			tooSmall.removeFromParent();
-			tooSmall = null;
-		}
+	private APText showError(String msg) {
+		removeTooSmall();
 
-		tooSmall = new APText(font);
+		APText tooSmall = new APText(font);
 		tooSmall.setScale(1.5);
 		// label.setTextPaint(Color.white);
 		tooSmall.setPickable(false);
@@ -1117,7 +1159,28 @@ final class Bungee extends PFrame {
 		tooSmall.setWidth(w - 2 * tooSmall.getXOffset());
 		tooSmall.setText(msg);
 		Util.err(msg);
-		getCanvas().getLayer().addChild(tooSmall);
+		addChild(tooSmall);
+		return tooSmall;
+	}
+
+	private void removeTooSmall() {
+		for (Iterator it = getCanvas().getLayer().getChildrenIterator(); it
+				.hasNext();) {
+			PNode node = (PNode) it.next();
+			if (node instanceof APText || node instanceof SmallWindowButton) {
+				Util.print("removeTooSmall removing " + node);
+				node.removeFromParent();
+			}
+		}
+		// if (tooSmall != null) {
+		// tooSmall.removeFromParent();
+		// tooSmall = null;
+		// }
+	}
+
+	private void removeAllChildren() {
+		PLayer layer = getCanvas().getLayer();
+		layer.removeAllChildren();
 	}
 
 	double getW() {
@@ -2310,7 +2373,7 @@ final class Bungee extends PFrame {
 			boolean showCheckBox, boolean justify, PerspectiveObserver redraw) {
 		if (nameW < 0) {
 			assert !justify;
-			nameW = Double.MAX_VALUE;
+			nameW = Double.POSITIVE_INFINITY;
 		}
 		StringBuffer name = new StringBuffer(100);
 		Perspective parent = (facet instanceof Perspective) ? ((Perspective) facet)
@@ -2609,7 +2672,7 @@ final class Bungee extends PFrame {
 				clusterViz = new ClusterViz(this);
 			}
 			if (clusterViz.isHidden())
-				getCanvas().getLayer().addChild(clusterViz);
+				addChild(clusterViz);
 			clusterViz.showClusters();
 		} else {
 			setTip("Can't find clusters if there are no filters.");

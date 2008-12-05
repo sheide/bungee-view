@@ -414,6 +414,7 @@ class FacetText extends APText implements FacetNode, PerspectiveObserver {
 	// }
 
 	void setColor() {
+//		Util.print("FT.setColor "+this+" "+permanentTextPaint);
 		if (permanentTextPaint != null) {
 			// Util.print("...setColor " + getText() + " " +
 			// permanentTextPaint);

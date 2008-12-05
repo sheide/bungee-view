@@ -79,7 +79,7 @@ public class TextSearch extends LazyContainer {
 
 		// searchBox.setHeight(lineH() - 2);
 		searchBox.setOffset(x, 0); // x + 10, y);
-		searchBox.setWidth(w - x); // 10 * lineH());
+		searchBox.setWidth(Math.max(1, w - x)); // 10 * lineH());
 		if (searchBox.getParent() == null)
 			addChild(searchBox); // If edited string is empty and you
 		// click
