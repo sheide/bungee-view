@@ -12,5 +12,6 @@
 	<classpathentry combineaccessrules="false" kind="src" path="/optimize"/>
 	<classpathentry combineaccessrules="false" kind="src" path="/tetrad-4.3.9-0"/>
 	<classpathentry combineaccessrules="false" kind="src" path="/jama"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/pal-math"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
