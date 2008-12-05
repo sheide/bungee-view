@@ -818,42 +818,48 @@ public class Database {
 	@SuppressWarnings("unchecked")
 	void getPairCounts(String facetNames, String table, DataOutputStream out)
 			throws SQLException, ServletException, IOException {
-		String[] facets = Util.splitComma(facetNames);
-		int nFacets = facets.length;
-		String[] joins = new String[nFacets];
-		String[] groups = new String[nFacets];
-		String[] states = new String[nFacets];
-		for (int i = 0; i < nFacets; i++) {
-			int facet = Integer.parseInt(facets[i]);
-			String ifTable = facet <= maxFacetTypeID() ? "item_facet_type_heap"
-					: "item_facet_heap";
-			joins[i] = "LEFT JOIN " + ifTable + " i" + i + " ON i" + i
-					+ ".record_num = items.record_num AND i" + i
-					+ ".facet_id = " + facet;
+		String sql;
+		if (facetNames.length() == 0) {
+			sql = "SELECT 0, COUNT(*) FROM " + table;
+		} else {
+			String[] facets = Util.splitComma(facetNames);
+			int nFacets = facets.length;
+			String[] joins = new String[nFacets];
+			String[] groups = new String[nFacets];
+			String[] states = new String[nFacets];
+			for (int i = 0; i < nFacets; i++) {
+				int facet = Integer.parseInt(facets[i]);
+				String ifTable = facet <= maxFacetTypeID() ? "item_facet_type_heap"
+						: "item_facet_heap";
+				joins[i] = "LEFT JOIN " + ifTable + " i" + i + " ON i" + i
+						+ ".record_num = items.record_num AND i" + i
+						+ ".facet_id = " + facet;
 
-			// First facet reprsented by low order bit
-			int iComplement = nFacets - i - 1;
-			groups[i] = "i" + iComplement + ".facet_id";
-			states[i] = "(" + groups[i] + " IS NOT NULL)*" + (1 << iComplement);
+				// First facet reprsented by low order bit
+				int iComplement = nFacets - i - 1;
+				groups[i] = "i" + iComplement + ".facet_id";
+				states[i] = "(" + groups[i] + " IS NOT NULL)*"
+						+ (1 << iComplement);
+			}
+			String vars = Util.join(groups);
+			sql = "SELECT " + Util.join(states, " + ") + ", COUNT(*) FROM "
+					+ table + " items " + Util.join(joins, " ") + " GROUP BY "
+					+ vars /* + " ORDER BY " + vars */;
+			// log(sql);
+
+			// String sql = "SELECT COUNT(*) "+
+			// "FROM item_facet_heap i1, item_facet_heap i2,
+			// item_facet_type_heap
+			// parent "+
+			// "WHERE i1.record_num = i2.record_num "+
+			// "AND parent.record_num = i1.record_num "+
+			// "AND parent.facet_id = "+parent+
+			// " AND i1.facet_id IN ("+facets+") "+
+			// "AND i2.facet_id IN ("+facets+") "+
+			// "AND i1.facet_id<i2.facet_id "+
+			// "GROUP BY i1.facet_id, i2.facet_id "+
+			// "ORDER BY i1.facet_id, i2.facet_id";
 		}
-		String vars = Util.join(groups);
-		String sql = "SELECT " + Util.join(states, " + ") + ", COUNT(*) FROM "
-				+ table + " items " + Util.join(joins, " ") + " GROUP BY "
-				+ vars /* + " ORDER BY " + vars */;
-		// log(sql);
-
-		// String sql = "SELECT COUNT(*) "+
-		// "FROM item_facet_heap i1, item_facet_heap i2, item_facet_type_heap
-		// parent "+
-		// "WHERE i1.record_num = i2.record_num "+
-		// "AND parent.record_num = i1.record_num "+
-		// "AND parent.facet_id = "+parent+
-		// " AND i1.facet_id IN ("+facets+") "+
-		// "AND i2.facet_id IN ("+facets+") "+
-		// "AND i1.facet_id<i2.facet_id "+
-		// "GROUP BY i1.facet_id, i2.facet_id "+
-		// "ORDER BY i1.facet_id, i2.facet_id";
-
 		ResultSet rs = jdbc.SQLquery(sql);
 		sendResultSet(rs, MyResultSet.INT_INT, out);
 	}
@@ -1876,12 +1882,12 @@ public class Database {
 	@SuppressWarnings("unchecked")
 	void caremediaPlayArgs(String items, DataOutputStream out)
 			throws SQLException, ServletException, IOException {
-		// log("caremediaPlayArgs"+item);
+		log("caremediaPlayArgs " + items);
 		// event.segment_id is always NULL
 		ResultSet rs = jdbc
 				.SQLquery("SELECT segment.segment_id,"
-						+ " 1000*TIMESTAMPDIFF(SECOND, copyright_date, start_date) start_offset,"
-						+ " 1000*TIMESTAMPDIFF(SECOND, copyright_date, end_date)"
+						+ " TIMESTAMPDIFF(SECOND, copyright_date, start_date) start_offset,"
+						+ " TIMESTAMPDIFF(SECOND, copyright_date, end_date)"
 						+ " FROM item INNER JOIN event ON item.record_num = event.event_id"
 						+ " INNER JOIN movie USING (movie_id)"
 						+ " INNER JOIN segment ON segment.movie_id = movie.movie_id"
@@ -1891,7 +1897,7 @@ public class Database {
 						+ ") HAVING start_offset >= 0"
 
 						+ " ORDER BY segment.segment_id");
-		// printRecords(rs, MyResultSet.SNMINT_INT_INT);
+		printRecords(rs, MyResultSet.SNMINT_INT_INT);
 		sendResultSet(rs, MyResultSet.SNMINT_INT_INT, out);
 	}
 
