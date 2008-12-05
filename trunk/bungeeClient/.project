@@ -5,6 +5,7 @@
 	<projects>
 		<project>dbScripts</project>
 		<project>madUtils</project>
+		<project>pal-math</project>
 		<project>piccolo</project>
 		<project>piccoloUtils</project>
 		<project>statistics</project>
