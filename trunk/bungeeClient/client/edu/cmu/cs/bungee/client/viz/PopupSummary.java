@@ -13,6 +13,11 @@ import edu.cmu.cs.bungee.client.query.Cluster;
 import edu.cmu.cs.bungee.client.query.Markup;
 import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.cmu.cs.bungee.client.query.Query;
+import edu.cmu.cs.bungee.client.query.tetrad.Alchemy;
+import edu.cmu.cs.bungee.client.query.tetrad.AlchemyModel;
+import edu.cmu.cs.bungee.client.query.tetrad.Explanation;
+import edu.cmu.cs.bungee.client.query.tetrad.LogisticRegressionModel;
+import edu.cmu.cs.bungee.client.query.tetrad.NonAlchemyModel;
 import edu.cmu.cs.bungee.client.query.tetrad.Tetrad;
 import edu.cmu.cs.bungee.client.query.tetrad.Tetrad.TetradPrinter;
 import edu.cmu.cs.bungee.javaExtensions.PerspectiveObserver;
@@ -31,8 +36,7 @@ import edu.umd.cs.piccolo.util.PBounds;
  * see <a href="C:\Projects\ArtMuseum\DesignSketches\popupColors.xcf">color
  * key</a>
  */
-final class PopupSummary extends LazyPNode implements PerspectiveObserver,
-		TetradPrinter {
+final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 
 	private static final long TRANSLATE_TO_CORNER_DELAY = 10000;
 
@@ -567,7 +571,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver,
 				delay(TRANSLATE_TO_CORNER_DELAY);
 			}
 		} else if (showHelp == Step.START_FRAME) {
-//			setTetrad();
+			setTetrad();
 			summary().moveToFront();
 			// setBoundsFromNode(this, barBG, 0);
 			animateToAlignment(this, 2, art.header, 2, -barBG.getX()
@@ -628,7 +632,14 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver,
 				removeChild(graph);
 				relabel(tetradGraph);
 			} else {
-				tetradGraph = Tetrad.getTetradGraph(facet, this, this);
+				// tetradGraph = Tetrad.getTetradGraph(facet, this, this);
+				// tetradGraph = Alchemy.getAlchemyGraph(facet, this, this,
+				// art.dbName);
+				Explanation explanation = NonAlchemyModel.getExplanation(facet);
+				if (explanation == null)
+					return false;
+				tetradGraph = explanation.buildGraph();
+				// drawTetradGraph(tetradGraph, "tetrad");
 			}
 			graph = getGraph();
 			addChild(graph);
@@ -647,7 +658,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver,
 			Perspective p = (Perspective) node.object;
 			node.setLabel(p.getName(this));
 		}
-		
+
 	}
 
 	private Graph getGraph() {
@@ -659,11 +670,11 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver,
 		return graph1;
 	}
 
-	public void drawTetradGraph(
-			edu.cmu.cs.bungee.javaExtensions.graph.Graph graph1, String status) {
-		Graph pnode = new Graph(graph1, art.font);
-		pnode.printMe(status);
-	}
+	// public void drawTetradGraph(
+	// edu.cmu.cs.bungee.javaExtensions.graph.Graph graph1, String status) {
+	// Graph pnode = new Graph(graph1, art.font);
+	// pnode.printMe(status);
+	// }
 
 	void colorFacetGraph(Graph graph1) {
 		for (Iterator it = graph1.getNodeObjects().iterator(); it.hasNext();) {
@@ -962,7 +973,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver,
 			setBoundsFromNodes(significanceHeader, nodes(significanceDesc,
 					significanceTypeDesc), MARGIN);
 
-//			summary().colorKey.moveToFront();
+			// summary().colorKey.moveToFront();
 
 			// Rectangle2D barBounds = ((Bar) anchor).visibleBounds();
 			// double top = barBounds.getY();
@@ -1369,10 +1380,10 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver,
 
 	private static void animateBoundsFromNodes(PNode node,
 			PNode[] virtualChildren, double margin, long duration) {
-		double minX = Double.MAX_VALUE;
-		double maxX = Double.MIN_VALUE;
-		double minY = Double.MAX_VALUE;
-		double maxY = Double.MIN_VALUE;
+		double minX = Double.POSITIVE_INFINITY;
+		double maxX = Double.NEGATIVE_INFINITY;
+		double minY = Double.POSITIVE_INFINITY;
+		double maxY = Double.NEGATIVE_INFINITY;
 		for (int i = 0; i < virtualChildren.length; i++) {
 			PNode child = virtualChildren[i];
 			if (child.getRoot() != null
@@ -1963,7 +1974,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver,
 				// animateBarTransparencies(1, 0, 0);
 				totalCountDescNum.setScale(1);
 				facetCount.setScale(1);
-//				summary().doHideTransients();
+				// summary().doHideTransients();
 				if (pv() != null)
 					pv().loseHotZone();
 				siblingPercent.clearAttributes();

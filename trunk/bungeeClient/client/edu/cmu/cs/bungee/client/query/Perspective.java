@@ -691,6 +691,18 @@ public class Perspective implements Comparable, ItemPredicate {
 			return -1;
 	}
 
+	/**
+	 * @return standard deviation of this binary variable, over the whole
+	 *         database
+	 */
+	public double stdDev() {
+		double n = query().getTotalCount();
+		double count = getTotalCount();
+		double stdDev = Math.sqrt(count * (n - count) / (n * (n - 1)));
+		assert stdDev >= 0 : count + " " + n;
+		return stdDev;
+	}
+
 	public int parentTotalCount() {
 		if (parent == null)
 			return query().getTotalCount();
@@ -2139,13 +2151,13 @@ public class Perspective implements Comparable, ItemPredicate {
 	// return null;
 	// }
 
-//	/**
-//	 * @return is it sensible for Tetrad to conclude that another Perspective
-//	 *         causes this one?
-//	 */
-//	public boolean isCausable() {
-//		return query().isCausable(this);
-//	}
+	// /**
+	// * @return is it sensible for Tetrad to conclude that another Perspective
+	// * causes this one?
+	// */
+	// public boolean isCausable() {
+	// return query().isCausable(this);
+	// }
 
 	/**
 	 * @return does this Perspective have a natural ordering (like Date or
@@ -2234,7 +2246,7 @@ public class Perspective implements Comparable, ItemPredicate {
 			TagRelevance(ChiSq2x2 o, double _relevance) {
 				tag = o;
 				relevance = _relevance;
-//				assert tag instanceof ChiSq2x2;
+				// assert tag instanceof ChiSq2x2;
 			}
 
 			public String toString() {

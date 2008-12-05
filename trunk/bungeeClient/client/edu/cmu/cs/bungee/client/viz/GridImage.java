@@ -95,16 +95,16 @@ final class GridImage extends PImage /* implements FacetNode */{
 					newH, true);
 			setImage(scaled);
 			// Util.printStackTrace();
-			// Util.print(" " + scaled.getWidth() + "*" + scaled.getHeight());
+//			Util.print(" " + scaled.getWidth() + "*" + scaled.getHeight());
 			assert getWidth() <= w : w + " " + getWidth() + " "
-					+ scaled.getWidth() + " " + newW + " " + newH;				
+					+ scaled.getWidth() + " " + newW + " " + newH;
 			// }
 		}
 		assert getWidth() <= w : w + " " + getWidth();
-		// Util.print(itemImage.currentW() + "*" + itemImage.currentH() + " "
-		// + itemImage.getRawImage().getWidth(null) + "*"
-		// + itemImage.getRawImage().getHeight(null));
-		// Util.print(" Exit scale");
+//		Util.print(itemImage.currentW() + "*" + itemImage.currentH() + " "
+//				+ itemImage.getRawImage().getWidth(null) + "*"
+//				+ itemImage.getRawImage().getHeight(null));
+//		Util.print(" Exit scale " + getScale());
 		border.borderBounds = new PBounds((getWidth() - w) / 2,
 				(getHeight() - h) / 2, w, h);
 	}
@@ -190,7 +190,7 @@ final class GridImage extends PImage /* implements FacetNode */{
 
 	String mouseDoc = "Select this match";
 
-//	private FaceImage faceImage;
+	// private FaceImage faceImage;
 
 	private String getMouseDoc() {
 		// if (mouseDoc == null) {
@@ -238,19 +238,19 @@ final class GridImage extends PImage /* implements FacetNode */{
 		grid().mayHideTransients();
 	}
 
-//	void handleFaceWarping(PInputEvent e) {
-//		Util.print(e.getPositionRelativeTo(this));
-//		if (faceImage == null) {
-//			faceImage = FaceImageThreePoint.getInstamce(getImage());
-//		}
-//		faceImage.addPoint(e.getPositionRelativeTo(this));
-//		if (faceImage.isSavable()) {
-//			((SelectedItem) getParent()).art.warpImage(itemImage.item,
-//					faceImage);
-//			// itemImage.rawImage=faceImage.getWarpedImage();
-//			// ((SelectedItem) getParent()).art.selectedItem.maybeAddImage();
-//		}
-//	}
+	// void handleFaceWarping(PInputEvent e) {
+	// Util.print(e.getPositionRelativeTo(this));
+	// if (faceImage == null) {
+	// faceImage = FaceImageThreePoint.getInstamce(getImage());
+	// }
+	// faceImage.addPoint(e.getPositionRelativeTo(this));
+	// if (faceImage.isSavable()) {
+	// ((SelectedItem) getParent()).art.warpImage(itemImage.item,
+	// faceImage);
+	// // itemImage.rawImage=faceImage.getWarpedImage();
+	// // ((SelectedItem) getParent()).art.selectedItem.maybeAddImage();
+	// }
+	// }
 }
 
 final class GridImageHandler extends MyInputEventHandler {

@@ -71,7 +71,7 @@ import edu.umd.cs.piccolo.nodes.PImage;
 
 final class SelectedItem extends LazyContainer implements MouseDoc {
 
-	private static final boolean CAPTURING_FACES = true;
+	private static final boolean CAPTURING_FACES = false;
 
 	private static final boolean FLIPPING_FACES = false;
 
@@ -244,8 +244,12 @@ final class SelectedItem extends LazyContainer implements MouseDoc {
 
 	public double minWidth() {
 		// assert Util.ignore(boundary1);
-		// Util.print("SI.minWidth " + labelWidth());
+		 Util.print("SI.minWidth fontsize=" + getFontSize());
 		return labelWidth();
+	}
+
+	 int getFontSize() {
+		return label.getFont().getSize();
 	}
 
 	public double minHeight() {
@@ -325,7 +329,7 @@ final class SelectedItem extends LazyContainer implements MouseDoc {
 
 	int maxImageH() {
 		int result = (int) (h / 2.0);
-		// Util.print("maxImageH "+result);
+//		Util.print("maxImageH " + result);
 		return result;
 	}
 
@@ -364,6 +368,9 @@ final class SelectedItem extends LazyContainer implements MouseDoc {
 				gridImage.setOffset(x, y);
 				y += gridImage.getHeight() * gridImage.getScale() + art.lineH
 						/ 2;
+//				Util.print("ImageH " + gridImage.getHeight() + " * "
+//						+ gridImage.getScale() + " = "
+//						+ (gridImage.getHeight() * gridImage.getScale()));
 				addChild(gridImage);
 			}
 		}

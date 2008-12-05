@@ -572,7 +572,7 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 
 			// We want to paint based on counts ignoring restrictions, so make
 			// sure highlighting doesn't fade it.
-			pLabel.setPermanentTextPaint(pLabel.getTextPaint());
+//			pLabel.setPermanentTextPaint(pLabel.getTextPaint());
 
 			pLabel.dontHideTransients = true;
 			addChild(pLabel);
@@ -593,7 +593,7 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 
 	void highlightFacet() {
 		if (!isHidden()) {
-			// Util.print("PL.showFacet " + facet);
+//			 Util.print("PL.showFacet " + art.highlightedFacets);
 			for (Iterator it = getChildrenIterator(); it.hasNext();) {
 				PNode n = (PNode) it.next();
 				if (n instanceof FacetText) {
