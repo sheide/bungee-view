@@ -116,6 +116,8 @@ public class Graph {
 	}
 
 	public Edge getEdge(Node node1, Node node2) {
+		assert node1 != null;
+		assert node2 != null;
 		Set nodes = new HashSet(2);
 		nodes.add(node1);
 		nodes.add(node2);
@@ -132,9 +134,17 @@ public class Graph {
 	}
 
 	public Edge addEdge(String label1, Node node1, Node node2) {
+		String[] labels = { null, label1, null };
+		return addEdge(labels, node1, node2);
+	}
+
+	public Edge addEdge(String[] labels, Node node1, Node node2) {
 		assert hasNode(node1) && hasNode(node2);
 		assert getEdge(node1, node2) == null;
-		Edge edge = new Edge(label1, node1, node2);
+		if (labels == null)
+			labels = new String[3];
+		assert labels.length == 3;
+		Edge edge = new Edge(labels, node1, node2);
 		Set nodes = new HashSet(2);
 		nodes.add(node1);
 		nodes.add(node2);
@@ -400,7 +410,7 @@ public class Graph {
 			ensureNode(cause);
 			Edge myEdge = getEdge(cause, caused);
 			if (myEdge == null) {
-				myEdge = addEdge(edge.getLabel(), cause, caused);
+				myEdge = addEdge(edge.getLabels(), cause, caused);
 				myEdge.setDirection(caused);
 			} else
 				myEdge.addDirection(caused);

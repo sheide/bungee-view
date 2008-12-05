@@ -16,7 +16,13 @@ public class Edge {
 	private static final int FORWARD = 1;
 	private static final int BACKWARD = 2;
 	private static final int BIDIRECTIONAL = FORWARD | BACKWARD;
-	private String label;
+
+	// left is nodes[0]; right is nodes[1]
+	public static final int LEFT_LABEL = 0;
+	public static final int CENTER_LABEL = 1;
+	public static final int RIGHT_LABEL = 2;
+
+	private String labels[];
 	private int orientation = BIDIRECTIONAL;
 	private final Node node1;
 	private final Node node2;
@@ -24,9 +30,9 @@ public class Edge {
 
 	// private int x1, y1, x2, y2;
 
-	Edge(String label, Node node1, Node node2) {
+	Edge(String[] labels, Node node1, Node node2) {
 		super();
-		this.label = label;
+		this.labels = labels;
 		this.node1 = node1;
 		this.node2 = node2;
 		List nodes1 = new ArrayList(2);
@@ -69,15 +75,15 @@ public class Edge {
 
 	public void addDirection(Node caused) {
 		assert hasNode(caused);
-//		if (!canCause(caused))
-//		System.out.println("addDirection "+this);
+		// if (!canCause(caused))
+		// System.out.println("addDirection "+this);
 		orientation |= getMask(caused);
 	}
 
 	public void setDirection(Node caused) {
 		assert hasNode(caused);
 		orientation = getMask(caused);
-//		System.out.println("setDirection "+this);
+		// System.out.println("setDirection "+this);
 	}
 
 	public List getNodes() {
@@ -93,12 +99,30 @@ public class Edge {
 		return (orientation & getMask(caused)) > 0;
 	}
 
-	public String getLabel() {
-		return label;
+	public String getLabel(int position) {
+		return labels[position];
 	}
 
-	public void setLabel(String label) {
-		this.label = label;
+	public void setLabel(String label, int position) {
+		// assert label.indexOf('@') == -1;
+		this.labels[position] = label;
+	}
+
+	public void setLabel(String label, Node node) {
+		this.labels[getPosition(node)] = label;
+	}
+
+	private int getPosition(Node node) {
+		if (node == node1)
+			return LEFT_LABEL;
+		else if (node == node2)
+			return RIGHT_LABEL;
+		assert false;
+		return -1;
+	}
+
+	public String[] getLabels() {
+		return labels;
 	}
 
 	public int getNumDirections() {
@@ -147,8 +171,7 @@ public class Edge {
 		Line2D centerToCenterLine = getCenterToCenterLine();
 		assert rect.contains(centerToCenterLine.getP1()) != rect
 				.contains(centerToCenterLine.getP2()) : rect + " "
-				+ centerToCenterLine.getP1()+ " "
-				+ centerToCenterLine.getP2();
+				+ centerToCenterLine.getP1() + " " + centerToCenterLine.getP2();
 		double x1 = rect.getX();
 		double y1 = rect.getY();
 		double x2 = x1 + rect.getWidth();
@@ -168,11 +191,11 @@ public class Edge {
 				+ centerToCenterLine.getY1() + ") ("
 				+ centerToCenterLine.getX2() + ", "
 				+ centerToCenterLine.getY2() + ")";
-//		Util.print("dd " + rect + " " + result);
-		assert result.getX() >= x1-0.000001 : result.getX() + " " + x1;
-		assert result.getX() <= x2+0.000001 : result.getX() + " " + x2;
-		assert result.getY() >= y1-0.000001 : result.getY() + " " + y1;
-		assert result.getY() <= y2+0.000001 : result.getY() + " " + y2;
+		// Util.print("dd " + rect + " " + result);
+		assert result.getX() >= x1 - 0.000001 : result.getX() + " " + x1;
+		assert result.getX() <= x2 + 0.000001 : result.getX() + " " + x2;
+		assert result.getY() >= y1 - 0.000001 : result.getY() + " " + y1;
+		assert result.getY() <= y2 + 0.000001 : result.getY() + " " + y2;
 		return result;
 	}
 

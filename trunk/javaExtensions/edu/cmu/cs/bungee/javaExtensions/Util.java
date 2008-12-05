@@ -145,11 +145,11 @@ public final class Util {
 	public static boolean ignore(double ignore) {
 		return ignore == 0 || ignore != 0;
 	}
-	
+
 	public static double log2 = Math.log(2);
 
 	public static double log2(double x) {
-		return Math.log(x)/log2;
+		return Math.log(x) / log2;
 	}
 
 	/**
@@ -1232,23 +1232,24 @@ public final class Util {
 		}
 		return buf.toString();
 	}
-//	public static String join(List stringList, String delimiter) {
-//		String result = null;
-//		int len = stringList == null ? 0 : stringList.size();
-//		if (!stringList.isEmpty()) {
-//			StringBuffer buf = new StringBuffer(len * 20);
-//			synchronized (stringList) {
-//				for (Iterator it = stringList.iterator(); it.hasNext();) {
-//					Object o = it.next();
-//					if (buf.length() > 0)
-//						buf.append(delimiter);
-//					buf.append(o);
-//				}
-//			}
-//			result = buf.toString();
-//		}
-//		return result;
-//	}
+
+	// public static String join(List stringList, String delimiter) {
+	// String result = null;
+	// int len = stringList == null ? 0 : stringList.size();
+	// if (!stringList.isEmpty()) {
+	// StringBuffer buf = new StringBuffer(len * 20);
+	// synchronized (stringList) {
+	// for (Iterator it = stringList.iterator(); it.hasNext();) {
+	// Object o = it.next();
+	// if (buf.length() > 0)
+	// buf.append(delimiter);
+	// buf.append(o);
+	// }
+	// }
+	// result = buf.toString();
+	// }
+	// return result;
+	// }
 
 	public static String join(int[] stringList, String delimiter) {
 		String result = null;
@@ -1322,15 +1323,28 @@ public final class Util {
 			+ "\u00C4\u00E4\u00CB\u00EB\u00CF\u00EF\u00D6\u00F6\u00DC\u00FC\u0178\u00FF"
 			+ "\u00C5\u00E5" + "\u00C7\u00E7";
 
+	private static final String FILENAME_NO_NOS = "*<>[]=+\"\\/,.:;";
+
 	// remove accentued from a string and replace with ascii equivalent
 	public static String convertNonAscii(String s) {
+		return translate(s, UNICODE, PLAIN_ASCII);
+	}
+
+	// remove characters that are illegal in filenames
+	public static String convertForFilename(String s) {
+		return translate(s, FILENAME_NO_NOS, null);
+	}
+
+	// remove accentued from a string and replace with ascii equivalent
+	public static String translate(String s, String froms, String tos) {
 		StringBuffer sb = new StringBuffer();
 		int n = s.length();
 		for (int i = 0; i < n; i++) {
 			char c = s.charAt(i);
-			int pos = UNICODE.indexOf(c);
+			int pos = froms.indexOf(c);
 			if (pos > -1) {
-				sb.append(PLAIN_ASCII.charAt(pos));
+				if (tos != null)
+					sb.append(tos.charAt(pos));
 			} else {
 				sb.append(c);
 			}
@@ -1414,6 +1428,14 @@ public final class Util {
 	private static boolean isArray(Object target) {
 		Class targetClass = target.getClass();
 		return targetClass.isArray();
+	}
+	
+	public static String shortClassName(Object object) {
+		String className = object.getClass().getName();
+		String[] components = className.split("\\.");
+		// Util.print(className+" "+Util.valueOfDeep(components));
+		className = components[components.length - 1];
+		return className;
 	}
 
 	/**
@@ -1947,16 +1969,18 @@ public final class Util {
 		in.close();
 		out.close();
 	}
-	
+
 	public static FilenameFilter getFilenameFilter(String pattern) {
-		return new MyFilenameFilter(pattern);		
+		return new MyFilenameFilter(pattern);
 	}
-	
-	private static class MyFilenameFilter implements FilenameFilter{
+
+	private static class MyFilenameFilter implements FilenameFilter {
 		Pattern p;
-		MyFilenameFilter(String pattern){
-			p=Pattern.compile(pattern);
+
+		MyFilenameFilter(String pattern) {
+			p = Pattern.compile(pattern);
 		}
+
 		public boolean accept(File directory, String name) {
 			Matcher m = p.matcher(name);
 			return m.matches();
@@ -2002,8 +2026,8 @@ public final class Util {
 	}
 
 	public static boolean stringEquals(String c1, String c2) {
-//		print("stringEquals " + c1 + " " + c2 + " "
-//				+ (toCollationKey(c1).equals(toCollationKey(c2))));
+		// print("stringEquals " + c1 + " " + c2 + " "
+		// + (toCollationKey(c1).equals(toCollationKey(c2))));
 		return toCollationKey(c1).equals(toCollationKey(c2));
 	}
 
@@ -2093,7 +2117,8 @@ public final class Util {
 
 	/**
 	 * @param i
-	 * @param bit in [0, 31]
+	 * @param bit
+	 *            in [0, 31]
 	 * @return 1 if bit is set in i; else 0. E.g. getBit(4, 2) = 1
 	 */
 	public static int getBit(int i, int bit) {
@@ -2124,27 +2149,27 @@ public final class Util {
 	public static class CombinationIterator implements Iterator {
 
 		private final Object[] objects;
-		private int index=0;
+		private int index = 0;
 		private int lastIndexPlusOne;
 
 		public CombinationIterator(Collection collection) {
 			objects = collection.toArray();
-			lastIndexPlusOne=1<<objects.length;
+			lastIndexPlusOne = 1 << objects.length;
 		}
 
 		public boolean hasNext() {
 			return index < lastIndexPlusOne;
 		}
 
-		/* 
+		/*
 		 * Value is a List ordered the same way as constuctor argument
 		 */
 		public Object next() {
-			if (index>=lastIndexPlusOne)
+			if (index >= lastIndexPlusOne)
 				throw new NoSuchElementException();
 			List result = new ArrayList(objects.length);
 			for (int i = 0; i < objects.length; i++) {
-				if (isBit(index,i))
+				if (isBit(index, i))
 					result.add(objects[i]);
 			}
 			index++;
@@ -2175,5 +2200,14 @@ public final class Util {
 			buf.append("0.00").append(((int) (percent * 1000.0 + 0.5)));
 		buf.append("%");
 		return buf;
+	}
+
+	public static Object some(Collection primaryFacets) {
+		Object result = null;
+		for (Iterator it = primaryFacets.iterator(); it.hasNext();) {
+			result = it.next();
+			break;
+		}
+		return result;
 	}
 }
