@@ -113,6 +113,7 @@ public class ConvertFromRaw {
 			jdbc.print("...found " + nErrors + " errors in output tables.");
 
 			createPairsTable(facet_idType, item_idType);
+//			createEntropy(facet_idType);
 
 			jdbc.print("\nCleaning up...");
 			// purgeMultiples();
@@ -136,6 +137,25 @@ public class ConvertFromRaw {
 			// }
 		}
 	}
+
+//	private void createEntropy(String facet_idType) throws SQLException {
+//		jdbc.SQLupdate("DROP TABLE IF EXISTS entropy");
+//		jdbc.SQLupdate("CREATE TABLE entropy (facet_id " + facet_idType
+//				+ ", entropy FLOAT unsigned NOT NULL, PRIMARY KEY (facet_id))");
+//		jdbc
+//				.SQLupdate("INSERT INTO entropy "
+//						+ "(SELECT facet_id, -p*log(p)-(1-p)*log(1-p) entropy FROM"
+//						+ " (SELECT facet_id, (n_items +0.000000001) / (SELECT COUNT(*) FROM item) p FROM facet"
+//						+ " WHERE parent_facet_id > 0) probs)");
+//		jdbc.SQLupdate("DROP FUNCTION IF EXISTS entropy");
+//		jdbc
+//				.SQLupdate("CREATE FUNCTION entropy (on_count INTEGER, total_count INTEGER)"
+//						+ " RETURNS FLOAT DETERMINISTIC "
+//						+ "BEGIN"
+//						+ " DECLARE p DEFAULT (on_count + 0.000001) / total_count;"
+//						+ " RETURN IF(p>=1,0,-p*log(p)-(1-p)*log(1-p)); "
+//						+ "END");
+//	}
 
 	private void summarize() throws SQLException {
 		printErrors(
@@ -477,7 +497,7 @@ public class ConvertFromRaw {
 
 		String countType = jdbc.unsignedTypeForMaxValue(jdbc
 				.SQLqueryInt("SELECT MAX(record_num) FROM item")); //(getMaxCount
-																	// ());
+		// ());
 		String item_idType = jdbc.unsignedTypeForMaxValue(jdbc
 				.SQLqueryInt("SELECT MAX(record_num) FROM item"));
 
