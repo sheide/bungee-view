@@ -31,6 +31,7 @@
 <javaElement handleIdentifier="=javaExtensions/&lt;edu.cmu.cs.bungee.javaExtensions{JDBCSample.java"/>
 <javaElement handleIdentifier="=statistics/&lt;JSci.maths.statistics{ProbabilityDistribution.java"/>
 <javaElement handleIdentifier="=javaExtensions/&lt;edu.cmu.cs.bungee.javaExtensions.psk.cmdline{ApplicationSettings.java"/>
+<javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.query{QuerySQL.java"/>
 </selectedElements>
 <fatjar builder="org.eclipse.jdt.ui.plain_jar_builder" launchConfig=""/>
 </jardesc>
