@@ -20,7 +20,11 @@ import javax.servlet.http.HttpServletResponse;
 import edu.cmu.cs.bungee.javaExtensions.Util;
 
 enum Command {
-	CONNECT, CLOSE, getCountsIgnoringFacet, ABOUT_COLLECTION, getFilteredCounts, updateOnItems, prefetch, offsetItems, getThumbs, cluster, getDescAndImage, getItemInfo, ITEM_URL, itemIndex, itemIndexFromURL, restrict, baseFacets, getFilteredCountTypes, addItemsFacet, addChildFacet, removeItemFacet, reparent, addItemFacet, writeback, revert, rotate, rename, removeItemsFacet, getNames, reorderItems, setItemDescription, opsSpec, getLetterOffsets, caremediaPlayArgs, caremediaGetItems, getPairCounts
+	CONNECT, CLOSE, getCountsIgnoringFacet, ABOUT_COLLECTION, getFilteredCounts, updateOnItems, prefetch, offsetItems, 
+	getThumbs, cluster, getDescAndImage, getItemInfo, ITEM_URL, itemIndex, itemIndexFromURL, restrict, baseFacets, 
+	getFilteredCountTypes, addItemsFacet, addChildFacet, removeItemFacet, reparent, addItemFacet, writeback, revert, 
+	rotate, rename, removeItemsFacet, getNames, reorderItems, setItemDescription, opsSpec, getLetterOffsets, 
+	caremediaPlayArgs, caremediaGetItems, getPairCounts, topCandidates, getFacetInfo
 }
 
 public class Servlet extends HttpServlet {
@@ -117,15 +121,15 @@ public class Servlet extends HttpServlet {
 		doPost(request, response);
 	}
 
-//	@SuppressWarnings("unchecked")
+	// @SuppressWarnings("unchecked")
 	void logRequest(HttpServletRequest request) {
 		log("Request info: " + request.getRequestURL().toString() + " "
 				+ request.getQueryString() + " " + request.getRemoteHost());
-//		Enumeration<String> e = request.getHeaderNames();
-//		while (e.hasMoreElements()) {
-//			String s = e.nextElement();
-//			log(s + ": " + request.getHeader(s));
-//		}
+		// Enumeration<String> e = request.getHeaderNames();
+		// while (e.hasMoreElements()) {
+		// String s = e.nextElement();
+		// log(s + ": " + request.getHeader(s));
+		// }
 	}
 
 	@Override
@@ -175,7 +179,7 @@ public class Servlet extends HttpServlet {
 				}
 				logRequest(request);
 				if (errMsg == null) {
-//					log("Connect to " + dbName + " session = " + xsession);
+					// log("Connect to " + dbName + " session = " + xsession);
 					Database db;
 					try {
 						db = new Database(server, dbName, user, pass, this);
@@ -308,6 +312,10 @@ public class Servlet extends HttpServlet {
 					getIntParameter(request, "arg3"), getIntParameter(request,
 							"arg4"), out);
 			break;
+		case getFacetInfo:
+			int facet = getIntParameter(request, "arg1");
+			db.getFacetInfo(facet, out);
+			break;
 		case updateOnItems:
 			String subQuery = request.getParameter("arg1");
 			int item = getIntParameter(request, "arg2");
@@ -351,8 +359,16 @@ public class Servlet extends HttpServlet {
 			break;
 		case getPairCounts:
 			String facets = request.getParameter("arg1");
-			String universe = request.getParameter("arg2");
-			db.getPairCounts(facets, universe, out);
+			String candidates = request.getParameter("arg2");
+			table = getIntParameter(request, "arg3");
+			db.getPairCounts(facets, candidates, table, out);
+			break;
+		case topCandidates:
+			facets = request.getParameter("arg1");
+			int n = getIntParameter(request, "arg2");
+			int baseTable = getIntParameter(request, "arg3");
+//			String baseTable = request.getParameter("arg3");
+			db.topCandidates(facets, n, baseTable, out);
 			break;
 		case opsSpec:
 			int session = getIntParameter(request, "arg1");
@@ -366,7 +382,7 @@ public class Servlet extends HttpServlet {
 		// db.baseFacets(out);
 		// break;
 		case addItemFacet:
-			int facet = getIntParameter(request, "arg1");
+			 facet = getIntParameter(request, "arg1");
 			item = getIntParameter(request, "arg2");
 			db.addItemFacet(facet, item, out);
 			break;
