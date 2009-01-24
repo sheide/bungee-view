@@ -1004,6 +1004,12 @@ public final class Util {
 	// return a;
 	// }
 
+	/**
+	 * @param a1
+	 * @param p
+	 * @param type
+	 * @return a1 with p added at the front
+	 */
 	public static Object push(Object[] a1, Object p, Class type) {
 		int a1_length = a1 == null ? 0 : a1.length;
 		Object a = java.lang.reflect.Array.newInstance(type, a1_length + 1);
@@ -1013,6 +1019,12 @@ public final class Util {
 		return a;
 	}
 
+	/**
+	 * @param a1
+	 * @param p
+	 * @param type
+	 * @return a1 with p added at the end
+	 */
 	public static Object endPush(Object[] a1, Object p, Class type) {
 		int a1_length = a1 == null ? 0 : a1.length;
 		Object a = java.lang.reflect.Array.newInstance(type, a1_length + 1);
@@ -1287,11 +1299,33 @@ public final class Util {
 		return result;
 	}
 
+	public static String join(double[] stringList, String delimiter) {
+		String result = null;
+		int len = stringList.length;
+		if (len > 0) {
+			StringBuffer buf = new StringBuffer(len * 20);
+			synchronized (stringList) {
+				for (int i = 0; i < len - 1; i++) {
+					buf.append(stringList[i]);
+					buf.append(delimiter);
+				}
+				if (len > 0)
+					buf.append(stringList[len - 1]);
+			}
+			result = buf.toString();
+		}
+		return result;
+	}
+
 	public static String join(int[] s) {
 		return join(s, ", ");
 	}
 
 	public static String join(float[] s) {
+		return join(s, ", ");
+	}
+
+	public static String join(double[] s) {
 		return join(s, ", ");
 	}
 
@@ -1429,7 +1463,7 @@ public final class Util {
 		Class targetClass = target.getClass();
 		return targetClass.isArray();
 	}
-	
+
 	public static String shortClassName(Object object) {
 		String className = object.getClass().getName();
 		String[] components = className.split("\\.");
@@ -2207,6 +2241,31 @@ public final class Util {
 		for (Iterator it = primaryFacets.iterator(); it.hasNext();) {
 			result = it.next();
 			break;
+		}
+		return result;
+	}
+
+	public static int weight(int substate) {
+		int result = 0;
+		while (substate > 0) {
+			result += Util.getBit(substate, 0);
+			substate = substate >> 1;
+		}
+		return result;
+	}
+
+	public static int sum(int[] a) {
+		int result = 0;
+		for (int i = 0; i < a.length; i++) {
+			result+=a[i];
+		}
+		return result;
+	}
+
+	public static double sum(double[] a) {
+		double result = 0;
+		for (int i = 0; i < a.length; i++) {
+			result+=a[i];
 		}
 		return result;
 	}

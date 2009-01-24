@@ -23,7 +23,7 @@ public class Graph {
 		double threshold();
 	}
 
-	private static final int GRAPH_EDGE_LENGTH = 150;
+	private static final int GRAPH_EDGE_LENGTH = 250;
 	private final Map edgesLookupTable;
 	private final Set edges;
 	private final Map nodesTable;
