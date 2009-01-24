@@ -317,9 +317,13 @@ final class ServletInterface {
 	// }
 
 	ResultSet getResultSet(String command, String[] args, List columnTypes) {
+		long start = printOps ? new Date().getTime() : 0;
 		DataInputStream in = getStream(command, args);
 		ResultSet result = new MyResultSet(in, columnTypes);
 		closeNcatch(in, command, args);
+		if (printOps)
+			System.out.println(command + " took "
+					+ (new Date().getTime() - start) + "ms");
 		return result;
 	}
 
@@ -561,6 +565,16 @@ final class ServletInterface {
 		return result;
 	}
 
+	ResultSet getFacetInfo(int facet) {
+		String[] args = { Integer.toString(facet) };
+		DataInputStream in = getStream("getFacetInfo", args);
+		ResultSet result = new MyResultSet(in, MyResultSet.PINT_SINT_STRING_INT_INT_INT);
+
+		closeNcatch(in, "getFacetInfo", args);
+
+		return result;
+	}
+
 	// Always called right after getDescAndImage
 	ResultSet getItemInfo(int item) {
 		assert item == descAndImage.item;
@@ -788,9 +802,16 @@ final class ServletInterface {
 		return result;
 	}
 
-	public ResultSet onCountMatrix(String facetsOfInterest, String table) {
-		String[] args = { facetsOfInterest, table };
-		return getResultSet("getPairCounts", args, MyResultSet.INT_INT);
+	public ResultSet onCountMatrix(String facetsOfInterest, String candidates,
+			int table) {
+		String[] args = { facetsOfInterest, candidates, Integer.toString(table) };
+		return getResultSet("getPairCounts", args, MyResultSet.SNMINT_INT_INT);
+	}
+
+	ResultSet topMutInf(String facetIDs, int baseTable, int maxCandidates) {
+		String[] args = { facetIDs, Integer.toString(maxCandidates),
+				Integer.toString(baseTable) };
+		return getResultSet("topCandidates", args, MyResultSet.INT);
 	}
 
 }

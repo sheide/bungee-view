@@ -25,7 +25,6 @@ import javax.swing.SwingUtilities;
 
 import edu.cmu.cs.bungee.client.query.Perspective.TopTags;
 import edu.cmu.cs.bungee.javaExtensions.IntHashtable;
-import edu.cmu.cs.bungee.javaExtensions.JDBCSample;
 import edu.cmu.cs.bungee.javaExtensions.MyResultSet;
 import edu.cmu.cs.bungee.javaExtensions.PerspectiveObserver;
 import edu.cmu.cs.bungee.javaExtensions.StringAlign;
@@ -47,6 +46,10 @@ public final class Query implements ItemPredicate {
 
 	private final ServletInterface db;
 
+	/**
+	 * Normally, send database onItemsTable(), which uses item_order_heap. But
+	 * for queries where item_order is faster, send the table name.
+	 */
 	private static final Object ITEM_ORDER = "item_order";
 
 	private static final Object RESTRICTED = "restricted";
@@ -240,7 +243,7 @@ public final class Query implements ItemPredicate {
 
 	private Set orderedFacetTypes = new HashSet();
 
-//	private Set causableFacetTypes = new HashSet();
+	// private Set causableFacetTypes = new HashSet();
 
 	NameGetter nameGetter;
 
@@ -598,8 +601,8 @@ public final class Query implements ItemPredicate {
 				int flags = rs.getInt(7);
 				if (Util.isBit(flags, 0))
 					orderedFacetTypes.add(p);
-//				if (Util.isBit(flags, 1))
-//					causableFacetTypes.add(p);
+				// if (Util.isBit(flags, 1))
+				// causableFacetTypes.add(p);
 				prefetcher.add(p);
 			}
 
@@ -614,29 +617,13 @@ public final class Query implements ItemPredicate {
 		return facetTypeID;
 	}
 
-//	boolean isCausable(Perspective p) {
-//		Perspective type = p.getFacetType();
-//		return causableFacetTypes.contains(type);
-//	}
+	// boolean isCausable(Perspective p) {
+	// Perspective type = p.getFacetType();
+	// return causableFacetTypes.contains(type);
+	// }
 
 	boolean isOrdered(Perspective p) {
 		return orderedFacetTypes.contains(p);
-	}
-
-	private String[][] joinStrings;
-
-	private String getJoinString(int joinIndex, boolean required) {
-		if (joinStrings == null || joinIndex >= joinStrings.length) {
-			joinStrings = new String[joinIndex + 10][2];
-			for (int i = 0; i < joinIndex + 10; i++) {
-				String s = " JOIN item_facet_heap i" + i
-						+ " ON rnd.record_num = i" + i + ".record_num AND i"
-						+ i + ".facet_id ";
-				joinStrings[i][0] = " INNER" + s;
-				joinStrings[i][1] = " LEFT" + s;
-			}
-		}
-		return joinStrings[joinIndex][required ? 0 : 1];
 	}
 
 	// First update onItems. Second column is an autoincrement.
@@ -655,7 +642,8 @@ public final class Query implements ItemPredicate {
 	// optimized a little to leave this out in the normal case, but it would be
 	// messy work>
 	//
-	// SELECT [DISTINCT] rnd.record_num, NULL FROM [item_order | restricted]
+	// SELECT [DISTINCT] rnd.record_num, NULL FROM [item_order_heap |
+	// restricted]
 	// rnd
 	// 
 	// INNER JOIN item_facet_heap i0 ON rnd.record_num = i0.record_num
@@ -706,30 +694,9 @@ public final class Query implements ItemPredicate {
 		// }
 	}
 
-	// 0 item_order; 1 restricted; 2 onItems
+	// 0 item_order_heap; 1 restricted; 2 onItems
 	int onItemsTable() {
 		return isRestricted() ? 2 : isRestrictedData() ? 1 : 0;
-	}
-
-	void adjoin(StringBuffer qJOIN, SortedSet exclude, boolean reqtType,
-			int joinIndex) {
-		qJOIN.append(getJoinString(joinIndex, reqtType));
-		if (exclude.size() > 1) {
-			qJOIN.append("IN (");
-			boolean first = true;
-			for (Iterator it = exclude.iterator(); it.hasNext();) {
-				Perspective p = (Perspective) it.next();
-				if (first)
-					first = false;
-				else
-					qJOIN.append(",");
-				qJOIN.append(p.getID());
-			}
-			qJOIN.append(")");
-		} else {
-			qJOIN.append("= ");
-			qJOIN.append(((Perspective) exclude.first()).getID());
-		}
 	}
 
 	/**
@@ -741,22 +708,7 @@ public final class Query implements ItemPredicate {
 	 */
 	String onItemsQuery(ItemPredicate[] toIgnore) {
 		boolean needDistinct = false;
-		StringBuffer qJOIN = new StringBuffer(
-				displayedPerspectives.size() * 100);
-
-		if (searches.size() > 0) {
-			qJOIN
-					.append(" INNER JOIN item it ON rnd.record_num = it.record_num");
-			int i = 0;
-			for (Iterator it = searches.iterator(); it.hasNext(); i++) {
-				String search = (String) it.next();
-				qJOIN.append(matchFieldsPrefix);
-				qJOIN.append(JDBCSample.quote(search));
-				qJOIN.append(" IN BOOLEAN MODE)");
-			}
-		}
-
-		int joinIndex = 0;
+		List include = new LinkedList();
 		for (Iterator it = perspectivesIterator(); it.hasNext();) {
 			Perspective p = (Perspective) it.next();
 			if (p.getParent() == null) {
@@ -778,44 +730,33 @@ public final class Query implements ItemPredicate {
 				if (!restrictions.isEmpty()) {
 					if (restrictions.size() > 1)
 						needDistinct = true;
-					adjoin(qJOIN, restrictions, true, joinIndex++);
+					include.add(getIDs(restrictions));
+					// adjoin(qJOIN, restrictions, true, joinIndex++);
 				}
 			}
 		}
-		int minClusterSize = 1;
-		if (nClusters() > 0)
-			for (Iterator it = clusters.iterator(); it.hasNext();) {
-				Cluster cluster = (Cluster) it.next();
-				adjoin(qJOIN, cluster.allRestrictions(), true, joinIndex++);
-				minClusterSize *= cluster.quorumSize();
-				needDistinct = false;
-			}
 		SortedSet exclude = allRestrictions(false);
-		if (exclude.size() > 0) {
-			adjoin(qJOIN, exclude, false, joinIndex);
-			qJOIN.append(" WHERE i").append(joinIndex).append(
-					".record_num IS NULL");
-		}
-		if (nItemLists() > 0) {
-			qJOIN.append(exclude.size() > 0 ? " AND" : " WHERE").append(
-					" rnd.record_num IN (").append(
-					((ItemList) itemLists.toArray()[0]).getItems()).append(")");
-		}
-		String result = null;
-		if (qJOIN.length() > 0) {
-			if (minClusterSize > 1)
-				qJOIN.append(" GROUP BY rnd.record_num HAVING COUNT(*) >= ")
-						.append(minClusterSize);
-			// isRestricted = true;
+		return QuerySQL.onItemsQuery(searches, include, getIDs(exclude),
+				clusterIDs(), matchFieldsPrefix, needDistinct, itemLists,
+				(String) baseTable);
+	}
 
-			result = (needDistinct ? "SELECT DISTINCT" : "SELECT")
-					+ " rnd.record_num" + " FROM " + baseTable + " rnd" + qJOIN; // +
-			// "
-			// ORDER
-			// BY
-			// random_ID";
+	int[] getIDs(Set facets) {
+		int[] result = new int[facets.size()];
+		int i = 0;
+		for (Iterator it = facets.iterator(); it.hasNext();) {
+			Perspective p = (Perspective) it.next();
+			result[i++] = p.getID();
 		}
-		// Util.print("query: " + result);
+		return result;
+	}
+
+	Set clusterIDs() {
+		Set result = new HashSet();
+		for (Iterator it = clusters.iterator(); it.hasNext();) {
+			Cluster c = (Cluster) it.next();
+			result.add(getIDs(c.allRestrictions()));
+		}
 		return result;
 	}
 
@@ -1254,6 +1195,27 @@ public final class Query implements ItemPredicate {
 		return db.getDescAndImage(item.getId(), imageW, imageH, quality);
 	}
 
+	public Perspective importFacet(int facetID) {
+		// assert findPerspectiveIfPossible(facetID) == null;
+		ResultSet rs = db.getFacetInfo(facetID);
+		Perspective result = null;
+		try {
+			assert MyResultSet.nRows(rs) == 1;
+			rs.next();
+			assert rs.getInt(2) == facetID;
+			int parentID = rs.getInt(1);
+			Perspective parent = findPerspectiveIfPossible(parentID);
+			if (parent == null || parent.childrenOffset() < 0)
+				parent = importFacet(parentID);
+			result = ensurePerspective(facetID, parent, rs.getString(3), rs
+					.getInt(5), rs.getInt(4));
+			rs.close();
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		return result;
+	}
+
 	public int itemIndex(Item item, int nNeighbors) {
 		return db.itemIndex(item.getId(), onItemsTable(), nNeighbors);
 	}
@@ -1330,9 +1292,8 @@ public final class Query implements ItemPredicate {
 	Perspective ensurePerspective(int facet, Perspective _parent, String name1,
 			int children_offset, int n_children) {
 		Perspective result = findPerspectiveIfPossible(facet);
-		// Util.print("ensurePerspective " + _parent + " " + name1 + " " +
-		// result
-		// + " " + n_children + " " + children_offset);
+		// Util.print("ensurePerspective " + _parent + "." + facet + " " + name1
+		// + " " + result + " " + n_children + " " + children_offset);
 		// if (result != null)
 		// Util.print(" " + result.getNameIfPossible());
 		if (result == null) {
@@ -1342,7 +1303,7 @@ public final class Query implements ItemPredicate {
 			// Util.print("ensurePerspective " + result);
 			if (_parent != null) {
 				// Util.print("ensur " + _parent + " " +
-				// _parent.children_offset());
+				// _parent.childrenOffset());
 				_parent.addFacet(facet - _parent.childrenOffset() - 1, result);
 			}
 		} else { // if (/* name != null && */result.getNameIfPossible() ==
@@ -2084,18 +2045,21 @@ public final class Query implements ItemPredicate {
 
 	private String getFacetIDs(Collection facets) {
 		StringBuffer buf = new StringBuffer();
-		for (Iterator it = facets.iterator(); it.hasNext();) {
-			Perspective p = (Perspective) it.next();
-			if (buf.length() > 0)
-				buf.append(",");
-			buf.append(p.getID());
+		if (facets != null) {
+			for (Iterator it = facets.iterator(); it.hasNext();) {
+				Perspective p = (Perspective) it.next();
+				if (buf.length() > 0)
+					buf.append(",");
+				buf.append(p.getID());
+			}
 		}
 		return buf.toString();
 	}
 
-	public ResultSet onCountMatrix(Collection facetsOfInterest) {
+	public ResultSet onCountMatrix(Collection facetsOfInterest,
+			Collection candidates) {
 		return db.onCountMatrix(getFacetIDs(facetsOfInterest),
-				(String) baseTable);
+				getFacetIDs(candidates), onItemsTable());
 	}
 
 	public String getGenericObjectLabel(boolean isPlural) {
@@ -2106,6 +2070,28 @@ public final class Query implements ItemPredicate {
 	 * Bungee.replayOp secretly knows this value
 	 */
 	public static final int ERROR = 24;
+
+	public List topMutInf(Collection primaryFacets, int maxCandidates) {
+		ResultSet rs = db.topMutInf(getFacetIDs(primaryFacets), onItemsTable(),
+				maxCandidates);
+		try {
+			ArrayList result = new ArrayList(MyResultSet.nRows(rs));
+			while (rs.next()) {
+				int ID = rs.getInt(1);
+				Perspective p = findPerspectiveIfPossible(ID);
+				if (p == null)
+					p = importFacet(ID);
+				if (p != null)
+					result.add(p);
+				else
+					Util.err("Can't find candidate " + ID);
+			}
+			return result;
+		} catch (SQLException e) {
+			e.printStackTrace();
+			return null;
+		}
+	}
 }
 
 final class FirstDoubleComparator implements Comparator {

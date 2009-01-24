@@ -25,25 +25,25 @@ public class AlchemyModel extends Explanation {
 	final JDBCSample jdbc;
 
 	Explanation getLikeExplanation() {
-		return new NonAlchemyModel(facets(), predicted.getEdges(), this,
-				observed);
+		return new AlchemyModel(facets(), predicted.getEdges(), this, null,
+				jdbc);
 	}
 
 	Explanation getAlternateExplanation(List facets) {
-		return new NonAlchemyModel(facets, null, this, null);
+		return new AlchemyModel(facets, null, this, null, jdbc);
 	}
 
-	Explanation getAlternateExplanation(List facets, Distribution maxModel) {
-		return new NonAlchemyModel(facets, null, this, maxModel);
+	Explanation getAlternateExplanation(List facets, List candidateFacets) {
+		return new AlchemyModel(facets, null, this, candidateFacets, jdbc);
 	}
 
 	Explanation getAlternateExplanation(Set edges) {
-		return new NonAlchemyModel(facets(), edges, this, observed);
+		return new AlchemyModel(facets(), edges, this, null, jdbc);
 	}
 
 	protected AlchemyModel(List facets, Set edges, Explanation base,
-			Distribution maxModel, JDBCSample jdbc2) {
-		super(facets, edges, base, maxModel);
+			List candidateFacets, JDBCSample jdbc2) {
+		super(facets, edges, base, candidateFacets);
 		jdbc = jdbc2;
 	}
 
@@ -137,7 +137,9 @@ public class AlchemyModel extends Explanation {
 
 		for (Iterator it1 = facets().iterator(); it1.hasNext();) {
 			Perspective p1 = (Perspective) it1.next();
-			buf.append("has_property(i, " + Distribution.tetradName(p1) + ")\n");
+			buf
+					.append("has_property(i, " + Distribution.tetradName(p1)
+							+ ")\n");
 
 			// buf.append("has_property(i, " + tetradName(p1) + "dup)\n");
 			// buf.append("has_property(i, " + tetradName(p1)
@@ -275,19 +277,21 @@ public class AlchemyModel extends Explanation {
 	// // if (CONNECTIVE.equals("^"))
 	// super.setWeight(caused, cause, cause == caused ? weight : weight / 2);
 	// }
-//
-//	double linkEnergy(int state, int causeNode, int causedNode) {
-//		return Util.isBit(state, causedNode) && Util.isBit(state, causeNode) ? predicted.getWeight(
-//				causeNode, causedNode)
-//				: 0;
-//	}
-//
-//	double linkExpEnergy(int state, int causeNode, int causedNode) {
-//		return Util.isBit(state, causedNode) && Util.isBit(state, causeNode) ? predicted.getExpWeight(
-//				causeNode, causedNode)
-//				: 1;
-//	}
-//
+	//
+	// double linkEnergy(int state, int causeNode, int causedNode) {
+	// return Util.isBit(state, causedNode) && Util.isBit(state, causeNode) ?
+	// predicted.getWeight(
+	// causeNode, causedNode)
+	// : 0;
+	// }
+	//
+	// double linkExpEnergy(int state, int causeNode, int causedNode) {
+	// return Util.isBit(state, causedNode) && Util.isBit(state, causeNode) ?
+	// predicted.getExpWeight(
+	// causeNode, causedNode)
+	// : 1;
+	// }
+	//
 	// double linkExpEnergy(int state, int causeNode, int causedNode) {
 	// double result = 1;
 	// if (Util.isBit(state, causedNode)) {
@@ -302,163 +306,165 @@ public class AlchemyModel extends Explanation {
 	// + Math.exp(linkEnergy(state, causeNode, causedNode)));
 	// return result;
 	// }
-//
-//	EnergyBasedModel selectFacets(Distribution maxModel) {
-//		double bestEval = Double.NEGATIVE_INFINITY;
-//		EnergyBasedModel best = null;
-//		Set candidateFacets = new HashSet(maxModel.facets);
-//		candidateFacets.removeAll(facets());
-//		Set currentGuess = new HashSet(facets());
-//		for (Iterator it = candidateFacets.iterator(); it.hasNext();) {
-//			Perspective candidateFacet = (Perspective) it.next();
-//			currentGuess.add(candidateFacet);
-//			EnergyBasedModel candidateExplanation = getAlternateExplanation(
-//					currentGuess, null, maxModel);
-//			double eval = candidateExplanation.improvement(this);
-//
-//			// Util
-//			// .print("selectFacets eval " + eval + " "
-//			// + candidateExplanation+"\n");
-//			if (eval > bestEval) {
-//				bestEval = eval;
-//				best = candidateExplanation;
-//			}
-//			currentGuess.remove(candidateFacet);
-//		}
-//		Util.print("selectFacets BEST " + bestEval + " " + best);
-//		best.printGraph(true);
-//		if (bestEval < NODE_COST)
-//			return this;
-//		else
-//			return best.selectFacets(maxModel);
-//	}
-//
-//	/**
-//	 * @param isCoreEdges
-//	 *            Once core edges are removed, removing others will have no
-//	 *            effect. So first remove any non-core edges you can, and then
-//	 *            remove only core edges.
-//	 * @return
-//	 */
-//	EnergyBasedModel selectEdges(boolean isCoreEdges, Distribution maxModel) {
-//		double bestEval = Double.NEGATIVE_INFINITY;
-//		EnergyBasedModel best = null;
-//		Set candidateEdges = getEdges();
-//		Set currentGuess = getEdges();
-//		for (Iterator it = candidateEdges.iterator(); it.hasNext();) {
-//			List candidateEdge = (List) it.next();
-//			if (isCoreEdges == (primaryFacets().containsAll(candidateEdge))) {
-//				currentGuess.remove(candidateEdge);
-//				EnergyBasedModel candidateExplanation = getAlternateExplanation(
-//						facets(), currentGuess, maxModel);
-//				double eval = -improvement(candidateExplanation);
-//				Util.print("selectEdges eval " + eval + " " + candidateEdge);
-//				if (eval > bestEval) {
-//					bestEval = eval;
-//					best = candidateExplanation;
-//				}
-//				currentGuess.add(candidateEdge);
-//			}
-//		}
-//		// Util.print("selectEdges " + bestEval + " - " + best);
-//		if (bestEval > -EDGE_COST)
-//			return best.selectEdges(isCoreEdges, maxModel);
-//		else if (isCoreEdges)
-//			return this;
-//		else
-//			return selectEdges(true, maxModel);
-//	}
-//
-//	double[] getWeights() {
-//		int argIndex = 0;
-//		double[] result = new double[getNumArguments()];
-//		// List wts = new LinkedList();
-//		for (Iterator it1 = facets().iterator(); it1.hasNext();) {
-//			Perspective p1 = (Perspective) it1.next();
-//			result[argIndex++] = getWeight(p1, p1);
-//			// wts.add(p1);
-//		}
-//
-//		for (Iterator it = getEdges().iterator(); it.hasNext();) {
-//			List edge = (List) it.next();
-//			// wts.add(edge);
-//			Perspective cause = (Perspective) edge.get(0);
-//			Perspective caused = (Perspective) edge.get(1);
-//			// if (cause.compareTo(caused) > 0)
-//			result[argIndex++] = getWeight(cause, caused);
-//
-//		}
-//		// Util.print("getWeights " + wts);
-//		return result;
-//	}
-//
-//	void setWeights(double[] argument) {
-//		int argIndex = 0;
-//		for (Iterator it1 = facets().iterator(); it1.hasNext();) {
-//			Perspective p1 = (Perspective) it1.next();
-//			setWeight(p1, p1, argument[argIndex++]);
-//		}
-//
-//		for (Iterator it = getEdges().iterator(); it.hasNext();) {
-//			List edge = (List) it.next();
-//			Perspective cause = (Perspective) edge.get(0);
-//			Perspective caused = (Perspective) edge.get(1);
-//			// if (cause.compareTo(caused) > 0)
-//			setWeight(cause, caused, argument[argIndex++]);
-//		}
-//	}
-//
-//	public double evaluate(double[] argument) {
-//		// Util.print("evaluate " + Util.valueOfDeep(argument));
-//		setWeights(argument);
-//		return getObservedDistribution().KLdivergence(logPredictedDistribution());
-//	}
-//
-//	public double getLowerBound(int n) {
-//		return -100;
-//	}
-//
-//	public int getNumArguments() {
-//		return nFacets() + getEdges().size();
-//	}
-//
-//	public double getUpperBound(int n) {
-//		return 100;
-//	}
-//
-//	public void computeGradient(double[] argument, double[] gradient) {
-//		evaluate(argument, gradient);
-//	}
-//
-//	public double evaluate(double[] argument, double[] gradient) {
-//		double result = evaluate(argument);
-//		double[] observed = getObservedDistribution();
-//		double[] predicted = predictedDistribution();
-//		int argIndex;
-//		for (argIndex = 0; argIndex < facets.size(); argIndex++) {
-//			gradient[argIndex] = 0;
-//			for (int state = 0; state < predicted.length; state++) {
-//				if (Util.isBit(state, argIndex)) {
-//					gradient[argIndex] += predicted[state] - observed[state];
-//				}
-//			}
-//		}
-//
-//		for (Iterator it = getEdges().iterator(); it.hasNext();) {
-//			List edge = (List) it.next();
-//			Perspective cause = (Perspective) edge.get(0);
-//			Perspective caused = (Perspective) edge.get(1);
-//			int causeIndex = facets.indexOf(cause);
-//			int causedIndex = facets.indexOf(caused);
-//			gradient[argIndex] = 0;
-//			for (int state = 0; state < predicted.length; state++) {
-//				if (Util.isBit(state, causeIndex)
-//						&& Util.isBit(state, causedIndex)) {
-//					gradient[argIndex] += predicted[state] - observed[state];
-//				}
-//			}
-//			argIndex++;
-//		}
-//		return result;
-//	}
+	//
+	// EnergyBasedModel selectFacets(Distribution maxModel) {
+	// double bestEval = Double.NEGATIVE_INFINITY;
+	// EnergyBasedModel best = null;
+	// Set candidateFacets = new HashSet(maxModel.facets);
+	// candidateFacets.removeAll(facets());
+	// Set currentGuess = new HashSet(facets());
+	// for (Iterator it = candidateFacets.iterator(); it.hasNext();) {
+	// Perspective candidateFacet = (Perspective) it.next();
+	// currentGuess.add(candidateFacet);
+	// EnergyBasedModel candidateExplanation = getAlternateExplanation(
+	// currentGuess, null, maxModel);
+	// double eval = candidateExplanation.improvement(this);
+	//
+	// // Util
+	// // .print("selectFacets eval " + eval + " "
+	// // + candidateExplanation+"\n");
+	// if (eval > bestEval) {
+	// bestEval = eval;
+	// best = candidateExplanation;
+	// }
+	// currentGuess.remove(candidateFacet);
+	// }
+	// Util.print("selectFacets BEST " + bestEval + " " + best);
+	// best.printGraph(true);
+	// if (bestEval < NODE_COST)
+	// return this;
+	// else
+	// return best.selectFacets(maxModel);
+	// }
+	//
+	// /**
+	// * @param isCoreEdges
+	// * Once core edges are removed, removing others will have no
+	// * effect. So first remove any non-core edges you can, and then
+	// * remove only core edges.
+	// * @return
+	// */
+	// EnergyBasedModel selectEdges(boolean isCoreEdges, Distribution maxModel)
+	// {
+	// double bestEval = Double.NEGATIVE_INFINITY;
+	// EnergyBasedModel best = null;
+	// Set candidateEdges = getEdges();
+	// Set currentGuess = getEdges();
+	// for (Iterator it = candidateEdges.iterator(); it.hasNext();) {
+	// List candidateEdge = (List) it.next();
+	// if (isCoreEdges == (primaryFacets().containsAll(candidateEdge))) {
+	// currentGuess.remove(candidateEdge);
+	// EnergyBasedModel candidateExplanation = getAlternateExplanation(
+	// facets(), currentGuess, maxModel);
+	// double eval = -improvement(candidateExplanation);
+	// Util.print("selectEdges eval " + eval + " " + candidateEdge);
+	// if (eval > bestEval) {
+	// bestEval = eval;
+	// best = candidateExplanation;
+	// }
+	// currentGuess.add(candidateEdge);
+	// }
+	// }
+	// // Util.print("selectEdges " + bestEval + " - " + best);
+	// if (bestEval > -EDGE_COST)
+	// return best.selectEdges(isCoreEdges, maxModel);
+	// else if (isCoreEdges)
+	// return this;
+	// else
+	// return selectEdges(true, maxModel);
+	// }
+	//
+	// double[] getWeights() {
+	// int argIndex = 0;
+	// double[] result = new double[getNumArguments()];
+	// // List wts = new LinkedList();
+	// for (Iterator it1 = facets().iterator(); it1.hasNext();) {
+	// Perspective p1 = (Perspective) it1.next();
+	// result[argIndex++] = getWeight(p1, p1);
+	// // wts.add(p1);
+	// }
+	//
+	// for (Iterator it = getEdges().iterator(); it.hasNext();) {
+	// List edge = (List) it.next();
+	// // wts.add(edge);
+	// Perspective cause = (Perspective) edge.get(0);
+	// Perspective caused = (Perspective) edge.get(1);
+	// // if (cause.compareTo(caused) > 0)
+	// result[argIndex++] = getWeight(cause, caused);
+	//
+	// }
+	// // Util.print("getWeights " + wts);
+	// return result;
+	// }
+	//
+	// void setWeights(double[] argument) {
+	// int argIndex = 0;
+	// for (Iterator it1 = facets().iterator(); it1.hasNext();) {
+	// Perspective p1 = (Perspective) it1.next();
+	// setWeight(p1, p1, argument[argIndex++]);
+	// }
+	//
+	// for (Iterator it = getEdges().iterator(); it.hasNext();) {
+	// List edge = (List) it.next();
+	// Perspective cause = (Perspective) edge.get(0);
+	// Perspective caused = (Perspective) edge.get(1);
+	// // if (cause.compareTo(caused) > 0)
+	// setWeight(cause, caused, argument[argIndex++]);
+	// }
+	// }
+	//
+	// public double evaluate(double[] argument) {
+	// // Util.print("evaluate " + Util.valueOfDeep(argument));
+	// setWeights(argument);
+	// return
+	// getObservedDistribution().KLdivergence(logPredictedDistribution());
+	// }
+	//
+	// public double getLowerBound(int n) {
+	// return -100;
+	// }
+	//
+	// public int getNumArguments() {
+	// return nFacets() + getEdges().size();
+	// }
+	//
+	// public double getUpperBound(int n) {
+	// return 100;
+	// }
+	//
+	// public void computeGradient(double[] argument, double[] gradient) {
+	// evaluate(argument, gradient);
+	// }
+	//
+	// public double evaluate(double[] argument, double[] gradient) {
+	// double result = evaluate(argument);
+	// double[] observed = getObservedDistribution();
+	// double[] predicted = predictedDistribution();
+	// int argIndex;
+	// for (argIndex = 0; argIndex < facets.size(); argIndex++) {
+	// gradient[argIndex] = 0;
+	// for (int state = 0; state < predicted.length; state++) {
+	// if (Util.isBit(state, argIndex)) {
+	// gradient[argIndex] += predicted[state] - observed[state];
+	// }
+	// }
+	// }
+	//
+	// for (Iterator it = getEdges().iterator(); it.hasNext();) {
+	// List edge = (List) it.next();
+	// Perspective cause = (Perspective) edge.get(0);
+	// Perspective caused = (Perspective) edge.get(1);
+	// int causeIndex = facets.indexOf(cause);
+	// int causedIndex = facets.indexOf(caused);
+	// gradient[argIndex] = 0;
+	// for (int state = 0; state < predicted.length; state++) {
+	// if (Util.isBit(state, causeIndex)
+	// && Util.isBit(state, causedIndex)) {
+	// gradient[argIndex] += predicted[state] - observed[state];
+	// }
+	// }
+	// argIndex++;
+	// }
+	// return result;
+	// }
 }

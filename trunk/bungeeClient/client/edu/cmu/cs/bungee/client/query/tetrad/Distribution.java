@@ -5,58 +5,240 @@ import java.sql.SQLException;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import JSci.maths.statistics.ChiSq2x2;
 
 import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.cmu.cs.bungee.client.query.Query;
+import edu.cmu.cs.bungee.javaExtensions.MyResultSet;
 import edu.cmu.cs.bungee.javaExtensions.StringAlign;
 import edu.cmu.cs.bungee.javaExtensions.Util;
 
 class Distribution {
+
+	boolean approxEquals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		Distribution other = (Distribution) obj;
+		for (int i = 0; i < getDistribution().length; i++) {
+			double a = getDistribution()[i];
+			double b = other.getDistribution()[i];
+			if (Math.abs(a - b) > 0.001) {
+				return false;
+			}
+		}
+		if (facets == null) {
+			if (other.facets != null)
+				return false;
+		} else if (!facets.equals(other.facets))
+			return false;
+		if (totalCount != other.totalCount)
+			return false;
+		return true;
+	}
+
 	private static final boolean PRINT_RSQUARED = false;
+	// private static final int MAX_CACHED_DIST_SIZE = 10;
 	protected final List facets;
 
 	protected double[] distribution;
 	protected final int totalCount;
 
-	static Distribution getObservedDistribution(List facets) {
-		double total = query(facets).getTotalCount();
-		int[] counts = getCounts(facets);
-		double[] distribution = new double[counts.length];
-		for (int state = 0; state < counts.length; state++) {
-			distribution[state] = counts[state] / total;
+	private static Map cachedDistributions = new HashMap();
+
+	static Distribution getObservedDistribution(List facets,
+			List likelyCandidates) {
+		Distribution larger = null;
+		for (Iterator it = cachedDistributions.entrySet().iterator(); it
+				.hasNext();) {
+			Map.Entry entry = (Map.Entry) it.next();
+			List cachedFacets = (List) entry.getKey();
+			// Util.print("in cache "+cachedFacets);
+			if (cachedFacets.containsAll(facets)) {
+				larger = (Distribution) entry.getValue();
+			}
 		}
-		Distribution result = new Distribution(facets, distribution);
+		if (larger == null) {
+			if (likelyCandidates != null) {
+				larger = cacheCandidates(facets, likelyCandidates);
+			} else {
+				larger = cacheIt(facets);
+			}
+		}
+		Distribution result = new Distribution(facets, larger
+				.getMarginal(facets));
 		result.getDistribution(); // check that sum = 1
 		return result;
 	}
 
-	static Distribution getObservedDistribution(List facets,
-			Distribution maxModel) {
-		Distribution result;
-		if (maxModel == null)
-			result = getObservedDistribution(facets);
-		else
-			result = new Distribution(facets, maxModel.getMarginal(facets));
-		result.getDistribution(); // check that sum = 1
+	static Distribution cacheCandidates(List facets, List likelyCandidates) {
+		// Util.print("fcounts " + Util.valueOfDeep(fCounts) + " "
+		// + Util.valueOfDeep(counts2dist(fCounts)));
+		Distribution larger = null;
+		Collection candidates = new HashSet(likelyCandidates);
+		candidates.removeAll(facets);
+		int[] fCounts = null;
+
+		for (Iterator it = cachedDistributions.entrySet().iterator(); it
+				.hasNext();) {
+			Map.Entry entry = (Map.Entry) it.next();
+			List cachedFacets = (List) entry.getKey();
+			// Util.print("in cache "+cachedFacets);
+			if (cachedFacets.containsAll(facets)) {
+				candidates.removeAll(cachedFacets);
+				larger = (Distribution) entry.getValue();
+				if (fCounts == null)
+					fCounts = larger.getMarginalCounts(facets);
+			}
+		}
+		assert fCounts != null;
+		if (candidates.size() > 0) {
+			try {
+				ResultSet rs = query(facets).onCountMatrix(facets, candidates);
+				int nFacets = facets.size();
+				int[] counts = new int[1 << nFacets];
+				int prevFacet = -1;
+				List allFacets = new ArrayList(facets);
+				int[] facetsIndexes = getMarginIndexes(facets, facets);
+				int candidateIndex = -1;
+				while (rs.next()) {
+					int facet = rs.getInt(1);
+					assert facet > 0 : MyResultSet.valueOfDeep(rs,
+							MyResultSet.SNMINT_INT_INT, 300);
+					if (facet != prevFacet) {
+
+						if (prevFacet > 0) {
+							larger = cacheIt(allFacets, counts);
+//							if (prevFacet == 0)
+//								fCounts = counts;
+						}
+
+						prevFacet = facet;
+						counts = new int[1 << (nFacets + 1)];
+						allFacets = new ArrayList(nFacets + 1);
+						allFacets.addAll(facets);
+						Perspective p = query(facets).findPerspective(facet);
+						allFacets.add(p);
+						Collections.sort(allFacets);
+						facetsIndexes = getMarginIndexes(allFacets, facets);
+						candidateIndex = allFacets.indexOf(p);
+						for (int substate = 0; substate < fCounts.length; substate++) {
+							int state = setSubstate(0, substate, facetsIndexes);
+							counts[state] = fCounts[substate];
+						}
+					}
+					int substate = rs.getInt(2);
+					int state = setSubstate(0, substate, facetsIndexes);
+					int count = rs.getInt(3);
+					if (candidateIndex >= 0) {
+						counts[state] = fCounts[substate] - count;
+						state = Util.setBit(state, candidateIndex, true);
+					}
+					counts[state] = count;
+					// Util.print("zz " + facet + " " + state + " " + count );
+				}
+				larger = cacheIt(allFacets, counts);
+				rs.close();
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+		}
+
+		// List toCache = new LinkedList(facets);
+		// for (Iterator it = likelyCandidates.iterator();
+		// it.hasNext();) {
+		// Perspective p = (Perspective) it.next();
+		// if (!toCache.contains(p)) {
+		// toCache.add(p);
+		// }
+		// if (toCache.size() >= MAX_CACHED_DIST_SIZE) {
+		// larger = cacheDist(toCache);
+		// toCache = new LinkedList(facets);
+		// }
+		// }
+		// if (toCache.size() > facets.size())
+		// larger = cacheDist(toCache);
+		return larger;
+	}
+
+	private static Distribution cacheIt(List facets2) {
+		// Util.print("cacheIt " + facets2);
+		return cacheIt(facets2, getCounts(facets2));
+	}
+
+	private static Distribution cacheIt(List allFacets, int[] counts) {
+		Distribution larger = Distribution.getInstance(allFacets, counts);
+		// Util.print("caching " + larger);
+		cachedDistributions.put(allFacets, larger);
+		return larger;
+	}
+
+	// static Distribution cacheDist(List facets) {
+	// Collections.sort(facets);
+	// Distribution larger = Distribution.getObservedDistribution(facets);
+	// // Util.print("caching " + larger);
+	// cachedDistributions.put(facets, larger);
+	// return larger;
+	// }
+	//
+	// static Distribution getObservedDistribution(List facets) {
+	// Distribution result = new Distribution(facets,
+	// counts2dist(getCounts(facets)));
+	// result.getDistribution(); // check that sum = 1
+	// return result;
+	// }
+
+	static double[] counts2dist(int[] counts) {
+		double total = Util.sum(counts);
+		double[] result = new double[counts.length];
+		for (int state = 0; state < counts.length; state++) {
+			result[state] = counts[state] / total;
+		}
 		return result;
 	}
+
+	// static Distribution getObservedDistribution(List facets,
+	// Distribution maxModel) {
+	// Distribution result;
+	// if (maxModel == null)
+	// result = getObservedDistribution(facets);
+	// else
+	// result = new Distribution(facets, maxModel.getMarginal(facets));
+	// result.getDistribution(); // check that sum = 1
+	// return result;
+	// }
 
 	protected Distribution(List facets, double[] distribution) {
 		this.facets = new ArrayList(facets);
-		this.distribution = distribution;
+
+		Collections.sort(this.facets);
+		assert this.facets.equals(facets) : facets;
+		assert !Util.hasDuplicates(facets.toArray()) : facets;
+
 		totalCount = query(facets).getTotalCount();
 		assert totalCount > 0;
+		this.distribution = distribution;
 		assert distribution == null || getDistribution() != null; // check that
 		// sum = 1
 	}
 
+	static protected Distribution getInstance(List facets, int[] counts) {
+		return new Distribution(facets, counts2dist(counts));
+	}
+
 	private static boolean checkWeight(double[] array) {
-		double weight = 0;
-		for (int i = 0; i < array.length; i++) {
-			weight += array[i];
-		}
+		double weight = Util.sum(array);
 		assert Math.abs(weight - 1) < 0.0001 : Util.valueOfDeep(array);
 		return true;
 	}
@@ -100,10 +282,10 @@ class Distribution {
 		// Util.print("getCounts " + facets);
 		int nFacets = facets.size();
 		int[] counts1 = new int[1 << nFacets];
-		ResultSet rs = query(facets).onCountMatrix(facets);
+		ResultSet rs = query(facets).onCountMatrix(facets, null);
 		try {
 			while (rs.next()) {
-				counts1[rs.getInt(1)] = rs.getInt(2);
+				counts1[rs.getInt(2)] = rs.getInt(3);
 			}
 			rs.close();
 		} catch (SQLException e) {
@@ -129,6 +311,10 @@ class Distribution {
 	}
 
 	protected double[] getMarginal(List marginals) {
+		// Util.print("getMarginal " + marginals + " " + facets() + " "
+		// + Util.valueOfDeep(distribution));
+		assert marginals.size() <= nFacets() : marginals + " " + facets();
+		assert facets().containsAll(marginals);
 		return getMarginal(getMarginIndexes(marginals));
 	}
 
@@ -141,8 +327,9 @@ class Distribution {
 				+ facets + " " + Util.valueOfDeep(indexes);
 		double[] result = new double[1 << indexes.length];
 		for (int state = 0; state < nStates(); state++) {
-			// Util.print("getMarginal " + marginals + " " + state + " "
-			// + getDistribution()[state] + " "
+			// Util.print("getMarginal " + Util.valueOfDeep(indexes) + " " +
+			// state
+			// + " " + getDistribution()[state] + " "
 			// + getSubstate(state, indexes));
 			result[getSubstate(state, indexes)] += getDistribution()[state];
 		}
@@ -152,13 +339,15 @@ class Distribution {
 
 	private static boolean isSequence(int[] array) {
 		for (int i = 0; i < array.length; i++) {
-			assert array[i] == i;
+			assert array[i] == i : Util.valueOfDeep(array);
 		}
 		return true;
 	}
 
-	public double[] getDistribution() {
+	double[] getDistribution() {
 		assert checkWeight(distribution);
+		// assert Math.abs(distribution[0] - 0.469015143) > 0.0000001 : facets
+		// + " " + Util.valueOfDeep(distribution);
 		return distribution;
 	}
 
@@ -173,7 +362,7 @@ class Distribution {
 		return result;
 	}
 
-	int[] getMarginIndexes(List marginals) {
+	protected int[] getMarginIndexes(List marginals) {
 		int[] result = new int[marginals.size()];
 		int index = 0;
 		for (Iterator it = marginals.iterator(); it.hasNext();) {
@@ -183,6 +372,23 @@ class Distribution {
 		return result;
 	}
 
+	private static int[] getMarginIndexes(List facets, List marginals) {
+		int[] result = new int[marginals.size()];
+		int index = 0;
+		for (Iterator it = marginals.iterator(); it.hasNext();) {
+			Perspective facet = (Perspective) it.next();
+			assert facets.contains(facet) : facet + " " + facets;
+			result[index++] = facets.indexOf(facet);
+		}
+		return result;
+	}
+
+	/**
+	 * @param state
+	 * @param indexes
+	 *            bits of state to extract
+	 * @return the substate (from 0 to 1 << indexes.length)
+	 */
 	static int getSubstate(int state, int[] indexes) {
 		int result = 0;
 		for (int index = 0; index < indexes.length; index++) {
@@ -202,16 +408,37 @@ class Distribution {
 		return state;
 	}
 
-	double KLdivergence(double[] logPredicted) {
+	/**
+	 * This computes just -P*log(Q), ignoring P*log(P) because that is
+	 * independent of the weights
+	 */
+	double unnormalizedKLdivergence(double[] logPredicted) {
 		double sum = 0;
+		double[] obs = getDistribution();
 		for (int state = 0; state < nStates(); state++) {
 			// assert predicted[i] > 0 : Util.valueOfDeep(predicted);
-			sum -= getDistribution()[state] * logPredicted[state];
+			sum -= obs[state] * logPredicted[state];
 		}
 		if (Double.isNaN(sum))
 			Util.print("KLdivergence " + sum + " "
 					+ Util.valueOfDeep(logPredicted) + "\n"
-					+ Util.valueOfDeep(getDistribution()));
+					+ Util.valueOfDeep(obs));
+		return sum;
+	}
+
+	double KLdivergence(double[] predicted) {
+		double sum = 0;
+		double[] obs = getDistribution();
+		for (int state = 0; state < nStates(); state++) {
+			// assert predicted[i] > 0 : Util.valueOfDeep(predicted);
+			double p = obs[state];
+			if (p > 0)
+				sum += p * Math.log(p / predicted[state]);
+		}
+		if (Double.isNaN(sum))
+			Util.print("KLdivergence " + sum + " "
+					+ Util.valueOfDeep(predicted) + "\n"
+					+ Util.valueOfDeep(obs));
 		return sum;
 	}
 
@@ -240,18 +467,78 @@ class Distribution {
 	// * KLdivergence(nullModel.getDistribution(false), getMarginal());
 	// }
 
-	static Query query(Collection facets) {
+	protected static Query query(Collection facets) {
 		// We allow facets to be empty, as long as we're not primary
 		Query query = ((Perspective) Util.some(facets)).query();
 		return query;
 	}
 
+	double mutualInformation(List facets1, List facets2) {
+		assert facets.containsAll(facets1);
+		assert facets.containsAll(facets2);
+		Set allFacets = new HashSet(facets1);
+		allFacets.addAll(facets2);
+		assert allFacets.size() == facets1.size() + facets2.size();
+		Distribution dist;
+		if (allFacets.size() == facets().size()) {
+			dist = this;
+		} else {
+			List facetList = new ArrayList(allFacets);
+			dist = new Distribution(facetList, getMarginal(facetList));
+		}
+		Distribution dist1 = new Distribution(facets1, getMarginal(facets1));
+		Distribution dist2 = new Distribution(facets2, getMarginal(facets2));
+//		Util.print("mutInf " + facets1 + ": " + dist1.entropy() + " " + facets2
+//				+ ": " + dist2.entropy() + " both: " + dist.entropy());
+		return dist1.entropy() + dist2.entropy() - dist.entropy();
+	}
+
+	double sumCorrelation(Perspective facet) {
+		double result = 0;
+		int n = 0;
+		for (Iterator it = facets().iterator(); it.hasNext();) {
+			Perspective facet2 = (Perspective) it.next();
+			if (facet2 != facet) {
+				result += Math.abs(getChiSq(facet, facet2).correlation());
+//				Util.print("sumCorrelation " + facet2 + " " + facet + " "
+//						+ getChiSq(facet, facet2).correlation() + " "
+//						+ getChiSq(facet, facet2).printTable());
+				n++;
+			}
+		}
+		return result / n;
+	}
+
+	ChiSq2x2 getChiSq(Perspective marginal1, Perspective marginal2) {
+		List marginals = new ArrayList(2);
+		marginals.add(marginal1);
+		marginals.add(marginal2);
+		int[] marginal = getMarginalCounts(marginals);
+		ChiSq2x2 result = ChiSq2x2.getInstance(null, totalCount, marginal[0]
+				+ marginal[1], marginal[0] + marginal[2], marginal[0]);
+		return result;
+	}
+
+	// double entropy(Distribution d) {
+	// Set allFacets = new HashSet(facets());
+	// allFacets.addAll(d.facets());
+	// return getObservedDistribution(new ArrayList(allFacets)).entropy();
+	// }
+
+	double entropy() {
+		double result = 0;
+		for (int state = 0; state < nStates(); state++) {
+			result -= ChiSq2x2.nLogn(distribution[state]);
+		}
+		return result;
+	}
+
 	double sumR(Distribution predictedDistribution) {
 		double result = 0;
 		double[] marginal = predictedDistribution.getMarginal(facets);
-//		Util.print("sumR\n" + predictedDistribution + "\n"
-//				+ Util.valueOfDeep(marginal) + "\n"
-//				+ Util.valueOfDeep(getDistribution()));
+		// Util.print("sumR\n" + predictedDistribution + "\n"
+		// + Util.valueOfDeep(marginal) + "\n"
+		// + Util.valueOfDeep(getDistribution()));
 		for (Iterator it = facets.iterator(); it.hasNext();) {
 			Perspective p = (Perspective) it.next();
 			result += R(marginal, p);
@@ -278,8 +565,9 @@ class Distribution {
 	// }
 
 	/**
-	 * Efron's Pseudo R-Squared see http://www.ats.ucla.edu/stat/mult_pkg/faq
-	 * /general/Psuedo_RSquareds.htm
+	 * Efron's Pseudo R-Squared see
+	 * 
+	 * http://www.ats.ucla.edu/stat/mult_pkg/faq/general/Psuedo_RSquareds.htm
 	 */
 	double pseudoRsquared(double[] predicted, Perspective caused) {
 		assert predicted != null;
@@ -376,14 +664,41 @@ class Distribution {
 
 		// When trying to model a larger distribution, it can end up predicting
 		// the primary facets worse than the unconditional average
-//		assert Rsquare >= -0.0001 && Rsquare <= 1.0001 : this + " Rsquare="
-//				+ Rsquare + " unconditional=" + unconditional + " "
-//				+ Util.valueOfDeep(predicted) + " residuals=" + residuals
-//				+ " baseResiduals=" + baseResiduals;
+		// assert Rsquare >= -0.0001 && Rsquare <= 1.0001 : this + " Rsquare="
+		// + Rsquare + " unconditional=" + unconditional + " "
+		// + Util.valueOfDeep(predicted) + " residuals=" + residuals
+		// + " baseResiduals=" + baseResiduals;
 		// Rsquare = Math.max(0, Rsquare);
 
 		assert !Double.isNaN(Rsquare);
+		assert !Double.isInfinite(Rsquare) : causedIndex + " "
+				+ Util.valueOfDeep(predicted) + " " + residuals + " / "
+				+ baseResiduals + " " + Util.valueOfDeep(predicted);
 		return Rsquare;
+	}
+
+	void printCounts() {
+		double[] marginals = new double[nFacets()];
+		int[] marginal = new int[1];
+		int index = 0;
+		for (Iterator it = facets.iterator(); it.hasNext();) {
+			Perspective p = (Perspective) it.next();
+			System.out.print(p.getName().substring(0, 5) + " ");
+			marginal[0] = index;
+			marginals[index++] = getMarginal(marginal)[1];
+		}
+		System.out.print("observed  if independent");
+		Util.print("");
+
+		for (int state = 0; state < nStates(); state++) {
+			double obs = getDistribution()[state];
+			double indep = 1;
+			for (int i = 0; i < facets.size(); i++) {
+				System.out.print(Util.getBit(state, i) + "     ");
+				indep *= Util.isBit(state, i) ? marginals[i] : 1 - marginals[i];
+			}
+			Util.print(formatInt(obs) + " " + formatInt(indep));
+		}
 	}
 
 	private static final StringAlign align = new StringAlign(7,
@@ -422,7 +737,7 @@ class Distribution {
 		return facets.size();
 	}
 
-	public int nStates() {
+	int nStates() {
 		return 1 << nFacets();
 	}
 

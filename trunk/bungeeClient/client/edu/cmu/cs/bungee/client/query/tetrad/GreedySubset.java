@@ -13,16 +13,22 @@ import edu.cmu.cs.bungee.javaExtensions.Util;
  * 
  */
 public abstract class GreedySubset {
+	static final int ADD_AND_REMOVE = 0;
+	static final int ADD = 1;
+	static final int REMOVE = 2;
 	Set variables;
 	Set currentGuess;
 	double threshold;
 	Object lastToggledVariable;
+	private final int mode;
 
-	GreedySubset(double threshold, Collection variables) {
+	GreedySubset(double threshold, Collection variables, int mode) {
 		super();
+		assert mode == ADD_AND_REMOVE || mode == ADD || mode == REMOVE;
 		this.currentGuess = new HashSet();
 		this.threshold = threshold;
 		this.variables = new HashSet(variables);
+		this.mode = mode;
 	}
 
 	void addAllVariables() {
@@ -39,7 +45,7 @@ public abstract class GreedySubset {
 	}
 
 	private boolean maybeUpdate(boolean isAdd) {
-		Object candidate = bestCandidate(isAdd);
+		Object candidate = mayUpdate(isAdd) ? bestCandidate(isAdd) : null;
 		boolean result = candidate != null && candidate != lastToggledVariable;
 		if (result) {
 			toggle(candidate);
@@ -47,6 +53,10 @@ public abstract class GreedySubset {
 			newBest(candidate);
 		}
 		return result;
+	}
+
+	private boolean mayUpdate(boolean isAdd) {
+		return mode == ADD_AND_REMOVE || (isAdd == (mode == ADD));
 	}
 
 	private void toggle(Object candidate) {
@@ -82,10 +92,10 @@ public abstract class GreedySubset {
 			Object variable = it.next();
 			if (isAdd != currentGuess.contains(variable)) {
 				toggle(variable);
-				double eval = eval(variable);
-//				 Util.print("eval " + eval + " " + variable);
+				double eval = eval(variable, bestEval);
+				// Util.print("eval " + eval + " " + variable);
 				if (eval > bestEval) {
-//					 Util.print("new best eval " + eval + " " + variable);
+					// Util.print("new best eval " + eval + " " + variable);
 					bestEval = eval;
 					best = variable;
 				}
@@ -93,34 +103,38 @@ public abstract class GreedySubset {
 			}
 		}
 		boolean win = bestEval > (isAdd ? threshold : -threshold);
-//		 Util.print("BEST Candidate " + bestEval + (isAdd ? " + " : " - ")
-//		 + (win ? best : "[" + best + "]"));
+		// Util.print("BEST Candidate " + bestEval + (isAdd ? " + " : " - ")
+		// + (win ? best : "[" + best + "]"));
 		if (!win)
 			best = null;
 		return best;
 	}
 
 	protected void newBest(Object candidate) {
-		Util.print("NEW GUESS " + improvement(candidate) + " "
+		Util.print("NEW GUESS " + improvement(candidate, Double.NEGATIVE_INFINITY) + " "
 				+ (isAdding(candidate) ? "+ " : "- ") + candidate + " => "
 				+ currentGuess);
 	}
 
-	double eval(Object candidate) {
-		double result = improvement(candidate);
+	double eval(Object candidate, double bestEval) {
 		boolean isAdd = isAdding(candidate);
-		boolean win = result > (isAdd ? threshold : -threshold);
+		double thresh = isAdd ? threshold : -threshold;
+		double result = improvement(candidate, Math.max(thresh, bestEval));
+		
+		boolean win = result > thresh;		
 		Util.print(Util.shortClassName(this) + ".improvement "
 				+ (win ? "" + result : "[" + result + "]")
 				+ (isAdd ? " + " : " - ") + candidate + " " + currentGuess);
+		
 		return result;
 	}
 
 	/**
 	 * @param candidate
+	 * @param bestEval
 	 * @return how much adding/removing candidate improves on the previous set.
 	 *         (If candidate helps, and we're removing, improvement should be
 	 *         negative.)
 	 */
-	abstract double improvement(Object candidate);
+	abstract double improvement(Object candidate, double bestEval);
 }
