@@ -17,13 +17,19 @@ public class EdgeSelection extends GreedySubset {
 	private Explanation maxModel;
 
 	static Explanation selectEdges(Explanation explanation, double threshold) {
+		/**
+		 * @param isCoreEdges
+		 *            Once core edges are removed, removing others will have no
+		 *            effect. So first remove any non-core edges you can, and
+		 *            then remove only core edges.
+		 */
 		Set startCoreEdges = candidateEdges(explanation, true);
 		Set startNonCoreEdges = candidateEdges(explanation, false);
 		EdgeSelection nonCoreSearch = new EdgeSelection(threshold,
 				startNonCoreEdges, startCoreEdges, explanation);
 		Set nonCoreEdges = nonCoreSearch.selectVariables();
-		EdgeSelection coreSearch = new EdgeSelection(threshold,
-				startCoreEdges, nonCoreEdges, explanation);
+		EdgeSelection coreSearch = new EdgeSelection(threshold, startCoreEdges,
+				nonCoreEdges, explanation);
 		Set coreEdges = coreSearch.selectVariables();
 		// Util.print("EdgeSelection => " + coreEdges);
 		return coreSearch.lookupExplanation(coreEdges, null);
@@ -31,11 +37,13 @@ public class EdgeSelection extends GreedySubset {
 
 	EdgeSelection(double threshold, Set candidateEdges, Set committedEdges,
 			Explanation base) {
-		super(threshold, candidateEdges);
+		super(threshold, candidateEdges, GreedySubset.REMOVE);
 		addAllVariables();
 		this.committedEdges = committedEdges;
 		this.maxModel = base;
-		// Util.print("edgesel " + edges);
+		// explanations.put(allEdges(candidateEdges), base);
+		// Util.print("EdgeSelection " + base + " " + threshold);
+		// base.printGraph();
 	}
 
 	static Set candidateEdges(Explanation explanation, boolean isCoreEdges) {
@@ -69,12 +77,14 @@ public class EdgeSelection extends GreedySubset {
 	// explanation0.nullModel.primaryFacets());
 	// }
 
-	double improvement(Object toggledEdge) {
+	double improvement(Object toggledEdge, double threshold1) {
 		Explanation previous = lookupExplanation(previousGuess(toggledEdge),
 				null);
 		Explanation current = lookupExplanation(currentGuess, previous);
-		double result = isAdding(toggledEdge) ? previous.improvement(current)
-				: -current.improvement(previous);
+//		current.printGraph(false);
+		double result = isAdding(toggledEdge) ? previous.improvement(current, threshold1)
+				: -current.improvement(previous, threshold1);
+
 		return result;
 	}
 
@@ -104,6 +114,7 @@ public class EdgeSelection extends GreedySubset {
 			if (base == null)
 				base = maxModel;
 			result = base.getAlternateExplanation(allEdges);
+			// result.printToFile();
 			explanations.put(allEdges, result);
 		}
 		return result;

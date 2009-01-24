@@ -107,7 +107,8 @@ public class Perspective implements Comparable, ItemPredicate {
 
 	Perspective(int _facet_id, Perspective _parent, String _name,
 			int _children_offset, int n_children) {
-		// Util.print("Perspective " + _name);
+		// Util.print("Perspective " + _name + " " + _children_offset + " "
+		// + n_children);
 		assert _parent != null;
 		assert _parent.query().findPerspectiveIfPossible(facet_id) == null : _parent
 				+ " " + _name;
@@ -699,7 +700,7 @@ public class Perspective implements Comparable, ItemPredicate {
 		double n = query().getTotalCount();
 		double count = getTotalCount();
 		double stdDev = Math.sqrt(count * (n - count) / (n * (n - 1)));
-		assert stdDev >= 0 : count + " " + n;
+		assert stdDev >= 0 : count + " " + n + " " + this;
 		return stdDev;
 	}
 
@@ -1120,6 +1121,21 @@ public class Perspective implements Comparable, ItemPredicate {
 		StringBuffer buf = new StringBuffer();
 		buf.append(getNameIfPossible()).append(" (").append(getID())
 				.append(")");
+		// buf.append(" index=" + getIndex() + " ");
+		// buf.append(nChildren).append(" ").append(children_offset);
+		// buf.append("; local:
+		// ").append(onCount).append("/").append(totalCount);
+		// buf.append("; cum on parent: ").append(cumCount).append("/");
+		// if (parent != null)
+		// buf.append(parent.getTotalChildTotalCount());
+		// else
+		// buf.append("?");
+		return buf.toString();
+	}
+
+	public String toString(PerspectiveObserver redrawer1) {
+		StringBuffer buf = new StringBuffer();
+		buf.append(getName(redrawer1)).append(" (").append(getID()).append(")");
 		// buf.append(" index=" + getIndex() + " ");
 		// buf.append(nChildren).append(" ").append(children_offset);
 		// buf.append("; local:
@@ -2614,6 +2630,8 @@ public class Perspective implements Comparable, ItemPredicate {
 		}
 
 		void setNchildren(int n, int child_offset) {
+			// Util.print("setNchildren " + this + " " + n + " " +
+			// child_offset);
 			// assert children_offset < 0 || children_offset == child_offset
 			// || query().isEditable();
 			if (n != nChildren) {

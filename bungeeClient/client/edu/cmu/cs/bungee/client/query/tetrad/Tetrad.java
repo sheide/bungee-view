@@ -798,7 +798,7 @@ public class Tetrad implements GraphWeigher {
 		int[] counts1 = new int[1 << nFacets];
 		Perspective popupFacet1 = (Perspective) facetsOfInterest2.get(0);
 		Query query = popupFacet1.query();
-		ResultSet rs = query.onCountMatrix(facetsOfInterest2);
+		ResultSet rs = query.onCountMatrix(facetsOfInterest2,null);
 		try {
 			while (rs.next()) {
 				counts1[rs.getInt(1)] = rs.getInt(2);

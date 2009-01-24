@@ -225,7 +225,6 @@ import edu.cmu.cs.bungee.client.query.Markup;
 import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.cmu.cs.bungee.client.query.Query;
 import edu.cmu.cs.bungee.client.query.Query.Item;
-import edu.cmu.cs.bungee.client.query.tetrad.Tetrad;
 import edu.cmu.cs.bungee.javaExtensions.PerspectiveObserver;
 import edu.cmu.cs.bungee.javaExtensions.URLQuery;
 import edu.cmu.cs.bungee.javaExtensions.Util;
@@ -1115,6 +1114,7 @@ final class Bungee extends PFrame {
 			try {
 				setTextSize(maxTextSize());
 			} catch (AssertionError e) {
+				Util.err(e);
 			}
 			initializeFrames();
 		}
@@ -1594,7 +1594,7 @@ final class Bungee extends PFrame {
 			| InputEvent.SHIFT_DOWN_MASK | ItemPredicate.EXCLUDE_ACTION;
 
 	void toggleFacet(Perspective facet, int modifiers) {
-		// Util.print("Art.toggleFacet " + facet + " " + modifiers);
+		 Util.print("Art.toggleFacet " + facet + " " + modifiers);
 		if (!getIsShortcuts() && replayer == null)
 			modifiers = 0;
 		assert facet != null;
