@@ -1109,8 +1109,87 @@ public class Database {
 	// }
 	// }
 
+	String topCandQuery(int nFacets) {
+		String x = "?, ?, ?, ?, ?, ?, ?";
+		String IDs = x.substring(0, 3 * nFacets - 2);
+		String result = "SELECT candidateID "
+				+ "FROM (SELECT candidateID, "
+				+ "ABS(jointProb - primaryProb*candidateProb)/"
+				+ "SQRT((primaryProb-primaryProb*primaryProb)*(candidateProb-candidateProb*candidateProb)) corr "
+				+ "FROM (SELECT candidateID, "
+				+ "(SELECT n_items FROM facet"
+				+ " WHERE facet_id=primaryID)/(SELECT COUNT(*) FROM item_order_heap) primaryProb, "
+				+ "n_items/(SELECT COUNT(*) FROM item_order_heap) candidateProb, "
+				+ "jointCount/(SELECT COUNT(*) FROM item_order_heap) jointProb "
+				+ "FROM ( "
+				+ "SELECT candidate.facet_id candidateID, candidate.n_items, prime.facet_id primaryID, "
+				+ "(SELECT COUNT(*) FROM item_facet_heap i1 WHERE candidate.facet_id=i1.facet_id "
+				+ "AND EXISTS (SELECT * FROM item_facet_heap i0"
+				+ " WHERE i0.record_num=i1.record_num AND i0.facet_id = prime.facet_id)) jointCount "
+				+ "FROM facet candidate, (SELECT facet_id FROM facet WHERE facet_id IN ("
+				+ IDs + ")) prime " + "WHERE candidate.facet_id NOT IN (" + IDs
+				+ ") AND candidate.parent_facet_id > 0 " + ") foo "
+				// + "HAVING candidateProb>0.00001 "
+				+ ") bar " + ") baz " + "GROUP BY candidateID "
+				+ "ORDER BY POW(SUM(corr),2) - SUM(corr*corr) DESC LIMIT ?";
+		return result;
+	}
+
 	@SuppressWarnings("unchecked")
 	void topCandidates(String perspectiveIDs, int n, int table,
+			DataOutputStream out) throws SQLException, ServletException,
+			IOException {
+		myAssert(table != 1,
+				"topCandidates needs a second case for restricted queries.");
+		// String baseTable = table == 1 ? "restricted" : "item_order_heap";
+		String sql = "CREATE TEMPORARY TABLE IF NOT EXISTS jointCounts (" +
+				" candidateID smallint(5) unsigned NOT NULL," +
+				" primaryID smallint(5) unsigned NOT NULL," +
+				" jointCount bigint(21) NOT NULL default 0," +
+				" PRIMARY KEY USING HASH (candidateID, primaryID)" +
+				") ENGINE=MEMORY DEFAULT CHARSET=utf8";
+		jdbc.SQLupdate(sql);
+		jdbc.SQLupdate("TRUNCATE TABLE jointCounts");
+		sql = "INSERT INTO jointCounts "
+				+ "SELECT i1.facet_id candidateID, i0.facet_id primaryID, COUNT(*) jointCount "
+				+ "FROM item_facet_heap i0 "
+				+ "INNER JOIN item_facet_heap i1 ON i0.record_num = i1.record_num"
+				+ " WHERE i1.facet_id NOT IN (" + perspectiveIDs
+				+ ") AND i0.facet_id IN (" + perspectiveIDs
+				+ ") GROUP BY candidateID, primaryID " + "ORDER BY NULL";
+//		log(sql);
+		jdbc.SQLupdate(sql);
+		sql = "SELECT candidateID " +
+			"FROM (SELECT candidateID," +
+			"ABS(jointProb - primaryProb*candidateProb)/" +
+			"SQRT((primaryProb-primaryProb*primaryProb)*(candidateProb-candidateProb*candidateProb)) corr " +
+			"FROM (SELECT candidateID," +
+			"(SELECT n_items FROM facet" +
+			" WHERE facet_id=primaryID)/(SELECT COUNT(*) FROM item_order_heap) primaryProb," +
+			"n_items/(SELECT COUNT(*) FROM item_order_heap) candidateProb," +
+			"jointCount/(SELECT COUNT(*) FROM item_order_heap) jointProb " +
+			"FROM (" 			
+				+ "SELECT candidate.facet_id candidateID, candidate.n_items, prime.facet_id primaryID, foo.jointCount "
+				+ "FROM facet candidate INNER JOIN facet prime LEFT JOIN "
+				+ "jointCounts foo "
+				+ "ON foo.candidateID = candidate.facet_id AND foo.primaryID = prime.facet_id "
+				+ "WHERE candidate.parent_facet_id > 0 "
+				+ "AND candidate.facet_id NOT IN ("
+				+ perspectiveIDs
+				+ ")"
+				+ " AND prime.facet_id IN (" + perspectiveIDs + "))" + 
+				" foo " +
+				"HAVING candidateProb>0.00001" +
+				") bar ) baz " +
+				"GROUP BY candidateID " +
+				"ORDER BY POW(SUM(corr),2) - SUM(corr*corr) DESC LIMIT " + n;
+//		log(sql);
+		ResultSet rs = jdbc.SQLquery(sql);
+		sendResultSet(rs, MyResultSet.INT, out);
+	}
+
+	@SuppressWarnings("unchecked")
+	void topCandidates1(String perspectiveIDs, int n, int table,
 			DataOutputStream out) throws SQLException, ServletException,
 			IOException {
 		myAssert(table != 1,
@@ -1134,11 +1213,10 @@ public class Database {
 				+ perspectiveIDs + ")) prime "
 				+ "WHERE candidate.facet_id NOT IN (" + perspectiveIDs
 				+ ") AND candidate.parent_facet_id > 0 " + ") foo "
-//				+ "HAVING candidateProb>0.00001 " 
-				+ ") bar " + ") baz "
-				+ "GROUP BY candidateID "
+				// + "HAVING candidateProb>0.00001 "
+				+ ") bar " + ") baz " + "GROUP BY candidateID "
 				+ "ORDER BY POW(SUM(corr),2) - SUM(corr*corr) DESC LIMIT " + n;
-		log(sql);
+		// log(sql);
 		ResultSet rs = jdbc.SQLquery(sql);
 		sendResultSet(rs, MyResultSet.INT, out);
 	}
