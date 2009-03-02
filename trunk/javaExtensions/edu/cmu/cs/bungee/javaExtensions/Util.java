@@ -323,6 +323,18 @@ public final class Util {
 		return Math.min(Math.max(val, minv), maxv);
 	}
 
+	public static boolean isClose(double[] a, double[] b) {
+		for (int i = 0; i < b.length; i++) {
+			if (!isClose(a[i], b[i]))
+				return false;
+		}
+		return true;
+	}
+
+	public static boolean isClose(double a, double b) {
+		return Math.abs(a - b) < 1e-7 || (b != 0 && Math.abs(1 - a / b) < 2e-1);
+	}
+
 	public static float[] getHSBcomponents(Color color) {
 		float[] result = new float[3];
 		Color.RGBtoHSB(color.getRed(), color.getGreen(), color.getBlue(),
@@ -692,6 +704,10 @@ public final class Util {
 		Object[] a2 = (Object[]) Array.newInstance(type, a.length);
 		System.arraycopy(a, 0, a2, 0, a.length);
 		return a2;
+	}
+
+	public static boolean hasDuplicates(Collection a) {
+		return a.size() > new HashSet(a).size();
 	}
 
 	public static boolean hasDuplicates(int[] a) {
@@ -2257,7 +2273,7 @@ public final class Util {
 	public static int sum(int[] a) {
 		int result = 0;
 		for (int i = 0; i < a.length; i++) {
-			result+=a[i];
+			result += a[i];
 		}
 		return result;
 	}
@@ -2265,7 +2281,7 @@ public final class Util {
 	public static double sum(double[] a) {
 		double result = 0;
 		for (int i = 0; i < a.length; i++) {
-			result+=a[i];
+			result += a[i];
 		}
 		return result;
 	}
