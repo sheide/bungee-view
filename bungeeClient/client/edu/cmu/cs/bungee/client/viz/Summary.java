@@ -1033,7 +1033,8 @@ final class Summary extends LazyContainer implements MouseDoc {
 			// facetDesc.exit();
 			facetDesc = null;
 		}
-		hidePerspectiveList();
+		// This hangs in removeFromParent
+//		hidePerspectiveList();
 	}
 
 	boolean isShowPopup(Object facet) {

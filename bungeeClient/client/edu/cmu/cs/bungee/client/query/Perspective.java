@@ -2220,7 +2220,7 @@ public class Perspective implements Comparable, ItemPredicate {
 		// Util.print("updateTopTags " + this);
 		try {
 			int total = getTotalCount();
-			if (_onCount < total) {
+			if (true||_onCount < total) {
 				if (total < parentTotalCount && !isRestriction()) {
 					if (instantiatedPerspective != null) {
 						assert instantiatedPerspective.checkTable(

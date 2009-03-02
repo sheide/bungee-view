@@ -24,8 +24,8 @@ public class FacetSelection extends GreedySubset {
 		Set addedFacets = search.selectVariables();
 		// Util.print("FacetSelection => " + addedFacets);
 		Explanation result = search.lookupExplanation(addedFacets, nullModel);
-		Util.print("gggg");
-		result.printGraph(false);
+//		Util.print("gggg");
+//		result.printGraph(false);
 
 		return result;
 	}
@@ -80,7 +80,8 @@ public class FacetSelection extends GreedySubset {
 //				// .facets())
 //
 //				);
-
+		
+//current.printToFile();
 		return result;
 	}
 
@@ -92,7 +93,7 @@ public class FacetSelection extends GreedySubset {
 	}
 
 	Explanation lookupExplanation(Set addedFacets, Explanation base) {
-		List allFacetList = facetList(addedFacets);
+		List allFacetList = Collections.unmodifiableList(facetList(addedFacets));
 		Explanation result = (Explanation) explanations.get(allFacetList);
 		if (result == null) {
 			if (base == null)
@@ -111,7 +112,7 @@ public class FacetSelection extends GreedySubset {
 	protected void newBest(Object candidate) {
 		super.newBest(candidate);
 		cacheCandidates();
-		lookupExplanation(currentGuess, null).printToFile();
+//		lookupExplanation(currentGuess, null).printToFile();
 		// lookupExplanation(currentGuess, null).printGraph();
 	}
 }

@@ -1,7 +1,9 @@
 package edu.cmu.cs.bungee.client.query.tetrad;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -9,25 +11,69 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.SortedSet;
+import java.util.TreeSet;
 
 import edu.cmu.cs.bungee.client.query.Perspective;
+import edu.cmu.cs.bungee.client.query.Query;
 import edu.cmu.cs.bungee.javaExtensions.Util;
 
 import pal.mathx.ConjugateGradientSearch;
 import pal.mathx.MFWithGradient;
 import pal.mathx.MultivariateFunction;
 
+import lbfgs.LBFGS;
+import lbfgs.LBFGS.ExceptionWithIflag;
+
 public class NonAlchemyModel extends Explanation implements
 // MultivariateFunction
 		MFWithGradient {
+
+	// static int nSetWeights = 0;
+	// static int nNoopSetWeights = 0;
+	// static int nSetWeight = 0;
+	// static int nExpWeight = 0;
+	// static int nLogPredictedDistribution = 0;
+	// static int nGetDistribution = 0;
+	// static int expectedW = 0;
+	// static int expectedS = 0;
+	static int totalNumGrad;
+	// static int nEnergy;
+	// static int nExpEnergy;
+	// static int nZ;
+	// static int nOW;
+	// static int nEvalNgrad;
+	// static int nNoOpGrad;
+	// static int nNoOpEval;
+	private double cachedEval = Double.NaN;
+	private double[] cachedGradient;
+	//
+	// void stats() {
+	// Util.print("nSetWeights " + nSetWeights);
+	// Util.print("nNoopSetWeights " + nNoopSetWeights);
+	// Util.print("nSetWeight " + nSetWeight);
+	// Util.print("nExpWeight " + nExpWeight);
+	// Util.print("nLogPredictedDistribution " + nLogPredictedDistribution);
+	// Util.print("nGetDistribution " + nGetDistribution);
+	// Util.print("expectedW " + expectedW);
+	// Util.print("expectedS " + expectedS);
+	// Util.print("nEnergy " + nEnergy);
+	// Util.print("nExpEnergy " + nExpEnergy);
+	// Util.print("nZ " + nZ);
+	// Util.print("nOW " + nOW);
+	// Util.print("nEvalNgrad " + nEvalNgrad);
+	// Util.print("nNoOpGrad " + nNoOpGrad);
+	// Util.print("nNoOpEval " + nNoOpEval);
+	// }
 
 	private static final int BURN_IN = 100;// 500;
 	/**
 	 * Importance of weight changes in the null model compared to accuracy over
 	 * the full model, used during learnWeights.
 	 */
-	static double WEIGHT_STABILITY_IMPORTANCE = 1e-8;
-	static final double WEIGHT_STABILITY_SMOOTHNESS = 1e-10;
+	static double WEIGHT_STABILITY_IMPORTANCE = 0;// 1e-2;
+	static final double WEIGHT_STABILITY_SMOOTHNESS = 1e-9;
+	static final boolean USE_SIGMOID = true;
 
 	private static Map explanations = new HashMap();
 
@@ -39,6 +85,10 @@ public class NonAlchemyModel extends Explanation implements
 		Explanation prev = (Explanation) explanations.get(args);
 		if (prev == null)
 			prev = new NonAlchemyModel(facets, edges, base, likelyCandidates);
+		// if (base != null)
+		// Util.print("gi " + prev + " " + " " + prev.nullModel + " " + base
+		// + " " + base.nullModel);
+		// assert Double.isNaN(((NonAlchemyModel)prev).cachedEval);
 		return prev;
 	}
 
@@ -48,13 +98,13 @@ public class NonAlchemyModel extends Explanation implements
 		if (edges == null)
 			edges = GraphicalModel.allEdges(facets, facets);
 		List args = args(facets, facets, edges);
-		args = args.subList(1, 3);
+		args = args.subList(1, 4);
 		for (Iterator it = explanations.entrySet().iterator(); it.hasNext()
 				&& prev == null;) {
 			Map.Entry entry = (Map.Entry) it.next();
 			List prevArgs = (List) entry.getKey();
 			// if (args.equals(prevArgs.subList(1, 3)))
-			if (args.equals(prevArgs.subList(1, 3)))
+			if (args.equals(prevArgs.subList(1, 4)))
 				prev = (Explanation) entry.getValue();
 		}
 		if (prev == null)
@@ -63,20 +113,20 @@ public class NonAlchemyModel extends Explanation implements
 	}
 
 	private void cache() {
-		Object args = args(nullModel.facets(), facets(), predicted.getEdges());
+		Object args = args(parentModel.facets(), facets(), predicted.getEdges());
 		Explanation prev = (Explanation) explanations.get(args);
 		if (prev == null) {
 			// Util.print("caching " + facets());
 			explanations.put(args, this);
 		} else if (!approxEquals(prev)) {
-			printGraph(false);
-			prev.printGraph(false);
+			printGraphAndNull();
+			prev.printGraphAndNull();
 			assert false;
 		}
 	}
 
 	private static List args(List baseFacets, List facets, Set edges) {
-		List args = new ArrayList(3);
+		List args = new ArrayList(4);
 		List nf = new ArrayList(baseFacets);
 		Collections.sort(nf);
 		args.add(nf);
@@ -85,7 +135,8 @@ public class NonAlchemyModel extends Explanation implements
 		args.add(f);
 		Set e = new HashSet(edges);
 		args.add(e);
-		return args;
+		args.add(new Double(NULL_MODEL_ACCURACY_IMPORTANCE));
+		return Collections.unmodifiableList(args);
 	}
 
 	// public static Explanation getNullExplanation(Perspective popupFacet) {
@@ -107,26 +158,20 @@ public class NonAlchemyModel extends Explanation implements
 		return result;
 	}
 
-	// Explanation getLikeExplanation() {
-	// return new NonAlchemyModel(facets(), predicted.getEdges(), this, null);
-	// }
-
-	// Explanation getAlternateExplanation(List facets) {
-	// return new NonAlchemyModel(facets, null, this, null);
-	// }
-
 	Explanation getAlternateExplanation(List facets, List likelyCandidates) {
 		return NonAlchemyModel
 				.getInstance(facets, null, this, likelyCandidates);
 	}
 
 	Explanation getAlternateExplanation(Set edges) {
+		// Util.print("getAlternateExplanation " + this + " " + edges);
 		return NonAlchemyModel.getInstance(facets(), edges, this, null);
 	}
 
 	protected NonAlchemyModel(List facets, Set edges, Explanation base,
 			List likelyCandidates) {
 		super(facets, edges, base, likelyCandidates);
+		learnWeights(base);
 		cache();
 	}
 
@@ -138,12 +183,6 @@ public class NonAlchemyModel extends Explanation implements
 		boolean debug = false;
 		long start = debug ? new Date().getTime() : 0;
 
-		// predicted.setWeights(getInitialWeights(base));
-		// Util.print("\nlearnWeights: "+this);
-		// Util.printStackTrace();
-		// if (base!=null)
-		// base.printGraph(false);
-
 		if (base != null)
 			initializeWeights(base);
 
@@ -152,11 +191,12 @@ public class NonAlchemyModel extends Explanation implements
 					+
 					// observed.unnormalizedKLdivergence(predicted
 					// .logPredictedDistribution())
-					observed.KLdivergence(predicted.getDistribution()) + " "
+					klDivergence() + " "
 					+ Util.valueOfDeep(predicted.getWeights()));
 
 		for (int i = 0; i < BURN_IN; i++) {
-			optimizeWeight(base);
+			if (!optimizeWeight(base))
+				break;
 			// double fx = observed.unnormalizedKLdivergence(predicted
 			// .logPredictedDistribution());
 			// if (Math.abs(fx - prev) < epsilon)
@@ -166,60 +206,98 @@ public class NonAlchemyModel extends Explanation implements
 		double[] sw = predicted.getWeights();
 
 		if (debug) {
-			double KL = observed.KLdivergence(predicted.getDistribution());
+			double kl = klDivergence();
 			Util.print("burned-in weights " + (new Date().getTime() - start)
-					+ "ms, " + BURN_IN + " iterations, KL " + KL + " "
+					+ "ms, " + BURN_IN + " iterations, KL " + kl + " "
 					+ Util.valueOfDeep(sw));
 		}
 
+		 double[] weights = cgSearch(sw);
+//		double[] weights = lbfgsSearch(sw);
+
+		setWeights(weights);
+	}
+
+	private double[] cgSearch(double[] sw) {
 		ConjugateGradientSearch search = new ConjugateGradientSearch();
 		double[] weights = search.findMinimumArgs(this, sw, epsilon, epsilon);
 
-		if (debug)
-			Util.print("final weights  " + (new Date().getTime() - start)
-					+ "ms, " + (search.numFun + BURN_IN) + " iterations, KL "
-					+ observed.KLdivergence(predicted.getDistribution()) + " "
-					+ Util.valueOfDeep(weights));
+		// if (debug) {
+		// Util.print("final weights  " + (new Date().getTime() - start)
+		// + "ms, " + (search.numFun + BURN_IN) + " iterations, KL "
+		// + klDivergence() + " " + Util.valueOfDeep(weights));
+		// Util.print("wsi " + NonAlchemyModel.WEIGHT_STABILITY_IMPORTANCE
+		// + "\n" + this + " " + base);
+		// }
 
 		totalNumFuns += search.numFun + BURN_IN;
+		totalNumGrad += search.numGrad;
+		return weights;
+	}
 
-		// double[] initialGradient=new double[initialWeights.length];
-		// computeGradient(initialWeights, initialGradient);
-		// List added = new LinkedList(facets());
-		// added.removeAll(base.facets());
-		// if (added.size()==1) {
-		// Perspective addedFacet=(Perspective) added.get(0);
-		// for (Iterator it = predicted.getEdgeIterator(); it.hasNext();) {
-		// int[] edge= (int[]) it.next();
-		// Perspective cause = getFacet(edge[0]);
-		// Perspective caused = getFacet(edge[1]);
-		// if
-		// ((addedFacet==cause||addedFacet==caused)&&(isPrimaryFacet(caused)||
-		// isPrimaryFacet(cause))) {
-		// grad+=
-		// }
-		// }
-		// Util.print("  "+)
-		// }
-		predicted.setWeights(weights);
+	private double[] lbfgsSearch(double[] sw) {
+		boolean useDiag = false;
+		double[] grad = new double[sw.length];
+		double[] diag = new double[sw.length];
+		double f = evaluate(sw, grad);
+		if (useDiag)
+			compute2ndGradient(diag);
+		int[] iFlag = { 0 };
+		int[] printInterval = { -1, 3 };
+		// if (nFacets()>6)printInterval[0]=1;
+		try {
+			LBFGS.lbfgs(sw.length, 3, sw, f, grad, useDiag, diag,
+					printInterval, 1e-8, epsilon, iFlag);
+			while (iFlag[0] > 0) {
+				for (int i = 0; i < sw.length; i++) {
+					sw[i] = Util.constrain(sw[i], -100, 100);
+				}
+				f = evaluate(sw, grad);
+				if (useDiag)
+					compute2ndGradient(diag);
+				LBFGS.lbfgs(sw.length, 3, sw, f, grad, useDiag, diag,
+						printInterval, 1e-8, epsilon, iFlag);
+			}
+		} catch (ExceptionWithIflag e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		if (iFlag[0] < 0) {
+			Util.err("LBFGS barfed: " + iFlag[0]);
+		}
 
-		// double[] grad=new double[weights.length];
-		// Util.print("learnWeights KL = "+evaluate(weights,grad));
-		// Util.print("grad = "+Util.valueOfDeep(grad));
-		// printGraph();
+		totalNumFuns += LBFGS.nfevaluations() + BURN_IN;
+		totalNumGrad += LBFGS.nfevaluations();
+		return sw;
+	}
+
+	boolean setWeights(double[] argument) {
+		boolean result = predicted.setWeights(argument);
+		if (result) {
+			cachedEval = Double.NaN;
+			getCachedGradient()[0] = Double.NaN;
+		}
+		return result;
 	}
 
 	public double evaluate(double[] argument) {
-		// Util.print("evaluate " + Util.valueOfDeep(argument));
-		predicted.setWeights(argument);
+		setWeights(argument);
+		if (!Double.isNaN(cachedEval))
+			return cachedEval;
 		// predicted.printGraph(getObservedDistribution());
 		// Util.print("eval "+nullModel.facets()+" "+nullModel+" "+this);
-		double change = predicted.weightSpaceChange(nullModel.predicted,
-				nullModel.facets(), null, null, true);
-		// double smoothChange = Math.sqrt(change * change
-		// + WEIGHT_STABILITY_SMOOTHNESS);
-		return unnormalizedKLdivergence() + change
-				* WEIGHT_STABILITY_IMPORTANCE;
+
+		double result = klDivergence();
+		if (WEIGHT_STABILITY_IMPORTANCE > 0) {
+			double change = predicted.weightSpaceChange(parentModel.predicted,
+					parentModel.facets(), null, null, true);
+			change = Math.log(Math.E + change * WEIGHT_STABILITY_IMPORTANCE);
+			result *= change;
+		}
+		cachedEval = result;
+		// if (nFacets()>6)
+		// Util.print("evaluate " + cachedEval+" "+Util.valueOfDeep(argument));
+		return result;
 	}
 
 	public double getLowerBound(int n) {
@@ -231,183 +309,143 @@ public class NonAlchemyModel extends Explanation implements
 	}
 
 	public void computeGradient(double[] argument, double[] gradient) {
-		predicted.setWeights(argument);
+		setWeights(argument);
 		computeGradient(gradient);
 	}
 
-	// public double evaluate2(double[] argument, double[] gradient) {
-	// double result = evaluate(argument);
-	// int argIndex;
-	// double[] predictedDistribution = predicted.getDistribution();
-	// double[] observedDistribution = observed.getDistribution();
-	// for (argIndex = 0; argIndex < nFacets(); argIndex++) {
-	// gradient[argIndex] = 0;
-	// for (int state = 0; state < predicted.nStates(); state++) {
-	// if (Util.isBit(state, argIndex)) {
-	// gradient[argIndex] += predictedDistribution[state]
-	// - observedDistribution[state];
-	// }
-	// }
-	// }
-	//
-	// for (Iterator it = predicted.getEdgeIterator(); it.hasNext();) {
-	// int[] edge = (int[]) it.next();
-	// gradient[argIndex] = 0;
-	// for (int state = 0; state < predicted.nStates(); state++) {
-	// if (Util.isBit(state, edge[0]) && Util.isBit(state, edge[1])) {
-	// gradient[argIndex] += predictedDistribution[state]
-	// - observedDistribution[state];
-	// }
-	// }
-	// argIndex++;
-	// }
-	// return result;
-	// }
-
 	public double evaluate(double[] argument, double[] gradient) {
+		// nEvalNgrad++;
+		// Util.print("evalNgrad");
 		double result = evaluate(argument);
 		computeGradient(gradient);
 		return result;
 	}
 
-	// private void computeGradient(double[] gradient) {
-	// for (int i = 0; i < gradient.length; i++) {
-	// gradient[i] = 0;
-	// }
-	// double[] observedDistribution = observed.getDistribution();
-	// // int[][] edgeIndexes = predicted.getEdgeIndexes();
-	// int nStates = predicted.nStates();
-	// Util.print(Util.valueOfDeep(observedDistribution));
-	// Util.print(Util.valueOfDeep(predicted.getWeights()));
-	//
-	// double[] expEnergies = new double[nStates];
-	// double z = 0;
-	// for (int state = 0; state < expEnergies.length; state++) {
-	// expEnergies[state] = predicted.expEnergy(state);
-	// z += expEnergies[state];
-	// }
-	//
-	// int argIndex;
-	// for (argIndex = 0; argIndex < nFacets(); argIndex++) {
-	// double sum1 = 0;
-	// double sum2 = 0;
-	// for (int state = 1; state < nStates; state++) {
-	// if (Util.isBit(state, argIndex)) {
-	// sum1 += expEnergies[state];
-	// sum2 += observedDistribution[state];
-	// }
-	// }
-	// gradient[argIndex] = sum1 / z - sum2;
-	// }
-	// for (Iterator it = predicted.getEdgeIterator(); it.hasNext();) {
-	// int[] edge = (int[]) it.next();
-	// int cause = edge[0];
-	// int caused = edge[1];
-	// double sum1 = 0;
-	// double sum2 = 0;
-	// for (int state = 1; state < predicted.nStates(); state++) {
-	// if (Util.isBit(state, cause) && Util.isBit(state, caused)) {
-	// sum1 += expEnergies[state];
-	// sum2 += observedDistribution[state];
-	// }
-	// }
-	// gradient[argIndex] = sum1 / z - sum2;
-	//
-	// // Encourage weights to stay the same
-	// Perspective causeP = (Perspective) facets().get(cause);
-	// Perspective causedP = (Perspective) facets().get(caused);
-	// if (nullModel.predicted.hasEdge(causeP, causedP)) {
-	// double w0 = nullModel.predicted.getWeight(causeP, causedP);
-	// double w = predicted.getWeight(cause, caused);
-	//
-	// // double expW = Math.exp(w);
-	// // double dw = expW / ((expW + 1) * (expW + 1));
-	// // if (w > w0)
-	// // dw = -dw;
-	//
-	// double expW = Math.exp(-w);
-	// double expWplus = expW + 1;
-	// double expPlusDeltaInverse = 1.0 / expWplus - 1.0
-	// / (Math.exp(-w0) + 1);
-	// double dw = expW
-	// * expPlusDeltaInverse
-	// / (expWplus * expWplus * Math.sqrt(expPlusDeltaInverse
-	// * expPlusDeltaInverse
-	// + WEIGHT_STABILITY_SMOOTHNESS));
-	// gradient[argIndex] += dw * WEIGHT_STABILITY_IMPORTANCE;
-	// }
-	// argIndex++;
-	// }
-	// }
+	private double[] getCachedGradient() {
+		if (cachedGradient == null) {
+			cachedGradient = new double[getNumArguments()];
+			cachedGradient[0] = Double.NaN;
+		}
+		return cachedGradient;
+	}
 
 	private void computeGradient(double[] gradient) {
+		if (!Double.isNaN(getCachedGradient()[0])) {
+			System.arraycopy(getCachedGradient(), 0, gradient, 0,
+					gradient.length);
+			return;
+		}
 		double[] predictedDistribution = predicted.getDistribution();
 		double[] observedDistribution = observed.getDistribution();
-		// int[][] edgeIndexes = predicted.getEdgeIndexes();
-		int nStates = predicted.nStates();
-		int argIndex;
-		for (argIndex = 0; argIndex < nFacets(); argIndex++) {
-			gradient[argIndex] = 0;
-			for (int state = 0; state < nStates; state++) {
-				if (Util.isBit(state, argIndex)) {
-					gradient[argIndex] += predictedDistribution[state]
-							- observedDistribution[state];
+		Arrays.fill(gradient, 0);
+
+		int[][] sw = predicted.stateWeights();
+		for (int state = 0; state < sw.length; state++) {
+			double err = predictedDistribution[state]
+					- observedDistribution[state];
+			int[] weights = sw[state];
+			for (int w = 0; w < weights.length; w++) {
+				gradient[weights[w]] += err;
+			}
+		}
+		System.arraycopy(gradient, 0, getCachedGradient(), 0, gradient.length);
+		// // Util.print("cg "+Util.valueOfDeep(gradient));
+	}
+
+	public void compute2ndGradient(double[] argument, double[] gradient) {
+		setWeights(argument);
+		compute2ndGradient(gradient);
+	}
+
+	private void compute2ndGradient(double[] gradient) {
+		double denom = predicted.z() * predicted.z();
+		int w = 0;
+		for (int cause = 0; cause < nFacets(); cause++) {
+			for (int caused = cause; caused < nFacets(); caused++) {
+				if (predicted.hasEdge(cause, caused)) {
+					double expEon = 0;
+					double expEoff = 0;
+					for (int state = 0; state < predicted.nStates(); state++) {
+						double expE = predicted.expEnergy(state);
+						if (Util.isBit(state, cause)
+								&& Util.isBit(state, caused)) {
+							expEon += expE;
+						} else {
+							expEoff += expE;
+						}
+					}
+					gradient[w++] = expEon * expEoff / denom;
 				}
 			}
 		}
-		for (Iterator it = predicted.getEdgeIterator(); it.hasNext();) {
-			int[] edge = (int[]) it.next();
-			int cause = edge[0];
-			int caused = edge[1];
-			gradient[argIndex] = 0;
-			for (int state = 0; state < predicted.nStates(); state++) {
-				if (Util.isBit(state, cause) && Util.isBit(state, caused)) {
-					gradient[argIndex] += predictedDistribution[state]
-							- observedDistribution[state];
-				}
-			}
+		Util.print("c2g " + Util.valueOfDeep(gradient));
+	}
 
-			// Encourage weights to stay the same
-			Perspective causeP = (Perspective) facets().get(cause);
-			Perspective causedP = (Perspective) facets().get(caused);
-			if (nullModel.predicted.hasEdge(causeP, causedP)) {
-				double expw0 = nullModel.predicted.getWeight(causeP, causedP);
-				double expw = predicted.getWeight(cause, caused);
-				double delta = expw - expw0;
+	static class CompareCount implements Comparator {
 
-				// double expW = Math.exp(w);
-				// double dw = expW / ((expW + 1) * (expW + 1));
-				// if (w > w0)
-				// dw = -dw;
+		public int compare(Object data1, Object data2) {
+			int result = Util.sgn(value(data1) - value(data2));
+			if (result == 0)
+				result = Util.sgn(id(data1) - id(data2));
+			return result;
+		}
 
-				// double expWplus = expw + 1;
-				// double expPlusDeltaInverse = 1.0 / expWplus - 1.0
-				// / (expw0 + 1);
-				// double dw = expw
-				// * expPlusDeltaInverse
-				// / (expWplus * expWplus * Math.sqrt(expPlusDeltaInverse
-				// * expPlusDeltaInverse
-				// + WEIGHT_STABILITY_SMOOTHNESS));
+		private int id(Object data) {
+			return ((Perspective) data).getID();
+		}
 
-				double dw = delta
-						/ Math
-								.sqrt(delta * delta
-										+ WEIGHT_STABILITY_SMOOTHNESS);
-
-				// Util.print("grad " + dw
-				// +" "+causeP+" "+causedP+" "+gradient[argIndex]);
-				// double delta=w-w0;
-				// dw=delta/Math.sqrt(delta*delta+WEIGHT_STABILITY_SMOOTHNESS);
-				gradient[argIndex] += dw * WEIGHT_STABILITY_IMPORTANCE;
-				// if (dw==0)Util.print("ZERO "+w0+" "+w);
-			}
-			argIndex++;
+		private double value(Object data) {
+			return ((Perspective) data).getTotalCount();
 		}
 	}
 
-	// public double evaluateNEW(double[] argument, double[] gradient) {
-	// double result = evaluate(argument);
-	// initializeWeights(null, gradient);
-	// return result;
-	// }
+	public static void test(Query query, int nCandidates) {
+		if (nCandidates <= 0)
+			return;
+		int minCount = 0;
+		SortedSet topPerspectives = new TreeSet(new CompareCount());
+		for (int i = 1; i <= query.nAttributes; i++) {
+			Perspective facetType = query.findPerspective(i);
+			for (Iterator it = facetType.getChildIterator(); it.hasNext();) {
+				Perspective p = (Perspective) it.next();
+				int count = p.getTotalCount();
+				if (count > minCount) {
+					topPerspectives.add(p);
+					if (topPerspectives.size() > nCandidates)
+						topPerspectives.remove(topPerspectives.first());
+					if (topPerspectives.size() >= nCandidates)
+						minCount = ((Perspective) topPerspectives.first())
+								.getTotalCount();
+					// Util.print("tp "+" "+count+" "+p);
+				}
+			}
+		}
+		int[] counts = new int[50];
+		for (Iterator it = topPerspectives.iterator(); it.hasNext();) {
+			Perspective p = (Perspective) it.next();
+			Explanation result = null;
+			List primaryFacets = Explanation.primaryFacets(p);
+			List candidateFacets = Explanation.candidateFacets(primaryFacets,
+					true);
+			Util.print(p + " " + p.getTotalCount() + " " + primaryFacets + " "
+					+ candidateFacets);
+			for (Iterator it2 = candidateFacets.iterator(); it2.hasNext();) {
+				Perspective candidate = (Perspective) it2.next();
+				List pair = new ArrayList(2);
+				pair.add(p);
+				pair.add(candidate);
+				Collections.sort(pair);
+				Util.print(pair);
+				Explanation nullModel = NonAlchemyModel.getInstance(pair, null,
+						null, null);
+				result = nullModel.getExplanation();
+				int nEdges = result.predicted.nEdges();
+				counts[nEdges]++;
+				if (nEdges > 1)
+					result.printToFile();
+			}
+		}
+		Util.print("nEdges distribution: " + Util.valueOfDeep(counts));
+	}
+
 }

@@ -225,6 +225,7 @@ import edu.cmu.cs.bungee.client.query.Markup;
 import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.cmu.cs.bungee.client.query.Query;
 import edu.cmu.cs.bungee.client.query.Query.Item;
+import edu.cmu.cs.bungee.client.query.tetrad.NonAlchemyModel;
 import edu.cmu.cs.bungee.javaExtensions.PerspectiveObserver;
 import edu.cmu.cs.bungee.javaExtensions.URLQuery;
 import edu.cmu.cs.bungee.javaExtensions.Util;
@@ -1246,10 +1247,12 @@ final class Bungee extends PFrame {
 			grid.stop();
 			grid = null;
 		}
+
 		if (summary != null) {
 			summary.stop();
 			summary = null;
 		}
+
 		// db = null;
 		if (query != null) {
 			query.exit();
@@ -2095,7 +2098,7 @@ final class Bungee extends PFrame {
 	 */
 	void updatePvalue() {
 		assert query.isQueryValid();
-		// Util.print(query + "\n" + query.topTags(10));
+//		 Util.print(query + "\n" + query.topTags(10));
 		double[] pValues = summary.pValues();
 		nBars = pValues.length;
 		assert nBars == summary.nBars() : nBars + " " + summary.nBars();
@@ -3407,6 +3410,7 @@ final class Bungee extends PFrame {
 
 				public void run() {
 					initializeFrames();
+//					NonAlchemyModel.test(query, 100);
 				}
 			};
 

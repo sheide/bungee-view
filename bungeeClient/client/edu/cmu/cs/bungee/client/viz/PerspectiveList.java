@@ -276,6 +276,7 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 	// }
 
 	void toggle() {
+//		Util.print("PL.toggle "+isHidden());
 		if (!isHidden()) {
 			removeFromParent();
 			// It's confusing if the arrows don't go by natural order if the

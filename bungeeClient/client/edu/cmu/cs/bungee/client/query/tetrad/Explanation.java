@@ -1,6 +1,7 @@
 package edu.cmu.cs.bungee.client.query.tetrad;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
@@ -8,48 +9,29 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
+import pal.mathx.ConjugateGradientSearch;
+
 import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.cmu.cs.bungee.client.query.Query;
 import edu.cmu.cs.bungee.javaExtensions.PerspectiveObserver;
 import edu.cmu.cs.bungee.javaExtensions.Util;
 import edu.cmu.cs.bungee.javaExtensions.graph.Graph;
 
-public abstract class Explanation {
+public abstract class Explanation implements PerspectiveObserver {
 
 	/**
-	 * Importance of weight changes in the null model compared to accuracy over
-	 * the null model, used to evaluate learned model.
+	 * Importance of weight changes in the null model compared to Divergence
+	 * over the null model, used to evaluate learned model.
 	 */
-	protected static double WEIGHT_SPACE_IMPORTANCE = 0.1;
+	protected static double NULL_MODEL_ACCURACY_IMPORTANCE = 10;
+	protected static double FULL_MODEL_ACCURACY_IMPORTANCE = 1000;
 	// protected static final double NODE_COST = 0.1;
-	protected static final double EDGE_COST = 0.005;
+	protected static final double EDGE_COST = 0.05;
 	private static final int MAX_CANDIDATES = 16;
-	protected final Explanation nullModel;
+	protected final Explanation parentModel;
 
-	protected GraphicalModel predicted;
-	protected Distribution observed;
-
-	public boolean approxEquals(Object obj) {
-		if (this == obj)
-			return true;
-		if (obj == null)
-			return false;
-		if (getClass() != obj.getClass())
-			return false;
-		Explanation other = (Explanation) obj;
-		if (nullModel == this) {
-			if (other.nullModel != other)
-				return false;
-		} else if (other.nullModel == other)
-			return false;
-		else if (!nullModel.approxEquals(other.nullModel))
-			return false;
-		if (!observed.approxEquals(other.observed))
-			return false;
-		if (!predicted.approxEquals(other.predicted))
-			return false;
-		return true;
-	}
+	protected final GraphicalModel predicted;
+	protected final Distribution observed;
 
 	// /**
 	// * @return a clone, using this as the null mmodel, presumably to add
@@ -77,10 +59,22 @@ public abstract class Explanation {
 
 	protected Explanation(List facets, Set edges, Explanation base,
 			List likelyCandidates) {
-		this.nullModel = base != null ? base.nullModel : this;
-		predicted = new GraphicalModel(facets, edges, true);
+		parentModel = base != null ? base : this;
 		observed = Distribution.getObservedDistribution(facets,
 				likelyCandidates);
+		predicted = new GraphicalModel(facets, edges, true, observed.totalCount);
+
+		// if (base != null)
+		// Util.print("expl " + predicted.getEdges() + " "
+		// + nullModel.predicted.getEdges());
+
+		assert parentModel == this
+				|| !facets().equals(parentModel.facets())
+				|| !predicted.getEdges().equals(
+						parentModel.predicted.getEdges()) : this + " "
+				+ parentModel + " " + base;
+
+		// Util.print("Explanation " + facets + " " + base + " " + edges);
 
 		// Distribution test = Distribution.getObservedDistribution(facets);
 		// assert observed.facets.equals(test.facets);
@@ -93,8 +87,35 @@ public abstract class Explanation {
 		// + " " + testdistribution[i] + " " + observed + " " + test;
 		// }
 
-		learnWeights(base);
+						// Don't do this until subtype initializations have happened
+//		learnWeights(base);
 		// cache();
+	}
+
+	Explanation nullModel() {
+		return this == parentModel ? this : parentModel.nullModel();
+	}
+
+	public boolean approxEquals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		Explanation other = (Explanation) obj;
+		if (parentModel == this) {
+			if (other.parentModel != other)
+				return false;
+		} else if (other.parentModel == other)
+			return false;
+		else if (!parentModel.approxEquals(other.parentModel))
+			return false;
+		if (!observed.approxEquals(other.observed))
+			return false;
+		if (!predicted.approxEquals(other.predicted))
+			return false;
+		return true;
 	}
 
 	/**
@@ -132,91 +153,114 @@ public abstract class Explanation {
 		return predicted.facetIndexOrNot(facet);
 	}
 
-	double unnormalizedKLdivergence() {
-		return observed.unnormalizedKLdivergence(predicted
+	double klDivergence() {
+		if (ConjugateGradientSearch.vvv) {
+			Util.print("\nkl " + Util.valueOfDeep(predicted.getWeights()));
+			for (Iterator it = predicted.getEdgeIterator(); it.hasNext();) {
+				int[] edge = (int[]) it.next();
+				Perspective cause = (Perspective) predicted.facets.get(edge[0]);
+				Perspective caused = (Perspective) predicted.facets
+						.get(edge[1]);
+				Util.print(cause + " " + caused);
+			}
+		}
+		double result = observed.klDivergenceFromLog(predicted
 				.logPredictedDistribution());
-	}
-
-	double KLdivergence() {
-		return observed.KLdivergence(predicted.getDistribution());
+		// assert Util.isClose(result, observed.klDivergence(predicted
+		// .getDistribution()));
+		return result;
 	}
 
 	double improvement(Explanation largerModel, double threshold1) {
-		// double largerModelAccuracy = sumR(largerModel);
-		// double accuracy = sumR(this);
-		// double largerModelAccuracy = nullModel.observed
-		// .KLdivergence(largerModel.predicted.getMarginal(nullModel
-		// .facets()));
-		// double accuracy = nullModel.unnormalizedKLdivergence();
-		double largerModelAccuracy = nullModel.observed
-				.KLdivergence(largerModel.predicted.getMarginal(nullModel
-						.facets()));
-		double accuracy = nullModel.KLdivergence();
-
-		// assert largerModel.nFacets() == nFacets()
-		// || accuracy - 0.0001 < largerModelAccuracy : this
-		// + " "
-		// + accuracy
-		// + " "
-		// + Util.valueOfDeep(predicted.getMarginal(nullModel.facets()))
-		// + printGraph(true)
-		// + " "
-		// + largerModel
-		// + " "
-		// + largerModelAccuracy
-		// + " "
-		// + Util.valueOfDeep(largerModel.predicted.getMarginal(nullModel
-		// .facets())) + " "
-		// + Util.valueOfDeep(nullModel.observed.getDistribution())
-		// + largerModel.printGraph(true);
+		double largerModelNullDivergence = parentModel.observed
+				.klDivergence(largerModel.predicted.getMarginal(parentFacets()));
+		double nullDivergence = parentModel.klDivergence();
+		double deltaNullDivergence = (largerModelNullDivergence - nullDivergence)
+				* NULL_MODEL_ACCURACY_IMPORTANCE;
+		assert !Double.isInfinite(deltaNullDivergence) : largerModelNullDivergence
+				+ " "
+				+ nullDivergence
+				+ " "
+				+ Util.valueOfDeep(largerModel.predicted
+						.getMarginal(parentFacets()));
 
 		assert largerModel.nFacets() > nFacets()
-				|| accuracy - 0.00001 < largerModelAccuracy : this + " "
-				+ accuracy + " " + largerModel + " " + largerModelAccuracy;
+				|| nullDivergence + 0.00001 > largerModelNullDivergence : this
+				+ "\n" + parentModel + " " + nullDivergence + "\n"
+				+ largerModel + " " + largerModelNullDivergence;
 
-		double deltaSumR = largerModelAccuracy - accuracy;
+		double deltaFullDivergence = Double.POSITIVE_INFINITY;
+		if (largerModel.nFacets() == nFacets()) {
+			double largerModelFullDivergence = largerModel.klDivergence();
+			double fullDivergence = klDivergence();
+			deltaFullDivergence = (fullDivergence - largerModelFullDivergence)
+					* FULL_MODEL_ACCURACY_IMPORTANCE;
+		}
+		if (deltaFullDivergence < threshold1)
+			return deltaFullDivergence;
 
 		// Util.print("grad "+primaryFacets());
 		// printToFile();
-		double weightSpaceChange = largerModel.predicted.weightSpaceChange(
-				predicted, primaryFacets(), observed, largerModel.observed,
-				true);
+		double weightSpaceChange = largerModel.predicted
+				.weightSpaceChange(predicted, parentFacets(), observed,
+						largerModel.observed, true);
 		// Util.print("fastImprov " + weightSpaceChange + " " + threshold1);
-//		 double fastWeighSpaceChange = weightSpaceChange;
+		double fastWeighSpaceChange = weightSpaceChange;
+		assert Util.ignore(fastWeighSpaceChange);
+		boolean isSlow = weightSpaceChange - deltaNullDivergence > threshold1;
 
-		if (weightSpaceChange * WEIGHT_SPACE_IMPORTANCE + deltaSumR > threshold1) {
+		if (isSlow) {
 			weightSpaceChange = largerModel.predicted.weightSpaceChange(
-					predicted, primaryFacets(), observed, largerModel.observed,
+					predicted, parentFacets(), observed, largerModel.observed,
 					false);
 
 			// Util.print(" slowImprov " + weightSpaceChange + " " +
 			// threshold1);
 		}
 
-		// largerModel.printGraph(false);
-//		 Util
-//		 .print("                                               improvement "
-//		 + weightSpaceChange
-//		 + "("
-//		 + fastWeighSpaceChange
-//		 + ") deltaSumR "
-//		 + largerModelAccuracy
-//		 + " - "
-//		 + accuracy + " = " + deltaSumR + " " + largerModel);
+		// Util.print("                                        "
+		// + (isSlow ? "      *" : "       ")
+		// + "improvement "
+		// + weightSpaceChange
+		// + (!isSlow ? "" : " (fast was " + fastWeighSpaceChange + " - "
+		// + deltaNullDivergence + " > " + threshold1 + ")")
+		// // + " nullDivergence "
+		// // +
+		// // nullModel.observed.KLdivergence(largerModel.predicted
+		// // .getMarginal(nullModel.facets()))
+		// // + " - "
+		// // + nullModel.KLdivergence(
+		// // + " = "
+		// // + deltaNullDivergence
+		// + (largerModel.nFacets() == nFacets() ? " fullDivergence "
+		// + largerModel.klDivergence() + " - " + klDivergence()
+		// + " = " + deltaFullDivergence : "")
+		// + " predicted="
+		// + Util.valueOfDeep(largerModel.predicted
+		// .getMarginalCounts(primaryFacets()))
+		// + " observed="
+		// + Util.valueOfDeep(nullModel.observed
+		// .getMarginalCounts(nullModel.facets()))
+		// + " deltaNullDivergence=" + deltaNullDivergence
+		// + " deltaFullDivergence=" + deltaFullDivergence);
 
-		return weightSpaceChange * WEIGHT_SPACE_IMPORTANCE - deltaSumR;
+		// printGraph(false);
+		// largerModel.printGraph(false);
+
+		return Math.min(weightSpaceChange - deltaNullDivergence,
+				deltaFullDivergence);
 	}
 
 	void printToFile() {
-		edu.cmu.cs.bungee.piccoloUtils.gui.Graph.printMe(buildGraph(null), Util
+		edu.cmu.cs.bungee.piccoloUtils.gui.Graph.printMe(buildGraph(this), Util
 				.convertForFilename(toString()));
 	}
 
-	double sumR(Explanation largerModel) {
-		// Util.print("sumR graph");
-		// largerModel.printGraph();
-		return nullModel.observed.sumR(largerModel.predicted);
-	}
+	// double sumR(Explanation largerModel) {
+	// // Util.print("sumR graph");
+	// // largerModel.printGraph();
+	// return nullModel.observed.sumR(largerModel.predicted);
+	// }
 
 	static List primaryFacets(Perspective popupFacet) {
 		Set primaryFacets1 = popupFacet.query().allRestrictions();
@@ -227,9 +271,20 @@ public abstract class Explanation {
 		// TagRelevance tag = (TagRelevance) it.next();
 		// Perspective p = (Perspective) tag.tag.object;
 		// primaryFacets1.add(p);
-		// primaryFacets1 = removeAncestorFacets(primaryFacets1, popupFacet);
+		removeAncestorFacets(primaryFacets1, popupFacet);
 		// }
 		return new ArrayList(primaryFacets1);
+	}
+
+	private static void removeAncestorFacets(Collection primary,
+			Perspective popupFacet) {
+		for (Iterator it = new ArrayList(primary).iterator(); it.hasNext();) {
+			Perspective facet = (Perspective) it.next();
+			Collection ancestors = facet.ancestors();
+			// Never remove popupFacet
+			ancestors.remove(popupFacet);
+			primary.removeAll(ancestors);
+		}
 	}
 
 	static List candidateFacets(List primaryFacets, boolean excludePrimary) {
@@ -264,26 +319,31 @@ public abstract class Explanation {
 		return result;
 	}
 
+	List primaryFacets() {
+		return Collections.unmodifiableList(parentModel == this ? facets()
+				: parentModel.primaryFacets());
+	}
+
+	List parentFacets() {
+		return Collections.unmodifiableList(parentModel.facets());
+	}
+
+	// boolean isPrimaryFacet(Perspective p) {
+	// return parentFacets().contains(p);
+	// }
+
 	Set nonPrimaryFacets() {
 		Set nonPrimary = new HashSet(facets());
 		nonPrimary.removeAll(primaryFacets());
 		return nonPrimary;
 	}
 
-	List primaryFacets() {
-		return nullModel.facets();
-	}
-
-	boolean isPrimaryFacet(Perspective p) {
-		return primaryFacets().contains(p);
-	}
-
-	double pseudoRsquared(Perspective caused) {
-		// Util.print("\npseudoRsquared " + caused + " " + this + "\n"
-		// + printGraph(false));
-		assert observed.facets.equals(predicted.facets);
-		return observed.pseudoRsquared(predicted.getDistribution(), caused);
-	}
+	// double pseudoRsquared(Perspective caused) {
+	// // Util.print("\npseudoRsquared " + caused + " " + this + "\n"
+	// // + printGraph(false));
+	// assert observed.facets.equals(predicted.facets);
+	// return observed.pseudoRsquared(predicted.getDistribution(), caused);
+	// }
 
 	double getRNormalizedWeight(Perspective cause, Perspective caused) {
 		// Util.print("\npseudoRsquared " + caused + " " + this + "\n"
@@ -368,16 +428,15 @@ public abstract class Explanation {
 		}
 	}
 
-	void optimizeWeight(Explanation base) {
+	boolean optimizeWeight(Explanation base) {
 		int argIndex = 0;
-		double[] observedDistribution = observed.getDistribution();
-		double maxDelta = 0;
+		double maxOdds = Double.POSITIVE_INFINITY;
 		int maxCause = -1;
 		int maxCaused = -1;
 		for (int bit = 0; bit < nFacets(); bit++) {
-			double delta = computeDelta(observedDistribution, bit, bit);
-			if (Math.abs(delta) > Math.abs(maxDelta)) {
-				maxDelta = delta;
+			double odds = predicted.odds(bit, bit);
+			if (odds < maxOdds) {
+				maxOdds = odds;
 				maxCause = bit;
 				maxCaused = bit;
 			}
@@ -390,49 +449,54 @@ public abstract class Explanation {
 			int causedNode = edge[1];
 			Perspective cause = (Perspective) facets().get(causeNode);
 			Perspective caused = (Perspective) facets().get(causedNode);
-			double delta = computeDelta(observedDistribution, causeNode,
-					causedNode);
+			double odds = predicted.odds(causeNode, causedNode);
 			if (baseModel != null && baseModel.hasEdge(cause, caused)) {
-//				delta += NonAlchemyModel.WEIGHT_STABILITY_IMPORTANCE
-//						* (baseModel.getWeight(cause, caused) - (predicted
-//								.getWeight(cause, caused) + delta));
-				delta=0;
+				// delta += NonAlchemyModel.WEIGHT_STABILITY_IMPORTANCE
+				// * (baseModel.getWeight(cause, caused) - (predicted
+				// .getWeight(cause, caused) + delta));
+				odds = 1;
 			}
-			if (Math.abs(delta) > Math.abs(maxDelta)) {
-				maxDelta = delta;
+			if (odds < maxOdds) {
+				maxOdds = odds;
 				maxCause = causeNode;
 				maxCaused = causedNode;
 			}
 			argIndex++;
 		}
-		if (maxCause >= 0) {
+		boolean result = maxCause >= 0;
+		if (result) {
 			// Util.print("ff "+maxCause+" "+maxCaused+" "+maxDelta);
-			predicted.setWeight(maxCause, maxCaused, predicted.getWeight(
-					maxCause, maxCaused)
-					+ maxDelta);
+			// NonAlchemyModel.nOW++;
+			double weight = predicted.getWeight(maxCause, maxCaused)
+					+ Math.log(observed.odds(maxCause, maxCaused) / maxOdds);
+			assert !Double.isNaN(weight) : predicted.getWeight(maxCause,
+					maxCaused)
+					+ " " + maxOdds + " " + observed.odds(maxCause, maxCaused);
+			predicted.setWeight(maxCause, maxCaused, weight);
 		}
 		// Util.print(Util.valueOfDeep(getObservedDistribution()));
 		// Util.print("getInitialWeights " + Util.valueOfDeep(result) + " base="
 		// + base);
 		// Util.print("getweights="+Util.valueOfDeep(predicted.getWeights()));
+		return result;
 	}
 
-	private double computeDelta(double[] observedDistribution, int causeNode,
-			int causedNode) {
-		double expOn = 0, expOff = 0, obs = 0;
-		for (int state = 0; state < observedDistribution.length; state++) {
-			if (Util.isBit(state, causeNode) && Util.isBit(state, causedNode)) {
-				expOn += predicted.expEnergy(state);
-				obs += observedDistribution[state];
-			} else {
-				expOff += predicted.expEnergy(state);
-			}
-		}
-		// Util.print("hh "+expOn+" "+expOff+" "+obs);
-		obs = Math.max(0.00001, obs);
-		double delta = -Math.log(expOn * (1 - obs) / obs / expOff);
-		return delta;
-	}
+	// private double expDelta(int causeNode, int causedNode) {
+	// double[] observedDistribution = observed.getDistribution();
+	// double expOn = 0, expOff = 0, obs = 0;
+	// for (int state = 0; state < observedDistribution.length; state++) {
+	// if (Util.isBit(state, causeNode) && Util.isBit(state, causedNode)) {
+	// expOn += predicted.expEnergy(state);
+	// obs += observedDistribution[state];
+	// } else {
+	// expOff += predicted.expEnergy(state);
+	// }
+	// }
+	// // Util.print("hh "+expOn+" "+expOff+" "+obs);
+	// obs = Math.max(0.00001, obs);
+	// double result = obs * expOff / (expOn * (1 - obs));
+	// return result;
+	// }
 
 	// /**
 	// * Clip to avoid infinities
@@ -448,18 +512,25 @@ public abstract class Explanation {
 	public Explanation getExplanation() {
 		long start = (new Date()).getTime();
 		NonAlchemyModel.totalNumFuns = 0;
+		NonAlchemyModel.totalNumGrad = 0;
 		// Util.print("selectFacets " + maxModel.facets + "\n");
 		Explanation result = FacetSelection.selectFacets(this, EDGE_COST);
+		// Util.print("fs "+result);
 		result = EdgeSelection.selectEdges(result, EDGE_COST);
+		// Util.print("es "+result);
 		double prev = NonAlchemyModel.WEIGHT_STABILITY_IMPORTANCE;
-		NonAlchemyModel.WEIGHT_STABILITY_IMPORTANCE = 0;
-		result.learnWeights(nullModel);
-		NonAlchemyModel.WEIGHT_STABILITY_IMPORTANCE = prev;
+		if (prev != 0) {
+			NonAlchemyModel.WEIGHT_STABILITY_IMPORTANCE = 0;
+			result.learnWeights(parentModel);
+			NonAlchemyModel.WEIGHT_STABILITY_IMPORTANCE = prev;
+		}
 		long duration = (new Date()).getTime() - start;
-		result.printGraphAndNull();
-		Util.print("getExplanation duration=" + (duration / 1000)
-				+ " Function Evaluations: " + NonAlchemyModel.totalNumFuns
-				+ "\n");
+		// result.printGraphAndNull();
+		// ((NonAlchemyModel) result).stats();
+		Util.print("getExplanation duration=" + (duration / 1000) + " nEdges="
+				+ result.predicted.nEdges() + " Function Evaluations: "
+				+ NonAlchemyModel.totalNumFuns + " Gradients: "
+				+ NonAlchemyModel.totalNumGrad + "\n");
 		return result;
 	}
 
@@ -574,14 +645,17 @@ public abstract class Explanation {
 		return predicted.getFacet(i);
 	}
 
-	private void printGraphAndNull() {
+	protected void printGraphAndNull() {
+		Explanation nullModel = nullModel();
 		if (nullModel != this) {
 			Util.print("\nbuildGraph\n" + nullModel.buildGraph(null));
-			nullModel.printGraph(false);
+			nullModel.printGraphAndNull();
 		}
 		Util.print("\nbuildGraph\n" + buildGraph(null));
 		printGraph(false);
-
+		if (parentModel == this) {
+			Util.print("(Null Model = this)");
+		}
 	}
 
 	public String toString() {
@@ -610,12 +684,21 @@ public abstract class Explanation {
 		} else {
 			buf.append(" nEdges=").append(predicted.nEdges());
 		}
+		// Util.print("\n" + Util.valueOfDeep(observed.getDistribution()));
+		// Util.print("\n" + Util.valueOfDeep(predicted.getDistribution()));
+		// Util.print("kl: " + klDivergence());
+		// printGraph(false);
 
 		buf.append(">");
 		return buf.toString();
 	}
 
 	public Graph buildGraph(PerspectiveObserver redrawer) {
-		return predicted.buildGraph(observed, nullModel, redrawer);
+		return predicted.buildGraph(observed, parentModel, redrawer);
+	}
+
+	public void redraw() {
+		Util.print("Explanation.redraw "+this);
+		printToFile();
 	}
 }

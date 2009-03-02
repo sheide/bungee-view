@@ -40,7 +40,7 @@ public abstract class GreedySubset {
 		while (maybeUpdate(false) || maybeUpdate(true)) {
 			// Keep updating until at local optimum
 		}
-		Util.print(Util.shortClassName(this) + " => " + currentGuess + "\n");
+//		Util.print(Util.shortClassName(this) + " => " + currentGuess + "\n");
 		return currentGuess;
 	}
 
@@ -121,10 +121,10 @@ public abstract class GreedySubset {
 		double thresh = isAdd ? threshold : -threshold;
 		double result = improvement(candidate, Math.max(thresh, bestEval));
 		
-		boolean win = result > thresh;		
-		Util.print(Util.shortClassName(this) + ".improvement "
-				+ (win ? "" + result : "[" + result + "]")
-				+ (isAdd ? " + " : " - ") + candidate + " " + currentGuess);
+//		boolean win = result > thresh;		
+//		Util.print(Util.shortClassName(this) + ".improvement "
+//				+ (win ? "" + result : "[" + result + "]")
+//				+ (isAdd ? " + " : " - ") + candidate + " " + currentGuess);
 		
 		return result;
 	}

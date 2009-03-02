@@ -17,6 +17,7 @@ import edu.cmu.cs.bungee.client.query.tetrad.Explanation;
 import edu.cmu.cs.bungee.client.query.tetrad.NonAlchemyModel;
 import edu.cmu.cs.bungee.javaExtensions.PerspectiveObserver;
 import edu.cmu.cs.bungee.javaExtensions.Util;
+import edu.cmu.cs.bungee.javaExtensions.graph.Graph.GraphWeigher;
 import edu.cmu.cs.bungee.piccoloUtils.gui.APText;
 import edu.cmu.cs.bungee.piccoloUtils.gui.Graph;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
@@ -624,16 +625,17 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 				// If we generate a new Tetrad, the facetsOfInterest might be
 				// different, and we don't want the graph to change on redraws
 				removeChild(graph);
-//				relabel(tetradGraph);
+				// relabel(tetradGraph);
 			} else {
 				// tetradGraph = Tetrad.getTetradGraph(facet, this, this);
 				// tetradGraph = Alchemy.getAlchemyGraph(facet, this, this,
 				// art.dbName);
-				 explanation = NonAlchemyModel.getExplanation(facet);
+				explanation = NonAlchemyModel.getExplanation(facet);
 				// drawTetradGraph(tetradGraph, "tetrad");
 			}
-			if (explanation == null)
-				return false;
+			// if (explanation == null) {
+			// return false;
+			// }
 			graph = getGraph();
 			addChild(graph);
 			graph.setWidth(barBG.getWidth());
@@ -644,21 +646,29 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 		// return false;
 	}
 
-//	private void relabel(
-//			edu.cmu.cs.bungee.javaExtensions.graph.Graph tetradGraph2) {
-//		for (Iterator it = tetradGraph2.getNodes().iterator(); it.hasNext();) {
-//			Node node = (Node) it.next();
-//			Perspective p = (Perspective) node.object;
-//			node.setLabel(p.getName(this));
-//		}
-//	}
+	// private void relabel(
+	// edu.cmu.cs.bungee.javaExtensions.graph.Graph tetradGraph2) {
+	// for (Iterator it = tetradGraph2.getNodes().iterator(); it.hasNext();) {
+	// Node node = (Node) it.next();
+	// Perspective p = (Perspective) node.object;
+	// node.setLabel(p.getName(this));
+	// }
+	// }
 
 	private Graph getGraph() {
-		edu.cmu.cs.bungee.javaExtensions.graph.Graph tetradGraph = explanation.buildGraph(this);
+		edu.cmu.cs.bungee.javaExtensions.graph.Graph tetradGraph;
+		if (explanation == null) {
+			tetradGraph = new edu.cmu.cs.bungee.javaExtensions.graph.Graph(
+					(GraphWeigher) null);
+		} else {
+			tetradGraph = explanation.buildGraph(this);
+		}
 		Graph graph1 = new Graph(tetradGraph, art.font);
 		graph1.setStrokePaint(BGcolor);
-		graph1.setLabel(graph1.getNumEdges() > 0 ? "Influence Diagram"
-				: "No dependencies");
+		graph1
+				.setLabel(explanation == null ? "You must select and/or hover over at least two tags to get a graph"
+						: graph1.getNumEdges() > 0 ? "Influence Diagram"
+								: "No dependencies");
 		colorFacetGraph(graph1);
 		return graph1;
 	}

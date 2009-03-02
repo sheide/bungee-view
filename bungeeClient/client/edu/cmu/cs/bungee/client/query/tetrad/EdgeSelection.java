@@ -1,6 +1,8 @@
 package edu.cmu.cs.bungee.client.query.tetrad;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -28,19 +30,25 @@ public class EdgeSelection extends GreedySubset {
 		EdgeSelection nonCoreSearch = new EdgeSelection(threshold,
 				startNonCoreEdges, startCoreEdges, explanation);
 		Set nonCoreEdges = nonCoreSearch.selectVariables();
-		EdgeSelection coreSearch = new EdgeSelection(threshold, startCoreEdges,
+//		Util.print("EdgeSelection nc => " + nonCoreEdges.size() + " "
+//				+ nonCoreEdges);
+		Explanation intermediateExplanation = nonCoreSearch.lookupExplanation(
 				nonCoreEdges, explanation);
+		EdgeSelection coreSearch = new EdgeSelection(threshold, startCoreEdges,
+				nonCoreEdges, intermediateExplanation);
 		Set coreEdges = coreSearch.selectVariables();
-		// Util.print("EdgeSelection => " + coreEdges);
-		return coreSearch.lookupExplanation(coreEdges, null);
+//		Util.print("EdgeSelection => " + coreEdges.size() + " " + coreEdges);
+		return coreSearch.lookupExplanation(coreEdges, intermediateExplanation);
 	}
 
 	EdgeSelection(double threshold, Set candidateEdges, Set committedEdges,
 			Explanation base) {
 		super(threshold, candidateEdges, GreedySubset.REMOVE);
 		addAllVariables();
-		this.committedEdges = committedEdges;
+		this.committedEdges = Collections.unmodifiableSet(committedEdges);
 		this.maxModel = base;
+		base.predicted.edgesFixed = true;
+		cacheExplanation(allEdges(candidateEdges), base);
 		// explanations.put(allEdges(candidateEdges), base);
 		// Util.print("EdgeSelection " + base + " " + threshold);
 		// base.printGraph();
@@ -81,9 +89,10 @@ public class EdgeSelection extends GreedySubset {
 		Explanation previous = lookupExplanation(previousGuess(toggledEdge),
 				null);
 		Explanation current = lookupExplanation(currentGuess, previous);
-//		current.printGraph(false);
-		double result = isAdding(toggledEdge) ? previous.improvement(current, threshold1)
-				: -current.improvement(previous, threshold1);
+		// Util.print("es.improv "+toggledEdge+" "+current+" "+previous);
+		// current.printGraph(false);
+		double result = isAdding(toggledEdge) ? previous.improvement(current,
+				threshold1) : -current.improvement(previous, threshold1);
 
 		return result;
 	}
@@ -108,20 +117,39 @@ public class EdgeSelection extends GreedySubset {
 	}
 
 	Explanation lookupExplanation(Set addedEdges, Explanation base) {
-		Set allEdges = allEdges(addedEdges);
-		Explanation result = (Explanation) explanations.get(allEdges);
+		Set allEdges = Collections.unmodifiableSet(allEdges(addedEdges));
+		Explanation result = edges2Explanation(allEdges);
 		if (result == null) {
 			if (base == null)
 				base = maxModel;
 			result = base.getAlternateExplanation(allEdges);
 			// result.printToFile();
-			explanations.put(allEdges, result);
+			cacheExplanation(allEdges, result);
 		}
+		return result;
+	}
+
+	private void cacheExplanation(Set edges, Explanation expl) {
+		assert edges.size() == expl.predicted.nEdges();
+		expl.predicted.edgesFixed = true;
+		List args = new ArrayList(3);
+		args.add(expl);
+		args.add(expl.toString());
+		args.add(edges.size() + "");
+		explanations.put(Collections.unmodifiableSet(edges), args);
+
+	}
+
+	private Explanation edges2Explanation(Set edges) {
+		List args = (List) explanations.get(edges);
+		Explanation result = args == null ? null : (Explanation) args.get(0);
+		assert result == null || edges.size() == result.predicted.nEdges() : result.predicted.edgesFixed
+				+ " " + args + " " + edges.size();
 		return result;
 	}
 
 	protected void newBest(Object candidate) {
 		super.newBest(candidate);
-		lookupExplanation(currentGuess, null).printToFile();
+		// lookupExplanation(currentGuess, null).printToFile();
 	}
 }
