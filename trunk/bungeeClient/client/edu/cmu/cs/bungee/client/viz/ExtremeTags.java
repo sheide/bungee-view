@@ -77,21 +77,22 @@ public class ExtremeTags extends LazyContainer implements MouseDoc,
 		}
 	}
 
-	double maxRelevance() {
-		return Math.sqrt(art.query.getTotalCount());
+	double maxRelevance(Perspective facet) {
+//		return Math.sqrt(art.query.getTotalCount());
+		return Math.sqrt(facet.parentTotalCount());
 	}
 
 	private double updateDataInternal(double y, Iterator it) {
 		double numW = art.numWidth(-100);
 		double nameW = getWidth() - numW - margin_size() -COLUMN_MARGIN;
-		double maxRelevance = maxRelevance();
+//		double maxRelevance = maxRelevance();
 		while (it.hasNext()) {
 			TagRelevance tag = (TagRelevance) it.next();
+			Perspective facet = (Perspective) tag.tag.object;
 			double relevance = tag.relevance;
 			int score = (int) Math.round(Util.sgn(relevance) * 100
-					* Math.pow(Math.abs(relevance / maxRelevance),0.25));
+					* Math.pow(Math.abs(relevance / maxRelevance(facet)),0.25));
 
-			Perspective facet = (Perspective) tag.tag.object;
 			FacetText text = FacetText.getFacetText(facet, art, numW, nameW,
 					false, false, score, this, isUnderline(facet));
 			text.setOffset(margin_size(), y);

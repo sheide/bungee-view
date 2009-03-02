@@ -50,10 +50,11 @@ class MyRegressionParams {
 		int _nRows = 0;
 		for (int state = 0; state < counts.length; state++) {
 			assert counts[state] >= 0 : Util.valueOfDeep(counts);
-			_nRows += counts[state];
+			int count = Math.max(0, counts[state]);
+			_nRows += count;
 			for (int j = 0; j < nVars(); j++) {
 				if (Util.isBit(state, j))
-					marginals[j] += counts[state];
+					marginals[j] += count;
 			}
 		}
 		nRows = _nRows;
@@ -281,6 +282,7 @@ class MyLogisticRegressionResult extends TetradRegressionResult {
 	}
 
 	MyLogisticRegressionResult(MyRegressionParams _params) {
+		boolean printReport = true;
 		params = _params;
 		LogisticRegression regression = new LogisticRegression();
 		Object[] data = params.getRegressors();
@@ -288,10 +290,12 @@ class MyLogisticRegressionResult extends TetradRegressionResult {
 		regression.setMultipliers((int[]) data[0]);
 		regression.setVariableNames(params.regressorNames);
 		regression.setAlpha(Tetrad.ALPHA);
+		regression.maxCoef = 1000;
 
-		report = regression.regress((double[]) data[1], params.targetName);
-		// Util.ignore(report);
-		// Util.print(report);
+		report = regression.regress((double[]) data[1], params.targetName,
+				printReport);
+		if (printReport)
+			Util.print(report);
 		logisticResult = regression.getResult();
 
 		assert checkCoefs() : this + " " + Util.valueOfDeep(params.counts)
@@ -323,19 +327,20 @@ class MyLogisticRegressionResult extends TetradRegressionResult {
 	 * /general/Psuedo_RSquareds.htm
 	 */
 	double pseudoRsquared() {
+//		assert false;
 		double residuals = 0;
 		double sumYhat = 0;
 		int[] counts = params.counts;
 		for (int state = 0; state < counts.length; state++) {
 			double yHat = yHat(state);
 			double y = Util.getBit(state, 0);
-			// Util.print("yHat count=" + counts[state] + " x=" + (state / 2) +
-			// " y="
-			// + y + " => " + yHat);
 			int count = counts[state];
 			sumYhat += yHat * count;
 			double residual = y - yHat;
 			residuals += residual * residual * count;
+			Util.print("yHat count=" + count + "\tX=" + (state / 2) + "\ty="
+					+ y + " => " + yHat + "\tresidual="
+					+ (residual * residual * count));
 
 		}
 		double base = pseudoRsquaredDenom();
@@ -343,12 +348,15 @@ class MyLogisticRegressionResult extends TetradRegressionResult {
 		// " "
 		// + sumYhat + report + "\n" + yHats();
 		double Rsquare = 1 - residuals / base;
-		// Util.print("pseudoRsquared=" + Rsquare + " for "
-		// + Util.valueOfDeep(params.counts) + " " + residuals + "/"
-		// + base);
-		assert Rsquare >= -0.01 && Rsquare <= 1.01 : Rsquare + " " + base + " "
-				+ residuals + " " + params.yCount() + " " + sumYhat + "\n"
-				+ report + "\n" + yHats();
+		Util.print("pseudoRsquared=" + Rsquare + " ("
+				+ Math.sqrt(Math.abs(Rsquare)) + ") for "
+				+ Util.valueOfDeep(params.counts) + " " + residuals + "/"
+				+ base + "\n");
+		Util.print(Util.valueOfDeep(getCoefs()));
+		assert Rsquare >= -0.01 && Rsquare <= 1.01 : "Rsquare=" + Rsquare
+				+ " base=" + base + " residuals=" + residuals + " yCount="
+				+ params.yCount() + " sumYhat=" + sumYhat + " nRows=" + nRows()
+				+ "\n" + report + "\n" + yHats();
 		return Rsquare;
 	}
 
