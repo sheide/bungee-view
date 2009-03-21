@@ -3410,7 +3410,7 @@ final class Bungee extends PFrame {
 
 				public void run() {
 					initializeFrames();
-//					NonAlchemyModel.test(query, 100);
+					NonAlchemyModel.test(query, 50);
 				}
 			};
 

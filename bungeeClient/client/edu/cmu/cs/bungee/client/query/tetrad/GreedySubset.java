@@ -16,13 +16,13 @@ public abstract class GreedySubset {
 	static final int ADD_AND_REMOVE = 0;
 	static final int ADD = 1;
 	static final int REMOVE = 2;
-	Set variables;
-	Set currentGuess;
-	double threshold;
-	Object lastToggledVariable;
+	private Set variables;
+	protected Set currentGuess;
+	protected double threshold;
+	private Object lastToggledVariable;
 	private final int mode;
 
-	GreedySubset(double threshold, Collection variables, int mode) {
+	protected GreedySubset(double threshold, Collection variables, int mode) {
 		super();
 		assert mode == ADD_AND_REMOVE || mode == ADD || mode == REMOVE;
 		this.currentGuess = new HashSet();
@@ -31,16 +31,16 @@ public abstract class GreedySubset {
 		this.mode = mode;
 	}
 
-	void addAllVariables() {
+	protected void addAllVariables() {
 		currentGuess.addAll(variables);
 	}
 
-	Set selectVariables() {
+	protected Set selectVariables() {
 		// Util.print("\nselectVariables: base eval=" + eval());
 		while (maybeUpdate(false) || maybeUpdate(true)) {
 			// Keep updating until at local optimum
 		}
-//		Util.print(Util.shortClassName(this) + " => " + currentGuess + "\n");
+		// Util.print(Util.shortClassName(this) + " => " + currentGuess + "\n");
 		return currentGuess;
 	}
 
@@ -77,14 +77,6 @@ public abstract class GreedySubset {
 		return currentGuess.contains(candidate);
 	}
 
-	// void add(Object candidate) {
-	// currentGuess.add(candidate);
-	// }
-	//
-	// void remove(Object candidate) {
-	// currentGuess.remove(candidate);
-	// }
-
 	private Object bestCandidate(boolean isAdd) {
 		double bestEval = Double.NEGATIVE_INFINITY;
 		Object best = null;
@@ -93,7 +85,7 @@ public abstract class GreedySubset {
 			if (isAdd != currentGuess.contains(variable)) {
 				toggle(variable);
 				double eval = eval(variable, bestEval);
-				// Util.print("eval " + eval + " " + variable);
+				// Util.print("eval " + eval + (isAdd?" + ":" - ") + variable);
 				if (eval > bestEval) {
 					// Util.print("new best eval " + eval + " " + variable);
 					bestEval = eval;
@@ -111,21 +103,28 @@ public abstract class GreedySubset {
 	}
 
 	protected void newBest(Object candidate) {
-		Util.print("NEW GUESS " + improvement(candidate, Double.NEGATIVE_INFINITY) + " "
-				+ (isAdding(candidate) ? "+ " : "- ") + candidate + " => "
-				+ currentGuess);
+		if (Explanation.PRINT_LEVEL > 0) {
+			Util.print("NEW GUESS "
+					+ improvement(candidate, Double.NEGATIVE_INFINITY) + " "
+					+ (isAdding(candidate) ? "+ " : "- ") + candidate + " => "
+					+ currentGuess);
+		}
 	}
 
-	double eval(Object candidate, double bestEval) {
+	private double eval(Object candidate, double bestEval) {
 		boolean isAdd = isAdding(candidate);
 		double thresh = isAdd ? threshold : -threshold;
 		double result = improvement(candidate, Math.max(thresh, bestEval));
-		
-//		boolean win = result > thresh;		
-//		Util.print(Util.shortClassName(this) + ".improvement "
-//				+ (win ? "" + result : "[" + result + "]")
-//				+ (isAdd ? " + " : " - ") + candidate + " " + currentGuess);
-		
+
+		if (Explanation.PRINT_LEVEL > 0) {
+			boolean win = result > thresh;
+			Util.print(Util.shortClassName(this) + ".improvement "
+					+ (win ? result + " > " : "[" + result + "] < ") + thresh
+					+ (isAdd ? " + " : " - ") + candidate + " " + currentGuess);
+			if (Explanation.PRINT_LEVEL > 1)
+				Util.print("");
+		}
+
 		return result;
 	}
 
