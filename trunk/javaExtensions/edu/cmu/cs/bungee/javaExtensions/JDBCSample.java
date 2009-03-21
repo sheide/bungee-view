@@ -37,7 +37,7 @@ public class JDBCSample {
 	 * Print queries that take longer than this. Print all queries and extra
 	 * info if slowQueryTime = 0 Never print if slowQueryTime < 0.
 	 */
-	private final static int slowQueryTime = -1;
+	private final static int slowQueryTime = 0;
 
 	/**
 	 * Only used by showSlow.

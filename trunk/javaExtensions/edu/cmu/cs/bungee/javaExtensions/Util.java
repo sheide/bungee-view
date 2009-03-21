@@ -273,6 +273,7 @@ public final class Util {
 		if (zeroToOne == 1.0f)
 			// avoid roundoff errors
 			return x2;
+		// print(" "+x1+" "+x2+" "+zeroToOne+" "+x1 + zeroToOne * (x2 - x1));
 		return x1 + zeroToOne * (x2 - x1);
 	}
 
@@ -702,6 +703,14 @@ public final class Util {
 		if (a == null)
 			return a;
 		Object[] a2 = (Object[]) Array.newInstance(type, a.length);
+		System.arraycopy(a, 0, a2, 0, a.length);
+		return a2;
+	}
+
+	public static double[] copy(double[] a) {
+		if (a == null)
+			return a;
+		double[] a2 = new double[a.length];
 		System.arraycopy(a, 0, a2, 0, a.length);
 		return a2;
 	}
@@ -2285,4 +2294,48 @@ public final class Util {
 		}
 		return result;
 	}
+
+	/**
+	 * reduce roundoff error
+	 */
+	public static double kahanSum(double[] a) {
+		// Arrays.sort(a);
+		double sum, correction, corrected_next_term, new_sum;
+
+		sum = a[0];
+		correction = 0.0;
+		for (int i = 1; i < a.length; i++) {
+			corrected_next_term = a[i] - correction;
+			new_sum = sum + corrected_next_term;
+			correction = (new_sum - sum) - corrected_next_term;
+			sum = new_sum;
+			// System.out.print(sum+"\t");
+		}
+		// System.out.print("\n");
+		// Util.print(Util.valueOfDeep(a)+" "+sum);
+		// testSum(a, sum);
+		return sum;
+	}
+
+	public static void testSum(double[] counting, double kSum) {
+
+		double sum = 0;
+		// Sum the fractions using simple straight summation.
+		for (int i = 0; i < counting.length; ++i) {
+			double fraction = counting[i];
+			sum += fraction;
+		}
+		// double error = 100 * Math.abs((kSum - sum) / kSum);
+		// if (error != 0)
+		System.out.println("\nKahan summation = " + kSum + "\n"
+				+ valueOfDeep(counting));
+	}
+
+	public static boolean approxEquals(double a, double b) {
+		double threshold = 1e-8;
+		double diff = Math.abs(a - b);
+		return diff < threshold
+				|| diff / Math.max(Math.abs(a), Math.abs(b)) < threshold;
+	}
+
 }

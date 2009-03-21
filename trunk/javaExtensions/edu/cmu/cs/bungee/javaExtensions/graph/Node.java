@@ -4,16 +4,16 @@ import java.awt.Font;
 import java.awt.font.FontRenderContext;
 import java.awt.geom.Rectangle2D;
 
-public class Node {
+public class Node implements Comparable {
 	private String label;
 
 	private int centerX;
 	private int centerY;
 	public final Object object;
 
-	public Node(Object object,String label) {
+	public Node(Object object, String label) {
 		this.label = label;
-		this.object=object;
+		this.object = object;
 	}
 
 	public int getCenterX() {
@@ -49,6 +49,20 @@ public class Node {
 
 	public String toString() {
 		return "<Node " + label + ">";
+	}
+
+	public int compareTo(Object arg0) {
+		if (arg0 == this)
+			return 0;
+		Node node = (Node) arg0;
+		Object argObj = node.object;
+		int result = 0;
+		if (object instanceof Comparable && argObj instanceof Comparable)
+			result = ((Comparable) object).compareTo(argObj);
+		if (result == 0)
+			result = label.compareTo(node.label);
+		assert result != 0 : "What now?";
+		return result;
 	}
 
 }
