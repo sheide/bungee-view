@@ -20,11 +20,7 @@ import javax.servlet.http.HttpServletResponse;
 import edu.cmu.cs.bungee.javaExtensions.Util;
 
 enum Command {
-	CONNECT, CLOSE, getCountsIgnoringFacet, ABOUT_COLLECTION, getFilteredCounts, updateOnItems, prefetch, offsetItems, 
-	getThumbs, cluster, getDescAndImage, getItemInfo, ITEM_URL, itemIndex, itemIndexFromURL, restrict, baseFacets, 
-	getFilteredCountTypes, addItemsFacet, addChildFacet, removeItemFacet, reparent, addItemFacet, writeback, revert, 
-	rotate, rename, removeItemsFacet, getNames, reorderItems, setItemDescription, opsSpec, getLetterOffsets, 
-	caremediaPlayArgs, caremediaGetItems, getPairCounts, topCandidates, getFacetInfo
+	CONNECT, CLOSE, getCountsIgnoringFacet, ABOUT_COLLECTION, getFilteredCounts, updateOnItems, prefetch, offsetItems, getThumbs, cluster, getDescAndImage, getItemInfo, ITEM_URL, itemIndex, itemIndexFromURL, restrict, baseFacets, getFilteredCountTypes, addItemsFacet, addChildFacet, removeItemFacet, reparent, addItemFacet, writeback, revert, rotate, rename, removeItemsFacet, getNames, reorderItems, setItemDescription, opsSpec, getLetterOffsets, caremediaPlayArgs, caremediaGetItems, getPairCounts, topCandidates, getFacetInfo
 }
 
 public class Servlet extends HttpServlet {
@@ -361,13 +357,14 @@ public class Servlet extends HttpServlet {
 			String facets = request.getParameter("arg1");
 			String candidates = request.getParameter("arg2");
 			table = getIntParameter(request, "arg3");
-			db.getPairCounts(facets, candidates, table, out);
+			boolean needBaseCounts = getIntParameter(request, "arg4") > 0;
+			db.getPairCounts(facets, candidates, table, needBaseCounts, out);
 			break;
 		case topCandidates:
 			facets = request.getParameter("arg1");
 			int n = getIntParameter(request, "arg2");
 			int baseTable = getIntParameter(request, "arg3");
-//			String baseTable = request.getParameter("arg3");
+			// String baseTable = request.getParameter("arg3");
 			db.topCandidates(facets, n, baseTable, out);
 			break;
 		case opsSpec:
@@ -382,7 +379,7 @@ public class Servlet extends HttpServlet {
 		// db.baseFacets(out);
 		// break;
 		case addItemFacet:
-			 facet = getIntParameter(request, "arg1");
+			facet = getIntParameter(request, "arg1");
 			item = getIntParameter(request, "arg2");
 			db.addItemFacet(facet, item, out);
 			break;

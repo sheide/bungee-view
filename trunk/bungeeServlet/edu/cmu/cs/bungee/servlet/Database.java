@@ -132,21 +132,21 @@ public class Database {
 						+ "PRIMARY KEY USING BTREE (facet_id)) ENGINE=HEAP "
 						+ "PACK_KEYS=1 ROW_FORMAT=FIXED",
 
-				// "CREATE TEMPORARY TABLE IF NOT EXISTS itemStates1"
-				// + itemStatesDef + "MYISAM",
-				//
-				// "CREATE TEMPORARY TABLE IF NOT EXISTS itemStates2"
-				// + itemStatesDef + "MERGE UNION(itemStates1)",
+		// "CREATE TEMPORARY TABLE IF NOT EXISTS itemStates1"
+		// + itemStatesDef + "MYISAM",
+		//
+		// "CREATE TEMPORARY TABLE IF NOT EXISTS itemStates2"
+		// + itemStatesDef + "MERGE UNION(itemStates1)",
 
-				"CREATE TEMPORARY TABLE IF NOT EXISTS mutInf (facet_id "
-						+ facet_id_column_type + ", mutInf FLOAT, "
-						+ "PRIMARY KEY (facet_id)) ENGINE=HEAP "
-						+ "PACK_KEYS=1 ROW_FORMAT=FIXED",
-
-				"CREATE TEMPORARY TABLE IF NOT EXISTS state_items (record_num "
-						+ item_id_column_type
-						+ ", PRIMARY KEY (record_num)) ENGINE=HEAP "
-						+ "PACK_KEYS=1 ROW_FORMAT=FIXED",
+		// "CREATE TEMPORARY TABLE IF NOT EXISTS mutInf (facet_id "
+		// + facet_id_column_type + ", mutInf FLOAT, "
+		// + "PRIMARY KEY (facet_id)) ENGINE=HEAP "
+		// + "PACK_KEYS=1 ROW_FORMAT=FIXED",
+		//
+		// "CREATE TEMPORARY TABLE IF NOT EXISTS state_items (record_num "
+		// + item_id_column_type
+		// + ", PRIMARY KEY (record_num)) ENGINE=HEAP "
+		// + "PACK_KEYS=1 ROW_FORMAT=FIXED",
 
 		// "CREATE TEMPORARY TABLE IF NOT EXISTS state_counts (facet_id "
 		// + facet_id_column_type + ", cnt FLOAT, "
@@ -896,14 +896,14 @@ public class Database {
 	 * @param facetNames
 	 *            list of facets to find co-occurence counts among
 	 * @param table
-	 *            either "restricted" or "item_order_heap"
+	 *            either "restricted" or "item_order_heap". Currently ignored.
 	 * @param out
 	 * @throws SQLException
 	 * @throws ServletException
 	 * @throws IOException
 	 */
 	@SuppressWarnings("unchecked")
-	void getPairCounts(String facetNames, String candidates, int table,
+	void getPairCountsOLD(String facetNames, String candidates, int table,
 			DataOutputStream out) throws SQLException, ServletException,
 			IOException {
 
@@ -947,8 +947,88 @@ public class Database {
 		// if (selects.size() > 1)
 		// log(stateCountsQuery);
 		ResultSet rs = jdbc.SQLquery(stateCountsQuery);
-		sendResultSet(rs, MyResultSet.SNMINT_INT_INT, out);
+//		sendResultSet(rs, MyResultSet.SNMINT_INT_INT, out);
+		log("\nOLD");
+		printRecords(rs, MyResultSet.SNMINT_INT_INT);
 		// }
+	}
+
+	private boolean pairCountTablesCreated = false;
+
+	@SuppressWarnings("unchecked")
+	void getPairCounts(String facetNames, String candidates, int table,
+			boolean needBaseCounts, DataOutputStream out) throws SQLException,
+			ServletException, IOException {
+		String itemTable = table == 1 ? "restricted" : "item_order_heap";
+		if (!pairCountTablesCreated) {
+			pairCountTablesCreated = true;
+			// jdbc.SQLupdate("DROP TABLE IF EXISTS tetrad_facets");
+			// jdbc.SQLupdate("DROP TABLE IF EXISTS tetrad_items");
+			jdbc.SQLupdate("CREATE temporary TABLE tetrad_facets("
+					+ "facet_id mediumint(8) unsigned NOT NULL, "
+					+ "bit smallint(8) unsigned NOT NULL, "
+					+ "PRIMARY KEY (facet_id)) ENGINE=MEMORY");
+			jdbc.SQLupdate("CREATE temporary TABLE tetrad_items("
+					+ "record_num mediumint(8) unsigned NOT NULL, "
+					+ "state smallint(8) unsigned NOT NULL, "
+					+ "PRIMARY KEY (record_num)) ENGINE=MEMORY");
+		} else {
+			jdbc.SQLupdate("truncate table tetrad_facets");
+			jdbc.SQLupdate("truncate table tetrad_items");
+		}
+		// if (!itemTable.equals(pairCountTablesCreated)) {
+		// // jdbc.SQLupdate("insert into tetrad_items "
+		// // + "select record_num, 0 from " + itemTable);
+		// } else {
+		// // jdbc.SQLupdate("update tetrad_items set state=0;");
+		// }
+		jdbc.SQLupdate("set @index = 1");
+		jdbc.SQLupdate("insert into tetrad_facets "
+				+ "select facet_id,(@index :=@index*2)/2 "
+				+ "from facet where facet_id in (" + facetNames + ")");
+
+		// String[]facets=Util.splitComma(facetNames);
+		// PreparedStatement
+		// setStates=jdbc.lookupPS("update tetrad_items i,item_facet_heap ifh "
+		// + "set state = state + ? "
+		// + "where ifh.facet_id = ? "
+		// + "and ifh.record_num = i.record_num;");
+		// for (int i = 0, bit=1; i < facets.length; i++,bit*=2) {
+		// setStates.setInt(1, bit);
+		// setStates.setString(2, facets[i]);
+		// jdbc.SQLupdate(setStates);
+		// }
+
+		jdbc
+				.SQLupdate("insert into tetrad_items "
+						+ "select record_num, sum(bit) "
+						+ "from tetrad_facets f, item_facet_heap ifh "
+						+ (itemTable.equals("restricted") ? "inner join restricted using (record_num) "
+								: "") + "where ifh.facet_id = f.facet_id "
+						+ "group by record_num");
+
+		// jdbc
+		//.SQLupdate("update tetrad_items i,tetrad_facets f,item_facet_heap ifh "
+		// + "set state = state + bit "
+		// + "where ifh.facet_id = f.facet_id "
+		// + "and ifh.record_num = i.record_num;");
+
+		if (needBaseCounts) {
+			ResultSet baseCounts = jdbc
+					.SQLquery("select SQL_SMALL_RESULT 0, state, count(*) from tetrad_items "
+							+ "group by state order by null");
+			sendResultSet(baseCounts, MyResultSet.SNMINT_INT_INT, out);
+		}
+
+		if (candidates.length() > 0) {
+			ResultSet candidateCounts = jdbc
+					.SQLquery("select SQL_SMALL_RESULT facet_id, ifnull(state, 0) s, count(*) "
+							+ "from item_facet_heap left join tetrad_items using (record_num) "
+							+ "where facet_id in ("
+							+ candidates
+							+ ") group by facet_id, s order by facet_id");
+			sendResultSet(candidateCounts, MyResultSet.SNMINT_INT_INT, out);
+		}
 	}
 
 	// private void updateItemStates(String facetNames, int table)
@@ -1142,12 +1222,12 @@ public class Database {
 		myAssert(table != 1,
 				"topCandidates needs a second case for restricted queries.");
 		// String baseTable = table == 1 ? "restricted" : "item_order_heap";
-		String sql = "CREATE TEMPORARY TABLE IF NOT EXISTS jointCounts (" +
-				" candidateID smallint(5) unsigned NOT NULL," +
-				" primaryID smallint(5) unsigned NOT NULL," +
-				" jointCount bigint(21) NOT NULL default 0," +
-				" PRIMARY KEY USING HASH (candidateID, primaryID)" +
-				") ENGINE=MEMORY DEFAULT CHARSET=utf8";
+		String sql = "CREATE TEMPORARY TABLE IF NOT EXISTS jointCounts ("
+				+ " candidateID smallint(5) unsigned NOT NULL,"
+				+ " primaryID smallint(5) unsigned NOT NULL,"
+				+ " jointCount bigint(21) NOT NULL default 0,"
+				+ " PRIMARY KEY USING HASH (candidateID, primaryID)"
+				+ ") ENGINE=MEMORY DEFAULT CHARSET=utf8";
 		jdbc.SQLupdate(sql);
 		jdbc.SQLupdate("TRUNCATE TABLE jointCounts");
 		sql = "INSERT INTO jointCounts "
@@ -1157,33 +1237,29 @@ public class Database {
 				+ " WHERE i1.facet_id NOT IN (" + perspectiveIDs
 				+ ") AND i0.facet_id IN (" + perspectiveIDs
 				+ ") GROUP BY candidateID, primaryID " + "ORDER BY NULL";
-//		log(sql);
+		// log(sql);
 		jdbc.SQLupdate(sql);
-		sql = "SELECT candidateID " +
-			"FROM (SELECT candidateID," +
-			"ABS(jointProb - primaryProb*candidateProb)/" +
-			"SQRT((primaryProb-primaryProb*primaryProb)*(candidateProb-candidateProb*candidateProb)) corr " +
-			"FROM (SELECT candidateID," +
-			"(SELECT n_items FROM facet" +
-			" WHERE facet_id=primaryID)/(SELECT COUNT(*) FROM item_order_heap) primaryProb," +
-			"n_items/(SELECT COUNT(*) FROM item_order_heap) candidateProb," +
-			"jointCount/(SELECT COUNT(*) FROM item_order_heap) jointProb " +
-			"FROM (" 			
+		sql = "SELECT candidateID "
+				+ "FROM (SELECT candidateID,"
+				+ "ABS(jointProb - primaryProb*candidateProb)/"
+				+ "SQRT((primaryProb-primaryProb*primaryProb)*(candidateProb-candidateProb*candidateProb)) corr "
+				+ "FROM (SELECT candidateID,"
+				+ "(SELECT n_items FROM facet"
+				+ " WHERE facet_id=primaryID)/(SELECT COUNT(*) FROM item_order_heap) primaryProb,"
+				+ "n_items/(SELECT COUNT(*) FROM item_order_heap) candidateProb,"
+				+ "jointCount/(SELECT COUNT(*) FROM item_order_heap) jointProb "
+				+ "FROM ("
 				+ "SELECT candidate.facet_id candidateID, candidate.n_items, prime.facet_id primaryID, foo.jointCount "
 				+ "FROM facet candidate INNER JOIN facet prime LEFT JOIN "
 				+ "jointCounts foo "
 				+ "ON foo.candidateID = candidate.facet_id AND foo.primaryID = prime.facet_id "
 				+ "WHERE candidate.parent_facet_id > 0 "
-				+ "AND candidate.facet_id NOT IN ("
-				+ perspectiveIDs
-				+ ")"
-				+ " AND prime.facet_id IN (" + perspectiveIDs + "))" + 
-				" foo " +
-				"HAVING candidateProb>0.00001" +
-				") bar ) baz " +
-				"GROUP BY candidateID " +
-				"ORDER BY POW(SUM(corr),2) - SUM(corr*corr) DESC LIMIT " + n;
-//		log(sql);
+				+ "AND candidate.facet_id NOT IN (" + perspectiveIDs + ")"
+				+ " AND prime.facet_id IN (" + perspectiveIDs + "))" + " foo "
+				+ "HAVING candidateProb>0.00001" + ") bar ) baz "
+				+ "GROUP BY candidateID "
+				+ "ORDER BY POW(SUM(corr),2) - SUM(corr*corr) DESC LIMIT " + n;
+		// log(sql);
 		ResultSet rs = jdbc.SQLquery(sql);
 		sendResultSet(rs, MyResultSet.INT, out);
 	}
@@ -1885,7 +1961,7 @@ public class Database {
 	private void recomputeRawFacetType(int delta) throws SQLException {
 		jdbc.SQLupdate("DROP TABLE IF EXISTS rft");
 		jdbc
-				.SQLupdate("CREATE TEMPORARY  TABLE rft AS"
+				.SQLupdate("CREATE TEMPORARY TABLE rft AS"
 						+ " SELECT IFNULL(f.facet_id, -1) oldID, COUNT(*) ID, r.name, "
 						+ "r.descriptionCategory, r.descriptionPreposition, r.sort, r.isOrdered "
 						+ "FROM raw_facet_type r LEFT JOIN facet f USING (name) "
