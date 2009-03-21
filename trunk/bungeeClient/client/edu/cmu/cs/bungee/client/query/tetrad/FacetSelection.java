@@ -16,34 +16,29 @@ public class FacetSelection extends GreedySubset {
 	private final double edgeThreshold;
 	private final List candidates;
 
-	static Explanation selectFacets(Explanation nullModel, double threshold) {
-		FacetSelection search = new FacetSelection(nullModel, Explanation
-				.candidateFacets(nullModel.facets(), true), threshold);
+	protected static Explanation selectFacets(Explanation nullModel,
+			List candidates, double threshold) {
+		FacetSelection search = new FacetSelection(nullModel, candidates,
+				threshold);
 
 		search.cacheCandidates();
 		Set addedFacets = search.selectVariables();
-		// Util.print("FacetSelection => " + addedFacets);
+		if (Explanation.PRINT_LEVEL > 0)
+			Util.print("FacetSelection => " + addedFacets);
 		Explanation result = search.lookupExplanation(addedFacets, nullModel);
-//		Util.print("gggg");
-//		result.printGraph(false);
+		// Util.print("gggg");
+		// result.printGraph(false);
 
 		return result;
 	}
 
-	FacetSelection(Explanation nullModel, List candidates, double edgeThreshold) {
+	private FacetSelection(Explanation nullModel, List candidates,
+			double edgeThreshold) {
 		super(edgeThreshold * nullModel.nFacets(), candidates, GreedySubset.ADD);
 		this.candidates = Collections.unmodifiableList(candidates);
 		this.nullModel = nullModel;
 		this.edgeThreshold = edgeThreshold;
 	}
-
-	// double eval() {
-	// Explanation explanation = explanation0
-	// .getAlternateExplanation(currentGuess,null,null);
-	// Util.print("\neval " + explanation);
-	// return explanation.improvement(explanation0.nullModel);
-	// return 0;
-	// }
 
 	double improvement(Object toggledFacet, double threshold1) {
 		Explanation previous = lookupExplanation(previousGuess(toggledFacet),
@@ -52,67 +47,51 @@ public class FacetSelection extends GreedySubset {
 		boolean isAdding = isAdding(toggledFacet);
 		Explanation smaller = isAdding ? previous : current;
 		Explanation larger = isAdding ? current : previous;
+		if (larger.nFacets() >= 7)
+			return 0;
 		threshold = edgeThreshold * smaller.nFacets();
-//		current.printGraph(false);
+		// current.printGraph(false);
+		assert larger.parentModel == smaller : "\n" + larger + "\n"
+				+ larger.parentModel + "\n" + smaller;
 		double result = (isAdding ? 1 : -1)
-				* smaller.improvement(larger, threshold1);
+				* larger.improvement(smaller, threshold1);
 
-//		double weightSpaceChange = larger.predicted.weightSpaceChange(
-//				smaller.predicted, smaller.primaryFacets(), smaller.observed, larger.observed,
-//				true);
-//		double[] correlations = new double[nullModel.primaryFacets().size()];
-//		int corrIndex = 0;
-//		Perspective nonPrim = (Perspective) toggledFacet;
-//		for (Iterator it = nullModel.primaryFacets().iterator(); it.hasNext();) {
-//			Perspective prim = (Perspective) it.next();
-//			assert (prim != nonPrim);
-//			correlations[corrIndex++] = larger.observed.getChiSq(nonPrim, prim)
-//					.correlation();
-//		}
-//		List toggledFacets = new ArrayList(1);
-//		toggledFacets.add(toggledFacet);
-//		Util.print(toggledFacet + ", " + weightSpaceChange
-//
-//		+ ", correlations, " + Util.join(correlations)
-//
-//		// +", mutInf, "
-//				// + larger.observed.mutualInformation(toggledFacets, smaller
-//				// .facets())
-//
-//				);
-		
-//current.printToFile();
+		// current.printToFile();
 		return result;
 	}
 
-	List facetList(Collection addedFacets) {
+	private List facetList(Collection addedFacets) {
 		List result = new LinkedList(nullModel.facets());
 		result.addAll(addedFacets);
 		Collections.sort(result);
 		return result;
 	}
 
-	Explanation lookupExplanation(Set addedFacets, Explanation base) {
-		List allFacetList = Collections.unmodifiableList(facetList(addedFacets));
+	private Explanation lookupExplanation(Set addedFacets, Explanation base) {
+		List allFacetList = facetList(addedFacets);
 		Explanation result = (Explanation) explanations.get(allFacetList);
 		if (result == null) {
 			if (base == null)
 				base = nullModel;
-			result = base.getAlternateExplanation(allFacetList, candidates);
-			explanations.put(allFacetList, result);
+			result = base.getAlternateExplanation(allFacetList);
+			explanations.put(result.facets(), result);
 		}
 		return result;
 	}
 
-	void cacheCandidates() {
+	private void cacheCandidates() {
 		assert candidates.size() > 0;
-		Distribution.cacheCandidates(facetList(currentGuess), candidates);
+		Distribution.cacheCandidateDistributions(facetList(currentGuess),
+				candidates);
 	}
 
 	protected void newBest(Object candidate) {
 		super.newBest(candidate);
 		cacheCandidates();
-//		lookupExplanation(currentGuess, null).printToFile();
-		// lookupExplanation(currentGuess, null).printGraph();
+		if (Explanation.PRINT_LEVEL > 1) {
+			Explanation best = lookupExplanation(currentGuess, null);
+			best.printGraph();
+			best.printToFile();
+		}
 	}
 }

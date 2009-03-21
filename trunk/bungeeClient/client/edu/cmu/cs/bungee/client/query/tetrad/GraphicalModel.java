@@ -1,11 +1,11 @@
 package edu.cmu.cs.bungee.client.query.tetrad;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -20,51 +20,78 @@ import edu.cmu.cs.bungee.javaExtensions.graph.Node;
 import edu.cmu.cs.bungee.javaExtensions.graph.Graph.GraphWeigher;
 
 public class GraphicalModel extends Distribution {
-	
-	boolean edgesFixed=false;
 
-	final boolean isSymmetric;
+	/**
+	 * If weights get too big, predicted probabilities go to zero, and KL and z
+	 * go to infinity.
+	 */
+	protected static final double MAX_WEIGHT = 30;
+
+	private boolean edgesFixed = false;
+
+	private final static boolean isSymmetric = true;
 
 	/**
 	 * {node1, node2) => weight
 	 */
-	protected final double[][] weights;
+	private final double[] weights;
 
 	/**
 	 * Non-existent edges are coded -2; uncached are coded -1
 	 */
-	final double[][] expWeights;
+	private final double[] expWeights;
 
-	int[][] edgeIndexes;
+	private double[] energies;
 
-	private double[] logDistribution;
+	private double[] expEnergies;
+
+	private final int[][] edgeIndexes;
+
+	private final int[][] edgeStates;
+
+	// private final int[][][] stateEdges;
+
+	private final double[] logDistribution;
 
 	private double z = -1;
+	private final int nEdges;
+	private final int nEdgesPlusBiases;
 
 	GraphicalModel(List facets, Set edges, boolean isSymmetric, int count) {
 		super(facets, count);
-		this.isSymmetric = isSymmetric;
-		weights = new double[nFacets()][];
-		expWeights = new double[nFacets()][];
-		edgeIndexes = new int[nFacets()][];
-		for (int i = 0; i < weights.length; i++) {
-			edgeIndexes[i] = new int[nFacets()];
-			weights[i] = new double[nFacets()];
-			expWeights[i] = new double[nFacets()];
-			for (int j = 0; j < expWeights.length; j++) {
-				expWeights[i][j] = i == j ? -1 : -2;
-			}
-		}
+		assert isSymmetric;
+		// this.isSymmetric = isSymmetric;
+		// int nFacets = nFacets();
+
+		energies = new double[nStates()];
+		expEnergies = new double[nStates()];
+		Arrays.fill(expEnergies, 1);
+		logDistribution = new double[nStates()];
+		edgeIndexes = getEdgeIndexes();
+
 		if (edges == null)
 			edges = allEdges(facets, facets);
 		assert !isSymmetric || isEdgesCanonical(edges);
-		addEdges(edges);
+		setEdges(edges);
+
+		nEdges = edges.size();
+		nEdgesPlusBiases = nEdges + nFacets;
+		weights = new double[nEdgesPlusBiases];
+		expWeights = new double[nEdgesPlusBiases];
+		Arrays.fill(expWeights, 1);
+
+		edgeStates = edgeStates();
+		resetWeights();
 		// Util.print("GraphicalModel " + getEdges());
 		// for (Iterator it = facets.iterator(); it.hasNext();) {
 		// Perspective facet = (Perspective) it.next();
 		// addEdge(facet, facet);
 		// }
 		// Util.print("jj "+Util.valueOfDeep(expWeights));
+	}
+
+	public double[] getLogDistribution() {
+		return logDistribution;
 	}
 
 	private boolean isEdgesCanonical(Set edges) {
@@ -83,37 +110,37 @@ public class GraphicalModel extends Distribution {
 		int causedNode = facetIndexOrNot(caused);
 		if (causedNode < 0)
 			return false;
-		return expWeights[causeNode][causedNode] > -2;
+		return edgeIndexes[causeNode][causedNode] >= 0;
 	}
 
 	protected boolean hasEdge(int causeNode, int causedNode) {
-		return expWeights[causeNode][causedNode] > -2;
+		return edgeIndexes[causeNode][causedNode] >= 0;
 	}
 
-	double getExpWeight(Perspective cause, Perspective caused) {
-		// Util.print("getWeight " + cause + " => " + caused + " "
-		// + getWeight(getEdge(cause, caused)));
-		return getExpWeight(facetIndex(cause), facetIndex(caused));
-	}
+	// double getExpWeight(Perspective cause, Perspective caused) {
+	// // Util.print("getWeight " + cause + " => " + caused + " "
+	// // + getWeight(getEdge(cause, caused)));
+	// return getExpWeight(facetIndex(cause), facetIndex(caused));
+	// }
 
-	protected double getExpWeightOrZero(Perspective cause, Perspective caused) {
+	double getExpWeightOrZero(Perspective cause, Perspective caused) {
 		// Util.print("getWeight " + cause + " => " + caused + " "
 		// + getWeight(getEdge(cause, caused)));
 		return hasEdge(cause, caused) ? getExpWeight(facetIndex(cause),
 				facetIndex(caused)) : 1;
 	}
 
-	protected double getExpWeight(int i, int j) {
+	private double getExpWeight(int i, int j) {
 		// Util.print("getWeight " + cause + " => " + caused + " "
 		// + getWeight(getEdge(cause, caused)));
-		double result = expWeights[i][j];
-		if (result < 0) {
-			assert result==-1:result;
-			result = Math.exp(getWeight(i, j));
-			expWeights[i][j] = result;
-			expWeights[j][i] = result;
-//			NonAlchemyModel.nExpWeight++;
-		}
+		double result = expWeights[edgeIndexes[i][j]];
+		// if (result < 0) {
+		// assert result == -1 : result;
+		// result = Math.exp(getWeight(i, j));
+		// expWeights[i][j] = result;
+		// expWeights[j][i] = result;
+		// // NonAlchemyModel.nExpWeight++;
+		// }
 		assert result >= 0 : result + " " + i + " " + j + " " + getWeight(i, j);
 		assert !Double.isNaN(result);
 		assert !Double.isInfinite(result);
@@ -128,7 +155,7 @@ public class GraphicalModel extends Distribution {
 		return getWeight(facetIndex(cause), facetIndex(caused));
 	}
 
-	protected double getWeightOrZero(Perspective cause, Perspective caused) {
+	double getWeightOrZero(Perspective cause, Perspective caused) {
 		// Util.print("getWeight " + cause + " => " + caused + " "
 		// + getWeight(getEdge(cause, caused)));
 		return hasEdge(cause, caused) ? getWeight(facetIndex(cause),
@@ -140,201 +167,141 @@ public class GraphicalModel extends Distribution {
 		// + getWeight(getEdge(cause, caused)));
 		assert hasEdge(cause, caused) : cause + " " + caused + " " + facets()
 				+ " " + Util.valueOfDeep(expWeights);
-		double result = weights[cause][caused];
+		double result = weights[edgeIndexes[cause][caused]];
 		return result;
 	}
 
-	protected double getRNormalizedWeightOrZero(
-			Distribution observedDistribution, Perspective cause,
+	// private double getRNormalizedWeightOrZero(
+	// Distribution observedDistribution, Perspective cause,
+	// Perspective caused) {
+	// // Util.print("getWeight " + cause + " => " + caused + " "
+	// // + getWeight(getEdge(cause, caused)));
+	// return hasEdge(cause, caused) ? getRNormalizedWeight(
+	// observedDistribution, cause, caused) : 0;
+	// }
+
+	// protected double getRNormalizedWeight(Distribution observedDistribution,
+	// Perspective cause, Perspective caused) {
+	// Distribution obs = LimitedCausesDistribution.getInstance(facets,
+	// observedDistribution.getCounts(), getEdges(false));
+	// return obs.averageSumR2(cause, caused, this)
+	// * Util.sgn(getWeight(cause, caused));
+	// }
+
+	protected double getStdDevNormalizedWeight(Perspective cause,
 			Perspective caused) {
-		// Util.print("getWeight " + cause + " => " + caused + " "
-		// + getWeight(getEdge(cause, caused)));
-		return hasEdge(cause, caused) ? getRNormalizedWeight(
-				observedDistribution, cause, caused) : 0;
-	}
-
-	double getRNormalizedWeight(Distribution observedDistribution,
-			Perspective cause, Perspective caused) {
-		Distribution obs = LimitedCausesDistribution.getInstance(facets,
-				observedDistribution.getMarginalCounts(facets), getEdges());
-		return obs.averageSumR2(cause, caused, this)
-				* Util.sgn(getWeight(cause, caused));
-	}
-
-	double getStdDevNormalizedWeight(Perspective cause, Perspective caused) {
 		return getWeight(cause, caused) * stdDev(cause);
 	}
 
-	/**
-	 * Can't use Perspective.stdDev, because deeply nested facets have
-	 * totalCount = -1
-	 * 
-	 * @return standard deviation of binary variable p, over the whole database
-	 */
-	double stdDev(Perspective p) {
-		List facets1 = new ArrayList(1);
-		facets1.add(p);
-		Distribution dist = Distribution.getObservedDistribution(facets1, null);
-		double n = dist.totalCount;
-		double count = dist.getDistribution()[1];
-		double stdDev = Math.sqrt(count * (n - count) / (n * (n - 1)));
-		assert stdDev >= 0 : count + " " + n + " " + this;
-		return stdDev;
+	protected double[] getWeights() {
+		return Util.copy(weights);
 	}
 
-	double[] getWeights() {
-		double[] result = new double[nFacets() + nEdges()];
-		int argIndex = 0;
-		for (int i = 0; i < nFacets(); i++) {
-			result[argIndex++] = getWeight(i, i);
-		}
-
-		for (Iterator it = getEdgeIterator(); it.hasNext();) {
-			int[] edge = (int[]) it.next();
-			result[argIndex++] = getWeight(edge[0], edge[1]);
-		}
-		return result;
-	}
-
-	boolean setWeights(double[] argument) {
+	protected boolean setWeights(double[] argument) {
 		boolean result = false;
-		int argIndex;
-		for (argIndex = 0; argIndex < nFacets(); argIndex++) {
-			result = setWeight(argIndex, argIndex, argument[argIndex])
-					|| result;
+		decacheOdds();
+		Arrays.fill(energies, 0);
+		Arrays.fill(expEnergies, 1);
 
-		}
-		for (int cause = 0; cause < nFacets(); cause++) {
-			for (int caused = cause + 1; caused < nFacets(); caused++) {
-				if (hasEdge(cause, caused))
-					result = setWeight(cause, caused, argument[argIndex++])
-							|| result;
+		for (int edgeIndex = 0; edgeIndex < nEdgesPlusBiases; edgeIndex++) {
+			double weight = argument[edgeIndex];
+			if (weights[edgeIndex] != weight) {
+				result = true;
+			}
+			double expWeight = Math.exp(weight);
+			assert expWeight > 0 && !Double.isNaN(expWeight)
+					&& !Double.isInfinite(expWeight) : weight;
+			weights[edgeIndex] = weight;
+			expWeights[edgeIndex] = expWeight;
+
+			int[] statesAffected = edgeStates[edgeIndex];
+			int nsa = statesAffected.length;
+			for (int j = 0; j < nsa; j++) {
+				int state = statesAffected[j];
+				energies[state] += weight;
+				expEnergies[state] *= expWeight;
 			}
 		}
-//		if (!result) {
-//			NonAlchemyModel.nNoopSetWeights++;
-//			Util.print(" noop setWeights");
-//		} else {
-//			NonAlchemyModel.expectedS += nStates();
-//			NonAlchemyModel.expectedW += argument.length;
-//			Util.print(" setWeights");
-//		}
-//		NonAlchemyModel.nSetWeights++;
-
-		// for (Iterator it = getEdgeIterator(); it.hasNext();) {
-		// int[] edge = (int[]) it.next();
-		// setWeight(edge[0], edge[1], argument[argIndex++]);
-		// }
+		if (result)
+			updateLogPredictedDistribution();
 		return result;
 	}
 
-	boolean setWeight(Perspective cause, Perspective caused, double weight) {
+	protected boolean setWeight(Perspective cause, Perspective caused,
+			double weight) {
 		return setWeight(facetIndex(cause), facetIndex(caused), weight);
 	}
 
-	boolean setWeight(int cause, int caused, double weight) {
-		// Util.print("setWeight " + cause + " => " + caused + " " + weight);
-		assert !edgesFixed;
-		boolean result = getWeight(cause, caused) != weight;
-		if (result) {
-			assert !Double.isInfinite(weight);
-			assert !Double.isNaN(weight);
-			distribution = null;
-			logDistribution = null;
-			z = -1;
-			odds = -1;
+	protected void resetWeights() {
+		setWeights(getWeights());
+		updateLogPredictedDistribution();
+	}
 
-			weights[cause][caused] = weight;
-			double expWeight = -1; // Math.exp(weight);
-			// assert expWeight > 0 : weight;
-			expWeights[cause][caused] = expWeight;
-			if (isSymmetric) {
-				weights[caused][cause] = weight;
-				expWeights[caused][cause] = expWeight;
-			}
-//			NonAlchemyModel.nSetWeight++;
-		}
+	/**
+	 * This just "remembers" the weight; MUST call resetWeights afterwards to
+	 * cache other info.
+	 */
+	protected boolean setWeight(int cause, int caused, double weight) {
+		assert !Double.isInfinite(weight);
+		assert !Double.isNaN(weight);
+
+		int edgeIndex = edgeIndexes[cause][caused];
+		boolean result = weights[edgeIndex] != weight;
+
+		weights[edgeIndex] = weight;
 		return result;
 	}
 
-	List getEdge(Perspective cause, Perspective caused) {
-		List edge = new ArrayList(2);
-		edge.add(cause);
-		edge.add(caused);
-		return edge;
-	}
-
-	void addEdge(Perspective cause, Perspective caused) {
+	private void addEdge(Perspective cause, Perspective caused) {
 		addEdge(facetIndex(cause), facetIndex(caused));
 	}
 
-	void addEdge(int cause, int caused) {
+	private void addEdge(int cause, int caused) {
 		// Util.print("addEdge " + cause + " " + caused + " " + isSymmetric);
 		assert !edgesFixed;
 		assert cause != caused;
 		assert !hasEdge(cause, caused);
-		expWeights[cause][caused] = 1;
-		weights[cause][caused] = 0;
-		if (isSymmetric) {
-			expWeights[caused][cause] = 1;
-			weights[caused][cause] = 0;
-		}
-		edgeIndexes = null;
+		edgeIndexes[cause][caused] = 1;
+		edgeIndexes[caused][cause] = 1;
 	}
 
+	/**
+	 * Just add biases; setEdges will set the others
+	 */
 	int[][] getEdgeIndexes() {
-		if (edgeIndexes == null) {
-			int nFacets = nFacets();
-			edgeIndexes = new int[nFacets][];
-			for (int i = 0; i < nFacets; i++) {
-				edgeIndexes[i] = new int[nFacets];
-				for (int j = 0; j < nFacets; j++) {
-					edgeIndexes[i][j] = -1;
-				}
-			}
-			int edgeIndex = nFacets;
-			for (Iterator it = getEdgeIterator(); it.hasNext();) {
-				int[] edge = (int[]) it.next();
-				int cause = edge[0];
-				int caused = edge[1];
-				if (hasEdge(cause, caused)) {
-					edgeIndexes[cause][caused] = edgeIndex;
-					if (isSymmetric)
-						edgeIndexes[caused][cause] = edgeIndex;
-					edgeIndex++;
-				}
-			}
+		int[][] edgeIndexes1 = new int[nFacets][];
+		for (int cause = 0; cause < nFacets; cause++) {
+			edgeIndexes1[cause] = new int[nFacets];
+			Arrays.fill(edgeIndexes1[cause], -1);
+			edgeIndexes1[cause][cause] = cause;
 		}
-		return edgeIndexes;
+		return edgeIndexes1;
 	}
 
-	void removeEdge(Perspective cause, Perspective caused) {
-		removeEdge(facetIndex(cause), facetIndex(caused));
-	}
+	// private void removeEdge(Perspective cause, Perspective caused) {
+	// removeEdge(facetIndex(cause), facetIndex(caused));
+	// }
 
 	void removeEdge(int cause, int caused) {
 		// Util.print("removeEdge " + cause + " " + caused);
 		assert hasEdge(cause, caused);
 		assert !edgesFixed;
-		expWeights[cause][caused] = -2;
-		if (isSymmetric) {
-			expWeights[caused][cause] = -2;
-		}
-		edgeIndexes = null;
+		edgeIndexes[cause][caused] = -1;
+		edgeIndexes[caused][cause] = -1;
 	}
 
-	protected List getCauses(Perspective caused) {
-		List result = new LinkedList();
-		int causedNode = facetIndex(caused);
-		if (causedNode >= 0) {
-			for (int causeNode = 0; causeNode < nFacets(); causeNode++) {
-				if (causeNode != causedNode && hasEdge(causeNode, causedNode))
-					result.add(getFacet(causeNode));
-			}
-		}
-		// Util.print("getCauses " + caused + " " + causes);
-		return result;
-	}
+	// protected List getCauses(Perspective caused) {
+	// List result = new LinkedList();
+	// int causedNode = facetIndex(caused);
+	// if (causedNode >= 0) {
+	// for (int causeNode = 0; causeNode < nFacets(); causeNode++) {
+	// if (causeNode != causedNode && hasEdge(causeNode, causedNode))
+	// result.add(getFacet(causeNode));
+	// }
+	// }
+	// // Util.print("getCauses " + caused + " " + causes);
+	// return result;
+	// }
 
 	/**
 	 * @return [cause, caused] in this order [0, 1], [0, 2], [0, 3], [1, 2], [1,
@@ -345,7 +312,7 @@ public class GraphicalModel extends Distribution {
 	 * 
 	 *         for xvec, these follow the bias weights
 	 */
-	EdgeIterator getEdgeIterator() {
+	protected EdgeIterator getEdgeIterator() {
 		return new EdgeIterator();
 	}
 
@@ -360,11 +327,12 @@ public class GraphicalModel extends Distribution {
 		int nextCaused = -1;
 
 		public boolean hasNext() {
+			// int nFacets = nFacets();
 			if (nextCause < 0) {
 				nextCause = cause;
 				nextCaused = caused + 1;
-				for (; nextCause < nFacets(); nextCause++) {
-					for (; nextCaused < nFacets(); nextCaused++) {
+				for (; nextCause < nFacets; nextCause++) {
+					for (; nextCaused < nFacets; nextCaused++) {
 						if (nextCause != nextCaused
 								&& hasEdge(nextCause, nextCaused)
 								&& (!isSymmetric || nextCause < nextCaused))
@@ -375,7 +343,7 @@ public class GraphicalModel extends Distribution {
 			}
 			// Util.print("EdgeIterator " + nextCause + " " + nFacets() + " "
 			// + cause + " " + caused + " " + nextCaused);
-			return nextCause < nFacets();
+			return nextCause < nFacets;
 		}
 
 		public Object next() {
@@ -392,6 +360,7 @@ public class GraphicalModel extends Distribution {
 		}
 
 		public void remove() {
+			assert false;
 			if (caused > 0) {
 				removeEdge(cause, caused);
 			} else {
@@ -402,10 +371,10 @@ public class GraphicalModel extends Distribution {
 
 	private int[][] stateWeights;
 
-	int[][] stateWeights() {
+	protected int[][] stateWeights() {
 		if (stateWeights == null) {
 			stateWeights = new int[nStates()][];
-			int nFacets = nFacets();
+			// int nFacets = nFacets();
 			for (int state = 0; state < stateWeights.length; state++) {
 				int[] wts = new int[0];
 				int argIndex = nFacets;
@@ -431,115 +400,198 @@ public class GraphicalModel extends Distribution {
 		return stateWeights;
 	}
 
-	private int[][][] stateEdges;
+	// private int[][][] stateEdges() {
+	// int[][][] stateEdges1 = new int[nStates()][][];
+	// int nFacets = nFacets();
+	// for (int state = 0; state < stateEdges1.length; state++) {
+	// int[][] wts = new int[0][];
+	// for (int cause = 0; cause < nFacets; cause++) {
+	// for (int caused = cause; caused < nFacets; caused++) {
+	// if (hasEdge(cause, caused)) {
+	// if (Util.isBit(state, cause)
+	// && Util.isBit(state, caused)) {
+	// int[] edge = { cause, caused };
+	// wts = (int[][]) Util.push(wts, edge, int[].class);
+	// }
+	// }
+	// }
+	// }
+	// stateEdges1[state] = wts;
+	// }
+	// return stateEdges1;
+	// }
 
-	int[][][] stateEdges() {
-		if (stateEdges == null) {
-			stateEdges = new int[nStates()][][];
-			int nFacets = nFacets();
-			for (int state = 0; state < stateEdges.length; state++) {
-				int[][] wts = new int[0][];
-				for (int cause = 0; cause < nFacets; cause++) {
-					for (int caused = cause; caused < nFacets; caused++) {
-						if (hasEdge(cause, caused)) {
-							if (Util.isBit(state, cause)
-									&& Util.isBit(state, caused)) {
-								int[] edge = { cause, caused };
-								wts = (int[][]) Util.push(wts, edge,
-										int[].class);
-							}
+	private int[][] edgeStates() {
+		// int nFacets = nFacets();
+		int[][] edgeStates1 = new int[nEdgesPlusBiases][];
+		int nStates = nStates();
+		int[] tempStates = new int[nStates];
+		for (int cause = 0; cause < nFacets; cause++) {
+			for (int caused = cause; caused < nFacets; caused++) {
+				if (hasEdge(cause, caused)) {
+					int stateIndex = 0;
+					for (int state = 0; state < nStates; state++) {
+						if (Util.isBit(state, cause)
+								&& Util.isBit(state, caused)) {
+							tempStates[stateIndex++] = state;
 						}
 					}
-				}
-				stateEdges[state] = wts;
-			}
-			// Util.print("se " + Util.valueOfDeep(stateEdges));
-		}
-		return stateEdges;
-	}
-
-	/**
-	 * @param smallerObserved
-	 * @param observed
-	 * @param fastMax
-	 * @return distance in displayed parameter space from nullModel
-	 */
-	double weightSpaceChange(GraphicalModel smallerModel, List primaryFacets,
-			Distribution smallerObserved, Distribution observed, boolean fastMax) {
-		// Util.print("wsc "+primaryFacets);
-		double delta2 = 0;
-		// double initial = 0;
-		for (Iterator causedIt = primaryFacets.iterator(); causedIt.hasNext();) {
-			Perspective caused = (Perspective) causedIt.next();
-			for (Iterator causeIt = primaryFacets.iterator(); causeIt.hasNext();) {
-				Perspective cause = (Perspective) causeIt.next();
-				if (cause.compareTo(caused) < 0) {
-					double change = weightSpaceChange(smallerModel,
-							smallerObserved, observed, fastMax, cause, caused);
-					double smoothChange = Math.sqrt(change * change
-							+ NonAlchemyModel.WEIGHT_STABILITY_SMOOTHNESS)
-					// - Math
-					// .sqrt(NonAlchemyModel.WEIGHT_STABILITY_SMOOTHNESS)
-					;
-					// Util.print("wsc " + smoothChange +" "+cause+" "+caused);
-					delta2 += smoothChange;
+					int[] es = new int[stateIndex];
+					System.arraycopy(tempStates, 0, es, 0, stateIndex);
+					int edgeIndex = edgeIndexes[cause][caused];
+					edgeStates1[edgeIndex] = es;
 				}
 			}
 		}
-		// Util.print("weightSpaceChange " + this);
-		// printGraph(null);
-		// printGraph(false);
-		// Util.print("");
-		// reference.printGraph(false);
-		// Util.print("weightSpaceChange done\n");
-		assert !Double.isNaN(delta2);
-		// double delta = Math.sqrt(delta2);
-		return delta2;
+		return edgeStates1;
 	}
 
-	double weightSpaceChange(GraphicalModel smallerModel,
-			Distribution smallerObserved, Distribution observed,
-			boolean fastMax, Perspective cause, Perspective caused) {
-		double diff = 0;
+	// /**
+	// * @param smallerObserved only needed if fastMax=false
+	// * @param observed only needed if fastMax=false
+	// * @param fastMax don't bother comparing R-normalized weights
+	// * @return distance in displayed parameter space from smallerModel over
+	// * edges among facetsOfInterest.
+	// *
+	// * For learning the model, parent facets are relevant and fastMax is
+	// * always true; for evaluating it, only primary facets are relevant,
+	// * and if the change is large with fastMax, it is called again with
+	// * fastMax=false.
+	// */
+	// protected double weightSpaceChange(GraphicalModel smallerModel,
+	// List facetsOfInterest, Distribution smallerObserved,
+	// Distribution observed, boolean fastMax) {
+	// // assert primaryFacets.equals(smallerModel.facets) : primaryFacets +
+	// // " "
+	// // + smallerModel.facets;
+	// // Util.print("wsc "+primaryFacets);
+	// double delta2 = 0;
+	// // double initial = 0;
+	// for (Iterator causedIt = facetsOfInterest.iterator(); causedIt
+	// .hasNext();) {
+	// Perspective caused = (Perspective) causedIt.next();
+	// for (Iterator causeIt = facetsOfInterest.iterator(); causeIt
+	// .hasNext();) {
+	// Perspective cause = (Perspective) causeIt.next();
+	// if (cause.compareTo(caused) < 0) {
+	// double change = weightSpaceChange(smallerModel,
+	// smallerObserved, observed, fastMax, cause, caused);
+	// double smoothChange = Math.sqrt(change * change
+	// + NonAlchemyModel.WEIGHT_STABILITY_SMOOTHNESS)
+	// // - Math
+	// // .sqrt(NonAlchemyModel.WEIGHT_STABILITY_SMOOTHNESS)
+	// ;
+	// // Util.print("wsc " + smoothChange +" "+cause+" "+caused);
+	// delta2 += smoothChange;
+	// }
+	// }
+	// }
+	// if (Explanation.PRINT_LEVEL > 1) {
+	// Util.print("weightSpaceChange " + delta2);
+	// }
+	// // Util.print("weightSpaceChange " + this);
+	// // printGraph(null);
+	// // printGraph(false);
+	// // Util.print("");
+	// // reference.printGraph(false);
+	// // Util.print("weightSpaceChange done\n");
+	// assert !Double.isNaN(delta2);
+	// // double delta = Math.sqrt(delta2);
+	// return delta2;
+	// }
+	//
+	// private double weightSpaceChange(GraphicalModel smallerModel,
+	// Distribution smallerObserved, Distribution observed,
+	// boolean fastMax, Perspective cause, Perspective caused) {
+	// assert cause != caused;
+	//
+	// // Don't normalize, because a single strong predictor will
+	// // change the proportions, but not the underlying
+	// // dependency.
+	// double diff = Math.abs(effectiveWeight(cause, caused)
+	// - smallerModel.effectiveWeight(cause, caused));
+	// double diffN = diff;
+	//
+	// if (!fastMax) {
+	// double weight0Nforward = smallerModel.getRNormalizedWeightOrZero(
+	// smallerObserved, cause, caused);
+	// double weightNforward = getRNormalizedWeightOrZero(observed, cause,
+	// caused);
+	// // Util.print("wsc "+weight0N+" "+weightN);
+	// diffN = Math.abs(weightNforward - weight0Nforward) / 2;
+	// if (diffN < diff) {
+	//
+	// double weight0Nbackward = smallerModel
+	// .getRNormalizedWeightOrZero(smallerObserved, caused,
+	// cause);
+	// double weightNbackward = getRNormalizedWeightOrZero(observed,
+	// caused, cause);
+	// // Util.print("wsc "+weight0N+" "+weightN);
+	//
+	// diffN += Math.abs(weightNbackward - weight0Nbackward) / 2;
+	// }
+	// }
+	//
+	// if (Explanation.PRINT_LEVEL > 1) {
+	// printWSC(cause, caused, fastMax, smallerModel, smallerObserved,
+	// observed, diff, diffN);
+	// }
+	// if (diffN < diff)
+	// diff = diffN;
+	//
+	// // diffN + " " + diffU + " "
+	// // + sigmoid(weight0U) + " " + sigmoid(weightU) + " " + weight0U
+	// // + " " + weightU + " " + cause + " " + caused
+	// // // + " norm W0=" + weight0N + " norm W=" + weightN
+	// // ;
+	//
+	// return diff;
+	// }
+	//
+	// private void printWSC(Perspective cause, Perspective caused,
+	// boolean fastMax, GraphicalModel smallerModel,
+	// Distribution smallerObserved, Distribution observed, double diff,
+	// double diffN) {
+	// StringBuffer buf = new StringBuffer();
+	// boolean normalized = diffN < diff;
+	// if (diffN < diff)
+	// diff = diffN;
+	// buf.append("weightSpaceChange ").append(normalized ? "N " : "U ")
+	// .append(diff).append(" ").append(cause).append(" => ").append(
+	// caused).append(" ");
+	// printW(cause, caused, fastMax, buf, observed).append(" => ");
+	// smallerModel.printW(cause, caused, fastMax, buf, smallerObserved)
+	// .append(" ");
+	// // if (!fastMax)
+	// // buf.append(" (").append(diffN).append(")");
+	// Util.print(buf.toString());
+	// }
+	//
+	// private StringBuffer printW(Perspective cause, Perspective caused,
+	// boolean fastMax, StringBuffer buf, Distribution observed) {
+	// double w = getWeightOrZero(cause, caused);
+	// if (buf == null)
+	// buf = new StringBuffer();
+	// if (NonAlchemyModel.USE_SIGMOID) {
+	// double expw = getExpWeightOrZero(cause, caused);
+	// double sig = expw / (expw + 1);
+	// buf.append("sigmoid(").append(w).append(") = ").append(sig);
+	// } else {
+	// buf.append(w);
+	// }
+	// if (!fastMax) {
+	// double weightN = (getRNormalizedWeightOrZero(observed, cause,
+	// caused) + getRNormalizedWeightOrZero(observed, caused,
+	// cause)) / 2.0;
+	// buf.append(" (").append(weightN).append(")");
+	// }
+	// return buf;
+	// }
 
-		// Don't normalize, because a single strong predictor will
-		// change the proportions, but not the underlying
-		// dependency.
-		double diffN = Double.POSITIVE_INFINITY;
-		if (!fastMax) {
-			double weight0N = smallerModel.getRNormalizedWeightOrZero(
-					smallerObserved, cause, caused);
-			double weightN = getRNormalizedWeightOrZero(observed, cause, caused);
-			// Util.print("wsc "+weight0N+" "+weightN);
-			diffN = Math.abs(weightN - weight0N);
-
-			weight0N = smallerModel.getRNormalizedWeightOrZero(smallerObserved,
-					caused, cause);
-			weightN = getRNormalizedWeightOrZero(observed, caused, cause);
-			// Util.print("wsc "+weight0N+" "+weightN);
-			diffN += Math.abs(weightN - weight0N);
-			diffN /= 2;
-		}
-
-		double diffU = Math.abs(effectiveWeight(cause, caused)
-				- smallerModel.effectiveWeight(cause, caused));
-
-		diff = Math.min(diffN, diffU);
-
-		// if (!fastMax)
-		// Util.print("weightSpaceChange " + diffN + " " + diffU + " "
-		// + sigmoid(weight0U) + " " + sigmoid(weightU) + " " + weight0U
-		// + " " + weightU + " " + cause + " " + caused
-		// // + " norm W0=" + weight0N + " norm W=" + weightN
-		// );
-
-		return diff;
-	}
-
-	double sigmoid(double w) {
-		// return w;
-		return 1.0 / (1.0 + Math.exp(-w));
-	}
+	// double sigmoid(double w) {
+	// // return w;
+	// return 1.0 / (1.0 + Math.exp(-w));
+	// }
 
 	double effectiveWeight(Perspective cause, Perspective caused) {
 		if (NonAlchemyModel.USE_SIGMOID) {
@@ -550,151 +602,188 @@ public class GraphicalModel extends Distribution {
 		}
 	}
 
-	protected static String formatWeight(double weight) {
+	static String formatWeight(double weight) {
 		if (Double.isNaN(weight))
 			return "?";
 		return Integer.toString((int) Math.rint(100 * weight));
 	}
 
-	public double[] getDistribution() {
-		if (distribution == null) {
-//			NonAlchemyModel.nGetDistribution++;
-			z();
-		}
-		return super.getDistribution();
-	}
+	// public double[] getDistribution() {
+	// if (Double.isNaN(distribution[0])) {
+	// // NonAlchemyModel.nGetDistribution++;
+	// z();
+	// }
+	// return super.getDistribution();
+	// }
 
-	protected double[] logPredictedDistribution() {
-		if (logDistribution == null) {
-			int nStates = 1 << facets.size();
-			double logZ = Math.log(z());
-			logDistribution = new double[nStates];
-			for (int state = 0; state < nStates; state++) {
-				logDistribution[state] = energy(state) - logZ;
-				// Util.print("state " + state + " " + energy(state) + " "
-				// + p[state]);
-			}
-
-			// Util.print("logZ=" + logZ);
-			// double[] old = getDistribution();
-			// for (int state = 0; state < logP.length; state++) {
-			// Util.print(state + " " + energy(state) + " old=" + old[state]
-			// + " new=" + Math.exp(logP[state]) + " log=" + logP[state]);
-			// }
-//			NonAlchemyModel.nLogPredictedDistribution++;
+	protected void updateLogPredictedDistribution() {
+		int nStates = nStates();
+		double logZ = Math.log(z());
+		// logDistribution = new double[nStates];
+		for (int state = 0; state < nStates; state++) {
+			logDistribution[state] = energy(state) - logZ;
+			// Util.print("state " + state + " " + energy(state) + " "
+			// + p[state]);
 		}
-		return logDistribution;
+
+		// Util.print("logZ=" + logZ);
+		// double[] old = getDistribution();
+		// for (int state = 0; state < logP.length; state++) {
+		// Util.print(state + " " + energy(state) + " old=" + old[state]
+		// + " new=" + Math.exp(logP[state]) + " log=" + logP[state]);
+		// }
+		// NonAlchemyModel.nLogPredictedDistribution++;
 	}
 
 	/**
 	 * Computes distribution as a side effect
 	 */
-	protected double z() {
-		if (z < 0) {
-			int nStates = 1 << facets.size();
+	private double z() {
+		int nStates = nStates();
+		// for (int state = 0; state < nStates; state++) {
+		// distribution[state] = expEnergy(state);
+		// // z += ee;
+		// }
+		// Util.print("z " + Util.valueOfDeep(expEnergies));
+		z = Util.kahanSum(expEnergies);
+		if (Double.isInfinite(z) || Double.isNaN(z)) {
 			z = 0;
-			distribution = new double[nStates];
 			for (int state = 0; state < nStates; state++) {
-				double ee = expEnergy(state);
-				distribution[state] = ee;
-				z += ee;
-			}
-			if (Double.isInfinite(z)) {
-				z = 0;
-				for (int state = 0; state < nStates; state++) {
-					Util.print(state+" "+expEnergy(state));
-					if (Double.isInfinite(distribution[state])) {
-						z++;
-						distribution[state] = 1;
-					} else {
-						distribution[state] = 0;
-					}
+				// Util.print(state + " " + expEnergy(state));
+				if (Double.isInfinite(expEnergies[state])) {
+					z++;
+					distribution[state] = 1;
+				} else {
+					distribution[state] = 0;
 				}
-				Util.print("infinite z " + z+" "+Util.valueOfDeep(getWeights()));
 			}
+			// assert false : "infinite z " + z + " "
+			// + Util.valueOfDeep(getWeights());
+			for (int state = 0; state < nStates; state++) {
+				distribution[state] /= z;
+			}
+		} else
 			// Util.print(Util.valueOfDeep(getWeights()));
 			// Util.print(z);
 			for (int state = 0; state < nStates; state++) {
-				distribution[state] /= z;
+				distribution[state] = expEnergies[state] / z;
 				// Util.print("state " + state + " " + energy(state) + " "
 				// + expEnergy(state) + " " + distribution[state]);
 			}
-			assert checkWeight(distribution);
-			assert z >= 0;
-//			NonAlchemyModel.nZ++;
-		}
+		assert checkDist(distribution);
+		assert z >= 0 : z;
+		// NonAlchemyModel.nZ++;
 		return z;
 	}
 
-	double energy(int state) {
-//		NonAlchemyModel.nEnergy++;
-		int[][] edges = stateEdges()[state];
-		double result = 0;
-		for (int edge = 0; edge < edges.length; edge++) {
-			int cause = edges[edge][0];
-			int caused = edges[edge][1];
-			result += getWeight(cause, caused);
-		}
-		return result;
+	// private double energyOLD(int state) {
+	// // NonAlchemyModel.nEnergy++;
+	// int[][] edges = stateEdges()[state];
+	// double result = 0;
+	// int nEdges = edges.length;
+	// for (int e = 0; e < nEdges; e++) {
+	// int[] edge = edges[e];
+	// int cause = edge[0];
+	// int caused = edge[1];
+	// result += getWeight(cause, caused);
+	// }
+	// // assert Util.approxEquals(result, energyNEW(state)) : result + " "
+	// // + energyNEW(state) + " " + state + " "
+	// // + Util.valueOfDeep(getWeights())+ " "
+	// // + Util.valueOfDeep(energies)+ " "
+	// // + Util.valueOfDeep(edgeStates);
+	// return result;
+	// }
+	//
+	// private double expEnergyOLD(int state) {
+	// // NonAlchemyModel.nExpEnergy++;
+	// int[][] edges = stateEdges()[state];
+	// double result = 1;
+	// int nEdges = edges.length;
+	// for (int e = 0; e < nEdges; e++) {
+	// int[] edge = edges[e];
+	// int cause = edge[0];
+	// int caused = edge[1];
+	// result *= getExpWeight(cause, caused);
+	// }
+	// return result;
+	// }
+
+	// private double expEnergy(int state) {
+	// assert !Double.isNaN(expEnergies[state])
+	// && !Double.isInfinite(expEnergies[state]) : Util
+	// .valueOfDeep(expEnergies)
+	// + " " + Util.valueOfDeep(getWeights());
+	// return expEnergies[state];
+	// }
+
+	private double energy(int state) {
+		assert !Double.isNaN(energies[state])
+				&& !Double.isInfinite(energies[state]) : Util
+				.valueOfDeep(energies);
+		return energies[state];
 	}
 
-	double expEnergy(int state) {
-//		NonAlchemyModel.nExpEnergy++;
-		int[][] edges = stateEdges()[state];
-		double result = 1;
-		for (int edge = 0; edge < edges.length; edge++) {
-			int cause = edges[edge][0];
-			int caused = edges[edge][1];
-			result *= getExpWeight(cause, caused);
-		}
-		return result;
-	}
+	// double linkEnergy(int state, int causeNode, int causedNode) {
+	// return hasEdge(causeNode, causedNode) && Util.isBit(state, causedNode)
+	// && Util.isBit(state, causeNode) ? getWeight(causeNode,
+	// causedNode) : 0;
+	// }
 
-	double linkEnergy(int state, int causeNode, int causedNode) {
-		return hasEdge(causeNode, causedNode) && Util.isBit(state, causedNode)
-				&& Util.isBit(state, causeNode) ? getWeight(causeNode,
-				causedNode) : 0;
-	}
+	// protected Distribution getMarginalDistribution(List subFacets) {
+	// int nSubFacets = subFacets.size();
+	// if (nSubFacets == nFacets())
+	// return this;
+	// Set subedges = getEdgesAmong(subFacets);
+	// return LimitedCausesDistribution.getInstance(subFacets,
+	// getMarginalCounts(subFacets), subedges);
+	// }
 
-	protected Distribution getMarginalDistribution(List subFacets) {
-		int nSubFacets = subFacets.size();
-		if (nSubFacets == nFacets())
-			return this;
-		Set subedges = getEdgesAmong(subFacets);
-		return LimitedCausesDistribution.getInstance(subFacets,
-				getMarginalCounts(subFacets), subedges);
-	}
-
-	void addEdges(Set edges) {
+	private void setEdges(Set edges) {
 		// Util.print("addEdges " + edges);
 		for (Iterator it = edges.iterator(); it.hasNext();) {
 			List edge = (List) it.next();
-			addEdge((Perspective) edge.get(0), (Perspective) edge.get(1));
+			Perspective cause = (Perspective) edge.get(0);
+			Perspective caused = (Perspective) edge.get(1);
+			assert cause != caused : "Biases are implicit";
+			addEdge(cause, caused);
 		}
+		int edgeIndex = nFacets;
+		for (int cause = 0; cause < nFacets; cause++) {
+			for (int caused = cause + 1; caused < nFacets; caused++) {
+				if (hasEdge(cause, caused)) {
+					edgeIndexes[caused][cause] = edgeIndex;
+					edgeIndexes[cause][caused] = edgeIndex++;
+				}
+			}
+		}
+		edgesFixed = true;
 	}
 
-	void removeEdges(Set edges) {
-		for (Iterator it = edges.iterator(); it.hasNext();) {
-			List edge = (List) it.next();
-			removeEdge((Perspective) edge.get(0), (Perspective) edge.get(1));
-		}
-	}
+	// void removeEdges(Set edges) {
+	// for (Iterator it = edges.iterator(); it.hasNext();) {
+	// List edge = (List) it.next();
+	// removeEdge((Perspective) edge.get(0), (Perspective) edge.get(1));
+	// }
+	// }
 
-	void clearEdges() {
-		for (Iterator it = getEdgeIterator(); it.hasNext();) {
-			int[] edge = (int[]) it.next();
-			removeEdge(edge[0], edge[1]);
-		}
-	}
+	// void clearEdges() {
+	// for (Iterator it = getEdgeIterator(); it.hasNext();) {
+	// int[] edge = (int[]) it.next();
+	// removeEdge(edge[0], edge[1]);
+	// }
+	// }
 
-	public Graph buildGraph(Distribution observedDistForNormalization,
-			Explanation nullModel, PerspectiveObserver redrawer) {
+	/**
+	 * @param nullModel this is just to label the "before" weights.
+	 */
+	protected Graph buildGraph(double[] Rs, double[][] RnormalizedWeights,
+			double KL, Explanation nullModel, PerspectiveObserver redrawer) {
 		Graph graph = new Graph((GraphWeigher) null);
 		Map nodeMap = new HashMap();
 		for (Iterator it = facets.iterator(); it.hasNext();) {
 			Perspective p = (Perspective) it.next();
-			ensureNode(observedDistForNormalization, graph, nodeMap, p,
-					redrawer);
+			ensureNode(Rs, graph, nodeMap, p, redrawer);
 		}
 		for (Iterator it = getEdgeIterator(); it.hasNext();) {
 			int[] edge = (int[]) it.next();
@@ -702,28 +791,21 @@ public class GraphicalModel extends Distribution {
 			// ensureNode(observedDistForNormalization, graph, nodeMap, cause);
 			Perspective caused = getFacet(edge[1]);
 			// ensureNode(observedDistForNormalization, graph, nodeMap, caused);
-			addEdge(observedDistForNormalization, graph, nodeMap, cause,
-					caused, nullModel, redrawer);
+			addEdge(Rs, RnormalizedWeights, graph, nodeMap, cause, caused,
+					nullModel, redrawer);
 			if (isSymmetric)
-				addEdge(observedDistForNormalization, graph, nodeMap, caused,
-						cause, nullModel, redrawer);
+				addEdge(Rs, RnormalizedWeights, graph, nodeMap, caused, cause,
+						nullModel, redrawer);
 		}
-		assert !graph.getNodes().isEmpty() : printGraph(
-				observedDistForNormalization, null);
+		assert !graph.getNodes().isEmpty() : printGraph(RnormalizedWeights, KL);
 		return graph;
 	}
 
-	protected String printGraph(Distribution observedDistForNormalization,
-			List facetsOfInterest) {
-		Util
-				.print("printGraph "
-						+ this
-						+ (observedDistForNormalization != null ? " KL="
-								+ observedDistForNormalization
-										.klDivergenceFromLog(logPredictedDistribution())
-								// + " sumR="
-								// + observedDistForNormalization.sumR(this)
-								: ""));
+	protected String printGraph(double[][] RnormalizedWeights, double KL) {
+		Util.print("printGraph " + this + " KL=" + KL
+		// + " sumR="
+				// + observedDistForNormalization.sumR(this)
+				);
 
 		// Util.print("pred=");
 		// printCounts();
@@ -732,8 +814,8 @@ public class GraphicalModel extends Distribution {
 
 		for (Iterator it = facets().iterator(); it.hasNext();) {
 			Perspective caused = (Perspective) it.next();
-			if (facetsOfInterest == null)
-				Util.print(getWeight(caused, caused) + " " + caused);
+			// if (facetsOfInterest == null)
+			Util.print(getWeight(caused, caused) + " " + caused);
 		}
 		for (Iterator it = getEdgeIterator(); it.hasNext();) {
 			int[] edge = (int[]) it.next();
@@ -741,40 +823,33 @@ public class GraphicalModel extends Distribution {
 			Perspective caused = getFacet(edge[1]);
 			double weight = getWeight(cause, caused);
 			// if (weight != 0 && cause.compareTo(caused) > 0)
-			if (facetsOfInterest == null
-					|| (facetsOfInterest.contains(cause) && facetsOfInterest
-							.contains(caused)))
-				Util.print(weight
-						+ " "
-						+ cause
-						+ " => "
-						+ caused
-						+ (observedDistForNormalization != null ? " ("
-								+ getRNormalizedWeight(
-										observedDistForNormalization, cause,
-										caused)
-								+ " "
-								+ getRNormalizedWeight(
-										observedDistForNormalization, caused,
-										cause) + ")" : ""));
+			// if (facetsOfInterest == null
+			// || (facetsOfInterest.contains(cause) && facetsOfInterest
+			// .contains(caused)))
+			Util
+					.print(weight
+							+ " "
+							+ cause
+							+ " => "
+							+ caused
+							+ RnormalizedWeights[facetIndex(cause)][facetIndex(caused)]
+							+ " "
+							+ RnormalizedWeights[facetIndex(caused)][facetIndex(cause)]);
 		}
 		Util.print("");
 		return ""; // suitable for assert messages
 	}
 
-	private Node ensureNode(Distribution observedDistForNormalization,
-			Graph graph, Map nodeMap, Perspective facet,
-			PerspectiveObserver redrawer) {
+	private Node ensureNode(double[] Rs, Graph graph, Map nodeMap,
+			Perspective facet, PerspectiveObserver redrawer) {
 		assert graph != null;
 		assert facet != null;
 		Node result = (Node) nodeMap.get(facet);
 		if (result == null) {
 			String label = redrawer == null ? facet.toString() : facet
 					.toString(redrawer);
-			if (observedDistForNormalization != null)
-				label = formatWeight(observedDistForNormalization.R(
-						getDistribution(), facet))
-						+ " " + label;
+			// if (observedDistForNormalization != null)
+			label = formatWeight(Rs[facetIndex(facet)]) + " " + label;
 			// Prefix with space so edge line doesn't merge with any minus sign
 			result = graph.addNode(facet, " " + label);
 			nodeMap.put(facet, result);
@@ -783,21 +858,18 @@ public class GraphicalModel extends Distribution {
 		return result;
 	}
 
-	private void addEdge(Distribution observedDistForNormalization,
+	private void addEdge(double[] Rs, double[][] RnormalizedWeights,
 			Graph graph, Map nodeMap, Perspective cause, Perspective caused,
 			Explanation nullModel, PerspectiveObserver redrawer) {
 		// Util.print("addRule " + negLiteral + " " + posLiteral);
-		Node posNode = ensureNode(observedDistForNormalization, graph, nodeMap,
-				caused, redrawer);
+		Node posNode = ensureNode(Rs, graph, nodeMap, caused, redrawer);
 		// if (cause != null) {
-		Node negNode = ensureNode(observedDistForNormalization, graph, nodeMap,
-				cause, redrawer);
+		Node negNode = ensureNode(Rs, graph, nodeMap, cause, redrawer);
 		// Util.print("addEdge " + posNode + " " + negNode);
 		Edge edge = graph.getEdge(posNode, negNode);
 		if (edge == null)
 			edge = graph.addEdge((String) null, posNode, negNode);
-		String label = formatWeight(getRNormalizedWeight(
-				observedDistForNormalization, cause, caused));
+		String label = formatWeight(RnormalizedWeights[facetIndex(cause)][facetIndex(caused)]);
 		if (nullModel.facets().contains(cause)
 				&& nullModel.facets().contains(caused))
 			label = formatWeight(nullModel.getRNormalizedWeight(cause, caused))
@@ -814,7 +886,7 @@ public class GraphicalModel extends Distribution {
 	 * @param causeds
 	 * @return [[cause1, caused1], ... Does not return biases
 	 */
-	static Set allEdges(Collection causes, Collection causeds) {
+	protected static Set allEdges(Collection causes, Collection causeds) {
 		// Util.print("addEdges " + causes+" "+causeds);
 		HashSet result = new HashSet();
 		for (Iterator it1 = causeds.iterator(); it1.hasNext();) {
@@ -830,18 +902,34 @@ public class GraphicalModel extends Distribution {
 						smaller = caused;
 						larger = cause;
 					}
-					List edge = new ArrayList(2);
-					edge.add(smaller);
-					edge.add(larger);
-					result.add(edge);
+					result.add(getEdge(smaller, larger));
 				}
 			}
 		}
 		return result;
 	}
 
-	Set getEdges() {
-		return getEdgesAmong(facets);
+	protected int[][] edgesToIndexes(Set edges) {
+		List intEdges = new ArrayList(edges.size());
+		for (Iterator it = edges.iterator(); it.hasNext();) {
+			List edge = (List) it.next();
+			int[] intEdge = new int[2];
+			intEdge[0] = facetIndex((Perspective) edge.get(0));
+			intEdge[1] = facetIndex((Perspective) edge.get(1));
+			intEdges.add(intEdge);
+		}
+		return (int[][]) intEdges.toArray(new int[0][]);
+	}
+
+	protected Set getEdges(boolean includeBiases) {
+		Set result = getEdgesAmong(facets);
+		if (includeBiases) {
+			for (Iterator it = facets.iterator(); it.hasNext();) {
+				Perspective p = (Perspective) it.next();
+				result.add(getEdge(p, p));
+			}
+		}
+		return result;
 	}
 
 	private Set getEdgesAmong(List prevfacets) {
@@ -853,13 +941,31 @@ public class GraphicalModel extends Distribution {
 			Perspective caused = getFacet(edge[1]);
 			assert caused != cause;
 			if (prevfacets.contains(cause) && prevfacets.contains(caused)) {
-				List edgeList = new ArrayList(2);
-				edgeList.add(cause);
-				edgeList.add(caused);
-				result.add(edgeList);
+				result.add(getEdge(cause, caused));
 			}
 		}
 		// Util.print("getEdges " + result);
+		return result;
+	}
+
+	protected static List getEdge(Perspective cause, Perspective caused) {
+		List result = new ArrayList(2);
+		if (cause.compareTo(caused) < 0) {
+			result.add(cause);
+			result.add(caused);
+		} else {
+			result.add(caused);
+			result.add(cause);
+		}
+		return result;
+	}
+
+	protected static Collection getEdgesTo(Collection x, Perspective caused) {
+		Collection result = new ArrayList(x.size());
+		for (Iterator it = x.iterator(); it.hasNext();) {
+			Perspective p = (Perspective) it.next();
+			result.add(getEdge(p, caused));
+		}
 		return result;
 	}
 
@@ -868,24 +974,39 @@ public class GraphicalModel extends Distribution {
 		buf.append("<").append(Util.shortClassName(this)).append(" ").append(
 				facets);
 		if (true) {
-			buf.append(" nEdges=").append(nEdges());
+			buf.append(" nEdges=").append(nEdges);
 		} else {
-			buf.append(getEdges());
+			buf.append(getEdges(false));
 		}
 		buf.append(" ").append(Util.valueOfDeep(getCounts())).append(">");
 		return buf.toString();
 	}
 
-	public int nEdges() {
-		int result = 0;
-		for (int cause = 0; cause < nFacets(); cause++) {
-			for (int caused = 0; caused < nFacets(); caused++) {
-				if (cause != caused && hasEdge(cause, caused)
-						&& (!isSymmetric || cause < caused))
-					result++;
-			}
+	protected int nEdges() {
+		return nEdges;
+	}
+
+	protected int getNumEdgesPlusBiases() {
+		return nEdgesPlusBiases;
+	}
+
+	protected double bigWeightPenalty() {
+		double result = 0;
+		for (int edgeIndex = 0; edgeIndex < nEdgesPlusBiases; edgeIndex++) {
+			double excess = Math.abs(weights[edgeIndex]) - MAX_WEIGHT;
+			if (excess > 0)
+				result += excess * excess;
 		}
 		return result;
+	}
+
+	protected void bigWeightGradient(double[] gradient) {
+		int nWeights = weights.length;
+		for (int edgeIndex = 0; edgeIndex < nWeights; edgeIndex++) {
+			double w = weights[edgeIndex];
+			double excess = Math.abs(w) - MAX_WEIGHT;
+			gradient[edgeIndex] = excess > 0 ? 2 * excess * Util.sgn(w) : 0;
+		}
 	}
 
 }

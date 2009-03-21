@@ -197,6 +197,7 @@ final class ServletInterface {
 	}
 
 	DataInputStream getStream(String command, String[] args) {
+		long start = printOps ? new Date().getTime() : 0;
 		DataInputStream in = null;
 		HttpURLConnection conn = null;
 		status = null;
@@ -282,6 +283,10 @@ final class ServletInterface {
 		// + conn.getRequestMethod() + " ");
 		// }
 
+		if (printOps)
+			System.out.println(command + " took "
+					+ (new Date().getTime() - start) + "ms");
+
 		return in;
 	}
 
@@ -317,19 +322,13 @@ final class ServletInterface {
 	// }
 
 	ResultSet getResultSet(String command, String[] args, List columnTypes) {
-		long start = printOps ? new Date().getTime() : 0;
 		DataInputStream in = getStream(command, args);
 		ResultSet result = new MyResultSet(in, columnTypes);
 		closeNcatch(in, command, args);
-		if (printOps)
-			System.out.println(command + " took "
-					+ (new Date().getTime() - start) + "ms");
 		return result;
 	}
 
 	void closeNcatch(DataInputStream s, String command, String[] args) {
-		if (printOps)
-			System.out.println("...done " + command);
 		try {
 			while (s.read() != -1) {
 				// Must read to the end so s can be closed
@@ -525,12 +524,13 @@ final class ServletInterface {
 				Util.err("Caching is messed up: " + itemInfo);
 				e.printStackTrace();
 			}
-			if (printOps)
-				Util.print("Using cached rs for offsetItems. " + itemInfo);
+			// if (printOps)
+			// Util.print("Using cached rs for offsetItems. " + itemInfo);
 			return itemInfo.itemOffsets;
-		} else if (printOps) {
-			Util.print("NOT using cached rs for offsetItems. " + itemInfo);
 		}
+		// else if (printOps) {
+		// Util.print("NOT using cached rs for offsetItems. " + itemInfo);
+		// }
 		ResultSet result = getResultSet("offsetItems", MyResultSet.INT,
 				minOffset, maxOffset, table);
 		// Util.print(MyResultSet.valueOfDeep(result, MyResultSet.INT, 5));
@@ -568,7 +568,8 @@ final class ServletInterface {
 	ResultSet getFacetInfo(int facet) {
 		String[] args = { Integer.toString(facet) };
 		DataInputStream in = getStream("getFacetInfo", args);
-		ResultSet result = new MyResultSet(in, MyResultSet.PINT_SINT_STRING_INT_INT_INT);
+		ResultSet result = new MyResultSet(in,
+				MyResultSet.PINT_SINT_STRING_INT_INT_INT);
 
 		closeNcatch(in, "getFacetInfo", args);
 
@@ -585,14 +586,15 @@ final class ServletInterface {
 		if (itemInfo != null && itemInfo.item == item
 		// && itemInfo.itemIndex >= 0
 		) {
-			if (printOps)
-				Util.print("Using cached itemIndex for " + item + ", "
-						+ itemInfo.itemIndex);
+			// if (printOps)
+			// Util.print("Using cached itemIndex for " + item + ", "
+			// + itemInfo.itemIndex);
 			return itemInfo.itemIndex;
-		} else if (printOps) {
-			Util.print("NOT using cached itemIndex for " + item + ", "
-					+ itemInfo);
 		}
+		// else if (printOps) {
+		// Util.print("NOT using cached itemIndex for " + item + ", "
+		// + itemInfo);
+		// }
 		String[] args = { Integer.toString(item), Integer.toString(table),
 				Integer.toString(nNeighbors) };
 		DataInputStream in = getStream("itemIndex", args);
@@ -796,16 +798,22 @@ final class ServletInterface {
 			Util.print("caremediaGetItems " + Util.valueOfDeep(segments) + " "
 					+ MyResultSet.nRows(result));
 		} catch (SQLException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 		return result;
 	}
 
-	public ResultSet onCountMatrix(String facetsOfInterest, String candidates,
-			int table) {
-		String[] args = { facetsOfInterest, candidates, Integer.toString(table) };
-		return getResultSet("getPairCounts", args, MyResultSet.SNMINT_INT_INT);
+	public ResultSet[] onCountMatrix(String facetsOfInterest,
+			String candidates, int table, boolean needBaseCounts) {
+		String[] args = { facetsOfInterest, candidates,
+				Integer.toString(table), needBaseCounts ? "1" : "0" };
+
+		DataInputStream in = getStream("getPairCounts", args);
+		ResultSet[] result = {
+				needBaseCounts ? new MyResultSet(in, MyResultSet.SNMINT_INT_INT)
+						: null, new MyResultSet(in, MyResultSet.SNMINT_INT_INT) };
+		closeNcatch(in, "getPairCounts", args);
+		return result;
 	}
 
 	ResultSet topMutInf(String facetIDs, int baseTable, int maxCandidates) {

@@ -2056,10 +2056,12 @@ public final class Query implements ItemPredicate {
 		return buf.toString();
 	}
 
-	public ResultSet onCountMatrix(Collection facetsOfInterest,
-			Collection candidates) {
+	public ResultSet[] onCountMatrix(Collection facetsOfInterest,
+			Collection candidates, boolean needBaseCounts) {
+//		Util.print("ocm " + facetsOfInterest + " " + candidates);
+		assert candidates != null && candidates.size() > 0;
 		return db.onCountMatrix(getFacetIDs(facetsOfInterest),
-				getFacetIDs(candidates), onItemsTable());
+				getFacetIDs(candidates), onItemsTable(), needBaseCounts);
 	}
 
 	public String getGenericObjectLabel(boolean isPlural) {
@@ -2072,6 +2074,7 @@ public final class Query implements ItemPredicate {
 	public static final int ERROR = 24;
 
 	public List topMutInf(Collection primaryFacets, int maxCandidates) {
+//		Util.print("tmi " + primaryFacets);
 		ResultSet rs = db.topMutInf(getFacetIDs(primaryFacets), onItemsTable(),
 				maxCandidates);
 		try {
