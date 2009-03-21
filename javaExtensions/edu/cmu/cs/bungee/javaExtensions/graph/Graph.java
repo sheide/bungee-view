@@ -299,11 +299,26 @@ public class Graph {
 		return score;
 	}
 
+	private int nMoreCaused(List nodes) {
+		int result = 0;
+		for (int causeIndex = 0; causeIndex < nodes.size(); causeIndex++) {
+			Node cause = (Node) nodes.get(causeIndex);
+			for (int causedIndex = causeIndex + 1; causedIndex < nodes.size(); causedIndex++) {
+				Node caused = (Node) nodes.get(causedIndex);
+				if (moreCaused(cause, caused))
+					result++;
+			}
+		}
+		return result;
+	}
+
 	/**
 	 * Place node centers in a circle, ordered to minimize edge crossings.
 	 */
 	public void layout() {
 		List nodes = new ArrayList(getNodes());
+		Collections.sort(nodes);
+//		Util.print("layout " + nodes);
 		int nNodes = getNumNodes();
 		assert nNodes > 0;
 		List bestPerm = null;
@@ -314,13 +329,18 @@ public class Graph {
 			if (perm == null)
 				break;
 			if (perm.get(0) == nodes.get(0)
-					&& (nNodes < 3 || moreCaused((Node) perm.get(nNodes - 1),
-							(Node) perm.get(1)))) {
+					&& (nNodes < 3 || moreCaused((Node) perm.get(1),
+							(Node) perm.get(nNodes - 1)))
+							) {
 				// Canonicalize by starting at 0 and preferring arrows that
 				// point to the right.
 				arrangeInCircle(0, GRAPH_EDGE_LENGTH, GRAPH_EDGE_LENGTH, perm);
 				int edgeCrossings = edgeCrossings();
-				if (edgeCrossings < bestEdgeCrossings) {
+//				Util.print("layout " + edgeCrossings + "/" + getNumEdges()
+//						+ " " + perm);
+				if (edgeCrossings < bestEdgeCrossings
+						|| edgeCrossings == bestEdgeCrossings
+						&& nMoreCaused(perm) > nMoreCaused(bestPerm)) {
 					bestEdgeCrossings = edgeCrossings;
 					bestPerm = new ArrayList(perm);
 				}
@@ -328,6 +348,7 @@ public class Graph {
 		}
 		// assert isPerm(bestPerm);
 		arrangeInCircle(0, GRAPH_EDGE_LENGTH, GRAPH_EDGE_LENGTH, bestPerm);
+//		Util.print("best layout " + bestPerm);
 	}
 
 	public int getNumNodes() {
