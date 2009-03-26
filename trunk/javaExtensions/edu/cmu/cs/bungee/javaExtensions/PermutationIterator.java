@@ -16,7 +16,7 @@ public class PermutationIterator implements Iterator {
 	private int nRemainingPerms;
 	private final List perm;
 
-	public PermutationIterator(List collection) {
+	public PermutationIterator(Collection collection) {
 		objects = collection.toArray();
 		int nObjects = objects.length;
 		integerPermGenerator = new IntegerPermutationGenerator(nObjects);
