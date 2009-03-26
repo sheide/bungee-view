@@ -8,6 +8,7 @@ import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -425,7 +426,7 @@ public final class Query implements ItemPredicate {
 		int nPerspectives = displayedPerspectives.size();
 		for (int i = nPerspectives - 1; i >= 0; i--) {
 			Perspective p = (Perspective) displayedPerspectives.get(i);
-			if (p.getName().equals(name1)
+			if (name1.equals(p.getNameIfPossible())
 					&& (!isTopLevelOnly || p.depth() == 0))
 				return p;
 		}
@@ -1130,20 +1131,21 @@ public final class Query implements ItemPredicate {
 	void insertPerspective(Perspective p) {
 		// Util.print("insertPerspective " + p);
 		assert SwingUtilities.isEventDispatchThread() : Util.printStackTrace();
-		boolean added = false;
-		assert !displayedPerspectives.contains(p) : displayedPerspectives;
-		for (ListIterator it = displayedPerspectives.listIterator(); it
-				.hasNext();) {
-			Perspective inList = (Perspective) it.next();
-			if (inList.childrenOffset() > p.childrenOffset()) {
-				it.previous();
-				it.add(p);
-				added = true;
-				break;
-			}
-		}
-		if (!added)
+//		boolean added = false;
+//		assert !displayedPerspectives.contains(p) : displayedPerspectives;
+//		for (ListIterator it = displayedPerspectives.listIterator(); it
+//				.hasNext();) {
+//			Perspective inList = (Perspective) it.next();
+//			if (inList.childrenOffset() > p.childrenOffset()) {
+//				it.previous();
+//				it.add(p);
+//				added = true;
+//				break;
+//			}
+//		}
+//		if (!added)
 			displayedPerspectives.add(p);
+			Collections.sort(displayedPerspectives);
 
 		addPerspective(p);
 		if (!p.isPrefetched()) {

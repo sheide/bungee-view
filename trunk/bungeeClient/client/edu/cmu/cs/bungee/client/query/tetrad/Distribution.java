@@ -2,7 +2,6 @@ package edu.cmu.cs.bungee.client.query.tetrad;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -19,7 +18,6 @@ import JSci.maths.statistics.ChiSq2x2;
 import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.cmu.cs.bungee.client.query.Query;
 import edu.cmu.cs.bungee.javaExtensions.MyResultSet;
-import edu.cmu.cs.bungee.javaExtensions.StringAlign;
 import edu.cmu.cs.bungee.javaExtensions.Util;
 
 class Distribution {

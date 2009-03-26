@@ -1448,7 +1448,8 @@ final class Bungee extends PFrame {
 			ItemPredicate cp = summary.connectedPerspective();
 			if (cp != null) {
 				buf.append("&SelectedFacet=").append(
-						URLEncoder.encode(cp.getName(), "UTF-8"));
+						URLEncoder.encode(((Perspective) cp).fullName(),
+								"UTF-8"));
 			}
 			if (query.isRestricted()) {
 				buf.append("&Query=");
@@ -1464,12 +1465,14 @@ final class Bungee extends PFrame {
 	}
 
 	private Set parsePerspectives(String s) {
+//		Util.print("parsePerspectives " + s);
 		Set result = new HashSet();
 		String[] disjuncts = s.split("\\|");
 		for (int j = 0; j < disjuncts.length; j++) {
 			String[] ancestors = disjuncts[j].split(" -- ");
 			Perspective parent = null;
 			for (int k = 0; k < ancestors.length; k++) {
+//				Util.print(" parsePerspective " + parent + " " + ancestors[k]);
 				if (parent != null)
 					parent.prefetchData();
 
@@ -1518,10 +1521,11 @@ final class Bungee extends PFrame {
 						Set facets = parsePerspectives(x[1]);
 						for (Iterator it = facets.iterator(); it.hasNext();) {
 							Perspective child = (Perspective) it.next();
-							if (!child.isRestriction(required))
+							if (!child.isRestriction(required)) {
 								query.toggleFacet(child,
 										required ? InputEvent.CTRL_DOWN_MASK
 												: ItemPredicate.EXCLUDE_ACTION);
+							}
 						}
 					}
 				}
@@ -1530,8 +1534,14 @@ final class Bungee extends PFrame {
 			setInitialSelectedItem(argURLQuery);
 			String facetName = argURLQuery.getArgument("SelectedFacet");
 			if (facetName.length() > 0) {
-				PerspectiveViz pv = summary.findPerspectiveViz(facetName);
-				pv.connectToPerspective();
+				Set facets = parsePerspectives(facetName);
+				for (Iterator it = facets.iterator(); it.hasNext();) {
+					Perspective p = (Perspective) it.next();
+					PerspectiveViz pv = summary.lookupPV(p);
+					// PerspectiveViz pv =
+					// summary.findPerspectiveViz(facetName);
+					pv.connectToPerspective();
+				}
 			}
 
 			// ops =
@@ -1597,7 +1607,7 @@ final class Bungee extends PFrame {
 			| InputEvent.SHIFT_DOWN_MASK | ItemPredicate.EXCLUDE_ACTION;
 
 	void toggleFacet(Perspective facet, int modifiers) {
-		 Util.print("Art.toggleFacet " + facet + " " + modifiers);
+		Util.print("Art.toggleFacet " + facet + " " + modifiers);
 		if (!getIsShortcuts() && replayer == null)
 			modifiers = 0;
 		assert facet != null;
@@ -2098,7 +2108,7 @@ final class Bungee extends PFrame {
 	 */
 	void updatePvalue() {
 		assert query.isQueryValid();
-//		 Util.print(query + "\n" + query.topTags(10));
+		// Util.print(query + "\n" + query.topTags(10));
 		double[] pValues = summary.pValues();
 		nBars = pValues.length;
 		assert nBars == summary.nBars() : nBars + " " + summary.nBars();
@@ -2913,6 +2923,7 @@ final class Bungee extends PFrame {
 	}
 
 	void showMoreHelp() {
+//		Util.print("showMoreHelp "+isPopups() +" "+ summary.facetDesc.getVisible());
 		if (isPopups() && summary.facetDesc.getVisible())
 			summary.facetDesc.showMoreHelp();
 		// else
@@ -3410,7 +3421,7 @@ final class Bungee extends PFrame {
 
 				public void run() {
 					initializeFrames();
-					NonAlchemyModel.test(query, 50);
+					 NonAlchemyModel.test(query, 20);
 				}
 			};
 

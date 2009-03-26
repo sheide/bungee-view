@@ -11,6 +11,8 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 
+import lbfgs.LBFGS;
+
 import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.cmu.cs.bungee.javaExtensions.PerspectiveObserver;
 import edu.cmu.cs.bungee.javaExtensions.Util;
@@ -210,7 +212,8 @@ public class GraphicalModel extends Distribution {
 			}
 			double expWeight = Math.exp(weight);
 			assert expWeight > 0 && !Double.isNaN(expWeight)
-					&& !Double.isInfinite(expWeight) : weight;
+					&& !Double.isInfinite(expWeight) : weight + " "
+					+ LBFGS.nfevaluations() + "\n" + Util.valueOfDeep(argument);
 			weights[edgeIndex] = weight;
 			expWeights[edgeIndex] = expWeight;
 
@@ -596,6 +599,9 @@ public class GraphicalModel extends Distribution {
 	double effectiveWeight(Perspective cause, Perspective caused) {
 		if (NonAlchemyModel.USE_SIGMOID) {
 			double expw = getExpWeightOrZero(cause, caused);
+			assert Util.approxEquals(expw, Math.exp(getWeightOrZero(cause,
+					caused))) : expw + " "
+					+ Math.exp(getWeightOrZero(cause, caused));
 			return expw / (expw + 1);
 		} else {
 			return getWeightOrZero(cause, caused);
@@ -775,7 +781,8 @@ public class GraphicalModel extends Distribution {
 	// }
 
 	/**
-	 * @param nullModel this is just to label the "before" weights.
+	 * @param nullModel
+	 *            this is just to label the "before" weights.
 	 */
 	protected Graph buildGraph(double[] Rs, double[][] RnormalizedWeights,
 			double KL, Explanation nullModel, PerspectiveObserver redrawer) {
@@ -797,11 +804,13 @@ public class GraphicalModel extends Distribution {
 				addEdge(Rs, RnormalizedWeights, graph, nodeMap, caused, cause,
 						nullModel, redrawer);
 		}
-		assert !graph.getNodes().isEmpty() : printGraph(RnormalizedWeights, KL);
+		assert !graph.getNodes().isEmpty() : printGraph(Rs, RnormalizedWeights,
+				KL);
 		return graph;
 	}
 
-	protected String printGraph(double[][] RnormalizedWeights, double KL) {
+	protected String printGraph(double[] Rs, double[][] RnormalizedWeights,
+			double KL) {
 		Util.print("printGraph " + this + " KL=" + KL
 		// + " sumR="
 				// + observedDistForNormalization.sumR(this)
@@ -815,26 +824,23 @@ public class GraphicalModel extends Distribution {
 		for (Iterator it = facets().iterator(); it.hasNext();) {
 			Perspective caused = (Perspective) it.next();
 			// if (facetsOfInterest == null)
-			Util.print(getWeight(caused, caused) + " " + caused);
+			Util.print(getWeight(caused, caused) + " ("
+					+ Rs[facetIndex(caused)] + ") " + caused);
 		}
 		for (Iterator it = getEdgeIterator(); it.hasNext();) {
 			int[] edge = (int[]) it.next();
 			Perspective cause = getFacet(edge[0]);
 			Perspective caused = getFacet(edge[1]);
-			double weight = getWeight(cause, caused);
+			double weight = effectiveWeight(cause, caused);
 			// if (weight != 0 && cause.compareTo(caused) > 0)
 			// if (facetsOfInterest == null
 			// || (facetsOfInterest.contains(cause) && facetsOfInterest
 			// .contains(caused)))
-			Util
-					.print(weight
-							+ " "
-							+ cause
-							+ " => "
-							+ caused
-							+ RnormalizedWeights[facetIndex(cause)][facetIndex(caused)]
-							+ " "
-							+ RnormalizedWeights[facetIndex(caused)][facetIndex(cause)]);
+			Util.print(weight + " ("
+					+ RnormalizedWeights[facetIndex(caused)][facetIndex(cause)]
+					+ ") " + cause + " => ("
+					+ RnormalizedWeights[facetIndex(cause)][facetIndex(caused)]
+					+ ") " + caused);
 		}
 		Util.print("");
 		return ""; // suitable for assert messages
@@ -875,9 +881,9 @@ public class GraphicalModel extends Distribution {
 			label = formatWeight(nullModel.getRNormalizedWeight(cause, caused))
 					+ " > " + label;
 		edge.setLabel("        " + label + "        ", posNode);
-		edge
-				.setLabel(formatWeight(getWeight(cause, caused)),
-						Edge.CENTER_LABEL);
+		edge.setLabel(formatWeight(getWeight(cause, caused)) + " ("
+				+ formatWeight(effectiveWeight(cause, caused)) + ")",
+				Edge.CENTER_LABEL);
 		// }
 	}
 
