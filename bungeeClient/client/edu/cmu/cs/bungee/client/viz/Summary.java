@@ -812,7 +812,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 			result = new Rank(this, parentRank);
 			result.validate(w);
 			addChild(result);
-			// Util.print("addRank for " + p);
+//			 Util.print("addRank for " + p+" "+parentRank);
 			if (parentRank == null) {
 				// It's a top-level rank
 

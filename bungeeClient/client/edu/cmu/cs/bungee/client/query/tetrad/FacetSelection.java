@@ -23,8 +23,6 @@ public class FacetSelection extends GreedySubset {
 
 		search.cacheCandidates();
 		Set addedFacets = search.selectVariables();
-		if (Explanation.PRINT_LEVEL > 0)
-			Util.print("FacetSelection => " + addedFacets);
 		Explanation result = search.lookupExplanation(addedFacets, nullModel);
 		// Util.print("gggg");
 		// result.printGraph(false);
@@ -51,12 +49,13 @@ public class FacetSelection extends GreedySubset {
 			return 0;
 		threshold = edgeThreshold * smaller.nFacets();
 		// current.printGraph(false);
-		assert larger.parentModel == smaller : "\n" + larger + "\n"
-				+ larger.parentModel + "\n" + smaller;
+//		assert larger.parentModel == smaller : "\n" + larger + "\n"
+//				+ larger.parentModel + "\n" + smaller;
 		double result = (isAdding ? 1 : -1)
-				* larger.improvement(smaller, threshold1);
+				* larger.improvement(smaller, threshold1, nullModel.facets());
 
-		// current.printToFile();
+		if(Explanation.PRINT_CANDIDATES_TO_FILE)
+		 current.printToFile(nullModel);
 		return result;
 	}
 
@@ -91,7 +90,7 @@ public class FacetSelection extends GreedySubset {
 		if (Explanation.PRINT_LEVEL > 1) {
 			Explanation best = lookupExplanation(currentGuess, null);
 			best.printGraph();
-			best.printToFile();
+			best.printToFile(nullModel);
 		}
 	}
 }

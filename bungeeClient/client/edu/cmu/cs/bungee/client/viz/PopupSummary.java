@@ -661,7 +661,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 			tetradGraph = new edu.cmu.cs.bungee.javaExtensions.graph.Graph(
 					(GraphWeigher) null);
 		} else {
-			tetradGraph = explanation.buildGraph(this);
+			tetradGraph = explanation.buildGraph(this, facet);
 		}
 		Graph graph1 = new Graph(tetradGraph, art.font);
 		graph1.setStrokePaint(BGcolor);

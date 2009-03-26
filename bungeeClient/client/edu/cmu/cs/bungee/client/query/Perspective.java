@@ -893,7 +893,7 @@ public class Perspective implements Comparable, ItemPredicate {
 		if (result != null) {
 			return result;
 		}
-		assert redraw != null;
+		assert redraw != null : this;
 		Query q = query();
 
 		// Why did we do this?
@@ -2220,7 +2220,7 @@ public class Perspective implements Comparable, ItemPredicate {
 		// Util.print("updateTopTags " + this);
 		try {
 			int total = getTotalCount();
-			if (true||_onCount < total) {
+			if (true || _onCount < total) {
 				if (total < parentTotalCount && !isRestriction()) {
 					if (instantiatedPerspective != null) {
 						assert instantiatedPerspective.checkTable(

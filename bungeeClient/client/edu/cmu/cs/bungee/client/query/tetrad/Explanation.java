@@ -4,10 +4,8 @@ import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Date;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
@@ -24,23 +22,24 @@ public abstract class Explanation implements PerspectiveObserver {
 	 * Importance of weight changes in the null model compared to Divergence
 	 * over the null model, used to evaluate learned model.
 	 */
-	protected static double NULL_MODEL_ACCURACY_IMPORTANCE = 10;
-	protected static final double EDGE_COST = 0.05;
-	private static final int MAX_CANDIDATES = 16;
+	protected static double NULL_MODEL_ACCURACY_IMPORTANCE = 0;
+	protected static final double EDGE_COST = 0.06;
+	private static final int MAX_CANDIDATES = 50;
 
 	/**
-	 * 0 Print candidate facets, duration, & number of edges 
+	 * 0 Print candidate facets, duration, & number of edges
 	 * 
 	 * 1 Print lbfgs errors
 	 * 
-	 * 2 Print graph of each guess 
+	 * 2 Print graph of each guess
 	 * 
 	 * 3 Print every lbfgs evaluation
 	 */
 	static final int PRINT_LEVEL = 0;
-	private static final boolean PRINT_RSQUARED = false;
+	private static boolean PRINT_RSQUARED = false;
+	static boolean PRINT_CANDIDATES_TO_FILE= false;
 
-	protected final Explanation parentModel;
+	// protected final Explanation parentModel;
 	protected final GraphicalModel predicted;
 	protected final Distribution observed;
 
@@ -59,26 +58,15 @@ public abstract class Explanation implements PerspectiveObserver {
 	 */
 	abstract Explanation getAlternateExplanation(Set edges);
 
-	protected Explanation(List facets, Set edges, Explanation base,
-			List likelyCandidates) {
-		assert base == null || base.facets().equals(facets)
-				&& base.predicted.nEdges() > edges.size()
-				|| base.nFacets() + 1 == facets.size() : base + " " + facets
-				+ " " + edges;
-		parentModel = base != null ? base : this;
-
-		assert parentModel == this || !facets.equals(parentModel.facets())
-				|| !edges.equals(parentModel.predicted.getEdges(false)) : facets
-				+ " " + edges + " " + base;
-
+	protected Explanation(List facets, Set edges, List likelyCandidates) {
 		observed = Distribution.cacheCandidateDistributions(facets,
 				likelyCandidates);
 		predicted = new GraphicalModel(facets, edges, true, observed.totalCount);
 	}
 
-	Explanation nullModel() {
-		return this == parentModel ? this : parentModel.nullModel();
-	}
+	// Explanation nullModel() {
+	// return this == parentModel ? this : parentModel.nullModel();
+	// }
 
 	/**
 	 * add facets to explain this null model
@@ -88,7 +76,7 @@ public abstract class Explanation implements PerspectiveObserver {
 		Explanation result = FacetSelection.selectFacets(this, candidates,
 				EDGE_COST);
 		// Util.print("fs "+result);
-		result = EdgeSelection.selectEdges(result, EDGE_COST);
+		result = EdgeSelection.selectEdges(result, EDGE_COST, this);
 		// Util.print("es "+result);
 		// double prev = NonAlchemyModel.WEIGHT_STABILITY_IMPORTANCE;
 		// if (prev != 0) {
@@ -107,13 +95,13 @@ public abstract class Explanation implements PerspectiveObserver {
 		if (getClass() != obj.getClass())
 			return false;
 		Explanation other = (Explanation) obj;
-		if (parentModel == this) {
-			if (other.parentModel != other)
-				return false;
-		} else if (other.parentModel == other)
-			return false;
-		else if (!parentModel.approxEquals(other.parentModel))
-			return false;
+		// if (parentModel == this) {
+		// if (other.parentModel != other)
+		// return false;
+		// } else if (other.parentModel == other)
+		// return false;
+		// else if (!parentModel.approxEquals(other.parentModel))
+		// return false;
 		if (!observed.approxEquals(other.observed))
 			return false;
 		if (!predicted.approxEquals(other.predicted))
@@ -149,7 +137,8 @@ public abstract class Explanation implements PerspectiveObserver {
 		return result;
 	}
 
-	abstract double improvement(Explanation previous, double threshold1);
+	abstract double improvement(Explanation previous, double threshold1,
+			List primaryFacets);
 
 	protected double getRNormalizedWeightOrZero(Perspective cause,
 			Perspective caused) {
@@ -160,9 +149,9 @@ public abstract class Explanation implements PerspectiveObserver {
 		return getRNormalizedWeights()[facetIndex(cause)][facetIndex(caused)];
 	}
 
-	void printToFile() {
-		edu.cmu.cs.bungee.piccoloUtils.gui.Graph.printMe(buildGraph(this), Util
-				.convertForFilename(toString()));
+	void printToFile(Explanation nullModel) {
+		edu.cmu.cs.bungee.piccoloUtils.gui.Graph.printMe(buildGraph(null,
+				nullModel), Util.convertForFilename(toString()));
 	}
 
 	static List relevantFacets(Perspective popupFacet) {
@@ -222,19 +211,19 @@ public abstract class Explanation implements PerspectiveObserver {
 		return result;
 	}
 
-	List primaryFacets() {
-		return parentModel == this ? facets() : parentModel.primaryFacets();
-	}
-
-	List parentFacets() {
-		return parentModel.facets();
-	}
-
-	Set nonPrimaryFacets() {
-		Set nonPrimary = new HashSet(facets());
-		nonPrimary.removeAll(primaryFacets());
-		return nonPrimary;
-	}
+	// List primaryFacets() {
+	// return parentModel == this ? facets() : parentModel.primaryFacets();
+	// }
+	//
+	// List parentFacets() {
+	// return parentModel.facets();
+	// }
+	//
+	// Set nonPrimaryFacets() {
+	// Set nonPrimary = new HashSet(facets());
+	// nonPrimary.removeAll(primaryFacets());
+	// return nonPrimary;
+	// }
 
 	private double[] Rs;
 
@@ -243,8 +232,8 @@ public abstract class Explanation implements PerspectiveObserver {
 			Rs = new double[nFacets()];
 			for (int cause = 0; cause < nFacets(); cause++) {
 				Perspective causeP = (Perspective) facets().get(cause);
-				double r = pseudoRsquared(causeP);
-				Rs[cause] = Math.sqrt(Math.abs(r)) * Util.sgn(r);
+				double r2 = pseudoRsquared(causeP);
+				Rs[cause] = Math.sqrt(Math.abs(r2)) * Util.sgn(r2);
 			}
 		}
 		return Rs;
@@ -258,6 +247,8 @@ public abstract class Explanation implements PerspectiveObserver {
 	 * Compares predicted, rather than do a logistic regression
 	 */
 	private double pseudoRsquared(Perspective caused) {
+		//PRINT_RSQUARED=predicted.nEdges()==0&&caused.getID()==150&&nFacets()==
+		// 4;
 		double residuals = 0;
 		double baseResiduals = 0;
 		int causedIndex = facetIndex(caused);
@@ -362,7 +353,7 @@ public abstract class Explanation implements PerspectiveObserver {
 					+ " "
 					+ observed
 							.klDivergence(observed.independenceDistribution())
-					+ " " + predicted + "\n");
+					+ " " + predicted + " " + predicted.getEdges(false) + "\n");
 		}
 
 		// When trying to model a larger distribution, it can end up predicting
@@ -371,6 +362,7 @@ public abstract class Explanation implements PerspectiveObserver {
 				+ " unconditional=" + unconditional + " "
 				+ Util.valueOfDeep(predicted) + " residuals=" + residuals
 				+ " baseResiduals=" + baseResiduals;
+		assert predicted.nEdges() > 0 || Rsquare + 0.1 > 0;
 
 		assert !Double.isNaN(Rsquare) : residuals + " " + baseResiduals;
 		assert !Double.isInfinite(Rsquare) : causedIndex + " " + predicted
@@ -423,14 +415,24 @@ public abstract class Explanation implements PerspectiveObserver {
 			for (int i = 0; i < causedRs.length; i++) {
 				causedRs[i] = new double[nFacets()];
 			}
-			for (int cause = 0; cause < nFacets(); cause++) {
-				Perspective causeP = (Perspective) facets().get(cause);
-				for (int caused = 0; caused < nFacets(); caused++) {
+			for (int caused = 0; caused < nFacets(); caused++) {
+				Perspective causedP = (Perspective) facets().get(caused);
+				double sum = 0;
+				for (int cause = 0; cause < nFacets(); cause++) {
 					if (caused != cause && predicted.hasEdge(cause, caused)) {
-						Perspective causedP = (Perspective) facets()
-								.get(caused);
-						double w = getRNormalizedWeight1(causeP, causedP);
+						Perspective causeP = (Perspective) facets().get(cause);
+
+						// double w = getRNormalizedWeight1(causeP, causedP);
+						double w = predicted.getWeight(causeP, causedP);
+
 						causedRs[cause][caused] = w;
+						sum += Math.abs(w);
+					}
+				}
+				if (sum > 0) {
+					double correction = R(causedP) / sum;
+					for (int cause = 0; cause < nFacets(); cause++) {
+						causedRs[cause][caused] *= correction;
 					}
 				}
 			}
@@ -439,45 +441,49 @@ public abstract class Explanation implements PerspectiveObserver {
 		return causedRs;
 	}
 
-	// This could cache more (lists & combinations); maybe compute for all
-	// cause/caused pairs at once.
-	private double getRNormalizedWeight1(Perspective cause, Perspective caused) {
-		int nPerm = 0;
-		double sumR2 = 0;
-		Collection otherCauses = new LinkedList(predicted.getCauses(caused));
-		otherCauses.remove(cause);
-		for (Iterator combIt = new Util.CombinationIterator(otherCauses); combIt
-				.hasNext();) {
-			Collection x = (Collection) combIt.next();
-
-			Set edges = predicted.getEdges(false);
-			edges.removeAll(GraphicalModel.getEdgesTo(x, caused));
-			Explanation withModel = x.isEmpty() ? this
-					: getAlternateExplanation(edges);
-			double with = withModel.R(caused);
-			edges.remove(GraphicalModel.getEdge(cause, caused));
-			Explanation withoutModel = getAlternateExplanation(edges);
-			double without = withoutModel.R(caused);
-
-			// Util.print(" averageSumR2 " + without + " => " + with + " " + x
-			// + " + " + cause + " => " + caused + " " + withoutModel
-			// + " " + withModel);
-
-			// If lbfgs works better for one model than another, just hope
-			// the errors average out.
-			if (with > without)
-				sumR2 += with - without;
-			nPerm++;
-		}
-		double result = Util.sgn(predicted.getWeight(cause, caused)) * sumR2
-				/ nPerm;
-
-		// Util.print("averageSumR2 " + result + " + " + cause + " => " + caused
-		// + " " + this);
-
-		assert -1 <= result && result <= 1 : sumR2 + " " + nPerm;
-		return result;
-	}
+//	/**
+//	 * I read in some article that averaging over all the orders for adding
+//	 * edges is the best way to determine which causes are momst important.
+//	 * However, it doesn't correspond to how important causes are in the current
+//	 * model, so it's misleading to display.
+//	 */
+//	private double getRNormalizedWeight1(Perspective cause, Perspective caused) {
+//		int nPerm = 0;
+//		double sumR2 = 0;
+//		Collection otherCauses = new LinkedList(predicted.getCauses(caused));
+//		otherCauses.remove(cause);
+//		for (Iterator combIt = new Util.CombinationIterator(otherCauses); combIt
+//				.hasNext();) {
+//			Collection x = (Collection) combIt.next();
+//
+//			Set edges = predicted.getEdges(false);
+//			edges.removeAll(GraphicalModel.getEdgesTo(x, caused));
+//			Explanation withModel = x.isEmpty() ? this
+//					: getAlternateExplanation(edges);
+//			double with = withModel.R(caused);
+//			edges.remove(GraphicalModel.getEdge(cause, caused));
+//			Explanation withoutModel = getAlternateExplanation(edges);
+//			double without = withoutModel.R(caused);
+//
+//			Util.print(" averageSumR2 " + without + " => " + with + " " + x
+//					+ " + " + cause + " => " + caused + " " + withoutModel
+//					+ " " + withModel);
+//
+//			// If lbfgs works better for one model than another, just hope
+//			// the errors average out.
+//			if (with > without)
+//				sumR2 += with - without;
+//			nPerm++;
+//		}
+//		double result = Util.sgn(predicted.getWeight(cause, caused)) * sumR2
+//				/ nPerm;
+//
+//		Util.print("averageSumR2 " + predicted.nEdges() + " " + result + " + "
+//				+ cause + " => " + caused + " " + this);
+//
+//		assert -1 <= result && result <= 1 : sumR2 + " " + nPerm;
+//		return result;
+//	}
 
 	void initializeWeights(Explanation base) {
 		GraphicalModel baseModel = base.predicted;
@@ -558,26 +564,26 @@ public abstract class Explanation implements PerspectiveObserver {
 		return predicted.getFacet(i);
 	}
 
-	protected void printGraphAndNull() {
-		Explanation nullModel = nullModel();
-		if (nullModel != this) {
-			Util.print("\nbuildGraph\n" + nullModel.buildGraph(null));
-			nullModel.printGraphAndNull();
-		}
-		Util.print("\nbuildGraph\n" + buildGraph(null));
-		printGraph();
-		if (parentModel == this) {
-			Util.print("(Null Model = this)");
-		}
-	}
+	// protected void printGraphAndNull() {
+	// Explanation nullModel = nullModel();
+	// if (nullModel != this) {
+	// Util.print("\nbuildGraph\n" + nullModel.buildGraph(null));
+	// nullModel.printGraphAndNull();
+	// }
+	// Util.print("\nbuildGraph\n" + buildGraph(null));
+	// printGraph();
+	// if (parentModel == this) {
+	// Util.print("(Null Model = this)");
+	// }
+	// }
 
 	public String toString() {
 		StringBuffer buf = new StringBuffer();
-		buf.append("<").append(Util.shortClassName(this))//.append(" quality=").
-				// append(quality()
-				// )
-				.append(" ").append(primaryFacets()).append(" + ").append(
-						nonPrimaryFacets());
+		buf.append("<").append(Util.shortClassName(this)).append(" ");
+
+		// buf.append(primaryFacets()).append(" + ").append(
+		// nonPrimaryFacets());
+		buf.append(facets());
 
 		if (false) {
 			for (Iterator it = predicted.getEdgeIterator(); it.hasNext();) {
@@ -610,21 +616,29 @@ public abstract class Explanation implements PerspectiveObserver {
 	// return predicted.buildGraph(observed, parentModel, redrawer);
 	// }
 
-	public Graph buildGraph(PerspectiveObserver redrawer) {
+	public Graph buildGraph(PerspectiveObserver redrawer, Explanation nullModel) {
 		return predicted.buildGraph(getRs(), getRNormalizedWeights(),
-				klDivergence(), nullModel(), redrawer);
+				klDivergence(), nullModel, redrawer);
 	}
 
 	protected String printGraph() {
-		return predicted.printGraph(getRNormalizedWeights(), klDivergence());
+		return predicted.printGraph(getRs(), getRNormalizedWeights(),
+				klDivergence());
 	}
 
 	double R(Perspective facet) {
 		return getRs()[facetIndex(facet)];
 	}
 
+	/*
+	 * This is just for the sake of files. PopupSummary is the redrawer for
+	 * client graphs.
+	 */
 	public void redraw() {
 		// Util.print("Explanation.redraw " + this);
-		printToFile();
+		// printToFile();
 	}
+
+	public abstract Graph buildGraph(PerspectiveObserver redrawer,
+			Perspective popupFacet);
 }

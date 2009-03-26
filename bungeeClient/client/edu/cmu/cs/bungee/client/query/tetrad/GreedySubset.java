@@ -40,7 +40,9 @@ public abstract class GreedySubset {
 		while (maybeUpdate(false) || maybeUpdate(true)) {
 			// Keep updating until at local optimum
 		}
-		// Util.print(Util.shortClassName(this) + " => " + currentGuess + "\n");
+		if (Explanation.PRINT_LEVEL > 0)
+			Util.print(Util.shortClassName(this) + " => #" + currentGuess.size()
+					+ " " + currentGuess + "\n");
 		return currentGuess;
 	}
 
