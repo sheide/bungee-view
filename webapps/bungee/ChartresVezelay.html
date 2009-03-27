@@ -1,0 +1,104 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head> 
+<title>Bungee View image collection browser.  See the forest AND the trees.</title>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+</head>
+<body> 
+
+<table border="0" cellpadding="0" cellspacing="0">
+<tr>
+<td>
+<h2>Welcome to Bungee View</h2>
+</td>
+<td> <p id="fontSizeSample">
+<font color="#FFFFFF">Foo</font>
+</p></td>
+</tr>
+</table>
+
+<b>Bungee View</b> is a visualization prototype developed at Carnegie Mellon University to support casual users gaining an understanding of an image collection as a whole, and in finding patterns in such collections.  As a research experiment with the University of Pittsburgh, you can explore two of the <a href="http://images.library.pitt.edu/cgi-bin/i/image/image-idx?c=chartres&page=index">Art and Architecture image collections</a> hosted by the University Library System's <a href="http://digital.library.pitt.edu/">Digital Research Library</a>. 
+
+<p>
+Since this novel way of exploring image collections is a research project, your usage will be recorded to help improve Bungee View. We will use your IP address to track your repeat visits, but will not attempt to identify you as a person. We also welcome feedback to <script type="text/javascript">
+<!--
+document.write('<a href=\"mailt' + 'o:ma' + 'd@c' + 's.cmu.e' + 'du\">');
+document.write('ma' + 'd@c' + 's.cmu.e' + 'du' + '<\/a>');
+//-->
+</script> (<a HREF="http://www.cs.cmu.edu/~mad">Mark Derthick</a>). 
+
+<h2>Run Bungee View</h2>
+
+<ol>
+<li>Click to 
+
+<noscript>
+<a href="bungee.jsp?db=ChartresVezelay">start Bungee View</a>
+</noscript>
+<script type="text/javascript">
+   var query = window.location.search;
+   if (query.length > 0) 
+   query = "&" + query.substring(1);
+   var par = document.getElementById('fontSizeSample');
+   var parH = Math.round(0.85 * par.offsetHeight);
+   query = "?db=ChartresVezelay&fontSize=" + parH + query;
+document.writeln("<a href=\"bungee.jsp" + query + "\">start Bungee View<\/a>");
+</script>
+
+as a Java Web Start application in a new window.<sup>*</sup></li>
+<li>Once it starts, click on any underlined text, or on any image or bar. </li>
+<li>For more information, use the Help menu.</li>
+</ol>
+
+<p>
+<sup>*</sup>
+If your browser doesn't know how to open this link, it means you need to <a href=http://java.sun.com/PluginBrowserCheck?pass=http%3A%2F%2Fcityscape.inf.cs.cmu.edu%2Fbungee%2FdownloadJavaWS.html&fail=http%3A%2F%2Fjdl.sun.com%2Fwebapps%2Fgetjava%2FBrowserRedirect%3Flocale%3Den%26host%3Djava.com>install Java</a> 1.4 or later, which includes the Java Web Start plug-in.
+
+<p>
+If the new window is stuck at "Waiting for http://cityscape..." and you used Bungee View before February 2007, go to the Java control panel, find Temporary Internet Files, and click the Delete Files button.  This is because cityscape is now a different computer.
+
+<h2>Data-Mining with Bungee View</h2>
+
+<img src="Chartres2.jpg">
+<br>
+
+<b>Bungee View</b> lets you <b><i>search, browse, and data-mine</i></b> image collections.  It shows an overview of the entire collection, in addition to the familiar result list and item details of other search interfaces.  
+
+<h3>Bar charts provide collection overviews</h3>
+
+<p>
+For each metadata category, vertical bars show the distribution of images in the collection that match your query.  In the screenshot above, the query is for images of 12th century artifacts.  The row of bars labeled "Material" shows the resulting distribution for Cloth, Glass, Parchment, and Stone.  Wide bars represent Materials that appear in many images in the collections.  Tall bars represent Materials a large fraction of which appear in images that match the query.  For instance, 30% of Stone artifacts are from the 12th century, while only 4% of Glass artifacts are.  The curve superimposed on the percent labels shows the non-linear scale. It distorts the bar heights so that the average value (17% for Material) is half as high as 100%. The blue-gray background indicates this average value.
+</p>
+
+<p>
+In data-mining terms, there is a positive association between 12th century and Stone, while there is a negative association between 12th century and Glass.  Any bar that extends above the blue-gray background represents a positive association, and vice versa. The bar color indicates whether the association is statistically significant. Gray bars stand for values that are not significantly associated with the query. Muted green bars are positive significant associations (at a significance level of one in ten thousand, using a Chi Squared Test, or for small expected values a Fisher Exact Test). Orange bars are negative significant associations. Both the Stone association and the Glass association are significant. Saturated green and red bars (such as 12th century) are for values that are part of the query.
+</p>
+
+<h2>Motivation</h2>
+
+Web search engines have attracted widespread demand for information retrieval from unstructured documents. The number of structured and semi-structured documents available on the Web is also huge, and collections of these are more amenable to data mining. Yet there has been no similar explosion of interest in this kind of exploration. Finding patterns in databases of political contributions, environmental data, or hospital and school performance would surely interest many citizens. The main research question for this project is how to support such exploration for users with little or no training in statistics or programming. In contrast to other data-mining systems, Bungee View focuses on learnability, responsiveness,  robustness, and providing a satisfying user experience. 
+
+<hr>
+<p><small>
+<b>Bungee View</b> version 2/2007, Copyright (C) 2007 Mark Derthick<br>
+Bungee View comes with ABSOLUTELY NO WARRANTY; This is free software, 
+and you are welcome to redistribute it under certain conditions; Choose 
+"About Bungee View" on the Help menu for details.
+</small>
+</p>
+
+<hr>
+<div style="text-align: right;">
+<a HREF="http://www.cs.cmu.edu/~mad">Mark Derthick</a>
+(<script type="text/javascript">
+<!--
+document.write('<a href=\"mailt' + 'o:ma' + 'd@c' + 's.cmu.e' + 'du\">');
+document.write('ma' + 'd@c' + 's.cmu.e' + 'du' + '<\/a>');
+//-->
+</script>)
+<br>
+<i> Last update: 1 March 2007 </i>
+</div>
+
+</body>
+</html> 
