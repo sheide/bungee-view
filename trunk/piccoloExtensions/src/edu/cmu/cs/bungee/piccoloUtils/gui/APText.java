@@ -7,12 +7,15 @@ import java.awt.font.LineBreakMeasurer;
 import java.awt.font.TextAttribute;
 import java.awt.font.TextLayout;
 import java.awt.font.TextMeasurer;
+import java.awt.geom.Point2D;
 import java.text.AttributedCharacterIterator;
 import java.text.AttributedString;
 import java.util.ArrayList;
+import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
 import edu.cmu.cs.bungee.javaExtensions.Util;
 import edu.umd.cs.piccolo.util.PBounds;
@@ -27,6 +30,8 @@ import edu.umd.cs.piccolo.nodes.PText;
  */
 public class APText extends PText {
 
+	// public static int paintCount = 0;
+
 	private boolean wrapOnWordBoundaries = true;
 
 	protected boolean underline = false;
@@ -34,6 +39,8 @@ public class APText extends PText {
 	private List txtAttributes = new LinkedList();
 
 	private boolean dontRecompute;
+
+	private static Map fontLineHeights = new Hashtable();
 
 	public APText() {
 		// More efficient to do nothing here and setText after all other
@@ -106,6 +113,18 @@ public class APText extends PText {
 		}
 	}
 
+	public Point2D getCenter() {
+		return new Point2D.Double(getCenterX(), getCenterY());
+	}
+
+	public void setCenterX(double x) {
+		setXoffset(Math.rint(x - getWidth() * getScale() / 2.0));
+	}
+
+	public void setCenterY(double y) {
+		setYoffset(Math.rint(y - getHeight() * getScale() / 2.0));
+	}
+
 	public double getCenterX() {
 		return getXOffset() + getWidth() * getScale() / 2.0;
 	}
@@ -158,6 +177,37 @@ public class APText extends PText {
 			if (resize)
 				setConstrainHeightToTextHeight(false);
 		}
+	}
+
+	public static APText oneLineLabel(Font font) {
+		APText result = new APText(font);
+		result.setWrapOnWordBoundaries(false);
+		result.setConstrainHeightToTextHeight(false);
+		result.setHeight(Math.ceil(fontLineH(font)));
+		return result;
+	}
+
+	private static Map fontHeights = new Hashtable();
+
+	public static float fontLineH(Font font) {
+		Float h = (Float) fontHeights.get(font);
+		if (h == null) {
+			h = new Float(font.getLineMetrics(
+					"ABCabcdefghijklmnopqrstuvwxyz123~`':;>?/@#%^_-|{}",
+					PPaintContext.RENDER_QUALITY_HIGH_FRC).getHeight());
+			fontHeights.put(font, h);
+		}
+		return h.floatValue();
+	}
+
+	private float getLineH() {
+		Font font = getFont();
+		Float lineH = (Float) fontLineHeights.get(font);
+		if (lineH == null) {
+			lineH = new Float(fontLineH(font));
+			fontLineHeights.put(font, lineH);
+		}
+		return lineH.floatValue();
 	}
 
 	public void setConstrainWidthToTextWidth(boolean _constrainWidthToTextWidth) {
@@ -213,8 +263,13 @@ public class APText extends PText {
 
 	}
 
+	boolean isText() {
+		String s = getText();
+		return s != null && s.length() > 0;
+	}
+
 	public void rerender() {
-		if (getText() != null) {
+		if (isText()) {
 			recomputeLayout();
 			invalidatePaint();
 		}
@@ -378,13 +433,14 @@ public class APText extends PText {
 	 */
 	public void recomputeLayout() {
 		if (!dontRecompute && getCharIter() != null) {
+			// paintCount++;
 			assert !insideRL;
 			assert getWidth() >= 0 : getWidth();
 			insideRL = true;
 			double textWidth = 0;
 			double textHeight = 0;
-//			 System.out.println("\nenter APText.recomputelayout " + getText()
-//			 + " "+ isConstrainWidthToTextWidth() + " " + getWidth());
+			// System.out.println("\nenter APText.recomputelayout " + getText()
+			// + " "+ isConstrainWidthToTextWidth() + " " + getWidth());
 			// edu.cmu.cs.bungee.javaExtensions.Util.printStackTrace();
 			float availableWidth = isConstrainWidthToTextWidth() ? Float.MAX_VALUE
 					: (float) getWidth();
@@ -392,6 +448,7 @@ public class APText extends PText {
 			int nextLineBreakOffset = _text.indexOf('\n');
 			if (nextLineBreakOffset == -1)
 				nextLineBreakOffset = Integer.MAX_VALUE;
+			float lineH = getLineH();
 			if (wrapOnWordBoundaries) {
 				ArrayList linesList = new ArrayList();
 				LineBreakMeasurer measurer = getLBmeasurer();
@@ -412,9 +469,15 @@ public class APText extends PText {
 						measurer.setPosition(nextLineBreakOffset + 1);
 
 					linesList.add(aTextLayout);
-					textHeight += aTextLayout.getAscent();
-					textHeight += aTextLayout.getDescent()
-							+ aTextLayout.getLeading();
+					assert lineH == aTextLayout.getAscent()
+							+ aTextLayout.getDescent()
+							+ aTextLayout.getLeading() : "Bad lineH: "
+							+ lineH
+							+ " "
+							+ (aTextLayout.getAscent()
+									+ aTextLayout.getDescent() + aTextLayout
+									.getLeading());
+					textHeight += lineH;
 					textWidth = Math.max(textWidth, aTextLayout.getAdvance());
 				}
 				_lines = (TextLayout[]) linesList
@@ -430,9 +493,15 @@ public class APText extends PText {
 					_lines[0] = primitiveMeasurer.getLayout(0,
 							firstCharThatWontFit);
 					if (_lines[0] != null) {
-						textHeight = _lines[0].getAscent()
+						assert lineH == _lines[0].getAscent()
 								+ _lines[0].getDescent()
-								+ _lines[0].getLeading();
+								+ _lines[0].getLeading() : "Bad lineH: "
+								+ lineH
+								+ " "
+								+ (_lines[0].getAscent()
+										+ _lines[0].getDescent() + _lines[0]
+										.getLeading());
+						textHeight = lineH;
 						textWidth = _lines[0].getAdvance();
 					} else
 						_lines = EMPTY_TEXT_LAYOUT_ARRAY;
@@ -511,7 +580,8 @@ public class APText extends PText {
 		// copied from PText, substituting _lines for lines
 		float screenFontSize = getFont().getSize()
 				* (float) paintContext.getScale();
-		if (getTextPaint() != null && getText() != null && screenFontSize > greekThreshold) {
+		if (getTextPaint() != null && isText()
+				&& screenFontSize > greekThreshold) {
 			float x = (float) getX();
 			float y = (float) getY();
 			float bottomY = (float) getHeight() + y;
@@ -520,7 +590,7 @@ public class APText extends PText {
 
 			if (_lines == null) {
 				recomputeLayout();
-//				Util.print(getText());
+				// Util.print(getText());
 				repaint();
 				return;
 			}

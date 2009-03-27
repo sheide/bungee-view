@@ -27,37 +27,55 @@ Carnegie-Mellon University
 Human-Computer Interaction Institute
 Pittsburgh, PA 15213
 
-*/
+ */
 
 package edu.cmu.cs.bungee.piccoloUtils.gui;
 
 import java.awt.BasicStroke;
 import java.awt.Paint;
 import java.awt.Stroke;
+import java.awt.geom.GeneralPath;
+import java.awt.geom.Rectangle2D;
 
 import edu.umd.cs.piccolo.nodes.PPath;
 
 public class LazyPPath extends PPath implements Cloneable {
 
-//	public boolean setBounds(double x, double y, double w, double h) {
-//	    assert x == Math.round(x);
-//	    assert y == Math.round(y);
-//	    assert w == Math.round(w);
-//	    assert h == Math.round(h);
-//		    return super.setBounds(x, y, w, h);		
-//	}
-	
-	public static final Stroke[] strokeCache = new BasicStroke[11]; 
-	
+	// public boolean setBounds(double x, double y, double w, double h) {
+	// assert x == Math.round(x);
+	// assert y == Math.round(y);
+	// assert w == Math.round(w);
+	// assert h == Math.round(h);
+	// return super.setBounds(x, y, w, h);
+	// }
+
+	public static final Stroke[] strokeCache = new BasicStroke[11];
+
 	public LazyPPath() {
-		setStroke(null);
+		super(new GeneralPath(), null);
 	}
 
 	public void setOffset(double x, double y) {
-	    assert x == Math.round(x);
-	    assert y == Math.round(y);
+		assert x == Math.round(x);
+		assert y == Math.round(y);
 		if (x != getXOffset() || y != getYOffset())
 			super.setOffset(x, y);
+	}
+
+	/**
+	 * set x offset
+	 * @param x
+	 */
+	public void setXoffset(double x) {
+		setOffset(x, getYOffset());
+	}
+
+	/**
+	 * Set y offset
+	 * @param y
+	 */
+	public void setYoffset(double y) {
+		setOffset(getXOffset(), y);
 	}
 
 	public void setScale(double scale) {
@@ -81,24 +99,16 @@ public class LazyPPath extends PPath implements Cloneable {
 			super.setStroke(aStroke);
 	}
 
-	public static PPath createRectangle(float x, float y, float width, float height, Stroke stroke) {
+	public static PPath createLine(float x1, float y1, float x2, float y2,
+			Stroke stroke) {
 		LazyPPath path = new LazyPPath();
-        float[] Xs = {x, x + width, x + width, x, x};
-        float[] Ys = {y, y, y + height, y + height, y};
-        path.setPathToPolyline(Xs, Ys);
-        path.setStroke(stroke);
+		float[] Xs = { x1, x2 };
+		float[] Ys = { y1, y2 };
+		path.setPathToPolyline(Xs, Ys);
+		path.setStroke(stroke);
 		return path;
 	}
 
-	public static PPath createLine(float x1, float y1, float x2, float y2, Stroke stroke) {
-		LazyPPath path = new LazyPPath();
-        float[] Xs = {x1, x2};
-        float[] Ys = {y1, y2};
-        path.setPathToPolyline(Xs, Ys);
-        path.setStroke(stroke);
-		return path;
-	}
-	
 	public final Object clone() {
 		LazyPPath result = (LazyPPath) super.clone();
 		result.setPaint(getPaint());
@@ -118,6 +128,22 @@ public class LazyPPath extends PPath implements Cloneable {
 			strokeCache[i] = result;
 		}
 		return result;
+	}
+
+	/* 
+	 * This is more efficient when the Stroke is a BasicStroke, which we assume it always will be.
+	 * (non-Javadoc)
+	 * @see edu.umd.cs.piccolo.nodes.PPath#getPathBoundsWithStroke()
+	 */
+	public Rectangle2D getPathBoundsWithStroke() {
+		Rectangle2D rect = getPathReference().getBounds2D();
+		if (getStroke() != null) {
+			double dx = ((BasicStroke) getStroke()).getLineWidth();
+			rect.setRect(rect.getX() - dx / 2, rect.getY() - dx / 2, rect
+					.getWidth()
+					+ dx, rect.getHeight() + dx);
+		}
+		return rect;
 	}
 
 }

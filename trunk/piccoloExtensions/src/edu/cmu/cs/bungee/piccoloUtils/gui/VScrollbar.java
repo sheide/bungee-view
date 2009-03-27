@@ -39,15 +39,29 @@ import edu.umd.cs.piccolo.event.PInputEvent;
 
 public class VScrollbar extends PNode implements MouseDoc {
 
-	protected double swidth, sheight; // width and height of bar
+	/**
+	 * width of bar
+	 */
+	protected double swidth; 
+	
+	/**
+	 * height of bar, not including up/down buttons
+	 */
+	protected double sheight;
 
 	protected double thumbSize;
 
 	protected double xpos; // x and y position of [top center of the] bar
 
-	public double spos; // y position of slider
+	/**
+	 * y position of slider, in the range [sposMin, sposMin + sheight - thumbsize]
+	 */
+	public double spos;
 
-	protected double sposMin; // min y position of slider
+	/**
+	 * min y position of slider. Equals swidth.
+	 */
+	protected double sposMin;
 
 	protected double ratio;
 
@@ -194,7 +208,7 @@ public class VScrollbar extends PNode implements MouseDoc {
 		return Math.max(swidth, thumbSize);
 	}
 
-	private int getPageDirection(PInputEvent e) {
+	protected int getPageDirection(PInputEvent e) {
 		double y = e.getPositionRelativeTo(this).getY();
 		int direction = 0;
 		if (y <= spos)
@@ -213,9 +227,9 @@ public class VScrollbar extends PNode implements MouseDoc {
 				* direction);
 	}
 
-	public void setMouseDoc(PNode source, boolean state) {
-		setMouseDoc(state ? ((Button) source).mouseDoc : null);
-	}
+//	public void setMouseDoc(PNode source, boolean state) {
+//		setMouseDoc(state ? ((Button) source).mouseDoc : null);
+//	}
 
 	public void setMouseDoc(String doc) {
 		if (getParent() instanceof MouseDoc) {
@@ -255,7 +269,7 @@ class VScrollHandler extends MyInputEventHandler {
 	// || pickedNode == node.down;
 	// }
 
-	protected boolean press(PNode node, PInputEvent e) {
+	protected boolean click(PNode node, PInputEvent e) {
 		boolean result = true;
 		PNode pickedNode = e.getPickedNode();
 		if (pickedNode == node) {
@@ -286,6 +300,7 @@ class VScrollHandler extends MyInputEventHandler {
 	}
 
 	protected boolean enter(PNode node, PInputEvent e) {
+//		Util.print("VScrollbar enter ");
 		((VScrollbar) node).mouseDoc(node, e, true);
 		return true;
 	}
@@ -405,21 +420,21 @@ class ScrollButton extends Button {
 
 	ScrollButton(double x, double y, double size, int direction, Color _FG,
 			Color _BG) {
-		super(x, y, size, size, null, 2.0f, _BG);
+		super(x, y, size, size, null, direction > 0 ? "Scroll down one line"
+				: "Scroll up one line", 2.0f, _BG);
 		_direction = direction;
-		mouseDoc = direction > 0 ? "Scroll down one line"
-				: "Scroll up one line";
 		// Util.print("ScrollButton " + y);
 
-		PNode bg = new PNode();
-		bg.setPaint(_BG);
-		bg.setBounds(1, 1, size - 2, size - 2);
-		bg.setPickable(false);
-		addChild(bg);
+//		PNode bg = new PNode();
+//		bg.setPaint(_BG);
+//		bg.setBounds(1, 1, size - 2, size - 2);
+//		bg.setPickable(false);
+//		addChild(bg);
 
 		// setPaint(_BG);
-		float halfMarkSize = ((float) size - 2) / 2 - 2;
-		float mid = ((float) size - 2) / 2;
+		float innerSize = ((float)size-2*borderW());
+		float mid = innerSize/2; //((float) size - 2) / 2;
+		float halfMarkSize = mid-1; //((float) size - 2) / 2 - 2;
 		child = new LazyPPath();
 		positionChild();
 		float[] xp = new float[3];

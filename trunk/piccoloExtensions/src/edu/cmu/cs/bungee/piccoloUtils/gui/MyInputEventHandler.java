@@ -68,7 +68,7 @@ public class MyInputEventHandler extends PBasicInputEventHandler {
 	 * Mask for up, down, left, right, home, end, and c-A
 	 */
 	public final static char[] arrowKeys = arrowKeys();
-	
+
 	private static char[] arrowKeys() {
 		char[] arrows = { java.awt.event.KeyEvent.VK_KP_DOWN,
 				java.awt.event.KeyEvent.VK_KP_UP,
@@ -76,7 +76,8 @@ public class MyInputEventHandler extends PBasicInputEventHandler {
 				java.awt.event.KeyEvent.VK_KP_RIGHT,
 				java.awt.event.KeyEvent.VK_DOWN, java.awt.event.KeyEvent.VK_UP,
 				java.awt.event.KeyEvent.VK_LEFT,
-				java.awt.event.KeyEvent.VK_RIGHT, //java.awt.event.KeyEvent.VK_A,
+				java.awt.event.KeyEvent.VK_RIGHT, //java.awt.event.KeyEvent.VK_A
+				// ,
 				java.awt.event.KeyEvent.VK_END, java.awt.event.KeyEvent.VK_HOME };
 		Arrays.sort(arrows);
 		return arrows;
@@ -86,7 +87,7 @@ public class MyInputEventHandler extends PBasicInputEventHandler {
 	 * Mask for shift and control
 	 */
 	public final static char[] shiftKeys = shiftKeys();
-	
+
 	private static char[] shiftKeys() {
 		char[] shifts = { java.awt.event.KeyEvent.VK_ALT,
 				java.awt.event.KeyEvent.VK_CONTROL,
@@ -245,9 +246,13 @@ public class MyInputEventHandler extends PBasicInputEventHandler {
 		assert edu.cmu.cs.bungee.javaExtensions.Util.ignore(node);
 	}
 
-	public void mouseClicked(PInputEvent e) {
+	/*
+	 * see mousePressed
+	 */
+	public final void mouseClicked(PInputEvent e) {
+		// Toolkit.getDefaultToolkit().beep();
 		PNode node = findNodeType(e);
-		if (node != null) {
+		if (false && node != null) {
 			mayHideTransients(node);
 			e.setHandled(click(node) || click(node, e));
 		}
@@ -265,12 +270,22 @@ public class MyInputEventHandler extends PBasicInputEventHandler {
 			e.setHandled(exit(node) || exit(node, e));
 	}
 
-	public void mousePressed(PInputEvent e) {
-//		Util.print("mousePressed");
+	/*
+	 * On Alex's computer, clicks are sometimes getting lost, but pressed
+	 * doesn't. Therefore treat pressed as both. This means a click will act
+	 * like 2 presses and a click, so don't do any actions on press, just set
+	 * drag initial states.
+	 * 
+	 * Note that modifiers may be different for press and click, at least for
+	 * mouse button modifiers
+	 */
+	public final void mousePressed(PInputEvent e) {
+		// Util.print("mousePressed");
 		PNode node = findNodeType(e);
-		if (node != null) {
+		if (node != null/* &&e.getClickCount()==1 */) {
 			mayHideTransients(node);
 			e.setHandled(press(node) || press(node, e));
+			e.setHandled(click(node) || click(node, e));
 		}
 	}
 
@@ -306,10 +321,10 @@ public class MyInputEventHandler extends PBasicInputEventHandler {
 
 	private PNode findNodeType(PNode node) {
 		while (node != null && !nodeType.isInstance(node)) {
-//			Util.print(nodeType + " " + node);
+			// Util.print(nodeType + " " + node);
 			node = node.getParent();
 		}
-//		Util.print(nodeType + " => " + node);
+		// Util.print(nodeType + " => " + node);
 		return node;
 	}
 
@@ -317,7 +332,7 @@ public class MyInputEventHandler extends PBasicInputEventHandler {
 	public void keyPressed(PInputEvent e) {
 		mayHideTransients(null);
 		char key = (char) e.getKeyCode();
-//		Util.print("keyPressed " + e.getKeyCode() + " " + key);
+		// Util.print("keyPressed " + e.getKeyCode() + " " + key);
 		if (keyPress(key) || keyPress(key, e)) {
 			e.setHandled(true);
 		} else {
@@ -326,7 +341,7 @@ public class MyInputEventHandler extends PBasicInputEventHandler {
 	}
 
 	public void keyReleased(PInputEvent e) {
-//		mayHideTransients(null);
+		// mayHideTransients(null);
 		int key = e.getKeyCode();
 		if (keyRelease(key) || keyRelease(key, e)) {
 			e.setHandled(true);
@@ -334,7 +349,7 @@ public class MyInputEventHandler extends PBasicInputEventHandler {
 			maybeShiftKeysChanged(e);
 		}
 	}
-	
+
 	private int prevModifiers;
 
 	/**
@@ -366,11 +381,13 @@ public class MyInputEventHandler extends PBasicInputEventHandler {
 
 	public void processEvent(PInputEvent e, int type) {
 		if (type == SHIFT_KEYS_CHANGED) {
+			// Util.print("SHIFT_KEYS_CHANGED");
 			if (e.getModifiersEx() != prevModifiers) {
-			PNode node = findNodeType(e);
-			if (node != null)
-				e.setHandled(shiftKeysChanged(node)
-						|| shiftKeysChanged(node, e));}
+				PNode node = findNodeType(e);
+				if (node != null)
+					e.setHandled(shiftKeysChanged(node)
+							|| shiftKeysChanged(node, e));
+			}
 		} else {
 			super.processEvent(e, type);
 		}

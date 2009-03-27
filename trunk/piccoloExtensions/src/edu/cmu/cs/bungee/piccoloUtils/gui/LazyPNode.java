@@ -74,6 +74,14 @@ public class LazyPNode extends PNode implements Target {
 			scale(scale / getScale());
 	}
 	
+	public void setCenterX(double x) {
+		 setXoffset(x-getWidth() * getScale() / 2.0);
+	}
+	
+	public void setCenterY(double y) {
+		 setXoffset(y-getHeight() * getScale() / 2.0);
+	}
+	
 	/**
 	 * @return x-coordinate of center in parents coordinate system
 	 */
@@ -181,6 +189,18 @@ public class LazyPNode extends PNode implements Target {
 	public void addChild(PNode child) {
 		if (child.getParent() != this)
 			super.addChild(child);
+	}
+	
+	public void moveBehind(PNode node) {
+		PNode p = getParent();
+		if (p != null && p.indexOfChild(this) > p.indexOfChild(node))
+			super.moveInBackOf(node);
+	}
+	
+	public void moveAheadOf(PNode node) {
+		PNode p = getParent();
+		if (p != null && p.indexOfChild(this) < p.indexOfChild(node))
+			super.moveInFrontOf(node);
 	}
 
 	public void moveToFront() {

@@ -31,7 +31,6 @@ Pittsburgh, PA 15213
 
 package edu.cmu.cs.bungee.piccoloUtils.gui;
 
-import edu.umd.cs.piccolo.PNode;
 
 /**
  * Support Genera-like Mouse Documentation Line at the bottom of the window. The
@@ -49,7 +48,7 @@ public interface MouseDoc {
 	 *            the MouseDoc whose description is to be displayed.
 	 * @param state whether we're entering (false for exiting)
 	 */
-	public void setMouseDoc(PNode source, boolean state);
+//	public void setMouseDoc(PNode source, boolean state);
 
 	/**
 	 * @param doc
