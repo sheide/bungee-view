@@ -32,6 +32,7 @@ package edu.cmu.cs.bungee.piccoloUtils.gui;
 
 import java.awt.Color;
 
+import edu.umd.cs.piccolo.PNode;
 import edu.umd.cs.piccolo.event.PInputEvent;
 
 public class HScrollbar extends VScrollbar {
@@ -41,6 +42,8 @@ public class HScrollbar extends VScrollbar {
         super(- sw, sw, sh, _BG, _FG, _action);
         //super(sw, sh, _BG, _FG, _action);
         setRotation(-Math.PI/2.0);
+        down.mouseDoc = "Scroll right one lilne";
+        up.mouseDoc = "Scroll left one lilne";
     }
     
     public void drag(PInputEvent e) {
@@ -49,5 +52,19 @@ public class HScrollbar extends VScrollbar {
         //System.out.println(spos0 * ratio);
         setPos(spos0 * ratio);
     }
+
+	void mouseDoc(PNode node, PInputEvent e, boolean state) {
+		assert node == this;
+		String desc = null;
+		if (state) {
+			PNode pickedNode = e.getPickedNode();
+			if (pickedNode == node) {
+				desc = getPageDirection(e) > 0 ? "Page left" : "Page right";
+			} else {
+				desc = "Start dragging scrollbar";
+			}
+		}
+		setMouseDoc(desc);
+	}
     
 }

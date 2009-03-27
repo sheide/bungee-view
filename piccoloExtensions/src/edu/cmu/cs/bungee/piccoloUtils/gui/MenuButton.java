@@ -27,36 +27,36 @@ Carnegie-Mellon University
 Human-Computer Interaction Institute
 Pittsburgh, PA 15213
 
-*/
+ */
 
 package edu.cmu.cs.bungee.piccoloUtils.gui;
 
-import edu.umd.cs.piccolo.PNode;
-
 import java.awt.Color;
 import java.awt.Font;
+import java.awt.Paint;
 
-public class MenuButton extends APText {
+public class MenuButton extends TextButton {
 
-	private final String desc; // = "Select this menu choice";
-	
-	final Object data;
+//	private final String desc; // = "Select this menu choice";
 
-	static final MenuButtonClickHandler menuButtonClickHandler = new MenuButtonClickHandler();
+	final MenuItem item;
 
-	public MenuButton(String label, String _desc, Color BG, Color FG, Font _font, Object _data) {
-		super(_font);
-		data = _data;
-		desc = _desc;
+//	static final MenuButtonClickHandler menuButtonClickHandler = new MenuButtonClickHandler();
+
+	public MenuButton(MenuItem item, Paint bg, Color FG,
+			Font _font) {
+		super(item.getLabel(), _font, 0, 0, -1, -1, null, null, 0, FG, bg);
+
+		this.item = item;
 		if (FG != null)
 			setTextPaint(FG);
-		if (BG != null)
-			setPaint(BG);
-		setWrapOnWordBoundaries(false);
-		setText(label);
-		setConstrainHeightToTextHeight(false);
+		if (bg != null)
+			setPaint(bg);
+		// setWrapOnWordBoundaries(false);
+		setText(item.getLabel());
+		// setConstrainHeightToTextHeight(false);
 		setHeight(Math.ceil(getHeight()));
-		addInputEventListener(menuButtonClickHandler);
+//		addInputEventListener(menuButtonClickHandler);
 	}
 
 	void draw(double y, boolean visible) {
@@ -68,53 +68,52 @@ public class MenuButton extends APText {
 		setOffset(getXOffset(), y);
 	}
 
-	void pick() {
-		((Menu) getParent()).choose(getText(), data);
+	public void doPick() {
+		((Menu) getParent()).choose(item);
 	}
 
 	public void setW(double w) {
-		setConstrainWidthToTextWidth(false);
+		// setConstrainWidthToTextWidth(false);
 		setWidth(w);
 	}
 
-	//    void pickDoc() {
-	//        ((Menu) getParent()).setDoc(desc);
-	//    }
-
-	 void setMouseDoc(boolean state) {
+	public// void pickDoc() {
+	// ((Menu) getParent()).setDoc(desc);
+	// }
+	void setMouseDoc(boolean state) {
 		if (getParent() instanceof MouseDoc)
-			((MouseDoc) getParent()).setMouseDoc(state ? desc : null);
+			((MouseDoc) getParent()).setMouseDoc(state ? item.getMouseDoc() : null);
 	}
 }
 
-class MenuButtonClickHandler extends MyInputEventHandler {
-
-	MenuButtonClickHandler() {
-		super(MenuButton.class);
-	}
-
-	//    public boolean enter(PNode node) {
-	//    	((MenuButton) node).highlight(true);
-	//        return true;
-	//    }
-
-	//  public boolean exit(PNode node) {
-	//  	((MenuButton) node).highlight(false);
-	//      return true;
-	//  }
-
-	protected boolean click(PNode node) {
-		((MenuButton) node).pick();
-		return true;
-	}
-
-	protected boolean exit(PNode node) {
-		((MenuButton) node).setMouseDoc(false);
-		return true;
-	}
-
-	protected boolean enter(PNode node) {
-		((MenuButton) node).setMouseDoc(true);
-		return true;
-	}
-}
+//class MenuButtonClickHandler extends MyInputEventHandler {
+//
+//	MenuButtonClickHandler() {
+//		super(MenuButton.class);
+//	}
+//
+//	// public boolean enter(PNode node) {
+//	// ((MenuButton) node).highlight(true);
+//	// return true;
+//	// }
+//
+//	// public boolean exit(PNode node) {
+//	// ((MenuButton) node).highlight(false);
+//	// return true;
+//	// }
+//
+//	protected boolean click(PNode node) {
+//		((MenuButton) node).pick();
+//		return true;
+//	}
+//
+//	protected boolean exit(PNode node) {
+//		((MenuButton) node).setMouseDoc(false);
+//		return true;
+//	}
+//
+//	protected boolean enter(PNode node) {
+//		((MenuButton) node).setMouseDoc(true);
+//		return true;
+//	}
+//}

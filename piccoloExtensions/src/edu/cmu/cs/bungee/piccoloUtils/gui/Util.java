@@ -30,20 +30,37 @@
  */
 package edu.cmu.cs.bungee.piccoloUtils.gui;
 
+import java.awt.Color;
 import java.awt.Font;
+import java.awt.Graphics2D;
+import java.awt.GraphicsConfiguration;
 import java.awt.Rectangle;
 import java.awt.font.LineBreakMeasurer;
 import java.awt.font.TextAttribute;
 import java.awt.font.TextLayout;
 import java.awt.font.TextMeasurer;
+import java.awt.geom.AffineTransform;
 import java.awt.geom.Rectangle2D;
+import java.awt.image.BufferedImage;
+import java.awt.print.PageFormat;
+import java.awt.print.Paper;
+import java.io.File;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.text.AttributedCharacterIterator;
 import java.text.AttributedString;
 import java.util.Iterator;
 
+import com.sun.image.codec.jpeg.ImageFormatException;
+import com.sun.image.codec.jpeg.JPEGCodec;
+import com.sun.image.codec.jpeg.JPEGDecodeParam;
+import com.sun.image.codec.jpeg.JPEGEncodeParam;
+import com.sun.image.codec.jpeg.JPEGImageEncoder;
+
 import edu.umd.cs.piccolo.PNode;
 import edu.umd.cs.piccolo.activities.PInterpolatingActivity;
 import edu.umd.cs.piccolo.nodes.PText;
+import edu.umd.cs.piccolo.util.PBounds;
 import edu.umd.cs.piccolo.util.PPaintContext;
 import edu.umd.cs.piccolo.util.PUtil;
 import edu.umd.cs.piccolox.PFrame;
@@ -102,9 +119,8 @@ public final class Util {
 		if (node.getChildrenCount() > 0)
 			printDescendentsInternal(node, "", maxChildren, invalidOnly);
 		else {
-			System.out.println(nodeDesc(node) + " " + node.getScale() + " "
-					+ node.getBounds());
-			System.out.print("  <no descendents");
+			System.out.println(nodeDesc(node));
+			System.out.println("  <no descendents");
 		}
 	}
 
@@ -120,9 +136,7 @@ public final class Util {
 		PNode each = node.getParent();
 		if (each != null)
 			printAncestorsInternal(each, indent + "  ");
-		String name = nodeDesc(node);
-		System.out.println(indent + name + " " + node.getScale() + " "
-				+ node.getBounds());
+		System.out.println(indent + nodeDesc(node));
 	}
 
 	public static String nodeDesc(PNode node) {
@@ -136,7 +150,8 @@ public final class Util {
 		} catch (java.lang.Exception se) {
 			se.printStackTrace(System.out);
 		}
-		return name;
+		return name + " " + node.getScale() + " " + node.getBounds() + " "
+				+ node.getOffset();
 	}
 
 	static void printDescendentsInternal(PNode node, String indent,
@@ -146,7 +161,8 @@ public final class Util {
 		System.out.println(indent + name + " " + node.getScale() + " "
 				+ node.getBounds());
 		int index = 0;
-		for (Iterator i = node.getChildrenIterator(); i.hasNext() && index < maxChildren;) {
+		for (Iterator i = node.getChildrenIterator(); i.hasNext()
+				&& index < maxChildren;) {
 			PNode each = (PNode) i.next();
 			if (!invalidOnly || each.getPaintInvalid()) {
 				printDescendentsInternal(each, indent + "  ", maxChildren,
@@ -176,10 +192,11 @@ public final class Util {
 
 	/**
 	 * Does not pay attention to word breaks.
+	 * 
 	 * @param text
 	 * @param availableWidth
 	 * @param font
-	 * @return 
+	 * @return a truncated version of text
 	 */
 	public static String truncateText(String text, float availableWidth,
 			Font font) {
@@ -312,5 +329,67 @@ public final class Util {
 		outline.lineTo(x + w, y + h);
 		outline.lineTo(x, y + h);
 		outline.lineTo(x, y);
+	}
+
+	/**
+	 * @param pnode
+	 *            node to print
+	 * @param file
+	 *            destination jpg
+	 * @param dpi
+	 *            dots per inch in jpg file. image size is the same as the size
+	 *            of the pnode on the screen.
+	 * @param quality
+	 *            jpg quality from 1 - 100
+	 * @throws ImageFormatException
+	 * @throws IOException
+	 */
+	public static void savePNodeAsJPEG(PNode pnode, File file, int dpi,
+			int quality) throws ImageFormatException, IOException {
+		// JpegOptionsFileDialog fd = JpegOptionsFileDialog.saveFile(
+		// "Save the current summary tree", directory, 85, (int) tWin
+		// .getWidth(), (int) tWin.getHeight());
+
+		GraphicsConfiguration gc = edu.cmu.cs.bungee.javaExtensions.Util
+				.getGraphicsConfiguration();
+		AffineTransform normalizingTransform = gc.getNormalizingTransform();
+		double relativeScale = dpi / 72.0;
+		normalizingTransform.scale(relativeScale, relativeScale);
+		PBounds bounds = pnode.getFullBounds();
+		double width = bounds.getWidth();
+		int pageW = (int) (width * normalizingTransform.getScaleX());
+		double height = bounds.getHeight();
+		int pageH = (int) (height * normalizingTransform.getScaleY());
+
+		BufferedImage im = edu.cmu.cs.bungee.javaExtensions.Util
+				.createCompatibleImage(pageW, pageH);
+		Graphics2D g = (Graphics2D) im.getGraphics();
+		g.setTransform(gc.getDefaultTransform());
+		g.transform(normalizingTransform);
+
+		g.setPaint(Color.white);
+		g.fillRect(0, 0, pageW, pageH);
+		pnode.print(g, pageFormat(width, height), 0);
+
+		OutputStream out = edu.cmu.cs.bungee.javaExtensions.Util
+				.getOutputStream(file);
+		JPEGImageEncoder encoder = JPEGCodec.createJPEGEncoder(out);
+		JPEGEncodeParam param = encoder.getDefaultJPEGEncodeParam(im);
+		param.setQuality(quality / 100f, false);
+		param.setDensityUnit(JPEGDecodeParam.DENSITY_UNIT_DOTS_INCH);
+		param.setXDensity(dpi);
+		param.setYDensity(dpi);
+		encoder.setJPEGEncodeParam(param);
+		encoder.encode(im);
+		out.close();
+	}
+
+	public static PageFormat pageFormat(double pageW, double pageH) {
+		Paper paper = new Paper();
+		paper.setSize(pageW, pageH);
+		paper.setImageableArea(0, 0, pageW, pageH);
+		PageFormat pageFormat = new PageFormat();
+		pageFormat.setPaper(paper);
+		return pageFormat;
 	}
 }

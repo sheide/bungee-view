@@ -36,7 +36,7 @@ import java.awt.Color;
 import edu.umd.cs.piccolo.PNode;
 import edu.umd.cs.piccolo.event.PInputEvent;
 
-public final class Boundary extends LazyPNode {
+public class Boundary extends LazyPNode {
 
 	private static final double w = 2;
 	
@@ -55,6 +55,11 @@ public final class Boundary extends LazyPNode {
 	private boolean isHorizontal;
 
 	private double constrainedX0;
+	
+	/**
+	 * Add this to the x- or y-coordinate
+	 */
+	public double margin = 0;
 
 	// public Boundary(double x, double y, double h, double _minX, double _maxX,
 	// Color baseColor) {
@@ -65,31 +70,33 @@ public final class Boundary extends LazyPNode {
 		parent = _parent;
 		isHorizontal = _isHorizontal;
 		if (isHorizontal)
-			init(0, parent.getHeight() - w / 2, parent.getWidth(), w,
-					Color.white);
+			setHeight(w);
 		else
-			init(parent.getWidth() - w / 2, 0, w, parent.getHeight(),
-					Color.white);
+			setWidth(w);
+		setVisible(false);
+		setBaseColor(null);
+		addInputEventListener(handler);
 		parent.addChild(this);
+		validate();
 	}
 
-	void init(double x, double y, double w1, double h, Color baseColor) {
-		// System.out.println(centerX + " " + y + " " + h);
-		setVisible(false);
-		setWidth(w1);
-		setHeight(h);
-		setBaseColor(baseColor);
-		setOffset(x, y);
-		addInputEventListener(handler);
-	}
+//	void init(double x, double y, double w1, double h, Color baseColor) {
+//		// System.out.println(centerX + " " + y + " " + h);
+//		setVisible(false);
+//		setWidth(w1);
+//		setHeight(h);
+//		setBaseColor(baseColor);
+//		setOffset(x, y);
+//		addInputEventListener(handler);
+//	}
 
 	public void validate() {
 		if (isHorizontal) {
 			setWidth(parent.getWidth());
-			setOffset(getXOffset(), parent.getHeight() - w / 2);
+			setOffset(getXOffset(), parent.getHeight() + offset());
 		} else {
 			setHeight(parent.getHeight());
-			setOffset(parent.getWidth() - w / 2, getYOffset());
+			setOffset(parent.getWidth() + offset(), getYOffset());
 		}
 	}
 
@@ -97,6 +104,10 @@ public final class Boundary extends LazyPNode {
 		if (baseColor == null)
 			baseColor = Color.white;
 		setPaint(baseColor);
+	}
+	
+	private double offset() {
+		return margin - w/2;
 	}
 
 	// public void setMinX (double _minX) {
@@ -113,9 +124,9 @@ public final class Boundary extends LazyPNode {
 
 	public void setCenter(double center) {
 		if (isHorizontal)
-			setOffset(getXOffset(), center - w / 2);
+			setOffset(getXOffset(), center + offset());
 		else
-			setOffset(center - w / 2, getYOffset());
+			setOffset(center + offset(), getYOffset());
 	}
 
 	public void exit() {
@@ -123,19 +134,20 @@ public final class Boundary extends LazyPNode {
 			setVisible(false);
 			parent.exitBoundary(this);
 		}
-		setMouseDoc(false);
+		setMouseDoc(null);
 	}
 
 	public void enter() {
+//		Util.print("boundary enter ");
 		setVisible(true);
-		setMouseDoc(true);
+		setMouseDoc(mouseDoc);
 		parent.enterBoundary(this);
 	}
 
-	public void setMouseDoc(boolean state) {
+	public void setMouseDoc(String doc) {
 		// override this
 		if (parent instanceof MouseDoc)
-			((MouseDoc) parent).setMouseDoc(this, state);
+			((MouseDoc) parent).setMouseDoc(doc);
 	}
 
 //	public void mayHideTransients(PNode node) {
@@ -155,11 +167,11 @@ public final class Boundary extends LazyPNode {
 
 	public void startDrag() {
 		if (isHorizontal) {
-			x0 = getYOffset() + w / 2;
+			x0 = getYOffset() - offset();
 			minX = parent.minHeight(this);
 			maxX = parent.maxHeight(this);
 		} else {
-			x0 = getXOffset() + w / 2;
+			x0 = getXOffset() - offset();
 			minX = parent.minWidth(this);
 			maxX = parent.maxWidth(this);
 		}

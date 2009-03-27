@@ -78,7 +78,7 @@ public final class ProgressBar extends PFrame {
 			status.setText(s);
 			setProgress(maxValue - is.available());
 		} catch (IOException e) {
-			e.printStackTrace();
+			// This can happen if we're at end of file.
 		}
 	}
 

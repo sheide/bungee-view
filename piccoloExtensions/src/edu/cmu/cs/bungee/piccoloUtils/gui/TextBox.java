@@ -95,61 +95,79 @@ public class TextBox extends PNode implements MouseDoc {
 	 */
 	private String lines;
 
+	private double lineH;
+
+	private double hMax;
+
+	private double w;
+
 	public TextBox(double w, double hMax, String _s, Color Scroll_BG,
 			Color Scroll_FG, Color _color, double lineH, Font font) {
 		// hMax = lineH * 4; // JUST FOR TESTING!!!!
 		FG = Scroll_FG;
 		BG = Scroll_BG;
 		color = _color;
-//		w = _w;
+		this.w = w;
+		this.hMax = hMax;
+		this.lineH = lineH;
 		text = new APText(font);
 		text.setTextPaint(color);
 		text.setConstrainWidthToTextWidth(false);
 		text.setWidth(w - 2);
 		text.setPickable(false);
-		text.setText(_s);
-
-		// s = gui.Util.wrapText(_s, (float) (w - 2), font);
-		nLines = text.getNlines();
-		double h = lineH * nLines;
-		if (h > hMax) {
-			// s = gui.Util.wrapText(_s, (float) (w - 3 - scrollW), font);
-			// nLines = Util.nLines(s);
-			text.setWidth(w - 3 - scrollW);
-			nLines = text.getNlines();
-			nVisibleLines = (int) (hMax / lineH);
-			h = nVisibleLines * lineH;
-			Runnable scroll = new Runnable() {
-
-				public void run() {
-					// System.out.println("TextBox.scroll");
-					draw();
-				}
-			};
-			sb = new VScrollbar(// (int) (w - scrollW / 2 - 1), 0,
-					scrollW, (int) h, BG, FG, scroll);
-			sb.setOffset(w - scrollW, 0);
-			addChild(sb);
-			sb.setBufferPercent(nVisibleLines, nLines);
-			text.setConstrainHeightToTextHeight(false);
-			text.setHeight(h);
-			// System.out.println("Adding scrollbar " + nVisibleLines + " " +
-			// nLines);
-			// System.out.println(sb.getBounds());
-			// System.out.println(sb.getOffset());
-		} else {
-			nVisibleLines = nLines;
-		}
+		setText(_s);
 		setPickable(false);
-		setBounds(0.0, 0.0, w, h);
 		// text.setOffset(5, 5);
 		addChild(text);
 		// System.out.println(s);
 		// System.out.println("TextBox " + nLines + " " + sH + " " + hMax);
 	}
 
+	/**
+	 * @return the displayed String
+	 */
 	public String getText() {
 		return text.getText();
+	}
+
+	/**
+	 * @param s display this String
+	 */
+	public void setText(String s) {
+		 text.setText(s);
+
+			// s = gui.Util.wrapText(_s, (float) (w - 2), font);
+			nLines = text.getNlines();
+			double h = lineH * nLines;
+			if (h > hMax) {
+				// s = gui.Util.wrapText(_s, (float) (w - 3 - scrollW), font);
+				// nLines = Util.nLines(s);
+				text.setWidth(w - 3 - scrollW);
+				nLines = text.getNlines();
+				nVisibleLines = (int) (hMax / lineH);
+				h = nVisibleLines * lineH;
+				Runnable scroll = new Runnable() {
+
+					public void run() {
+						// System.out.println("TextBox.scroll");
+						draw();
+					}
+				};
+				sb = new VScrollbar(// (int) (w - scrollW / 2 - 1), 0,
+						scrollW, (int) h, BG, FG, scroll);
+				sb.setOffset(w - scrollW, 0);
+				addChild(sb);
+				sb.setBufferPercent(nVisibleLines, nLines);
+				text.setConstrainHeightToTextHeight(false);
+				text.setHeight(h);
+				// System.out.println("Adding scrollbar " + nVisibleLines + " " +
+				// nLines);
+				// System.out.println(sb.getBounds());
+				// System.out.println(sb.getOffset());
+			} else {
+				nVisibleLines = nLines;
+			}
+			setBounds(0.0, 0.0, w, h);
 	}
 
 	public boolean isScrollBar() {
@@ -169,6 +187,10 @@ public class TextBox extends PNode implements MouseDoc {
 		}
 		// System.out.println("Text " + text.getHeight());
 	}
+	
+	public boolean isEditing() {
+		return isEditable;
+	}
 
 	public void setEditable(boolean state, PCanvas canvas, Runnable _action) {
 		if (state != isEditable) {
@@ -184,7 +206,7 @@ public class TextBox extends PNode implements MouseDoc {
 				Document doc = editor.getUI().getEditorKit(editor)
 						.createDefaultDocument();
 				try {
-					doc.insertString(0, text.getText(), null);
+					doc.insertString(0, getText(), null);
 				} catch (BadLocationException e) {
 					e.printStackTrace();
 				}
@@ -274,7 +296,7 @@ public class TextBox extends PNode implements MouseDoc {
 		return tComp;
 	}
 
-	public // private PStyledText searchBox;
+	 // private PStyledText searchBox;
 	//
 	// private JTextComponent editor;
 	//
@@ -342,7 +364,7 @@ public class TextBox extends PNode implements MouseDoc {
 	// return tComp;
 	// }
 
-	 void setMouseDoc(String doc) {
+	public void setMouseDoc(String doc) {
 		if (getParent() instanceof MouseDoc) {
 			((MouseDoc) getParent()).setMouseDoc(doc);
 		}
@@ -354,7 +376,7 @@ public class TextBox extends PNode implements MouseDoc {
 //		}
 //	}
 
-	public void setMouseDoc(PNode source, boolean state) {
-		setMouseDoc(state ? ((Button) source).mouseDoc : null);
-	}
+//	public void setMouseDoc(PNode source, boolean state) {
+//		setMouseDoc(state ? ((Button) source).mouseDoc : null);
+//	}
 }
