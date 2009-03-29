@@ -18,11 +18,11 @@ import java.util.List;
 import java.util.Map;
 
 import edu.cmu.cs.bungee.javaExtensions.Util;
+import edu.umd.cs.piccolo.activities.PInterpolatingActivity;
+import edu.umd.cs.piccolo.nodes.PText;
 import edu.umd.cs.piccolo.util.PBounds;
 import edu.umd.cs.piccolo.util.PPaintContext;
 import edu.umd.cs.piccolo.util.PUtil;
-import edu.umd.cs.piccolo.activities.PInterpolatingActivity;
-import edu.umd.cs.piccolo.nodes.PText;
 
 /*
  * Created on Mar 5, 2005 @author mad Supports attributes like UNDERLINE. Also
@@ -31,6 +31,11 @@ import edu.umd.cs.piccolo.nodes.PText;
 public class APText extends PText {
 
 	// public static int paintCount = 0;
+
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
 
 	private boolean wrapOnWordBoundaries = true;
 

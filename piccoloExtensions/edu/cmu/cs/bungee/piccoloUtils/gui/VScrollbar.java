@@ -40,10 +40,15 @@ import edu.umd.cs.piccolo.event.PInputEvent;
 public class VScrollbar extends PNode implements MouseDoc {
 
 	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+
+	/**
 	 * width of bar
 	 */
-	protected double swidth; 
-	
+	protected double swidth;
+
 	/**
 	 * height of bar, not including up/down buttons
 	 */
@@ -54,7 +59,8 @@ public class VScrollbar extends PNode implements MouseDoc {
 	protected double xpos; // x and y position of [top center of the] bar
 
 	/**
-	 * y position of slider, in the range [sposMin, sposMin + sheight - thumbsize]
+	 * y position of slider, in the range [sposMin, sposMin + sheight -
+	 * thumbsize]
 	 */
 	public double spos;
 
@@ -92,8 +98,8 @@ public class VScrollbar extends PNode implements MouseDoc {
 		init(xPosition, width, height, _BG, _FG, _action);
 	}
 
-	void init(double xPosition, double width, double height, Color _BG, Color _FG,
-			Runnable _action) {
+	void init(double xPosition, double width, double height, Color _BG,
+			Color _FG, Runnable _action) {
 		assert height > 3 * width;
 		action = _action;
 		swidth = width;
@@ -176,8 +182,8 @@ public class VScrollbar extends PNode implements MouseDoc {
 	 * @return value between 0 and 1 representing thumb position
 	 */
 	public double getPos() {
-//		System.out.println("VScrollbar.getPos " + spos + " " + sposMin + " "
-//				+ ((spos - sposMin) * ratio));
+		// System.out.println("VScrollbar.getPos " + spos + " " + sposMin + " "
+		// + ((spos - sposMin) * ratio));
 		return (spos - sposMin) * ratio;
 	}
 
@@ -227,9 +233,9 @@ public class VScrollbar extends PNode implements MouseDoc {
 				* direction);
 	}
 
-//	public void setMouseDoc(PNode source, boolean state) {
-//		setMouseDoc(state ? ((Button) source).mouseDoc : null);
-//	}
+	// public void setMouseDoc(PNode source, boolean state) {
+	// setMouseDoc(state ? ((Button) source).mouseDoc : null);
+	// }
 
 	public void setMouseDoc(String doc) {
 		if (getParent() instanceof MouseDoc) {
@@ -300,7 +306,7 @@ class VScrollHandler extends MyInputEventHandler {
 	}
 
 	protected boolean enter(PNode node, PInputEvent e) {
-//		Util.print("VScrollbar enter ");
+		// Util.print("VScrollbar enter ");
 		((VScrollbar) node).mouseDoc(node, e, true);
 		return true;
 	}
@@ -416,6 +422,10 @@ class VScrollHandler extends MyInputEventHandler {
 
 class ScrollButton extends Button {
 
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
 	int _direction; // +1 or -1
 
 	ScrollButton(double x, double y, double size, int direction, Color _FG,
@@ -425,16 +435,16 @@ class ScrollButton extends Button {
 		_direction = direction;
 		// Util.print("ScrollButton " + y);
 
-//		PNode bg = new PNode();
-//		bg.setPaint(_BG);
-//		bg.setBounds(1, 1, size - 2, size - 2);
-//		bg.setPickable(false);
-//		addChild(bg);
+		// PNode bg = new PNode();
+		// bg.setPaint(_BG);
+		// bg.setBounds(1, 1, size - 2, size - 2);
+		// bg.setPickable(false);
+		// addChild(bg);
 
 		// setPaint(_BG);
-		float innerSize = ((float)size-2*borderW());
-		float mid = innerSize/2; //((float) size - 2) / 2;
-		float halfMarkSize = mid-1; //((float) size - 2) / 2 - 2;
+		float innerSize = ((float) size - 2 * borderW());
+		float mid = innerSize / 2; // ((float) size - 2) / 2;
+		float halfMarkSize = mid - 1; // ((float) size - 2) / 2 - 2;
 		child = new LazyPPath();
 		positionChild();
 		float[] xp = new float[3];

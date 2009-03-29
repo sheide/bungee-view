@@ -39,7 +39,12 @@ import java.awt.Paint;
 import edu.umd.cs.piccolo.PNode;
 
 public class Menu extends PNode implements MouseDoc {
-	
+
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+
 	public String mouseDoc = "Open this menu";
 
 	MenuButton[] buttons;
@@ -56,11 +61,11 @@ public class Menu extends PNode implements MouseDoc {
 
 	double w = 0.0;
 
-//	protected Runnable action;
+	// protected Runnable action;
 
 	private Font font;
 
-//	private Object data;
+	// private Object data;
 
 	// private int alignment; // 0 = left; 1 = middle; 2 = right
 
@@ -69,7 +74,7 @@ public class Menu extends PNode implements MouseDoc {
 	public Menu(Paint _bg, Color _fg, Font _font) {
 		bg = _bg;
 		fg = _fg;
-//		action = _action;
+		// action = _action;
 		font = _font;
 		// alignment = _alignment;
 		value = new APText(font);
@@ -84,14 +89,14 @@ public class Menu extends PNode implements MouseDoc {
 		addChild(value);
 		addInputEventListener(menuClickHandler);
 	}
-	
+
 	public void setJustification(float just) {
-		value.setJustification(just);		
+		value.setJustification(just);
 	}
 
-//	public void addButton(String label, String mouseDoc1) {
-//		addButton(label, mouseDoc1, null);
-//	}
+	// public void addButton(String label, String mouseDoc1) {
+	// addButton(label, mouseDoc1, null);
+	// }
 
 	public void addButton(MenuItem item) {
 		// System.out.println("Menu.addButton " + label);
@@ -120,34 +125,35 @@ public class Menu extends PNode implements MouseDoc {
 		draw();
 	}
 
-//	public void addButton(String label, String mouseDoc1, Object _data) {
-//		// System.out.println("Menu.addButton " + label);
-//		int oldNbuttons = buttons == null ? 0 : buttons.length;
-//		MenuButton[] pButton = new MenuButton[oldNbuttons + 1];
-//		for (int i = 0; i < oldNbuttons; i++) {
-//			pButton[i] = buttons[i];
-//		}
-//		DefaultMenuItem defaultMenuItem = new DefaultMenuItem(action,label, mouseDoc1);
-//		defaultMenuItem.object=_data;
-//		MenuButton b = new MenuButton(defaultMenuItem, bg, fg, font);
-//		addChild(b);
-//		// b.addInputEventListener(menuClickHandler);
-//		pButton[oldNbuttons] = b;
-//		// float labelW = font.width(label) + 10.0;
-//		// if (w < labelW)
-//		// w = labelW * 1.8;
-//		buttons = pButton;
-//		if (oldNbuttons == 0) {
-//			value.setHeight(b.getHeight());
-//			value.setText(label);
-//		}
-//		double newW = b.getWidth();
-//		if (newW > w) {
-//			setWidth(newW);
-//		}
-//		b.setW(w);
-//		draw();
-//	}
+	// public void addButton(String label, String mouseDoc1, Object _data) {
+	// // System.out.println("Menu.addButton " + label);
+	// int oldNbuttons = buttons == null ? 0 : buttons.length;
+	// MenuButton[] pButton = new MenuButton[oldNbuttons + 1];
+	// for (int i = 0; i < oldNbuttons; i++) {
+	// pButton[i] = buttons[i];
+	// }
+	// DefaultMenuItem defaultMenuItem = new DefaultMenuItem(action,label,
+	// mouseDoc1);
+	// defaultMenuItem.object=_data;
+	// MenuButton b = new MenuButton(defaultMenuItem, bg, fg, font);
+	// addChild(b);
+	// // b.addInputEventListener(menuClickHandler);
+	// pButton[oldNbuttons] = b;
+	// // float labelW = font.width(label) + 10.0;
+	// // if (w < labelW)
+	// // w = labelW * 1.8;
+	// buttons = pButton;
+	// if (oldNbuttons == 0) {
+	// value.setHeight(b.getHeight());
+	// value.setText(label);
+	// }
+	// double newW = b.getWidth();
+	// if (newW > w) {
+	// setWidth(newW);
+	// }
+	// b.setW(w);
+	// draw();
+	// }
 
 	public void setText(String desc) {
 		// System.out.println("Menu.setText " + desc);
@@ -206,11 +212,11 @@ public class Menu extends PNode implements MouseDoc {
 	public void choose(MenuItem item) {
 		visible = true; // choose calls pick, which will toggle visibility
 		// System.out.println("Menu.choose " + choice);
-//		data = item;
+		// data = item;
 		pick();
-//		action.run();
+		// action.run();
 		String newValue = item.doCommand();
-		if (newValue!=null)
+		if (newValue != null)
 			value.setText(newValue);
 	}
 
@@ -219,9 +225,9 @@ public class Menu extends PNode implements MouseDoc {
 		return value.getText();
 	}
 
-//	public Object getData() {
-//		return data;
-//	}
+	// public Object getData() {
+	// return data;
+	// }
 
 	public void pick() {
 		// System.out.println("Menu.pick");
@@ -239,9 +245,9 @@ public class Menu extends PNode implements MouseDoc {
 		}
 	}
 
-//	public void setMouseDoc(PNode source, boolean state) {
-//		setMouseDoc(state ? ((Button) source).mouseDoc : null);
-//	}
+	// public void setMouseDoc(PNode source, boolean state) {
+	// setMouseDoc(state ? ((Button) source).mouseDoc : null);
+	// }
 
 	public void setMouseDoc(String doc) {
 		if (getParent() instanceof MouseDoc)
@@ -265,7 +271,7 @@ public class Menu extends PNode implements MouseDoc {
 			if (buttons[i].getText().equals(label))
 				return buttons[i];
 		}
-		return null;		
+		return null;
 	}
 
 }

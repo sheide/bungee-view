@@ -38,8 +38,13 @@ import edu.umd.cs.piccolo.event.PInputEvent;
 
 public class Boundary extends LazyPNode {
 
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+
 	private static final double w = 2;
-	
+
 	LazyPNode parent;
 
 	static BoundaryHandler handler = new BoundaryHandler();
@@ -55,7 +60,7 @@ public class Boundary extends LazyPNode {
 	private boolean isHorizontal;
 
 	private double constrainedX0;
-	
+
 	/**
 	 * Add this to the x- or y-coordinate
 	 */
@@ -80,15 +85,15 @@ public class Boundary extends LazyPNode {
 		validate();
 	}
 
-//	void init(double x, double y, double w1, double h, Color baseColor) {
-//		// System.out.println(centerX + " " + y + " " + h);
-//		setVisible(false);
-//		setWidth(w1);
-//		setHeight(h);
-//		setBaseColor(baseColor);
-//		setOffset(x, y);
-//		addInputEventListener(handler);
-//	}
+	// void init(double x, double y, double w1, double h, Color baseColor) {
+	// // System.out.println(centerX + " " + y + " " + h);
+	// setVisible(false);
+	// setWidth(w1);
+	// setHeight(h);
+	// setBaseColor(baseColor);
+	// setOffset(x, y);
+	// addInputEventListener(handler);
+	// }
 
 	public void validate() {
 		if (isHorizontal) {
@@ -105,9 +110,9 @@ public class Boundary extends LazyPNode {
 			baseColor = Color.white;
 		setPaint(baseColor);
 	}
-	
+
 	private double offset() {
-		return margin - w/2;
+		return margin - w / 2;
 	}
 
 	// public void setMinX (double _minX) {
@@ -138,7 +143,7 @@ public class Boundary extends LazyPNode {
 	}
 
 	public void enter() {
-//		Util.print("boundary enter ");
+		// Util.print("boundary enter ");
 		setVisible(true);
 		setMouseDoc(mouseDoc);
 		parent.enterBoundary(this);
@@ -150,10 +155,11 @@ public class Boundary extends LazyPNode {
 			((MouseDoc) parent).setMouseDoc(doc);
 	}
 
-//	public void mayHideTransients(PNode node) {
-//		assert edu.cmu.cs.bungee.javaExtensions.Util.ignore(node);
-//		System.err.println("Should override Boundary.mayHideTransients: " + parent);
-//	}
+	// public void mayHideTransients(PNode node) {
+	// assert edu.cmu.cs.bungee.javaExtensions.Util.ignore(node);
+	// System.err.println("Should override Boundary.mayHideTransients: " +
+	// parent);
+	// }
 
 	public void drag(PInputEvent e) {
 		double dx = isHorizontal ? e.getDelta().getHeight() : e.getDelta()
@@ -202,9 +208,9 @@ final class BoundaryHandler extends MyInputEventHandler {
 		return true;
 	}
 
-//	protected void mayHideTransients(PNode node) {
-//		((Boundary) node).mayHideTransients(node);
-//	}
+	// protected void mayHideTransients(PNode node) {
+	// ((Boundary) node).mayHideTransients(node);
+	// }
 
 	protected boolean press(PNode node) {
 		((Boundary) node).startDrag();

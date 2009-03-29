@@ -53,16 +53,20 @@ import edu.umd.cs.piccolo.PNode;
 import edu.umd.cs.piccolox.event.PStyledTextEventHandler;
 import edu.umd.cs.piccolox.nodes.PStyledText;
 
-
 public class TextBox extends PNode implements MouseDoc {
+
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
 
 	private static final int scrollW = 12;
 
 	boolean isEditable = false;
 
-//	double w, h;
+	// double w, h;
 
-//	String s;
+	// String s;
 
 	int nLines;
 
@@ -89,8 +93,8 @@ public class TextBox extends PNode implements MouseDoc {
 	protected Runnable editAction;
 
 	/**
-	 * Initially, we rely on Piccolo to flow text into lines. But to scroll
-	 * we have to figure out the lines ourselves. lines is the same string passed
+	 * Initially, we rely on Piccolo to flow text into lines. But to scroll we
+	 * have to figure out the lines ourselves. lines is the same string passed
 	 * to the constructor, except with added newlines.
 	 */
 	private String lines;
@@ -131,43 +135,44 @@ public class TextBox extends PNode implements MouseDoc {
 	}
 
 	/**
-	 * @param s display this String
+	 * @param s
+	 *            display this String
 	 */
 	public void setText(String s) {
-		 text.setText(s);
+		text.setText(s);
 
-			// s = gui.Util.wrapText(_s, (float) (w - 2), font);
+		// s = gui.Util.wrapText(_s, (float) (w - 2), font);
+		nLines = text.getNlines();
+		double h = lineH * nLines;
+		if (h > hMax) {
+			// s = gui.Util.wrapText(_s, (float) (w - 3 - scrollW), font);
+			// nLines = Util.nLines(s);
+			text.setWidth(w - 3 - scrollW);
 			nLines = text.getNlines();
-			double h = lineH * nLines;
-			if (h > hMax) {
-				// s = gui.Util.wrapText(_s, (float) (w - 3 - scrollW), font);
-				// nLines = Util.nLines(s);
-				text.setWidth(w - 3 - scrollW);
-				nLines = text.getNlines();
-				nVisibleLines = (int) (hMax / lineH);
-				h = nVisibleLines * lineH;
-				Runnable scroll = new Runnable() {
+			nVisibleLines = (int) (hMax / lineH);
+			h = nVisibleLines * lineH;
+			Runnable scroll = new Runnable() {
 
-					public void run() {
-						// System.out.println("TextBox.scroll");
-						draw();
-					}
-				};
-				sb = new VScrollbar(// (int) (w - scrollW / 2 - 1), 0,
-						scrollW, (int) h, BG, FG, scroll);
-				sb.setOffset(w - scrollW, 0);
-				addChild(sb);
-				sb.setBufferPercent(nVisibleLines, nLines);
-				text.setConstrainHeightToTextHeight(false);
-				text.setHeight(h);
-				// System.out.println("Adding scrollbar " + nVisibleLines + " " +
-				// nLines);
-				// System.out.println(sb.getBounds());
-				// System.out.println(sb.getOffset());
-			} else {
-				nVisibleLines = nLines;
-			}
-			setBounds(0.0, 0.0, w, h);
+				public void run() {
+					// System.out.println("TextBox.scroll");
+					draw();
+				}
+			};
+			sb = new VScrollbar(// (int) (w - scrollW / 2 - 1), 0,
+					scrollW, (int) h, BG, FG, scroll);
+			sb.setOffset(w - scrollW, 0);
+			addChild(sb);
+			sb.setBufferPercent(nVisibleLines, nLines);
+			text.setConstrainHeightToTextHeight(false);
+			text.setHeight(h);
+			// System.out.println("Adding scrollbar " + nVisibleLines + " " +
+			// nLines);
+			// System.out.println(sb.getBounds());
+			// System.out.println(sb.getOffset());
+		} else {
+			nVisibleLines = nLines;
+		}
+		setBounds(0.0, 0.0, w, h);
 	}
 
 	public boolean isScrollBar() {
@@ -180,14 +185,14 @@ public class TextBox extends PNode implements MouseDoc {
 		// System.out.println(lineOffset);
 		if (lineOffset != prevLineOffset) {
 			if (lines == null)
-				 lines = text.getBrokenText();
+				lines = text.getBrokenText();
 			String visString = Util.subLines(lines, lineOffset, nVisibleLines);
 			text.setText(visString);
 			prevLineOffset = lineOffset;
 		}
 		// System.out.println("Text " + text.getHeight());
 	}
-	
+
 	public boolean isEditing() {
 		return isEditable;
 	}
@@ -235,9 +240,13 @@ public class TextBox extends PNode implements MouseDoc {
 
 	static class EnterAction extends AbstractAction {
 
+		/**
+		 * 
+		 */
+		private static final long serialVersionUID = 1L;
 		TextBox qv;
 
-		 EnterAction(TextBox _q) {
+		EnterAction(TextBox _q) {
 			qv = _q;
 		}
 
@@ -262,6 +271,11 @@ public class TextBox extends PNode implements MouseDoc {
 	// copied from PStyledTextEventHandler
 	private JTextComponent createEditor() {
 		JTextPane tComp = new JTextPane() {
+
+			/**
+			 * 
+			 */
+			private static final long serialVersionUID = 1L;
 
 			/**
 			 * Set some rendering hints - if we don't then the rendering can be
@@ -296,7 +310,7 @@ public class TextBox extends PNode implements MouseDoc {
 		return tComp;
 	}
 
-	 // private PStyledText searchBox;
+	// private PStyledText searchBox;
 	//
 	// private JTextComponent editor;
 	//
@@ -370,13 +384,13 @@ public class TextBox extends PNode implements MouseDoc {
 		}
 	}
 
-//	public void setMouseDoc(Vector doc, boolean state) {
-//		if (getParent() instanceof MouseDoc) {
-//			((MouseDoc) getParent()).setMouseDoc(doc, state);
-//		}
-//	}
+	// public void setMouseDoc(Vector doc, boolean state) {
+	// if (getParent() instanceof MouseDoc) {
+	// ((MouseDoc) getParent()).setMouseDoc(doc, state);
+	// }
+	// }
 
-//	public void setMouseDoc(PNode source, boolean state) {
-//		setMouseDoc(state ? ((Button) source).mouseDoc : null);
-//	}
+	// public void setMouseDoc(PNode source, boolean state) {
+	// setMouseDoc(state ? ((Button) source).mouseDoc : null);
+	// }
 }

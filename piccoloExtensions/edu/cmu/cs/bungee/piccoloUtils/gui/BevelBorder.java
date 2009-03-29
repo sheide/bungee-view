@@ -169,8 +169,8 @@ public class BevelBorder extends LazyPNode {
 	 * @param highlight
 	 *            the color that will be used for the inner side of the
 	 *            highlighted edges (top and left if if <code>bevelType</code>
-	 *            is {@link #RAISED}; bottom and right otherwise). The color
-	 *            for the outer side is a brightened version of this color.
+	 *            is {@link #RAISED}; bottom and right otherwise). The color for
+	 *            the outer side is a brightened version of this color.
 	 * 
 	 * @param shadow
 	 *            the color that will be used for the outer side of the shadowed
@@ -323,7 +323,7 @@ public class BevelBorder extends LazyPNode {
 		Color result = (Color) (getPaint() == null ? getParent().getPaint()
 				: getPaint());
 		if (result == null)
-			printAncestors(this);
+			Util.printAncestors(this);
 		assert result != null : "Border or its parent must have a color.";
 		return result;
 	}

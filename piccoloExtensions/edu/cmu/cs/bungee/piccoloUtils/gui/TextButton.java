@@ -38,12 +38,17 @@ import java.awt.Paint;
 
 public class TextButton extends Button {
 
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+
 	// Must specify final w and h, rather than have it computed from text.
 	// Otherwise, Button would try to shrink it, which wouldn't have an effect,
 	// and child would occlude the whole Button.
 	public TextButton(String label, Font f, double x, double y, double outerW,
-			double outerH, String disabledMessage, String documentation, float fadeFactor1,
-			Color textColor, Paint paint) {
+			double outerH, String disabledMessage, String documentation,
+			float fadeFactor1, Color textColor, Paint paint) {
 		super(x, y, outerW >= 0 ? outerW : 10, outerH >= 0 ? outerH : 10,
 				disabledMessage, documentation, fadeFactor1, paint);
 		child = new APText(f);
