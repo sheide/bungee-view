@@ -1,9 +1,8 @@
 package edu.cmu.cs.bungee.javaExtensions.comparator;
 
-import java.io.Serializable;
 import java.util.Comparator;
 
-public abstract class IntValueComparator implements Comparator, Serializable {
+public abstract class IntValueComparator implements Comparator {
 
 	public int compare(Object data1, Object data2) {
 		return value(data2) - value(data1);

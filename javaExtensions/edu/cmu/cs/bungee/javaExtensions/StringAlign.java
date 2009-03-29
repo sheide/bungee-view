@@ -75,6 +75,10 @@ import java.text.ParsePosition;
  * change from ints to enum for alignment.
  */
 public class StringAlign extends Format {
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
 	/* Constant for left justification. */
 	public static final int JUST_LEFT = 'l';
 	/* Constant for centering. */
@@ -166,10 +170,10 @@ public class StringAlign extends Format {
 	public Object parseObject(String source, ParsePosition pos) {
 		return source;
 	}
-	
+
 	public static StringBuffer format(Object obj, StringBuffer where,
 			int maxChars, int just) {
-		if (where==null)
+		if (where == null)
 			where = new StringBuffer();
 
 		String s = obj == null ? "<null>" : obj.toString();
@@ -192,12 +196,11 @@ public class StringAlign extends Format {
 			pad(where, maxChars - wanted.length());
 			break;
 		}
-		return where;		
+		return where;
 	}
-	
-	public static String format(Object obj,
-			int maxChars, int just) {
-		return format(obj, null, maxChars, just).toString();		
+
+	public static String format(Object obj, int maxChars, int just) {
+		return format(obj, null, maxChars, just).toString();
 	}
 
 }
