@@ -4,7 +4,6 @@
 package edu.cmu.cs.bungee.javaExtensions;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -16,7 +15,7 @@ public class PermutationIterator implements Iterator {
 	private int nRemainingPerms;
 	private final List perm;
 
-	public PermutationIterator(Collection collection) {
+	public PermutationIterator(List collection) {
 		objects = collection.toArray();
 		int nObjects = objects.length;
 		integerPermGenerator = new IntegerPermutationGenerator(nObjects);
