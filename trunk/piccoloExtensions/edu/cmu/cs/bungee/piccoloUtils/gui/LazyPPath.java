@@ -49,6 +49,10 @@ public class LazyPPath extends PPath implements Cloneable {
 	// return super.setBounds(x, y, w, h);
 	// }
 
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
 	public static final Stroke[] strokeCache = new BasicStroke[11];
 
 	public LazyPPath() {
@@ -64,6 +68,7 @@ public class LazyPPath extends PPath implements Cloneable {
 
 	/**
 	 * set x offset
+	 * 
 	 * @param x
 	 */
 	public void setXoffset(double x) {
@@ -72,6 +77,7 @@ public class LazyPPath extends PPath implements Cloneable {
 
 	/**
 	 * Set y offset
+	 * 
 	 * @param y
 	 */
 	public void setYoffset(double y) {
@@ -130,9 +136,10 @@ public class LazyPPath extends PPath implements Cloneable {
 		return result;
 	}
 
-	/* 
-	 * This is more efficient when the Stroke is a BasicStroke, which we assume it always will be.
-	 * (non-Javadoc)
+	/*
+	 * This is more efficient when the Stroke is a BasicStroke, which we assume
+	 * it always will be. (non-Javadoc)
+	 * 
 	 * @see edu.umd.cs.piccolo.nodes.PPath#getPathBoundsWithStroke()
 	 */
 	public Rectangle2D getPathBoundsWithStroke() {

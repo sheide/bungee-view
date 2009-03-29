@@ -19,11 +19,14 @@ import com.sun.image.codec.jpeg.ImageFormatException;
 import edu.cmu.cs.bungee.javaExtensions.StringAlign;
 import edu.cmu.cs.bungee.javaExtensions.graph.Edge;
 import edu.cmu.cs.bungee.javaExtensions.graph.Node;
-import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPPath;
 import edu.umd.cs.piccolo.nodes.PText;
 import edu.umd.cs.piccolo.util.PBounds;
 
 public class Graph extends LazyPPath {
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
 	private static final int ARROW_SIZE = 8;
 	private static final double MARGIN = 6.0;
 	Font font;
@@ -48,7 +51,7 @@ public class Graph extends LazyPPath {
 		if (abstractGraph.getNumNodes() > 0) {
 			abstractGraph.layout();
 		}
-			draw();
+		draw();
 		setWidth(0);
 	}
 

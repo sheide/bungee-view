@@ -6,6 +6,11 @@ import java.awt.Font;
 
 public class SortButton extends TextButton {
 
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+
 	private static final String z_aLabel = "\u2193";
 
 	private static final String a_zLabel = "\u2191";
@@ -20,7 +25,8 @@ public class SortButton extends TextButton {
 
 	public SortButton(int field, int _defaultDirection, Font font,
 			SortButtons _container, Color textColor, Color bgColor) {
-		super(noneLabel, font, 0, 0, -1, -1, null, "Sort by this column", 2, textColor, bgColor);
+		super(noneLabel, font, 0, 0, -1, -1, null, "Sort by this column", 2,
+				textColor, bgColor);
 		setJustification(Component.CENTER_ALIGNMENT);
 		sortField = field;
 		defaultDirection = _defaultDirection;

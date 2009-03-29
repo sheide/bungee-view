@@ -38,15 +38,21 @@ import edu.umd.cs.piccolo.activities.PColorActivity.Target;
 
 public class LazyPNode extends PNode implements Target {
 
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+
 	public void setOffset(double x, double y) {
-//		assert x == Math.round(x) : x;
-//		assert y == Math.round(y) : y;
+		// assert x == Math.round(x) : x;
+		// assert y == Math.round(y) : y;
 		if (x != getXOffset() || y != getYOffset())
 			super.setOffset(x, y);
 	}
 
 	/**
 	 * set x offset
+	 * 
 	 * @param x
 	 */
 	public void setXoffset(double x) {
@@ -55,6 +61,7 @@ public class LazyPNode extends PNode implements Target {
 
 	/**
 	 * Set y offset
+	 * 
 	 * @param y
 	 */
 	public void setYoffset(double y) {
@@ -62,10 +69,10 @@ public class LazyPNode extends PNode implements Target {
 	}
 
 	public boolean setBounds(double x, double y, double w, double h) {
-//		assert x == Math.round(x) : x;
-//		assert y == Math.round(y) : y;
-//		assert w == Math.round(w) : w;
-//		assert h == Math.round(h) : h;
+		// assert x == Math.round(x) : x;
+		// assert y == Math.round(y) : y;
+		// assert w == Math.round(w) : w;
+		// assert h == Math.round(h) : h;
 		return super.setBounds(x, y, w, h);
 	}
 
@@ -73,22 +80,22 @@ public class LazyPNode extends PNode implements Target {
 		if (scale != getScale())
 			scale(scale / getScale());
 	}
-	
+
 	public void setCenterX(double x) {
-		 setXoffset(x-getWidth() * getScale() / 2.0);
+		setXoffset(x - getWidth() * getScale() / 2.0);
 	}
-	
+
 	public void setCenterY(double y) {
-		 setXoffset(y-getHeight() * getScale() / 2.0);
+		setXoffset(y - getHeight() * getScale() / 2.0);
 	}
-	
+
 	/**
 	 * @return x-coordinate of center in parents coordinate system
 	 */
 	public double getCenterX() {
 		return getXOffset() + getWidth() * getScale() / 2.0;
 	}
-	
+
 	/**
 	 * @return y-coordinate of center in parents coordinate system
 	 */
@@ -124,7 +131,8 @@ public class LazyPNode extends PNode implements Target {
 		setWidth(boundary.center());
 	}
 
-	// Subclasses caring about boundaries should override either the one-argument or two-argument
+	// Subclasses caring about boundaries should override either the
+	// one-argument or two-argument
 	// version of min/max width/height
 	public double minWidth(Boundary boundary) {
 		assert edu.cmu.cs.bungee.javaExtensions.Util.ignore(boundary);
@@ -190,13 +198,13 @@ public class LazyPNode extends PNode implements Target {
 		if (child.getParent() != this)
 			super.addChild(child);
 	}
-	
+
 	public void moveBehind(PNode node) {
 		PNode p = getParent();
 		if (p != null && p.indexOfChild(this) > p.indexOfChild(node))
 			super.moveInBackOf(node);
 	}
-	
+
 	public void moveAheadOf(PNode node) {
 		PNode p = getParent();
 		if (p != null && p.indexOfChild(this) < p.indexOfChild(node))
@@ -214,11 +222,11 @@ public class LazyPNode extends PNode implements Target {
 		if (p != null && p.getChild(0) != this)
 			super.moveToBack();
 	}
-	
+
 	public static void colorChildrenRandomly(PNode node) {
 		node.setTransparency(0.5f);
 		node.setPaint(Color.getHSBColor((float) Math.random(), 1, 1));
-		for (int i=0; i<node.getChildrenCount(); i++)
+		for (int i = 0; i < node.getChildrenCount(); i++)
 			colorChildrenRandomly(node.getChild(i));
 	}
 

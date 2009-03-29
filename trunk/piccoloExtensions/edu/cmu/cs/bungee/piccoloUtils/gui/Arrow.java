@@ -19,6 +19,10 @@ import edu.umd.cs.piccolo.event.PInputEventListener;
  * 
  */
 public class Arrow extends LazyPNode {
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
 	public static final int LEFT_TAIL = 1;
 	public static final int LEFT_HEAD = 2;
 	public static final int RIGHT_TAIL = 3;
@@ -246,7 +250,7 @@ public class Arrow extends LazyPNode {
 		for (int i = 0; i < labels.length; i++) {
 			APText label = labels[i];
 			if (label != null) {
-//				System.out.println("placeLabels "+i+" "+label.getText());
+				// System.out.println("placeLabels "+i+" "+label.getText());
 				label.getTransformReference(true).setToIdentity();
 				double x = 0;
 				switch (i) {

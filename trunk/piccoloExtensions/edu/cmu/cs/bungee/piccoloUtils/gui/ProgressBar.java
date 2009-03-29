@@ -12,6 +12,11 @@ import edu.umd.cs.piccolox.PFrame;
 
 public final class ProgressBar extends PFrame {
 
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+
 	final static int barW = 200;
 
 	final static int barH = 10;
@@ -27,7 +32,7 @@ public final class ProgressBar extends PFrame {
 	PNode bar;
 
 	InputStream is;
-	
+
 	APText status;
 
 	public ProgressBar(InputStream stream, String name) {
@@ -50,7 +55,7 @@ public final class ProgressBar extends PFrame {
 		bar.setPaint(Color.blue);
 		bar.setOffset(barOffset, barOffset);
 		bar.setHeight(barH);
-		
+
 		status = new APText();
 		status.setOffset(barOffset, barOffset * 2 + barH);
 
@@ -61,7 +66,7 @@ public final class ProgressBar extends PFrame {
 		layer.addChild(BGbar);
 		layer.addChild(bar);
 		layer.addChild(status);
-		
+
 		setBounds(getDefaultFrameBounds());
 	}
 
@@ -84,23 +89,22 @@ public final class ProgressBar extends PFrame {
 
 	public void setProgress(double value) {
 		int newPercent = (int) (100 * (value - minValue) / (maxValue - minValue));
-//		if (newPercent != percent) {
-			percent = newPercent;
-			if (percent >= 100) {
-//				setVisible(false);
-				dispose();
-			}
-			else {
-				bar.setWidth(percent * barW / 100);
-				repaint();
-//				getCanvas().paintImmediately();
-				// System.out.println("progess " + bar.getWidth());
-			}
-//		}
+		// if (newPercent != percent) {
+		percent = newPercent;
+		if (percent >= 100) {
+			// setVisible(false);
+			dispose();
+		} else {
+			bar.setWidth(percent * barW / 100);
+			repaint();
+			// getCanvas().paintImmediately();
+			// System.out.println("progess " + bar.getWidth());
+		}
+		// }
 	}
 
 	public Rectangle getDefaultFrameBounds() {
-		return new Rectangle(100, 100, 10 + barW + 2 * barOffset, 30 + 2 * barH + 3
-				* barOffset);
+		return new Rectangle(100, 100, 10 + barW + 2 * barOffset, 30 + 2 * barH
+				+ 3 * barOffset);
 	}
 }

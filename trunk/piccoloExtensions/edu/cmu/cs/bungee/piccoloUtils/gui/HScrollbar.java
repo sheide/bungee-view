@@ -27,7 +27,7 @@ Carnegie-Mellon University
 Human-Computer Interaction Institute
 Pittsburgh, PA 15213
 
-*/
+ */
 package edu.cmu.cs.bungee.piccoloUtils.gui;
 
 import java.awt.Color;
@@ -37,21 +37,26 @@ import edu.umd.cs.piccolo.event.PInputEvent;
 
 public class HScrollbar extends VScrollbar {
 
-	public HScrollbar(double sw, double sh, Color _BG,
-            Color _FG, Runnable _action) {
-        super(- sw, sw, sh, _BG, _FG, _action);
-        //super(sw, sh, _BG, _FG, _action);
-        setRotation(-Math.PI/2.0);
-        down.mouseDoc = "Scroll right one lilne";
-        up.mouseDoc = "Scroll left one lilne";
-    }
-    
-    public void drag(PInputEvent e) {
-        double dy = e.getDelta().getWidth();
-        spos0 += dy;
-        //System.out.println(spos0 * ratio);
-        setPos(spos0 * ratio);
-    }
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+
+	public HScrollbar(double sw, double sh, Color _BG, Color _FG,
+			Runnable _action) {
+		super(-sw, sw, sh, _BG, _FG, _action);
+		// super(sw, sh, _BG, _FG, _action);
+		setRotation(-Math.PI / 2.0);
+		down.mouseDoc = "Scroll right one lilne";
+		up.mouseDoc = "Scroll left one lilne";
+	}
+
+	public void drag(PInputEvent e) {
+		double dy = e.getDelta().getWidth();
+		spos0 += dy;
+		// System.out.println(spos0 * ratio);
+		setPos(spos0 * ratio);
+	}
 
 	void mouseDoc(PNode node, PInputEvent e, boolean state) {
 		assert node == this;
@@ -66,5 +71,5 @@ public class HScrollbar extends VScrollbar {
 		}
 		setMouseDoc(desc);
 	}
-    
+
 }

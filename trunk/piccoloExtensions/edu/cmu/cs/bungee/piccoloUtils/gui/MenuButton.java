@@ -37,14 +37,18 @@ import java.awt.Paint;
 
 public class MenuButton extends TextButton {
 
-//	private final String desc; // = "Select this menu choice";
+	// private final String desc; // = "Select this menu choice";
 
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
 	final MenuItem item;
 
-//	static final MenuButtonClickHandler menuButtonClickHandler = new MenuButtonClickHandler();
+	// static final MenuButtonClickHandler menuButtonClickHandler = new
+	// MenuButtonClickHandler();
 
-	public MenuButton(MenuItem item, Paint bg, Color FG,
-			Font _font) {
+	public MenuButton(MenuItem item, Paint bg, Color FG, Font _font) {
 		super(item.getLabel(), _font, 0, 0, -1, -1, null, null, 0, FG, bg);
 
 		this.item = item;
@@ -56,7 +60,7 @@ public class MenuButton extends TextButton {
 		setText(item.getLabel());
 		// setConstrainHeightToTextHeight(false);
 		setHeight(Math.ceil(getHeight()));
-//		addInputEventListener(menuButtonClickHandler);
+		// addInputEventListener(menuButtonClickHandler);
 	}
 
 	void draw(double y, boolean visible) {
@@ -82,38 +86,39 @@ public class MenuButton extends TextButton {
 	// }
 	void setMouseDoc(boolean state) {
 		if (getParent() instanceof MouseDoc)
-			((MouseDoc) getParent()).setMouseDoc(state ? item.getMouseDoc() : null);
+			((MouseDoc) getParent()).setMouseDoc(state ? item.getMouseDoc()
+					: null);
 	}
 }
 
-//class MenuButtonClickHandler extends MyInputEventHandler {
+// class MenuButtonClickHandler extends MyInputEventHandler {
 //
-//	MenuButtonClickHandler() {
-//		super(MenuButton.class);
-//	}
+// MenuButtonClickHandler() {
+// super(MenuButton.class);
+// }
 //
-//	// public boolean enter(PNode node) {
-//	// ((MenuButton) node).highlight(true);
-//	// return true;
-//	// }
+// // public boolean enter(PNode node) {
+// // ((MenuButton) node).highlight(true);
+// // return true;
+// // }
 //
-//	// public boolean exit(PNode node) {
-//	// ((MenuButton) node).highlight(false);
-//	// return true;
-//	// }
+// // public boolean exit(PNode node) {
+// // ((MenuButton) node).highlight(false);
+// // return true;
+// // }
 //
-//	protected boolean click(PNode node) {
-//		((MenuButton) node).pick();
-//		return true;
-//	}
+// protected boolean click(PNode node) {
+// ((MenuButton) node).pick();
+// return true;
+// }
 //
-//	protected boolean exit(PNode node) {
-//		((MenuButton) node).setMouseDoc(false);
-//		return true;
-//	}
+// protected boolean exit(PNode node) {
+// ((MenuButton) node).setMouseDoc(false);
+// return true;
+// }
 //
-//	protected boolean enter(PNode node) {
-//		((MenuButton) node).setMouseDoc(true);
-//		return true;
-//	}
-//}
+// protected boolean enter(PNode node) {
+// ((MenuButton) node).setMouseDoc(true);
+// return true;
+// }
+// }

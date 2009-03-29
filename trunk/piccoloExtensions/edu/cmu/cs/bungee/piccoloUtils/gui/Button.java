@@ -39,6 +39,11 @@ import edu.umd.cs.piccolo.PNode;
 
 public class Button extends LazyPNode {
 
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+
 	APText disabledMessage;
 
 	protected PNode child;
@@ -52,7 +57,8 @@ public class Button extends LazyPNode {
 	// Color _baseColor;
 
 	public Button(double x, double y, double outerW, double outerH,
-			String _disabledMessage, String documentation, float fadeFactor, Paint paint) {
+			String _disabledMessage, String documentation, float fadeFactor,
+			Paint paint) {
 		setBaseColor(paint);
 		mouseDoc = documentation;
 		outerW = (int) (outerW + 0.5);
@@ -171,7 +177,6 @@ public class Button extends LazyPNode {
 		assert w > 0;
 		return adjustSize(outerW(), outerH(), w);
 	}
-	
 
 	public boolean adjustSize(double outerW, double outerH) {
 		return adjustSize(outerW, outerH, borderW());
@@ -211,7 +216,7 @@ public class Button extends LazyPNode {
 			addChild(child);
 		}
 	}
-	
+
 	public boolean isEnabled = true;
 
 	public boolean isEnabled() {
@@ -235,7 +240,8 @@ public class Button extends LazyPNode {
 
 	public void setMouseDoc(boolean state) {
 		// override this
-//		 Util.print("Button.setMouseDoc " + state+" "+getParent()+" "+mouseDoc);
+		// Util.print("Button.setMouseDoc " +
+		// state+" "+getParent()+" "+mouseDoc);
 		if (getParent() instanceof MouseDoc)
 			((MouseDoc) getParent()).setMouseDoc(state ? mouseDoc : null);
 	}
