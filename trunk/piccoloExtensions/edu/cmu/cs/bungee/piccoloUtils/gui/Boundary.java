@@ -198,12 +198,12 @@ final class BoundaryHandler extends MyInputEventHandler {
 		super(Boundary.class);
 	}
 
-	protected boolean exit(PNode node) {
+	public boolean exit(PNode node) {
 		((Boundary) node).exit();
 		return true;
 	}
 
-	protected boolean enter(PNode node) {
+	public boolean enter(PNode node) {
 		((Boundary) node).enter();
 		return true;
 	}
@@ -212,17 +212,17 @@ final class BoundaryHandler extends MyInputEventHandler {
 	// ((Boundary) node).mayHideTransients(node);
 	// }
 
-	protected boolean press(PNode node) {
+	public boolean press(PNode node) {
 		((Boundary) node).startDrag();
 		return true;
 	}
 
-	protected boolean drag(PNode node, PInputEvent e) {
+	public boolean drag(PNode node, PInputEvent e) {
 		((Boundary) node).drag(e);
 		return true;
 	}
 
-	protected boolean release(PNode node) {
+	public boolean release(PNode node) {
 		((Boundary) node).endDrag();
 		return true;
 	}

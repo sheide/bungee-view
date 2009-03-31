@@ -292,17 +292,17 @@ final class MenuClickHandler extends MyInputEventHandler {
 	// return true;
 	// }
 
-	protected boolean click(PNode node) {
+	public boolean click(PNode node) {
 		((Menu) node).pick();
 		return true;
 	}
 
-	protected boolean exit(PNode node) {
+	public boolean exit(PNode node) {
 		((Menu) node).setMouseDoc(false);
 		return false;
 	}
 
-	protected boolean enter(PNode node) {
+	public boolean enter(PNode node) {
 		((Menu) node).setMouseDoc(true);
 		return false;
 	}

@@ -272,22 +272,22 @@ class ButtonHandler extends MyInputEventHandler {
 	// Pretty much anything you do on a button shouldn't go any further, so
 	// always return true.
 
-	protected boolean click(PNode node) {
+	public boolean click(PNode node) {
 		((Button) node).pick();
 		return true;
 	}
 
-	protected boolean exit(PNode node) {
+	public boolean exit(PNode node) {
 		((Button) node).exit();
 		return true;
 	}
 
-	protected boolean enter(PNode node) {
+	public boolean enter(PNode node) {
 		((Button) node).enter();
 		return true;
 	}
 
-	protected void mayHideTransients(PNode node) {
+	public void mayHideTransients(PNode node) {
 		((Button) node).mayHideTransients(node);
 	}
 

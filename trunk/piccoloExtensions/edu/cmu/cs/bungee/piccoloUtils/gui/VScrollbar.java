@@ -275,7 +275,7 @@ class VScrollHandler extends MyInputEventHandler {
 	// || pickedNode == node.down;
 	// }
 
-	protected boolean click(PNode node, PInputEvent e) {
+	public boolean click(PNode node, PInputEvent e) {
 		boolean result = true;
 		PNode pickedNode = e.getPickedNode();
 		if (pickedNode == node) {
@@ -287,7 +287,7 @@ class VScrollHandler extends MyInputEventHandler {
 		return result;
 	}
 
-	protected boolean drag(PNode node, PInputEvent e) {
+	public boolean drag(PNode node, PInputEvent e) {
 		PNode pickedNode = e.getPickedNode();
 		if (pickedNode == ((VScrollbar) node).thumb) {
 			((VScrollbar) node).drag(e);
@@ -296,7 +296,7 @@ class VScrollHandler extends MyInputEventHandler {
 		return false;
 	}
 
-	protected boolean release(PNode node, PInputEvent e) {
+	public boolean release(PNode node, PInputEvent e) {
 		PNode pickedNode = e.getPickedNode();
 		if (pickedNode == ((VScrollbar) node).thumb) {
 			// ((VScrollbar) node).endDrag();
@@ -305,13 +305,13 @@ class VScrollHandler extends MyInputEventHandler {
 		return false;
 	}
 
-	protected boolean enter(PNode node, PInputEvent e) {
+	public boolean enter(PNode node, PInputEvent e) {
 		// Util.print("VScrollbar enter ");
 		((VScrollbar) node).mouseDoc(node, e, true);
 		return true;
 	}
 
-	protected boolean exit(PNode node, PInputEvent e) {
+	public boolean exit(PNode node, PInputEvent e) {
 		((VScrollbar) node).mouseDoc(node, e, false);
 		return true;
 	}

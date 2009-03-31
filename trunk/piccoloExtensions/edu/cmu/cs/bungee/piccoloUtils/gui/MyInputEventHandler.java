@@ -51,7 +51,7 @@ import edu.umd.cs.piccolo.util.PPickPath;
  */
 public class MyInputEventHandler extends PBasicInputEventHandler {
 
-	final Class nodeType;
+	private final Class nodeType;
 	private int SHIFT_KEYS_CHANGED = MouseEvent.MOUSE_LAST + 1;
 
 	/**
@@ -96,130 +96,132 @@ public class MyInputEventHandler extends PBasicInputEventHandler {
 		return shifts;
 	}
 
-	protected boolean click(PNode node) {
+	// These have to be public so that they can be overridden by handlers that
+	// extend this class, but are in other packages.
+	public boolean click(PNode node) {
 		// Override this
 		assert edu.cmu.cs.bungee.javaExtensions.Util.ignore(node);
 		return false;
 	}
 
-	protected boolean enter(PNode node) {
+	public boolean enter(PNode node) {
 		// Override this
 		assert edu.cmu.cs.bungee.javaExtensions.Util.ignore(node);
 		return false;
 	}
 
-	protected boolean exit(PNode node) {
+	public boolean exit(PNode node) {
 		// Override this
 		assert edu.cmu.cs.bungee.javaExtensions.Util.ignore(node);
 		return false;
 	}
 
-	protected boolean press(PNode node) {
+	public boolean press(PNode node) {
 		// Override this
 		assert edu.cmu.cs.bungee.javaExtensions.Util.ignore(node);
 		return false;
 	}
 
-	protected boolean release(PNode node) {
+	public boolean release(PNode node) {
 		// Override this
 		assert edu.cmu.cs.bungee.javaExtensions.Util.ignore(node);
 		return false;
 	}
 
-	protected boolean drag(PNode node) {
+	public boolean drag(PNode node) {
 		// Override this
 		assert edu.cmu.cs.bungee.javaExtensions.Util.ignore(node);
 		return false;
 	}
 
-	protected boolean moved(PNode node) {
+	public boolean moved(PNode node) {
 		// Override this
 		assert edu.cmu.cs.bungee.javaExtensions.Util.ignore(node);
 		return false;
 	}
 
-	protected boolean shiftKeysChanged(PNode node) {
+	public boolean shiftKeysChanged(PNode node) {
 		// Override this
 		assert edu.cmu.cs.bungee.javaExtensions.Util.ignore(node);
 		return false;
 	}
 
-	protected boolean keyPress(char key) {
+	public boolean keyPress(char key) {
 		// Override this
 		assert edu.cmu.cs.bungee.javaExtensions.Util.ignore(key);
 		return false;
 	}
 
-	protected boolean keyRelease(int key) {
+	public boolean keyRelease(int key) {
 		// Override this
 		assert edu.cmu.cs.bungee.javaExtensions.Util.ignore(key);
 		return false;
 	}
 
-	protected boolean click(PNode node, PInputEvent e) {
+	public boolean click(PNode node, PInputEvent e) {
 		// Override this
 		assert edu.cmu.cs.bungee.javaExtensions.Util.ignore(node);
 		assert edu.cmu.cs.bungee.javaExtensions.Util.ignore(e);
 		return false;
 	}
 
-	protected boolean enter(PNode node, PInputEvent e) {
+	public boolean enter(PNode node, PInputEvent e) {
 		// Override this
 		assert edu.cmu.cs.bungee.javaExtensions.Util.ignore(node);
 		assert edu.cmu.cs.bungee.javaExtensions.Util.ignore(e);
 		return false;
 	}
 
-	protected boolean exit(PNode node, PInputEvent e) {
+	public boolean exit(PNode node, PInputEvent e) {
 		// Override this
 		assert edu.cmu.cs.bungee.javaExtensions.Util.ignore(node);
 		assert edu.cmu.cs.bungee.javaExtensions.Util.ignore(e);
 		return false;
 	}
 
-	protected boolean press(PNode node, PInputEvent e) {
+	public boolean press(PNode node, PInputEvent e) {
 		// Override this
 		assert edu.cmu.cs.bungee.javaExtensions.Util.ignore(node);
 		assert edu.cmu.cs.bungee.javaExtensions.Util.ignore(e);
 		return false;
 	}
 
-	protected boolean release(PNode node, PInputEvent e) {
+	public boolean release(PNode node, PInputEvent e) {
 		// Override this
 		assert edu.cmu.cs.bungee.javaExtensions.Util.ignore(node);
 		assert edu.cmu.cs.bungee.javaExtensions.Util.ignore(e);
 		return false;
 	}
 
-	protected boolean drag(PNode node, PInputEvent e) {
+	public boolean drag(PNode node, PInputEvent e) {
 		// Override this
 		assert edu.cmu.cs.bungee.javaExtensions.Util.ignore(node);
 		assert edu.cmu.cs.bungee.javaExtensions.Util.ignore(e);
 		return false;
 	}
 
-	protected boolean moved(PNode node, PInputEvent e) {
+	public boolean moved(PNode node, PInputEvent e) {
 		// Override this
 		assert edu.cmu.cs.bungee.javaExtensions.Util.ignore(node);
 		assert edu.cmu.cs.bungee.javaExtensions.Util.ignore(e);
 		return false;
 	}
 
-	protected boolean shiftKeysChanged(PNode node, PInputEvent e) {
+	public boolean shiftKeysChanged(PNode node, PInputEvent e) {
 		// Override this
 		assert edu.cmu.cs.bungee.javaExtensions.Util.ignore(node);
 		assert edu.cmu.cs.bungee.javaExtensions.Util.ignore(e);
 		return false;
 	}
 
-	protected boolean keyPress(char key, PInputEvent e) {
+	public boolean keyPress(char key, PInputEvent e) {
 		// Override this
 		assert edu.cmu.cs.bungee.javaExtensions.Util.ignore(key);
 		assert edu.cmu.cs.bungee.javaExtensions.Util.ignore(e);
 		return false;
 	}
 
-	protected boolean keyRelease(int key, PInputEvent e) {
+	public boolean keyRelease(int key, PInputEvent e) {
 		// Override this
 		assert edu.cmu.cs.bungee.javaExtensions.Util.ignore(key);
 		assert edu.cmu.cs.bungee.javaExtensions.Util.ignore(e);
@@ -241,7 +243,7 @@ public class MyInputEventHandler extends PBasicInputEventHandler {
 		// // throw(ex);
 	}
 
-	protected void mayHideTransients(PNode node) {
+	public void mayHideTransients(PNode node) {
 		// Override this
 		assert edu.cmu.cs.bungee.javaExtensions.Util.ignore(node);
 	}
