@@ -36,25 +36,25 @@ class FacetClickHandler extends MyInputEventHandler {
 	}
 
 	// Treat it like enter
-	protected boolean shiftKeysChanged(PNode node, PInputEvent e) {
+	public boolean shiftKeysChanged(PNode node, PInputEvent e) {
 		// Util.print("FacetClickHandler.enter " + ((FacetNode) node).getFacet()
 		// + " " + e.getModifiersEx());
 		return ((FacetNode) node).highlight(true, getModifiers(node, e), e);
 	}
 
-	protected boolean enter(PNode node, PInputEvent e) {
+	public boolean enter(PNode node, PInputEvent e) {
 		// Util.print("FacetClickHandler.enter " + ((FacetNode) node).getFacet()
 		// + " " + e.getModifiersEx());
 		return ((FacetNode) node).highlight(true, getModifiers(node, e), e);
 	}
 
-	protected boolean exit(PNode node, PInputEvent e) {
+	public boolean exit(PNode node, PInputEvent e) {
 		// Util.print("FacetClickHandler.exit " + ((FacetNode)
 		// node).getFacet());
 		return ((FacetNode) node).highlight(false, getModifiers(node, e), e);
 	}
 
-	protected boolean moved(PNode node, PInputEvent e) {
+	public boolean moved(PNode node, PInputEvent e) {
 		// Util.print("FacetClickHandler.exit " + ((FacetNode)
 		// node).getFacet());
 		return moved(node, getModifiers(node, e), e);
@@ -68,7 +68,7 @@ class FacetClickHandler extends MyInputEventHandler {
 			return false;
 	}
 
-	protected boolean click(PNode node, PInputEvent e) {
+	public boolean click(PNode node, PInputEvent e) {
 		FacetNode f = (FacetNode) node;
 		// System.out.println("FacetClickHandler.click " + f);
 		if (e.isRightMouseButton()
@@ -79,11 +79,11 @@ class FacetClickHandler extends MyInputEventHandler {
 		return f.pick(getModifiers(node, e), e);
 	}
 
-	protected void mayHideTransients(PNode node) {
+	public void mayHideTransients(PNode node) {
 		((FacetNode) node).mayHideTransients(node);
 	}
 
-	protected boolean press(PNode node, PInputEvent e) {
+	public boolean press(PNode node, PInputEvent e) {
 		dragging = ((FacetNode) node).startDrag(node, e
 				.getPositionRelativeTo(node));
 		return dragging != null;
@@ -105,13 +105,13 @@ class FacetClickHandler extends MyInputEventHandler {
 		// return result;
 	}
 
-	protected boolean release(PNode ignore) {
+	public boolean release(PNode ignore) {
 		boolean result = dragging != null;
 		dragging = null;
 		return result;
 	}
 
-	protected boolean drag(PNode ignore, PInputEvent e) {
+	public boolean drag(PNode ignore, PInputEvent e) {
 		boolean result = dragging != null;
 		if (result) {
 			// gui.Util.printDescendents(node);
