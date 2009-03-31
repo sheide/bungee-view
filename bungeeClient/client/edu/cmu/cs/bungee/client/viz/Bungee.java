@@ -2555,7 +2555,7 @@ final class Bungee extends PFrame {
 			super(Bungee.class);
 		}
 
-		protected boolean keyPress(char key, PInputEvent e) {
+		public boolean keyPress(char key, PInputEvent e) {
 			// Util.print("keyPress " + key);
 			int modifiers = e.getModifiersEx();
 			char keyChar = e.getKeyChar();
@@ -2616,7 +2616,7 @@ final class Bungee extends PFrame {
 			return c >= 32 && c != 127;
 		}
 
-		protected void mayHideTransients(PNode ignore) {
+		public void mayHideTransients(PNode ignore) {
 			// Util.print("keyHandler.mayHideTransients");
 			assert Util.ignore(ignore);
 			Bungee.this.mayHideTransients();
@@ -3421,7 +3421,7 @@ final class Bungee extends PFrame {
 
 				public void run() {
 					initializeFrames();
-					 NonAlchemyModel.test(query, 20);
+//					 NonAlchemyModel.test(query, 20);
 				}
 			};
 

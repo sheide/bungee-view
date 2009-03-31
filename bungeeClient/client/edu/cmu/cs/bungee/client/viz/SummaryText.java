@@ -152,13 +152,13 @@ class SummaryText extends TextNfacets implements PickFacetTextNotifier {
 		// // ((Summary) parent).setMouseDoc(node, false);
 		// }
 
-		protected boolean enter(PNode node) {
+		public boolean enter(PNode node) {
 			// Util.print("SummaryTextHover.enter " + node);
 			// setSummaryTextDoc(true);
 			return expandSummary();
 		}
 
-		protected boolean exit(PNode node, PInputEvent e) {
+		public boolean exit(PNode node, PInputEvent e) {
 			Point2D point = e.getPositionRelativeTo(SummaryText.this);
 			return !getBounds().contains(point) && contractSummary();
 			// setSummaryTextDoc(false);

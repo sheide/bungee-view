@@ -93,13 +93,13 @@ final class ColorKey extends LazyPNode {
 			// colorKey = _colorKey;
 		}
 
-		protected boolean enter(PNode node) {
+		public boolean enter(PNode node) {
 			// Util.print("SummaryTextHover.enter " + node);
 			((ColorKeyKey) node).enter();
 			return true;
 		}
 
-		protected boolean exit(PNode node, PInputEvent e) {
+		public boolean exit(PNode node, PInputEvent e) {
 			((ColorKeyKey) node).exit();
 			return true;
 		}

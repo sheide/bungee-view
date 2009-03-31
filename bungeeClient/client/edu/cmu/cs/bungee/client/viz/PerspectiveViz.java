@@ -1815,13 +1815,13 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 				super(PPath.class);
 			}
 
-			protected boolean exit(PNode node) {
+			public boolean exit(PNode node) {
 				art().showMedianArrowDesc(null);
 				highlight(false);
 				return true;
 			}
 
-			protected boolean enter(PNode ignore) {
+			public boolean enter(PNode ignore) {
 				// boolean unconditional = node == tail;
 				// Perspective median = unconditional ? unconditionalMedian
 				// : conditionalMedian;

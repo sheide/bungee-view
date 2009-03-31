@@ -739,20 +739,20 @@ final class ItemClickHandler extends MyInputEventHandler {
 		return (GridImage) maybeSelectedItem;
 	}
 
-	protected boolean enter(PNode node) {
+	public boolean enter(PNode node) {
 		SelectedItem parent = getSelectedItem(node);
 		parent.highlight(true);
 		return true;
 	}
 
-	protected boolean exit(PNode node) {
+	public boolean exit(PNode node) {
 		SelectedItem parent = getSelectedItem(node);
 		if (parent != null)
 			parent.highlight(false);
 		return true;
 	}
 
-	protected boolean click(PNode node, PInputEvent e) {
+	public boolean click(PNode node, PInputEvent e) {
 		SelectedItem parent = getSelectedItem(node);
 		// Util.print("SI.click "+e+" "+e.isMiddleMouseButton());
 		if (e.isControlDown()) {

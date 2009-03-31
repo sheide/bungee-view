@@ -259,21 +259,21 @@ final class GridImageHandler extends MyInputEventHandler {
 		super(GridImage.class);
 	}
 
-	protected boolean enter(PNode node, PInputEvent e) {
+	public boolean enter(PNode node, PInputEvent e) {
 		// Util.print("FacetClickHandler.enter");
 		return ((GridImage) node).highlight(true);
 	}
 
-	protected boolean exit(PNode node) {
+	public boolean exit(PNode node) {
 		return ((GridImage) node).highlight(false);
 	}
 
-	protected boolean click(PNode node, PInputEvent e) {
+	public boolean click(PNode node, PInputEvent e) {
 		return ((GridImage) node).pick(e.isMiddleMouseButton(), e
 				.isRightMouseButton());
 	}
 
-	protected void mayHideTransients(PNode node) {
+	public void mayHideTransients(PNode node) {
 		((GridImage) node).mayHideTransients(node);
 	}
 }
