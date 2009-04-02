@@ -33,6 +33,11 @@ import edu.umd.cs.piccolo.util.PBounds;
  */
 final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+
 	private static final long TRANSLATE_TO_CORNER_DELAY = 10000;
 
 	static final double MARGIN = 6.0;

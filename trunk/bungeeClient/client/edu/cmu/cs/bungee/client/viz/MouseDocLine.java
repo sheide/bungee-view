@@ -40,12 +40,18 @@ import edu.cmu.cs.bungee.client.query.Cluster;
 import edu.cmu.cs.bungee.client.query.Markup;
 import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.cmu.cs.bungee.client.query.Query;
-import edu.cmu.cs.bungee.javaExtensions.*;
+import edu.cmu.cs.bungee.javaExtensions.PerspectiveObserver;
+import edu.cmu.cs.bungee.javaExtensions.Util;
 import edu.cmu.cs.bungee.piccoloUtils.gui.APText;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
 import edu.umd.cs.piccolo.util.PPaintContext;
 
 final class MouseDocLine extends LazyPNode implements PerspectiveObserver {
+
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
 
 	private static final Color tipBG = Bungee.helpColor; // Color.yellow;
 
@@ -138,7 +144,7 @@ final class MouseDocLine extends LazyPNode implements PerspectiveObserver {
 	}
 
 	void setClickDesc(Markup s) {
-//		Util.print("setClickDesc " + s);
+		// Util.print("setClickDesc " + s);
 		art.getCanvas().paintImmediately();
 		if (s == null)
 			s = art.defaultClickDesc();
@@ -153,7 +159,7 @@ final class MouseDocLine extends LazyPNode implements PerspectiveObserver {
 		art.getCanvas().paintImmediately();
 	}
 
-	 void setClickDescInternal(Markup s) {
+	void setClickDescInternal(Markup s) {
 		// Util.print("setClickDescInternal " + s);
 		assert s != null;
 		if (clickDesc.setContent(s.uncolor())) {
@@ -249,7 +255,7 @@ final class MouseDocLine extends LazyPNode implements PerspectiveObserver {
 		buf.append(Util.addCommas(count));
 		// buf.append(getDescription(name);
 		buf.append(") ");
-		if (pValue >= 0.0&&art.getShowPvalues())
+		if (pValue >= 0.0 && art.getShowPvalues())
 			formatPvalue(pValue, buf);
 		return buf.toString();
 	}

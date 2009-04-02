@@ -20,6 +20,11 @@ import edu.cmu.cs.bungee.piccoloUtils.gui.MouseDoc;
 final class ClusterViz extends LazyPNode implements MouseDoc,
 		PickFacetTextNotifier {
 
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+
 	final static int nClusters = 50;
 
 	/**
@@ -84,7 +89,7 @@ final class ClusterViz extends LazyPNode implements MouseDoc,
 		// Util.print("PerspectiveList.validate " + w + " " + h);
 		setBounds(0, 0, _w, _h);
 		label.setFont(art.font);
-//		label.setHeight(art.lineH);
+		// label.setHeight(art.lineH);
 		label.setOffset(Math
 				.round((_w - label.getScale() * label.getWidth()) / 2.0), 0.0);
 		facetTreeViz.validate(_w - 2 * margin, _h - facetTreeViz.getYOffset());
@@ -92,7 +97,7 @@ final class ClusterViz extends LazyPNode implements MouseDoc,
 	}
 
 	void showClusters() {
-//		Util.print("showClusters");
+		// Util.print("showClusters");
 		// exclude = art.query.restrictions(true);
 		validate();
 		facetTreeViz.setTree(createTree());
@@ -161,9 +166,9 @@ final class ClusterViz extends LazyPNode implements MouseDoc,
 			facetTreeViz.highlightFacet(highlightFacets);
 	}
 
-//	public void setMouseDoc(PNode source, boolean state) {
-//		art.setMouseDoc(source, state);
-//	}
+	// public void setMouseDoc(PNode source, boolean state) {
+	// art.setMouseDoc(source, state);
+	// }
 
 	public void setMouseDoc(String doc) {
 		art.setMouseDoc(doc);
@@ -195,7 +200,7 @@ final class ClusterViz extends LazyPNode implements MouseDoc,
 		}
 		return false;
 	}
-	
+
 	void toggleClusterExclusion(Perspective facet) {
 		art().printUserAction(Bungee.TOGGLE_CLUSTER_EXCLUSION, facet, 0);
 		// SortedSet exclude = exclude();
@@ -203,7 +208,7 @@ final class ClusterViz extends LazyPNode implements MouseDoc,
 			exclude.remove(facet);
 		else
 			exclude.add(facet);
-		update();		
+		update();
 	}
 
 	public boolean highlight(FacetText node, boolean state, int modifiers) {

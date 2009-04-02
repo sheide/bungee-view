@@ -1,14 +1,5 @@
 package edu.cmu.cs.bungee.client.viz;
 
-import edu.cmu.cs.bungee.client.query.Perspective;
-import edu.cmu.cs.bungee.javaExtensions.Util;
-import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
-import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPPath;
-import edu.umd.cs.piccolo.PNode;
-import edu.umd.cs.piccolo.event.PInputEvent;
-import edu.umd.cs.piccolo.util.PDimension;
-import edu.umd.cs.piccolo.util.PPaintContext;
-
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.geom.Point2D;
@@ -18,6 +9,15 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 
+import edu.cmu.cs.bungee.client.query.Perspective;
+import edu.cmu.cs.bungee.javaExtensions.Util;
+import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
+import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPPath;
+import edu.umd.cs.piccolo.PNode;
+import edu.umd.cs.piccolo.event.PInputEvent;
+import edu.umd.cs.piccolo.util.PDimension;
+import edu.umd.cs.piccolo.util.PPaintContext;
+
 /**
  * @author mad y-coordinates range from 0 if observedPercent = 1.0 to 1 if
  *         observedPercent = 0.0, except that rect extends an extra
@@ -25,8 +25,13 @@ import java.util.List;
  * 
  */
 final class Bar extends LazyPNode implements FacetNode {
-	
-//	static int paintCount = 0;
+
+	// static int paintCount = 0;
+
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
 
 	private static final double MIN_BAR_HEIGHT = 0.02;
 
@@ -52,8 +57,8 @@ final class Bar extends LazyPNode implements FacetNode {
 		Bar result = null;
 		if (barCache.isEmpty()) {
 			result = new Bar();
-			result.rect = new Rectangle2D.Double(x, 0.5-MIN_BAR_HEIGHT/2, w,
-					MIN_BAR_HEIGHT);
+			result.rect = new Rectangle2D.Double(x, 0.5 - MIN_BAR_HEIGHT / 2,
+					w, MIN_BAR_HEIGHT);
 		} else {
 			result = (Bar) barCache.remove(0);
 			assert result != null;
@@ -70,7 +75,7 @@ final class Bar extends LazyPNode implements FacetNode {
 		result.goalY = 0.5;
 		result.currentY = result.startY;
 		result.setBounds(x, 0, w, 1);
-		result.rect.setFrame(x, 0.5-MIN_BAR_HEIGHT/2, w, MIN_BAR_HEIGHT);
+		result.rect.setFrame(x, 0.5 - MIN_BAR_HEIGHT / 2, w, MIN_BAR_HEIGHT);
 		// addInputEventListener(Art.facetClickHandler);
 
 		result.updateSelection();
@@ -177,11 +182,11 @@ final class Bar extends LazyPNode implements FacetNode {
 			double top;
 			double h;
 			if (y > 0.5) {
-				top = 0.5-MIN_BAR_HEIGHT/2;
-				h = Math.max(MIN_BAR_HEIGHT, y-0.5);
-			}else {
-				top = Math.min(0.5-MIN_BAR_HEIGHT/2, y);
-				h = Math.max(MIN_BAR_HEIGHT, 0.5-y+MIN_BAR_HEIGHT/2);				
+				top = 0.5 - MIN_BAR_HEIGHT / 2;
+				h = Math.max(MIN_BAR_HEIGHT, y - 0.5);
+			} else {
+				top = Math.min(0.5 - MIN_BAR_HEIGHT / 2, y);
+				h = Math.max(MIN_BAR_HEIGHT, 0.5 - y + MIN_BAR_HEIGHT / 2);
 			}
 			rect.setRect(rect.getX(), top, rect.getWidth(), h);
 			invalidatePaint();
@@ -198,17 +203,17 @@ final class Bar extends LazyPNode implements FacetNode {
 	// }
 
 	protected void paint(PPaintContext paintContext) {
-//		paintCount++;
-//		if ("Army".equals(facet.getNameIfPossible()))
-//		 Util.print("bar.paint " + facet + " " + currentY +" "+ goalY);
+		// paintCount++;
+		// if ("Army".equals(facet.getNameIfPossible()))
+		// Util.print("bar.paint " + facet + " " + currentY +" "+ goalY);
 		Graphics2D g2 = paintContext.getGraphics();
 		// int onCount = facet.guessOnCount();
 		// g2.setPaint(Markup.UNASSOCIATED_COLORS[fadeIndex]);
 		// g2.fill(getBoundsReference());
-//		Color color = art().facetTextColor(facet, facet.guessOnCount());
+		// Color color = art().facetTextColor(facet, facet.guessOnCount());
 
 		// remember paint so updateSelection can detect changes
-//		setPaint(color);
+		// setPaint(color);
 		g2.setPaint(getPaint()); // getColor(1));
 		g2.fill(rect);
 		// if (rect.height > 2.0 / pv.rank.frontH()) {
@@ -228,9 +233,9 @@ final class Bar extends LazyPNode implements FacetNode {
 		// }
 	}
 
-//	public boolean pick(PInputEvent e) {
-//		return pick(e.getModifiersEx());
-//	}
+	// public boolean pick(PInputEvent e) {
+	// return pick(e.getModifiersEx());
+	// }
 
 	public boolean pick(int modifiers, PInputEvent e) {
 		assert Util.ignore(e);

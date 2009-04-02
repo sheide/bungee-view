@@ -17,6 +17,11 @@ import edu.umd.cs.piccolo.PNode;
 public class ExtremeTags extends LazyContainer implements MouseDoc,
 		PerspectiveObserver {
 
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+
 	private static final double COLUMN_MARGIN = 10;
 
 	Bungee art;
@@ -78,20 +83,24 @@ public class ExtremeTags extends LazyContainer implements MouseDoc,
 	}
 
 	double maxRelevance(Perspective facet) {
-//		return Math.sqrt(art.query.getTotalCount());
+		// return Math.sqrt(art.query.getTotalCount());
 		return Math.sqrt(facet.parentTotalCount());
 	}
 
 	private double updateDataInternal(double y, Iterator it) {
 		double numW = art.numWidth(-100);
-		double nameW = getWidth() - numW - margin_size() -COLUMN_MARGIN;
-//		double maxRelevance = maxRelevance();
+		double nameW = getWidth() - numW - margin_size() - COLUMN_MARGIN;
+		// double maxRelevance = maxRelevance();
 		while (it.hasNext()) {
 			TagRelevance tag = (TagRelevance) it.next();
 			Perspective facet = (Perspective) tag.tag.object;
 			double relevance = tag.relevance;
-			int score = (int) Math.round(Util.sgn(relevance) * 100
-					* Math.pow(Math.abs(relevance / maxRelevance(facet)),0.25));
+			int score = (int) Math
+					.round(Util.sgn(relevance)
+							* 100
+							* Math
+									.pow(Math.abs(relevance
+											/ maxRelevance(facet)), 0.25));
 
 			FacetText text = FacetText.getFacetText(facet, art, numW, nameW,
 					false, false, score, this, isUnderline(facet));
@@ -123,7 +132,7 @@ public class ExtremeTags extends LazyContainer implements MouseDoc,
 		label.setFont(art.font);
 		label.setOffset(margin_size(), 0);
 		label.setWidth(Math.round((w1 - margin_size()) / label.getScale()));
-//		boundary.margin = art.grid.margin_size() / 2;
+		// boundary.margin = art.grid.margin_size() / 2;
 		boundary.validate();
 		updateData();
 	}
@@ -133,7 +142,7 @@ public class ExtremeTags extends LazyContainer implements MouseDoc,
 	}
 
 	public double minWidth() {
-		return label.getWidth() * label.getScale()+margin_size();
+		return label.getWidth() * label.getScale() + margin_size();
 		// return art.lineH * 5;
 	}
 

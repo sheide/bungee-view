@@ -38,14 +38,19 @@ import java.util.Set;
 
 import edu.cmu.cs.bungee.javaExtensions.Util;
 import edu.cmu.cs.bungee.piccoloUtils.gui.APText;
-import edu.cmu.cs.bungee.piccoloUtils.gui.Boundary;
 import edu.cmu.cs.bungee.piccoloUtils.gui.AbstractMenuItem;
+import edu.cmu.cs.bungee.piccoloUtils.gui.Boundary;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
 import edu.cmu.cs.bungee.piccoloUtils.gui.Menu;
 import edu.cmu.cs.bungee.piccoloUtils.gui.MouseDoc;
 import edu.umd.cs.piccolo.PNode;
 
 final class Header extends LazyPNode implements MouseDoc {
+
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
 
 	/**
 	 * Horizontal space between buttons
@@ -326,7 +331,7 @@ final class Header extends LazyPNode implements MouseDoc {
 		if (colorKey != null)
 			colorKey.removeFromParent();
 		colorKey = new ColorKey(art);
-		//Util.print("validateColorKey "+colorKey.getFullBounds()+" "+textSearch
+		// Util.print("validateColorKey "+colorKey.getFullBounds()+" "+textSearch
 		// .getFullBounds());
 		colorKey.setOffset(getWidth() - colorKey.getFullBounds().getWidth()
 				- 10, textSearch.getFullBounds().getMaxY()
@@ -526,6 +531,11 @@ final class Header extends LazyPNode implements MouseDoc {
 
 	class SummaryButton extends BungeeTextButton {
 
+		/**
+		 * 
+		 */
+		private static final long serialVersionUID = 1L;
+
 		SummaryButton(String text) {
 			super(text, Bungee.headerBG, Util.brighten(Bungee.headerFG, 0.8f),
 					art, null);
@@ -535,6 +545,10 @@ final class Header extends LazyPNode implements MouseDoc {
 
 	final class ClearButton extends SummaryButton {
 
+		/**
+		 * 
+		 */
+		private static final long serialVersionUID = 1L;
 		private static final String label1 = " Clear  ";
 
 		ClearButton() {
@@ -578,6 +592,10 @@ final class Header extends LazyPNode implements MouseDoc {
 
 	final class BookmarkButton extends SummaryButton {
 
+		/**
+		 * 
+		 */
+		private static final long serialVersionUID = 1L;
 		private static final String label1 = " Bookmark  ";
 
 		BookmarkButton() {
@@ -614,6 +632,10 @@ final class Header extends LazyPNode implements MouseDoc {
 
 	final class RestrictButton extends SummaryButton {
 
+		/**
+		 * 
+		 */
+		private static final long serialVersionUID = 1L;
 		private static final String label1 = " Restrict  ";
 
 		RestrictButton() {

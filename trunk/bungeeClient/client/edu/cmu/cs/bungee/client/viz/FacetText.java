@@ -54,6 +54,11 @@ import edu.umd.cs.piccolo.util.PDimension;
 
 class FacetText extends APText implements FacetNode, PerspectiveObserver {
 
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+
 	PerspectiveObserver redraw;
 
 	boolean dontHideTransients;
@@ -414,7 +419,7 @@ class FacetText extends APText implements FacetNode, PerspectiveObserver {
 	// }
 
 	void setColor() {
-//		Util.print("FT.setColor "+this+" "+permanentTextPaint);
+		// Util.print("FT.setColor "+this+" "+permanentTextPaint);
 		if (permanentTextPaint != null) {
 			// Util.print("...setColor " + getText() + " " +
 			// permanentTextPaint);
@@ -591,7 +596,8 @@ class FacetText extends APText implements FacetNode, PerspectiveObserver {
 	}
 
 	public String toString() {
-		return "<FacetText " + treeObject() + " ("+treeObject().getClass()+")>";
+		return "<FacetText " + treeObject() + " (" + treeObject().getClass()
+				+ ")>";
 	}
 
 	public Bungee art() {

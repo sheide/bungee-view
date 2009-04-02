@@ -21,6 +21,11 @@ import edu.umd.cs.piccolo.PNode;
 
 final class FacetTreeViz extends LazyPNode implements MouseDoc {
 
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+
 	Bungee art;
 
 	DisplayTree tree;
@@ -207,8 +212,8 @@ final class FacetTreeViz extends LazyPNode implements MouseDoc {
 		Object treeObject = subtree.treeObject();
 		boolean showChildren = subtree.nChildren() > 0
 				&& !isContracted(treeObject);
-// Util.print("drawTreeInternal " + treeObject + " " + offsetLines + " "
-// + lastLine + " " + x + " " + treeW + " " + showChildren);
+		// Util.print("drawTreeInternal " + treeObject + " " + offsetLines + " "
+		// + lastLine + " " + x + " " + treeW + " " + showChildren);
 		if (treeObject != null && !(treeObject instanceof Item)) { // don't
 			// display
 			// null's or
@@ -392,6 +397,11 @@ final class FacetTreeViz extends LazyPNode implements MouseDoc {
 	final class OpenButton extends TextButton {
 
 		/**
+		 * 
+		 */
+		private static final long serialVersionUID = 1L;
+
+		/**
 		 * plus sign
 		 */
 		private static final String expandLabel = "\u271A";
@@ -440,9 +450,9 @@ final class FacetTreeViz extends LazyPNode implements MouseDoc {
 
 	}
 
-//	public void setMouseDoc(PNode source, boolean state) {
-//		art.setMouseDoc(source, state);
-//	}
+	// public void setMouseDoc(PNode source, boolean state) {
+	// art.setMouseDoc(source, state);
+	// }
 
 	public void setMouseDoc(String doc) {
 		art.setMouseDoc(doc);

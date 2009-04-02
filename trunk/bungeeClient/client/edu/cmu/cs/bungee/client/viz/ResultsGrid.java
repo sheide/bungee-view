@@ -48,11 +48,12 @@ import edu.cmu.cs.bungee.client.query.ItemPredicate;
 import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.cmu.cs.bungee.client.query.Query;
 import edu.cmu.cs.bungee.client.query.Query.Item;
-import edu.cmu.cs.bungee.javaExtensions.*;
+import edu.cmu.cs.bungee.javaExtensions.MyResultSet;
+import edu.cmu.cs.bungee.javaExtensions.Util;
 import edu.cmu.cs.bungee.javaExtensions.threads.UpdateNoArgsThread;
 import edu.cmu.cs.bungee.piccoloUtils.gui.APText;
-import edu.cmu.cs.bungee.piccoloUtils.gui.Boundary;
 import edu.cmu.cs.bungee.piccoloUtils.gui.AbstractMenuItem;
+import edu.cmu.cs.bungee.piccoloUtils.gui.Boundary;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyContainer;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPPath;
@@ -64,6 +65,11 @@ import edu.umd.cs.piccolo.PNode;
 final class ResultsGrid extends LazyContainer implements MouseDoc {
 
 	// int desiredCols = -1;
+
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
 
 	/**
 	 * Number of empty pixels to leave around thumbnails. gridW = edgeW + 2 *
@@ -591,7 +597,7 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 						javax.swing.SwingUtilities.invokeLater(getDoRedraw());
 						// if (toLoad != null) {
 						// loadThumbs(toLoad);
-						//javax.swing.SwingUtilities.invokeLater(getDoRedraw());
+						// javax.swing.SwingUtilities.invokeLater(getDoRedraw());
 					}
 					// }
 				}
@@ -1231,6 +1237,11 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 }
 
 final class Thumbnails extends LazyPNode implements MouseDoc {
+
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
 
 	static int MIN_COLUMN_WIDTH = 20;
 
