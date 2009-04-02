@@ -1,37 +1,37 @@
-<?xml version="1.0" encoding="WINDOWS-1252"?>
+<?xml version="1.0" encoding="WINDOWS-1252" standalone="no"?>
 <jardesc>
-<jar path="C:/Documents and Settings/mad/workspace/bungeeServlet/bungeeServlet.jar"/>
-<options buildIfNeeded="true" compress="true" descriptionLocation="/bungeeServlet/bungeeServlet.jardesc" exportErrors="false" exportWarnings="true" includeDirectoryEntries="false" overwrite="false" saveDescription="true" storeRefactorings="false" useSourceFolders="false"/>
-<storedRefactorings deprecationInfo="true" structuralOnly="false"/>
-<selectedProjects/>
-<manifest generateManifest="true" manifestLocation="/bungeeServlet/bungee.mf" manifestVersion="1.0" reuseManifest="false" saveManifest="true" usesManifest="true">
-<sealing sealJar="false">
-<packagesToSeal/>
-<packagesToUnSeal/>
-</sealing>
-</manifest>
-<selectedElements exportClassFiles="true" exportJavaFiles="false" exportOutputFolder="false">
-<javaElement handleIdentifier="=javaExtensions/&lt;edu.cmu.cs.bungee.javaExtensions{IntHashtable.java"/>
-<javaElement handleIdentifier="=javaExtensions/&lt;edu.cmu.cs.bungee.javaExtensions.psk.cmdline{StringToken.java"/>
-<javaElement handleIdentifier="=statistics/&lt;JSci.maths.statistics{GammaDistribution.java"/>
-<javaElement handleIdentifier="=bungeeDBscripts/&lt;edu.cmu.cs.bungee.dbScripts{ConvertFromRaw.java"/>
-<javaElement handleIdentifier="=statistics/&lt;JSci.maths.statistics{ChiSq2x2.java"/>
-<javaElement handleIdentifier="=statistics/&lt;JSci.maths"/>
-<javaElement handleIdentifier="=javaExtensions/&lt;edu.cmu.cs.bungee.javaExtensions{MyResultSet.java"/>
-<javaElement handleIdentifier="=statistics/&lt;JSci.maths.statistics{OutOfRangeException.java"/>
-<javaElement handleIdentifier="=javaExtensions/&lt;edu.cmu.cs.bungee.javaExtensions{Util.java"/>
-<file path="/bungeeServlet/.classpath"/>
-<javaElement handleIdentifier="=statistics/&lt;JSci.maths.statistics{ChiSqr.java"/>
-<javaElement handleIdentifier="=javaExtensions/&lt;edu.cmu.cs.bungee.javaExtensions{StringAlign.java"/>
-<file path="/bungeeServlet/.project"/>
-<javaElement handleIdentifier="=statistics/&lt;JSci.maths.statistics{FisherExactTest.java"/>
-<javaElement handleIdentifier="=javaExtensions/&lt;edu.cmu.cs.bungee.javaExtensions.psk.cmdline{Token.java"/>
-<javaElement handleIdentifier="=bungeeServlet/&lt;edu.cmu.cs.bungee.servlet"/>
-<javaElement handleIdentifier="=statistics/&lt;JSci.maths.statistics{ChiSqrDistribution.java"/>
-<javaElement handleIdentifier="=javaExtensions/&lt;edu.cmu.cs.bungee.javaExtensions{JDBCSample.java"/>
-<javaElement handleIdentifier="=statistics/&lt;JSci.maths.statistics{ProbabilityDistribution.java"/>
-<javaElement handleIdentifier="=javaExtensions/&lt;edu.cmu.cs.bungee.javaExtensions.psk.cmdline{ApplicationSettings.java"/>
-<javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.query{QuerySQL.java"/>
-</selectedElements>
-<fatjar builder="org.eclipse.jdt.ui.plain_jar_builder" launchConfig=""/>
+    <jar path="C:/Documents and Settings/mad/workspace/bungeeServlet/bungeeServlet.jar"/>
+    <options buildIfNeeded="true" compress="true" descriptionLocation="/bungeeServlet/bungeeServlet.jardesc" exportErrors="false" exportWarnings="true" includeDirectoryEntries="false" overwrite="false" saveDescription="true" storeRefactorings="false" useSourceFolders="false"/>
+    <storedRefactorings deprecationInfo="true" structuralOnly="false"/>
+    <selectedProjects/>
+    <manifest generateManifest="true" manifestLocation="/bungeeServlet/bungee.mf" manifestVersion="1.0" reuseManifest="false" saveManifest="true" usesManifest="true">
+        <sealing sealJar="false">
+            <packagesToSeal/>
+            <packagesToUnSeal/>
+        </sealing>
+    </manifest>
+    <selectedElements exportClassFiles="true" exportJavaFiles="false" exportOutputFolder="false">
+        <javaElement handleIdentifier="=javaExtensions/&lt;edu.cmu.cs.bungee.javaExtensions{Util.java"/>
+        <javaElement handleIdentifier="=statistics/&lt;JSci.maths.statistics{ChiSqr.java"/>
+        <javaElement handleIdentifier="=bungeeServlet/&lt;edu.cmu.cs.bungee.servlet{Servlet.java"/>
+        <javaElement handleIdentifier="=javaExtensions/&lt;edu.cmu.cs.bungee.javaExtensions{StringAlign.java"/>
+        <javaElement handleIdentifier="=javaExtensions/&lt;edu.cmu.cs.bungee.javaExtensions{JDBCSample.java"/>
+        <javaElement handleIdentifier="=javaExtensions/&lt;edu.cmu.cs.bungee.javaExtensions{IntHashtable.java"/>
+        <javaElement handleIdentifier="=statistics/&lt;JSci.maths.statistics{FisherExactTest.java"/>
+        <javaElement handleIdentifier="=statistics/&lt;JSci.maths.statistics{OutOfRangeException.java"/>
+        <javaElement handleIdentifier="=statistics/&lt;JSci.maths.statistics{GammaDistribution.java"/>
+        <javaElement handleIdentifier="=javaExtensions/&lt;edu.cmu.cs.bungee.javaExtensions.psk.cmdline{StringToken.java"/>
+        <javaElement handleIdentifier="=statistics/&lt;JSci.maths.statistics{ChiSqrDistribution.java"/>
+        <javaElement handleIdentifier="=statistics/&lt;JSci.maths"/>
+        <file path="/bungeeServlet/.classpath"/>
+        <javaElement handleIdentifier="=statistics/&lt;JSci.maths.statistics{ProbabilityDistribution.java"/>
+        <javaElement handleIdentifier="=javaExtensions/&lt;edu.cmu.cs.bungee.javaExtensions{MyResultSet.java"/>
+        <javaElement handleIdentifier="=bungeeServlet/&lt;edu.cmu.cs.bungee.servlet{Database.java"/>
+        <javaElement handleIdentifier="=javaExtensions/&lt;edu.cmu.cs.bungee.javaExtensions.psk.cmdline{Token.java"/>
+        <javaElement handleIdentifier="=bungeeDBscripts/&lt;edu.cmu.cs.bungee.dbScripts{ConvertFromRaw.java"/>
+        <file path="/bungeeServlet/.project"/>
+        <javaElement handleIdentifier="=statistics/&lt;JSci.maths.statistics{ChiSq2x2.java"/>
+        <javaElement handleIdentifier="=javaExtensions/&lt;edu.cmu.cs.bungee.javaExtensions.psk.cmdline{ApplicationSettings.java"/>
+    </selectedElements>
+    <fatjar builder="org.eclipse.jdt.ui.plain_jar_builder" launchConfig=""/>
 </jardesc>
