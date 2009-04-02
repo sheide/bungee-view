@@ -14,7 +14,6 @@ import java.util.List;
 import java.util.Map;
 
 import JSci.maths.statistics.ChiSq2x2;
-
 import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.cmu.cs.bungee.client.query.Query;
 import edu.cmu.cs.bungee.javaExtensions.MyResultSet;
@@ -595,7 +594,7 @@ class Distribution {
 		marginals.add(marginal2);
 		int[] marginal = getMarginalCounts(marginals);
 		ChiSq2x2 result = ChiSq2x2.getInstance(null, totalCount, marginal[0]
-				+ marginal[1], marginal[0] + marginal[2], marginal[0]);
+				+ marginal[1], marginal[0] + marginal[2], marginal[0], this);
 		return result;
 	}
 

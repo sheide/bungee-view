@@ -41,7 +41,7 @@ import java.util.Set;
 import edu.cmu.cs.bungee.client.query.Cluster;
 import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.cmu.cs.bungee.client.query.Query;
-import edu.cmu.cs.bungee.javaExtensions.*;
+import edu.cmu.cs.bungee.javaExtensions.Util;
 import edu.cmu.cs.bungee.piccoloUtils.gui.APText;
 import edu.cmu.cs.bungee.piccoloUtils.gui.Boundary;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyContainer;
@@ -56,6 +56,11 @@ import edu.umd.cs.piccolo.util.PPickPath;
 final class Summary extends LazyContainer implements MouseDoc {
 
 	// static int updateCount = 0;
+
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
 
 	Bungee art;
 
@@ -178,8 +183,8 @@ final class Summary extends LazyContainer implements MouseDoc {
 				// minW
 				queryW = Math.round(Math.min(queryW, Math.max(_w * 0.22,
 						rankComponentHeights.labelsH() - art.lineH)));
-//				Util.print("vi " + queryW + " " + (_w * 0.22) + " "
-//						+ (rankComponentHeights.labelsH() - art.lineH));
+				// Util.print("vi " + queryW + " " + (_w * 0.22) + " "
+				// + (rankComponentHeights.labelsH() - art.lineH));
 				// if (updatedQueryW != queryW) {
 				// queryW = updatedQueryW;
 				// computeRankComponentHeights();
@@ -1034,7 +1039,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 			facetDesc = null;
 		}
 		// This hangs in removeFromParent
-//		hidePerspectiveList();
+		// hidePerspectiveList();
 	}
 
 	boolean isShowPopup(Object facet) {

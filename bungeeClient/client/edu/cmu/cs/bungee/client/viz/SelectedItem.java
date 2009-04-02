@@ -56,11 +56,12 @@ import edu.cmu.cs.bungee.client.query.FacetTree;
 import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.cmu.cs.bungee.client.query.Query;
 import edu.cmu.cs.bungee.client.query.Query.Item;
-import edu.cmu.cs.bungee.javaExtensions.*;
+import edu.cmu.cs.bungee.javaExtensions.MyResultSet;
+import edu.cmu.cs.bungee.javaExtensions.Util;
 import edu.cmu.cs.bungee.javaExtensions.threads.UpdateThread;
 import edu.cmu.cs.bungee.piccoloUtils.gui.APText;
-import edu.cmu.cs.bungee.piccoloUtils.gui.LazyContainer;
 import edu.cmu.cs.bungee.piccoloUtils.gui.Boundary;
+import edu.cmu.cs.bungee.piccoloUtils.gui.LazyContainer;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPPath;
 import edu.cmu.cs.bungee.piccoloUtils.gui.MouseDoc;
 import edu.cmu.cs.bungee.piccoloUtils.gui.MyInputEventHandler;
@@ -70,6 +71,11 @@ import edu.umd.cs.piccolo.event.PInputEvent;
 import edu.umd.cs.piccolo.nodes.PImage;
 
 final class SelectedItem extends LazyContainer implements MouseDoc {
+
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
 
 	private static final boolean CAPTURING_FACES = false;
 
@@ -244,11 +250,11 @@ final class SelectedItem extends LazyContainer implements MouseDoc {
 
 	public double minWidth() {
 		// assert Util.ignore(boundary1);
-		 Util.print("SI.minWidth fontsize=" + getFontSize());
+		Util.print("SI.minWidth fontsize=" + getFontSize());
 		return labelWidth();
 	}
 
-	 int getFontSize() {
+	int getFontSize() {
 		return label.getFont().getSize();
 	}
 
@@ -329,7 +335,7 @@ final class SelectedItem extends LazyContainer implements MouseDoc {
 
 	int maxImageH() {
 		int result = (int) (h / 2.0);
-//		Util.print("maxImageH " + result);
+		// Util.print("maxImageH " + result);
 		return result;
 	}
 
@@ -368,9 +374,9 @@ final class SelectedItem extends LazyContainer implements MouseDoc {
 				gridImage.setOffset(x, y);
 				y += gridImage.getHeight() * gridImage.getScale() + art.lineH
 						/ 2;
-//				Util.print("ImageH " + gridImage.getHeight() + " * "
-//						+ gridImage.getScale() + " = "
-//						+ (gridImage.getHeight() * gridImage.getScale()));
+				// Util.print("ImageH " + gridImage.getHeight() + " * "
+				// + gridImage.getScale() + " = "
+				// + (gridImage.getHeight() * gridImage.getScale()));
 				addChild(gridImage);
 			}
 		}
@@ -514,6 +520,10 @@ final class SelectedItem extends LazyContainer implements MouseDoc {
 	}
 
 	class FieldedTextBox extends TextBox {
+		/**
+		 * 
+		 */
+		private static final long serialVersionUID = 1L;
 		final String[] fields;
 		String rawText;
 

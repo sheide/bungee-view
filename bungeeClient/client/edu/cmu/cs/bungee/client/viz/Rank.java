@@ -43,6 +43,11 @@ import edu.umd.cs.piccolo.PNode;
 final class Rank extends LazyContainer implements PickFacetTextNotifier {
 
 	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+
+	/**
 	 * Margin between multiple PVs in a rank
 	 */
 	private static final double PV_MARGIN = 5.0;
@@ -413,21 +418,21 @@ final class Rank extends LazyContainer implements PickFacetTextNotifier {
 	// return -1;
 	// }
 
-//	void printTable(Perspective facet) {
-//		Util.print("\nwarp " + facet);
-//		int a = facet.getOnCount();
-//		int row0 = facet.getTotalCount();
-//		int col0 = totalChildOnCount();
-//		int itotal = totalChildTotalCount();
-//		Util.print(ChiSq2x2.printTable(itotal, row0, col0, a));
-//		DecimalFormat f2 = new DecimalFormat(" 0.000");
-//		Util.print(
-//		// f2.format(warpPercent(facet.percentOn()))
-//				// + f2.format(warpCorrelation(facet))
-//				// + f2.format(warpMutInf(facet, false))
-//				// + f2.format(warpMutInf(facet, true))
-//				f2.format(warp(percentageRatio(facet))));
-//	}
+	// void printTable(Perspective facet) {
+	// Util.print("\nwarp " + facet);
+	// int a = facet.getOnCount();
+	// int row0 = facet.getTotalCount();
+	// int col0 = totalChildOnCount();
+	// int itotal = totalChildTotalCount();
+	// Util.print(ChiSq2x2.printTable(itotal, row0, col0, a));
+	// DecimalFormat f2 = new DecimalFormat(" 0.000");
+	// Util.print(
+	// // f2.format(warpPercent(facet.percentOn()))
+	// // + f2.format(warpCorrelation(facet))
+	// // + f2.format(warpMutInf(facet, false))
+	// // + f2.format(warpMutInf(facet, true))
+	// f2.format(warp(percentageRatio(facet))));
+	// }
 
 	// /**
 	// * mutual information
@@ -533,27 +538,27 @@ final class Rank extends LazyContainer implements PickFacetTextNotifier {
 
 	static final double LOG_ODDS_RANGE = Math.log(100);
 
-//	// facet ~facet
-//	// _ a ____ b __ query
-//	// _ c ____ d _ ~query
-//	double percentageRatio(Perspective facet) {
-//		double result = 1;
-//		if (query().isQueryValid()) {
-//			try {
-//				int row0 = totalChildOnCount();
-//				int col0 = facet.getTotalCount();
-//				int total = totalChildTotalCount();
-//				if (col0 < total && col0 > 0 && row0 > 0 && row0 < total) {
-//					result = ChiSq2x2.percentageRatio(total, row0, col0, facet
-//							.getOnCount());
-//				}
-//			} catch (AssertionError e) {
-//				Util.err("Error calculating percentageRatio for " + this);
-//				throw (e);
-//			}
-//		}
-//		return result;
-//	}
+	// // facet ~facet
+	// // _ a ____ b __ query
+	// // _ c ____ d _ ~query
+	// double percentageRatio(Perspective facet) {
+	// double result = 1;
+	// if (query().isQueryValid()) {
+	// try {
+	// int row0 = totalChildOnCount();
+	// int col0 = facet.getTotalCount();
+	// int total = totalChildTotalCount();
+	// if (col0 < total && col0 > 0 && row0 > 0 && row0 < total) {
+	// result = ChiSq2x2.percentageRatio(total, row0, col0, facet
+	// .getOnCount());
+	// }
+	// } catch (AssertionError e) {
+	// Util.err("Error calculating percentageRatio for " + this);
+	// throw (e);
+	// }
+	// }
+	// return result;
+	// }
 
 	// double warp(Perspective facet) {
 	// double result = 0.5;

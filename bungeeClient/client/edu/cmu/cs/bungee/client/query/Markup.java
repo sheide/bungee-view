@@ -155,6 +155,11 @@ public interface Markup extends List {
 
 final class MarkupImplementation extends ArrayList implements Markup {
 
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+
 	public Markup compile(String genericObjectLabel) {
 		Markup v = new MarkupImplementation();
 		Object prev = null;
@@ -682,9 +687,9 @@ final class MarkupImplementation extends ArrayList implements Markup {
 
 	public Markup uncolor() {
 		for (Iterator it = iterator(); it.hasNext();) {
-			Object o= it.next();
+			Object o = it.next();
 			if (o instanceof Color) {
-				it.remove();				
+				it.remove();
 			}
 		}
 		return this;

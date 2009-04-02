@@ -19,6 +19,11 @@ import edu.umd.cs.piccolo.util.PBounds;
 
 final class GridImage extends PImage /* implements FacetNode */{
 
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+
 	SolidBorder border;
 
 	int offset;
@@ -81,9 +86,9 @@ final class GridImage extends PImage /* implements FacetNode */{
 	// If cached value is the right size, or as big as possible, do nothing.
 	// Otherwise recompute from itemImage
 	void scale(int w, int h) {
-//		Util.print("Enter scale " + this + " " + w + "x" + h + " "
-//				+ itemImage.currentW() + "x" + itemImage.currentH() + " "
-//				+ correctSize(w, h));
+		// Util.print("Enter scale " + this + " " + w + "x" + h + " "
+		// + itemImage.currentW() + "x" + itemImage.currentH() + " "
+		// + correctSize(w, h));
 		if (!correctSize(w, h)) {
 			int rawW = itemImage.currentW();
 			int rawH = itemImage.currentH();
@@ -95,16 +100,16 @@ final class GridImage extends PImage /* implements FacetNode */{
 					newH, true);
 			setImage(scaled);
 			// Util.printStackTrace();
-//			Util.print(" " + scaled.getWidth() + "*" + scaled.getHeight());
+			// Util.print(" " + scaled.getWidth() + "*" + scaled.getHeight());
 			assert getWidth() <= w : w + " " + getWidth() + " "
 					+ scaled.getWidth() + " " + newW + " " + newH;
 			// }
 		}
 		assert getWidth() <= w : w + " " + getWidth();
-//		Util.print(itemImage.currentW() + "*" + itemImage.currentH() + " "
-//				+ itemImage.getRawImage().getWidth(null) + "*"
-//				+ itemImage.getRawImage().getHeight(null));
-//		Util.print(" Exit scale " + getScale());
+		// Util.print(itemImage.currentW() + "*" + itemImage.currentH() + " "
+		// + itemImage.getRawImage().getWidth(null) + "*"
+		// + itemImage.getRawImage().getHeight(null));
+		// Util.print(" Exit scale " + getScale());
 		border.borderBounds = new PBounds((getWidth() - w) / 2,
 				(getHeight() - h) / 2, w, h);
 	}

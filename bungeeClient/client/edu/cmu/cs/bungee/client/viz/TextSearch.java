@@ -25,6 +25,11 @@ import edu.umd.cs.piccolox.nodes.PStyledText;
 
 public class TextSearch extends LazyContainer {
 
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+
 	private PStyledText searchBox;
 
 	JTextComponent editor;
@@ -124,6 +129,11 @@ public class TextSearch extends LazyContainer {
 		// qv = _q;
 		// }
 
+		/**
+		 * 
+		 */
+		private static final long serialVersionUID = 1L;
+
 		public void actionPerformed(ActionEvent e) {
 			doSearch();
 		}
@@ -132,6 +142,11 @@ public class TextSearch extends LazyContainer {
 	// copied from PStyledTextEventHandler
 	private JTextComponent createEditor() {
 		JTextPane tComp = new JTextPane() {
+
+			/**
+			 * 
+			 */
+			private static final long serialVersionUID = 1L;
 
 			/**
 			 * Set some rendering hints - if we don't then the rendering can be

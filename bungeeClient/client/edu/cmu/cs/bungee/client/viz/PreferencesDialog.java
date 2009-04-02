@@ -29,6 +29,11 @@ import edu.cmu.cs.bungee.javaExtensions.Util;
 
 class PreferencesDialog extends JPanel implements ActionListener {
 
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+
 	private Bungee art;
 
 	private JCheckBox popups;
@@ -59,7 +64,8 @@ class PreferencesDialog extends JPanel implements ActionListener {
 		setLayout(new BoxLayout(this, BoxLayout.PAGE_AXIS));
 
 		JPanel leftPane = new JPanel(new BorderLayout());
-		leftPane.add(generalPreferencesPanel(features), BorderLayout.PAGE_START);
+		leftPane
+				.add(generalPreferencesPanel(features), BorderLayout.PAGE_START);
 		leftPane.add(expertPreferencesPanel(features), BorderLayout.CENTER);
 
 		add(leftPane, BorderLayout.LINE_START);

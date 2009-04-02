@@ -7,6 +7,11 @@ import edu.cmu.cs.bungee.client.query.Query;
 
 public class SearchText extends FacetText implements PickFacetTextNotifier {
 
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+
 	SearchText(String s, Bungee art) {
 		super(s, art, -1, -1, false, false, false, 1, null);
 		pickFacetTextNotifier = this;
@@ -22,7 +27,7 @@ public class SearchText extends FacetText implements PickFacetTextNotifier {
 	}
 
 	public boolean highlight(FacetText node, boolean state, int modifiers) {
-//		Util.print("SearchText.hightlight " + this);
+		// Util.print("SearchText.hightlight " + this);
 		Color color = state ? Color.white : Bungee.headerFG;
 		setPermanentTextPaint(color);
 		Markup mouseDoc = null;

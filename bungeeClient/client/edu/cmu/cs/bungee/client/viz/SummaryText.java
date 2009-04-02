@@ -17,6 +17,11 @@ class SummaryText extends TextNfacets implements PickFacetTextNotifier {
 
 	// private APText ellipsis;
 
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+
 	SummaryText(Bungee art) {
 		super(art, Bungee.headerFG, false);
 		setWrapText(false);
@@ -35,10 +40,10 @@ class SummaryText extends TextNfacets implements PickFacetTextNotifier {
 		layoutBestFit();
 	}
 
-//	double layout(double w, double h) {
-//		// Util.print("SUmmaryText.layout " + w + " "+h);
-//		return super.layout(w, h);
-//	}
+	// double layout(double w, double h) {
+	// // Util.print("SUmmaryText.layout " + w + " "+h);
+	// return super.layout(w, h);
+	// }
 
 	void setDescription() {
 		Markup description = art.query.descriptionVerbPhrase();
@@ -220,21 +225,21 @@ class SummaryText extends TextNfacets implements PickFacetTextNotifier {
 	 * @see edu.cmu.cs.bungee.client.viz.TextNfacets#trim()
 	 */
 	protected void trim() {
-//		Util.print("SummaryText.trim "+content);
+		// Util.print("SummaryText.trim "+content);
 		for (Iterator it = getChildrenIterator(); it.hasNext();) {
-//			Object o = it.next();
-//			if (o instanceof FacetText) {
-				FacetText text = (FacetText) it.next();
-				if (text.treeObject() instanceof ItemPredicate) {
-					text.pickFacetTextNotifier = this;
-//				}
+			// Object o = it.next();
+			// if (o instanceof FacetText) {
+			FacetText text = (FacetText) it.next();
+			if (text.treeObject() instanceof ItemPredicate) {
+				text.pickFacetTextNotifier = this;
+				// }
 			}
 		}
 		super.trim();
 	}
 
 	public boolean highlight(FacetText node, boolean state, int modifiers) {
-//		Util.print("SummaryText.highlight");
+		// Util.print("SummaryText.highlight");
 		if (state)
 			expandSummary();
 		else

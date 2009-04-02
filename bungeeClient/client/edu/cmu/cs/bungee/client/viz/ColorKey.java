@@ -14,14 +14,17 @@ import edu.umd.cs.piccolo.event.PInputEvent;
 
 final class ColorKey extends LazyPNode {
 
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
 	final Bungee art;
 	final ColorKeyHover colorKeyHover = new ColorKeyHover();
 
 	ColorKey(Bungee art) {
 		this.art = art;
 		Color[][] colors = { Markup.INCLUDED_COLORS,
-				Markup.POSITIVE_ASSOCIATION_COLORS,
-				Markup.UNASSOCIATED_COLORS,
+				Markup.POSITIVE_ASSOCIATION_COLORS, Markup.UNASSOCIATED_COLORS,
 				Markup.NEGATIVE_ASSOCIATION_COLORS, Markup.EXCLUDED_COLORS };
 		String[] msgs = {
 				"Tag required by filters",
@@ -35,24 +38,28 @@ final class ColorKey extends LazyPNode {
 		APText label1 = art.oneLineLabel();
 		label1.setTextPaint(Bungee.headerFG);
 		label1.setText("Color Key");
-//		this.summary.label.setPickable(false);
+		// this.summary.label.setPickable(false);
 		addChild(label1);
-//		if (label1.getMaxX() > this.summary.w)
-//			label1.setScale(this.summary.w / label1.getMaxX());
+		// if (label1.getMaxX() > this.summary.w)
+		// label1.setScale(this.summary.w / label1.getMaxX());
 		double buttonW = Math.round(label1.getMaxX() / nColors);
 		// double y = 1.5 * art.lineH;
 		// double buttonH = Math.round(h - y);
 		double buttonH = label1.getHeight();
 		double y = label1.getMaxY();
 		for (int i = 0; i < nColors; i++) {
-			PNode node = new ColorKeyKey(colors[i][0], colors[i][1],
-					msgs[i], buttonW, buttonH);
+			PNode node = new ColorKeyKey(colors[i][0], colors[i][1], msgs[i],
+					buttonW, buttonH);
 			node.setOffset(i * buttonW, y);
 			addChild(node);
 		}
 	}
 
 	private class ColorKeyKey extends LazyPNode {
+		/**
+		 * 
+		 */
+		private static final long serialVersionUID = 1L;
 		Color color;
 		Color highlight;
 		String msg;
@@ -69,12 +76,12 @@ final class ColorKey extends LazyPNode {
 
 		void enter() {
 			setPaint(highlight);
-//			APText text = art.oneLineLabel();
-//			text.setPaint(Bungee.summaryBG);
-//			text.setTextPaint(Bungee.helpColor);
-//			text.setText(msg);
-//			text.setOffset(getX(), getMaxY() - text.getHeight());
-//			addChild(text);
+			// APText text = art.oneLineLabel();
+			// text.setPaint(Bungee.summaryBG);
+			// text.setTextPaint(Bungee.helpColor);
+			// text.setText(msg);
+			// text.setOffset(getX(), getMaxY() - text.getHeight());
+			// addChild(text);
 			art.setNonClickMouseDoc(msg);
 		}
 

@@ -11,8 +11,6 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 
-import lbfgs.LBFGS;
-
 import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.cmu.cs.bungee.javaExtensions.PerspectiveObserver;
 import edu.cmu.cs.bungee.javaExtensions.Util;
@@ -20,6 +18,7 @@ import edu.cmu.cs.bungee.javaExtensions.graph.Edge;
 import edu.cmu.cs.bungee.javaExtensions.graph.Graph;
 import edu.cmu.cs.bungee.javaExtensions.graph.Node;
 import edu.cmu.cs.bungee.javaExtensions.graph.Graph.GraphWeigher;
+import edu.cmu.cs.bungee.lbfgs.LBFGS;
 
 public class GraphicalModel extends Distribution {
 

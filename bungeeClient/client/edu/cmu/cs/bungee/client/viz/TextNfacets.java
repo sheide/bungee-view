@@ -56,7 +56,12 @@ import edu.umd.cs.piccolo.PNode;
  */
 class TextNfacets extends LazyPNode implements PerspectiveObserver {
 
-	 final Bungee art;
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+
+	final Bungee art;
 
 	/**
 	 * Default text paint for Strings. Ignored for ItemPredicates.
@@ -238,9 +243,9 @@ class TextNfacets extends LazyPNode implements PerspectiveObserver {
 	}
 
 	double layout(double w, double h) {
-//		Util.print("TNF.layout " + w + " " + h + " " + wrapText + " "
-//				+ art.lineH + " " + wrapOnWordBoundaries);
-//		Util.print(content);
+		// Util.print("TNF.layout " + w + " " + h + " " + wrapText + " "
+		// + art.lineH + " " + wrapOnWordBoundaries);
+		// Util.print(content);
 		untrimmedW = w;
 		untrimmedH = h;
 		removeAllChildren();
@@ -328,20 +333,23 @@ class TextNfacets extends LazyPNode implements PerspectiveObserver {
 		}
 	}
 
-	APText myWrap(final String s, Object facet, double x, double y,
-			double w, double h, Paint paint, int style, boolean underline,
+	APText myWrap(final String s, Object facet, double x, double y, double w,
+			double h, Paint paint, int style, boolean underline,
 			ItemPredicate[] restrictions, boolean isFirstLine) {
-//		Util.print("myWrap '" + s + "' x=" + x + " y=" + y + " w=" + w
-//				+ " wrapOnWordBoundaries=" + wrapOnWordBoundaries
-//				+ " isFirstLine=" + isFirstLine + " " + facet);
+		// Util.print("myWrap '" + s + "' x=" + x + " y=" + y + " w=" + w
+		// + " wrapOnWordBoundaries=" + wrapOnWordBoundaries
+		// + " isFirstLine=" + isFirstLine + " " + facet);
 		APText result = null;
 		if (s.length() > 0) {
 			if (y + art.lineH <= h) {
 				FacetText text;
 				// on recursive calls, s is just the tail end of the facet name,
 				// possibly with checkbox prefix and childindicator suffix
-				if (facet instanceof ItemPredicate && isFirstLine
-						&& strip(s).equals(strip(((ItemPredicate) facet).getNameIfPossible()))) {
+				if (facet instanceof ItemPredicate
+						&& isFirstLine
+						&& strip(s).equals(
+								strip(((ItemPredicate) facet)
+										.getNameIfPossible()))) {
 					// // if we break the text, second part shouldn't show check
 					// // box
 					// boolean reallyShowCheckBox =
@@ -350,7 +358,8 @@ class TextNfacets extends LazyPNode implements PerspectiveObserver {
 					text = FacetText.getFacetText(facet, art, -1, w - x,
 							showCheckBoxAndChildIndicator,
 							showCheckBoxAndChildIndicator,
-							((ItemPredicate) facet).guessOnCount(), getRedrawer(), underline);
+							((ItemPredicate) facet).guessOnCount(),
+							getRedrawer(), underline);
 					text.setPermanentTextPaint(facetPermanentTextPaint);
 					// ((FacetText) text).isPickable = isPickable
 					// && facet.parent != null

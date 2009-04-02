@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.Set;
 
 import edu.cmu.cs.bungee.client.query.Query.ItemList;
-import edu.cmu.cs.bungee.javaExtensions.JDBCSample;
 
 public class QuerySQL {
 
@@ -41,7 +40,7 @@ public class QuerySQL {
 			for (Iterator it = searches1.iterator(); it.hasNext(); i++) {
 				String search = (String) it.next();
 				qJOIN.append(matchFieldsPrefix1);
-				qJOIN.append(JDBCSample.quote(search));
+				qJOIN.append(quote(search));
 				qJOIN.append(" IN BOOLEAN MODE)");
 			}
 		}
@@ -122,6 +121,13 @@ public class QuerySQL {
 			}
 		}
 		return joinStrings[joinIndex][required ? 0 : 1];
+	}
+
+	public static String quote(String s) {
+		s = s.replaceAll("\\\\", "\\\\\\\\");
+		s = s.replaceAll("'", "\\\\'");
+		// Util.print(s);
+		return "'" + s + "'";
 	}
 
 }

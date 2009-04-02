@@ -48,14 +48,13 @@ import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
+import JSci.maths.statistics.ChiSq2x2;
+import JSci.maths.statistics.OutOfRangeException;
 import edu.cmu.cs.bungee.javaExtensions.MyResultSet;
 import edu.cmu.cs.bungee.javaExtensions.PerspectiveObserver;
 import edu.cmu.cs.bungee.javaExtensions.Util;
 import edu.cmu.cs.bungee.javaExtensions.comparator.DoubleValueComparator;
 import edu.cmu.cs.bungee.javaExtensions.comparator.IntValueComparator;
-
-import JSci.maths.statistics.ChiSq2x2;
-import JSci.maths.statistics.OutOfRangeException;
 
 /**
  * aka Facet. a property that an Item can have.
@@ -2223,14 +2222,14 @@ public class Perspective implements Comparable, ItemPredicate {
 			if (true || _onCount < total) {
 				if (total < parentTotalCount && !isRestriction()) {
 					if (instantiatedPerspective != null) {
-						assert instantiatedPerspective.checkTable(
-								parentTotalCount, parentOnCount, total,
-								_onCount);
+						// assert instantiatedPerspective.checkTable(
+						// parentTotalCount, parentOnCount, total,
+						// _onCount);
 						// Util.print(instantiatedPerspective.checkTableMsg(
 						// parentTotalCount, parentOnCount, total, onCount));
 						ChiSq2x2 chiSq = ChiSq2x2.getInstance(this,
 								parentTotalCount, parentOnCount, total,
-								_onCount);
+								_onCount, query());
 						boolean siblingSelected = parent != null
 								&& parent.isRestricted();
 						if (chiSq.sign() > 0 || !siblingSelected)
@@ -2689,7 +2688,7 @@ public class Perspective implements Comparable, ItemPredicate {
 				medianPvalue = ChiSq2x2.getInstance(Perspective.this,
 						totalChildTotalCount, totalChildOnCount,
 						greaterThanMedianChildTotalCount,
-						greaterThanMedianChildOnCount);
+						greaterThanMedianChildOnCount, query());
 				// int[][] table = {
 				// { totalChildOnCount - greaterThanMedianChildOnCount,
 				// greaterThanMedianChildOnCount },
@@ -2737,12 +2736,13 @@ public class Perspective implements Comparable, ItemPredicate {
 							&& parentOnCount > 0 && myTotalCount > 0
 							&& onCount >= 0) {
 						// Deeply nested facets have on=-1;
-						assert checkTable(parentTotalCount, parentOnCount,
-								myTotalCount, onCount);
+						// assert checkTable(parentTotalCount, parentOnCount,
+						// myTotalCount, onCount);
 						try {
 							pValueCounts = ChiSq2x2.getInstance(
 									Perspective.this, parentTotalCount,
-									parentOnCount, myTotalCount, onCount);
+									parentOnCount, myTotalCount, onCount,
+									query());
 							// if ("no date recorded on caption card"
 							// .equals(getNameIfPossible()))
 							// Util.print(this + " pvalue = "
@@ -2761,34 +2761,6 @@ public class Perspective implements Comparable, ItemPredicate {
 				}
 			}
 			return pValueCounts;
-		}
-
-		boolean checkTable(int total, int row0, int col0, int table00) {
-			assert table00 >= 0 : checkTableMsg(total, row0, col0, table00);
-			assert row0 >= table00 : checkTableMsg(total, row0, col0, table00);
-			assert col0 >= table00 : checkTableMsg(total, row0, col0, table00);
-			int row1 = total - row0;
-			int table10 = col0 - table00;
-			int col1 = total - col0;
-
-			assert row1 > 0 : checkTableMsg(total, row0, col0, table00);
-			assert col1 > 0 : checkTableMsg(total, row0, col0, table00);
-			assert row0 >= table00 : checkTableMsg(total, row0, col0, table00);
-			assert col0 >= table00 : checkTableMsg(total, row0, col0, table00);
-			assert row1 >= table10 : checkTableMsg(total, row0, col0, table00);
-
-			return true;
-		}
-
-		String checkTableMsg(int total, int row0, int col0, int table00) {
-			return this + " " + query() + "\n" + table00 + "\t"
-					+ (row0 - table00) + "\t" + row0 + "\ton\n"
-					+ (col0 - table00) + "\t" + (total - row0 - col0 + table00)
-					+ "\t" + (total - row0) + "\toff\n" + col0 + "\t"
-					+ (total - col0) + "\t" + total + "\nfacet\tother";
-			// return this + " parentTotalCount=" + total + " parentOnCount="
-			// + row0 + " totalCount=" + col0 + " onCount=" + table00
-			// + " isQueryValid=" + q.isQueryValid();
 		}
 
 		double pValue() {

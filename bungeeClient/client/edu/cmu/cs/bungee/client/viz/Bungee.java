@@ -177,11 +177,6 @@ package edu.cmu.cs.bungee.client.viz;
  */
 
 //import edu.cmu.cs.bungee.faceImage.FaceImage;
-import javax.imageio.ImageIO;
-import javax.jnlp.BasicService;
-import javax.jnlp.ClipboardService;
-import javax.jnlp.ServiceManager;
-
 import java.awt.Color;
 import java.awt.Cursor;
 import java.awt.Font;
@@ -205,6 +200,7 @@ import java.lang.ref.SoftReference;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLEncoder;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.HashSet;
@@ -213,11 +209,12 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.ArrayList;
 
+import javax.imageio.ImageIO;
+import javax.jnlp.BasicService;
+import javax.jnlp.ClipboardService;
+import javax.jnlp.ServiceManager;
 import javax.swing.Timer;
-
-//import com.sun.image.codec.jpeg.ImageFormatException;
 
 import edu.cmu.cs.bungee.client.query.Cluster;
 import edu.cmu.cs.bungee.client.query.ItemPredicate;
@@ -244,6 +241,11 @@ import edu.umd.cs.piccolo.util.PBounds;
 import edu.umd.cs.piccolox.PFrame;
 
 final class Bungee extends PFrame {
+
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
 
 	static final String version = "7 February 2008";
 
@@ -825,6 +827,10 @@ final class Bungee extends PFrame {
 	}
 
 	private class InitialHelp extends LazyPNode {
+		/**
+		 * 
+		 */
+		private static final long serialVersionUID = 1L;
 		private APText msg;
 
 		// private APText msg;
@@ -1094,6 +1100,10 @@ final class Bungee extends PFrame {
 
 	final class SmallWindowButton extends BungeeTextButton {
 
+		/**
+		 * 
+		 */
+		private static final long serialVersionUID = 1L;
 		private static final String label1 = "  3. Use this window size anyway";
 
 		SmallWindowButton() {
@@ -1465,14 +1475,15 @@ final class Bungee extends PFrame {
 	}
 
 	private Set parsePerspectives(String s) {
-//		Util.print("parsePerspectives " + s);
+		// Util.print("parsePerspectives " + s);
 		Set result = new HashSet();
 		String[] disjuncts = s.split("\\|");
 		for (int j = 0; j < disjuncts.length; j++) {
 			String[] ancestors = disjuncts[j].split(" -- ");
 			Perspective parent = null;
 			for (int k = 0; k < ancestors.length; k++) {
-//				Util.print(" parsePerspective " + parent + " " + ancestors[k]);
+				// Util.print(" parsePerspective " + parent + " " +
+				// ancestors[k]);
 				if (parent != null)
 					parent.prefetchData();
 
@@ -2923,7 +2934,8 @@ final class Bungee extends PFrame {
 	}
 
 	void showMoreHelp() {
-//		Util.print("showMoreHelp "+isPopups() +" "+ summary.facetDesc.getVisible());
+		// Util.print("showMoreHelp "+isPopups() +" "+
+		// summary.facetDesc.getVisible());
 		if (isPopups() && summary.facetDesc.getVisible())
 			summary.facetDesc.showMoreHelp();
 		// else
@@ -3073,7 +3085,7 @@ final class Bungee extends PFrame {
 					int offset = Integer.parseInt(args[3]);
 					Util.print("  scroll - ignoring " + offset);
 					// grid.scrollTo(offset);
-					//grid.clickThumb(Item.ensureItem(Integer.parseInt(args[3]))
+					// grid.clickThumb(Item.ensureItem(Integer.parseInt(args[3]))
 					// );
 				}
 				break;
@@ -3421,7 +3433,7 @@ final class Bungee extends PFrame {
 
 				public void run() {
 					initializeFrames();
-//					 NonAlchemyModel.test(query, 20);
+					NonAlchemyModel.test(query, 5);
 				}
 			};
 

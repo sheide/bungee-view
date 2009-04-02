@@ -27,12 +27,11 @@
 
 package edu.cmu.cs.bungee.client.viz;
 
-import java.awt.geom.Point2D;
-import java.awt.geom.Rectangle2D;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Paint;
-import java.lang.Math;
+import java.awt.geom.Point2D;
+import java.awt.geom.Rectangle2D;
 import java.text.CollationKey;
 import java.util.Arrays;
 import java.util.Hashtable;
@@ -67,6 +66,11 @@ import edu.umd.cs.piccolo.util.PDimension;
 
 final class PerspectiveViz extends LazyContainer implements FacetNode,
 		PickFacetTextNotifier {
+
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
 
 	Summary summary;
 
@@ -503,8 +507,8 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 					childFraction = 0.0;
 					bar = (Bar) barTable.get(p.getNthChild(++medianIndex));
 				}
-//				Util.print("layoutMedianArrow " + medianChild + " "
-//						+ childFraction + " " + bar);
+				// Util.print("layoutMedianArrow " + medianChild + " "
+				// + childFraction + " " + bar);
 				if (bar != null) {
 					int left = minBarPixelRaw(medianChild);
 					int right = maxBarPixelRaw(medianChild);
@@ -515,7 +519,7 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 					// double x = bar.getXOffset() + childFraction *
 					// bar.getWidth();
 					double length = x - medianArrow.getXOffset();
-					 medianArrow.setLengthAndDirection((int) length);
+					medianArrow.setLengthAndDirection((int) length);
 					// Color color = null;
 					medianArrow.updateColor(p.medianTestSignificant());
 					// Util.print("median: " + p + " " + median + " " + bar + "
@@ -1125,7 +1129,7 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 
 	void updateLightBeamTransparency() {
 		if (lightBeam != null) {
-			//Util.print("updateLightBeamTransparency"+lightBeam.getTransparency
+			// Util.print("updateLightBeamTransparency"+lightBeam.getTransparency
 			// ());
 			lightBeam
 					.setPaint(p.isRestriction(true) ? Markup.INCLUDED_COLORS[0]
@@ -1566,6 +1570,11 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 
 	final class FacetPText extends FacetText {
 
+		/**
+		 * 
+		 */
+		private static final long serialVersionUID = 1L;
+
 		void setFacet(Perspective _facet) {
 			facet = _facet;
 			assert facet.getParent() != null;
@@ -1773,6 +1782,11 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 	}
 
 	final class MedianArrow extends Arrow {
+
+		/**
+		 * 
+		 */
+		private static final long serialVersionUID = 1L;
 
 		final MedianArrowHandler medianArrowHandler = new MedianArrowHandler();
 
@@ -2207,6 +2221,11 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 			PickFacetTextNotifier, PerspectiveObserver {
 		// PerspectiveViz pv;
 
+		/**
+		 * 
+		 */
+		private static final long serialVersionUID = 1L;
+
 		Letters() {
 			// pv = _pv;
 			addInputEventListener(Bungee.facetClickHandler);
@@ -2335,7 +2354,7 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 			FacetPText label = (FacetPText) letterPTextCache.get(s);
 			if (label == null || label.getFont() != art().font) {
 				label = getFacetPText(null, 0.0, midX);
-				label.setPermanentTextPaint(Bungee.summaryFG.darker()); //Color.
+				label.setPermanentTextPaint(Bungee.summaryFG.darker()); // Color.
 				// darkGray
 				// );
 				label.setPaint(Color.black);
@@ -2722,6 +2741,11 @@ final class HotZoneListener extends PBasicInputEventHandler {
 final class SqueezablePNode extends LazyPNode {
 
 	// PBounds clip;
+
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
 
 	double goalYscale = -1;
 

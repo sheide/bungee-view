@@ -1131,21 +1131,21 @@ public final class Query implements ItemPredicate {
 	void insertPerspective(Perspective p) {
 		// Util.print("insertPerspective " + p);
 		assert SwingUtilities.isEventDispatchThread() : Util.printStackTrace();
-//		boolean added = false;
-//		assert !displayedPerspectives.contains(p) : displayedPerspectives;
-//		for (ListIterator it = displayedPerspectives.listIterator(); it
-//				.hasNext();) {
-//			Perspective inList = (Perspective) it.next();
-//			if (inList.childrenOffset() > p.childrenOffset()) {
-//				it.previous();
-//				it.add(p);
-//				added = true;
-//				break;
-//			}
-//		}
-//		if (!added)
-			displayedPerspectives.add(p);
-			Collections.sort(displayedPerspectives);
+		// boolean added = false;
+		// assert !displayedPerspectives.contains(p) : displayedPerspectives;
+		// for (ListIterator it = displayedPerspectives.listIterator(); it
+		// .hasNext();) {
+		// Perspective inList = (Perspective) it.next();
+		// if (inList.childrenOffset() > p.childrenOffset()) {
+		// it.previous();
+		// it.add(p);
+		// added = true;
+		// break;
+		// }
+		// }
+		// if (!added)
+		displayedPerspectives.add(p);
+		Collections.sort(displayedPerspectives);
 
 		addPerspective(p);
 		if (!p.isPrefetched()) {
@@ -1436,6 +1436,14 @@ public final class Query implements ItemPredicate {
 
 	public Perspective findPerspectiveIfPossible(int facet) {
 		return allPerspectives[facet];
+	}
+
+	public Perspective findPerspectiveNow(int ID) {
+		Perspective p = findPerspectiveIfPossible(ID);
+		if (p == null)
+			p = importFacet(ID);
+		assert p != null : "Can't find candidate " + ID;
+		return p;
 	}
 
 	private void cachePerspective(int facet_id, Perspective perspective) {
@@ -2060,7 +2068,7 @@ public final class Query implements ItemPredicate {
 
 	public ResultSet[] onCountMatrix(Collection facetsOfInterest,
 			Collection candidates, boolean needBaseCounts) {
-//		Util.print("ocm " + facetsOfInterest + " " + candidates);
+		// Util.print("ocm " + facetsOfInterest + " " + candidates);
 		assert candidates != null && candidates.size() > 0;
 		return db.onCountMatrix(getFacetIDs(facetsOfInterest),
 				getFacetIDs(candidates), onItemsTable(), needBaseCounts);
@@ -2076,20 +2084,14 @@ public final class Query implements ItemPredicate {
 	public static final int ERROR = 24;
 
 	public List topMutInf(Collection primaryFacets, int maxCandidates) {
-//		Util.print("tmi " + primaryFacets);
+		// Util.print("tmi " + primaryFacets);
 		ResultSet rs = db.topMutInf(getFacetIDs(primaryFacets), onItemsTable(),
 				maxCandidates);
 		try {
 			ArrayList result = new ArrayList(MyResultSet.nRows(rs));
 			while (rs.next()) {
 				int ID = rs.getInt(1);
-				Perspective p = findPerspectiveIfPossible(ID);
-				if (p == null)
-					p = importFacet(ID);
-				if (p != null)
-					result.add(p);
-				else
-					Util.err("Can't find candidate " + ID);
+				result.add(findPerspectiveNow(ID));
 			}
 			return result;
 		} catch (SQLException e) {
