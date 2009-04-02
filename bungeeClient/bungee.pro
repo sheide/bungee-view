@@ -1,13 +1,15 @@
 -injars 'C:\Documents and Settings\mad\workspace\bungeeClient\bungeeClient-non-shrunk.jar'
-#-injars 'C:\Documents and Settings\mad\workspace\mysql-connector-java-3.0.16-ga-bin.jar'
--outjars 'C:\Program Files\Apache Software Foundation\Tomcat 6.0.16\webapps\bungee\bungeeClient.jar'
+#-injars 'C:\Documents and Settings\mad\workspace\bungeeDBscripts\mysql-connector-java-5.1.7-bin.jar'
+-outjars 'C:\Program Files\Apache Software Foundation\Tomcat 6.0\webapps\bungee\bungeeClient.jar'
 
--libraryjars 'C:\Program Files\Java\j2re1.4.2_11\lib\rt.jar'
+-libraryjars 'C:\Documents and Settings\mad\workspace\bungeeClient\jnlp.jar'
+-libraryjars 'C:\Program Files\Java\jre6\lib\rt.jar'
 #-libraryjars 'C:\Program Files\Java\jre1.5.0_06\lib\rt.jar'
 
 -printusage shrink.log
 -verbose
 -printseeds shrink.seeds
+-dontskipnonpubliclibraryclasses
 
 -dontobfuscate
 #-dontshrink
