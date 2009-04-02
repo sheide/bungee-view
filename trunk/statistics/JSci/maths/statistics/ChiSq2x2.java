@@ -87,17 +87,21 @@ public class ChiSq2x2 {
 	 * @throws OutOfRangeException
 	 */
 	public static ChiSq2x2 getInstance(Object facet2, int total, int row0,
-			int col0, int table00) {
-		assert total >= 0;
-		assert row0 >= 0;
-		assert col0 >= 0;
-		assert table00 >= 0;
-		assert row0 >= table00 : total + " " + row0 + " " + col0 + " "
-				+ table00;
-		assert col0 >= table00 : total + " " + row0 + " " + col0 + " "
-				+ table00;
-		assert row0 <= total : total + " " + row0 + " " + col0 + " " + table00;
-		assert col0 <= total : total + " " + row0 + " " + col0 + " " + table00;
+			int col0, int table00, Object msg) {
+		// assert total >= 0;
+		// assert row0 >= 0;
+		// assert col0 >= 0;
+		// assert table00 >= 0;
+		// assert row0 >= table00 : total + " " + row0 + " " + col0 + " "
+		// + table00;
+		// assert col0 >= table00 : total + " " + row0 + " " + col0 + " "
+		// + table00;
+		// assert row0 <= total : total + " " + row0 + " " + col0 + " " +
+		// table00;
+		// assert col0 <= total : total + " " + row0 + " " + col0 + " " +
+		// table00;
+		// assert row0 + col0 - table00 <= total;
+		assert checkTable(total, row0, col0, table00, facet2 + " " + msg);
 		return new ChiSq2x2(facet2, total, row0, col0, table00);
 	}
 
@@ -118,6 +122,36 @@ public class ChiSq2x2 {
 		row0 = row02;
 		col0 = col02;
 		table00 = table002;
+	}
+
+	static boolean checkTable(int total, int row0, int col0, int table00,
+			Object msg) {
+		assert table00 >= 0 : checkTableMsg(total, row0, col0, table00, msg);
+		assert row0 >= table00 : checkTableMsg(total, row0, col0, table00, msg);
+		assert col0 >= table00 : checkTableMsg(total, row0, col0, table00, msg);
+		int row1 = total - row0;
+		int table10 = col0 - table00;
+		int col1 = total - col0;
+
+		assert row1 > 0 : checkTableMsg(total, row0, col0, table00, msg);
+		assert col1 > 0 : checkTableMsg(total, row0, col0, table00, msg);
+		assert row0 >= table00 : checkTableMsg(total, row0, col0, table00, msg);
+		assert col0 >= table00 : checkTableMsg(total, row0, col0, table00, msg);
+		assert row1 >= table10 : checkTableMsg(total, row0, col0, table00, msg);
+
+		return true;
+	}
+
+	static String checkTableMsg(int total, int row0, int col0, int table00,
+			Object msg) {
+		return msg + "\n" + table00 + "\t" + (row0 - table00) + "\t" + row0
+				+ "\ton\n" + (col0 - table00) + "\t"
+				+ (total - row0 - col0 + table00) + "\t" + (total - row0)
+				+ "\toff\n" + col0 + "\t" + (total - col0) + "\t" + total
+				+ "\nfacet\tother";
+		// return this + " parentTotalCount=" + total + " parentOnCount="
+		// + row0 + " totalCount=" + col0 + " onCount=" + table00
+		// + " isQueryValid=" + q.isQueryValid();
 	}
 
 	/**
