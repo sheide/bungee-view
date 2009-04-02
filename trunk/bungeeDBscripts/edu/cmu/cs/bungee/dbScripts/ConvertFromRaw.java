@@ -9,14 +9,13 @@ import java.sql.SQLException;
 
 import javax.imageio.ImageIO;
 
+import JSci.maths.statistics.ChiSqr;
 import edu.cmu.cs.bungee.javaExtensions.JDBCSample;
 import edu.cmu.cs.bungee.javaExtensions.MyResultSet;
 import edu.cmu.cs.bungee.javaExtensions.Util;
 import edu.cmu.cs.bungee.javaExtensions.psk.cmdline.ApplicationSettings;
 import edu.cmu.cs.bungee.javaExtensions.psk.cmdline.StringToken;
 import edu.cmu.cs.bungee.javaExtensions.psk.cmdline.Token;
-
-import JSci.maths.statistics.ChiSqr;
 
 public class ConvertFromRaw {
 
@@ -113,7 +112,9 @@ public class ConvertFromRaw {
 			jdbc.print("...found " + nErrors + " errors in output tables.");
 
 			createPairsTable(facet_idType, item_idType);
-//			createEntropy(facet_idType);
+			createCorrelationsTable(facet_idType, item_idType);
+
+			// createEntropy(facet_idType);
 
 			jdbc.print("\nCleaning up...");
 			// purgeMultiples();
@@ -138,24 +139,25 @@ public class ConvertFromRaw {
 		}
 	}
 
-//	private void createEntropy(String facet_idType) throws SQLException {
-//		jdbc.SQLupdate("DROP TABLE IF EXISTS entropy");
-//		jdbc.SQLupdate("CREATE TABLE entropy (facet_id " + facet_idType
-//				+ ", entropy FLOAT unsigned NOT NULL, PRIMARY KEY (facet_id))");
-//		jdbc
-//				.SQLupdate("INSERT INTO entropy "
-//						+ "(SELECT facet_id, -p*log(p)-(1-p)*log(1-p) entropy FROM"
-//						+ " (SELECT facet_id, (n_items +0.000000001) / (SELECT COUNT(*) FROM item) p FROM facet"
-//						+ " WHERE parent_facet_id > 0) probs)");
-//		jdbc.SQLupdate("DROP FUNCTION IF EXISTS entropy");
-//		jdbc
-//				.SQLupdate("CREATE FUNCTION entropy (on_count INTEGER, total_count INTEGER)"
-//						+ " RETURNS FLOAT DETERMINISTIC "
-//						+ "BEGIN"
-//						+ " DECLARE p DEFAULT (on_count + 0.000001) / total_count;"
-//						+ " RETURN IF(p>=1,0,-p*log(p)-(1-p)*log(1-p)); "
-//						+ "END");
-//	}
+	// private void createEntropy(String facet_idType) throws SQLException {
+	// jdbc.SQLupdate("DROP TABLE IF EXISTS entropy");
+	// jdbc.SQLupdate("CREATE TABLE entropy (facet_id " + facet_idType
+	// + ", entropy FLOAT unsigned NOT NULL, PRIMARY KEY (facet_id))");
+	// jdbc
+	// .SQLupdate("INSERT INTO entropy "
+	// + "(SELECT facet_id, -p*log(p)-(1-p)*log(1-p) entropy FROM"
+	// +
+	// " (SELECT facet_id, (n_items +0.000000001) / (SELECT COUNT(*) FROM item) p FROM facet"
+	// + " WHERE parent_facet_id > 0) probs)");
+	// jdbc.SQLupdate("DROP FUNCTION IF EXISTS entropy");
+	// jdbc
+	// .SQLupdate("CREATE FUNCTION entropy (on_count INTEGER, total_count INTEGER)"
+	// + " RETURNS FLOAT DETERMINISTIC "
+	// + "BEGIN"
+	// + " DECLARE p DEFAULT (on_count + 0.000001) / total_count;"
+	// + " RETURN IF(p>=1,0,-p*log(p)-(1-p)*log(1-p)); "
+	// + "END");
+	// }
 
 	private void summarize() throws SQLException {
 		printErrors(
@@ -496,7 +498,7 @@ public class ConvertFromRaw {
 		jdbc.SQLupdate("DROP TABLE IF EXISTS item_order_heap");
 
 		String countType = jdbc.unsignedTypeForMaxValue(jdbc
-				.SQLqueryInt("SELECT MAX(record_num) FROM item")); //(getMaxCount
+				.SQLqueryInt("SELECT MAX(record_num) FROM item")); // (getMaxCount
 		// ());
 		String item_idType = jdbc.unsignedTypeForMaxValue(jdbc
 				.SQLqueryInt("SELECT MAX(record_num) FROM item"));
@@ -1010,6 +1012,43 @@ public class ConvertFromRaw {
 		return nErrors;
 	}
 
+	private void createCorrelationsTable(String facet_idType, String item_idType)
+			throws SQLException {
+		jdbc.SQLupdate(" DROP TABLE IF EXISTS correlations; ");
+		jdbc.SQLupdate("CREATE TABLE correlations ( " + "  facet1 "
+				+ facet_idType + " NOT NULL, " + "  facet2 " + facet_idType
+				+ " NOT NULL, " + "  correlation FLOAT NOT NULL, "
+				+ "KEY facet1 (facet1), KEY facet2 (facet2))");
+	}
+
+	// Called on demand by topCandidates.
+	public static void populateCorrelations(JDBCSample jdbc1)
+			throws SQLException {
+		if (jdbc1.SQLqueryInt("SELECT COUNT(*) FROM correlations") == 0) {
+			jdbc1.print("Finding pair correlations...");
+			jdbc1.SQLupdate("DROP PROCEDURE IF EXISTS correlation");
+			jdbc1
+					.SQLupdate("CREATE FUNCTION correlation(n1 INT, n2 INT, n12 INT, total INT) "
+							+ " RETURNS FLOAT DETERMINISTIC NO SQL "
+							+ "BEGIN "
+							+ " DECLARE p1 FLOAT DEFAULT n1/total; "
+							+ " DECLARE p2 FLOAT DEFAULT n2/total; "
+							+ " DECLARE p12 FLOAT DEFAULT n12/total; "
+							+ " RETURN (p12 - p1*p2)/SQRT((p1-p1*p1)*(p2-p2*p2)); "
+							+ "END");
+			jdbc1
+					.SQLupdate("INSERT INTO correlations "
+							+ "SELECT i1.facet_id, i2.facet_id, correlation(f1.n_items, f2.n_items, "
+							+ " COUNT(*), (SELECT COUNT(*) FROM item)) correlation FROM "
+							+ "item_facet i1 INNER JOIN item_facet i2 USING (record_num) "
+							+ "INNER JOIN facet f1 ON f1.facet_id=i1.facet_id "
+							+ "INNER JOIN facet f2 ON f2.facet_id=i2.facet_id "
+							+ "WHERE i1.facet_id < i2.facet_id "
+							+ "GROUP BY i1.facet_id, i2.facet_id ");
+			jdbc1.SQLupdate("DROP FUNCTION correlation");
+		}
+	}
+
 	private void createPairsTable(String facet_idType, String item_idType)
 			throws SQLException {
 		jdbc.SQLupdate(" DROP TABLE IF EXISTS pairs; ");
@@ -1024,6 +1063,7 @@ public class ConvertFromRaw {
 				+ "  PRIMARY KEY (facet1, facet2)" + ")");
 	}
 
+	// Called on demand by cluster.
 	public static void populatePairs(JDBCSample jdbc1) throws SQLException {
 		if (jdbc1.SQLqueryInt("SELECT COUNT(*) FROM pairs") == 0) {
 			jdbc1.print("Finding pairs with high Chi Squared...");
@@ -1057,12 +1097,13 @@ public class ConvertFromRaw {
 
 							" END IF; " + " UNTIL done END REPEAT; "
 							+ " CLOSE curf1; " + "END ");
+
 			jdbc1.SQLupdate("CALL mutInf()");
 			jdbc1.SQLupdate("DROP PROCEDURE mutInf");
 
 			PreparedStatement setChiSquared = jdbc1
 					.lookupPS("UPDATE pairs SET p = ? WHERE facet1 = ? AND facet2 = ?");
-			int nItems = jdbc1.SQLqueryInt(("SELECT COUNT(*) FROM item"));
+			int nItems = jdbc1.SQLqueryInt("SELECT COUNT(*) FROM item");
 			int[][] table = new int[2][2];
 			ResultSet rs = jdbc1
 					.SQLquery("SELECT facet1, facet2, cnt, f1.n_items, f2.n_items "

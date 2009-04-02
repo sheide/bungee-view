@@ -22,7 +22,6 @@ class Field {
 		name = _name;
 	}
 
-	@SuppressWarnings("unused")
 	boolean insert(String value, Populate handler) throws SQLException {
 		assert false : value;
 		return false;
@@ -33,7 +32,6 @@ class Field {
 	 * 
 	 * @throws SQLException
 	 */
-	@SuppressWarnings("unused")
 	void cleanUp(Database db) throws SQLException {
 		// override this
 	}
@@ -163,7 +161,7 @@ class Facet extends Field {
 
 	static Facet getPreparsedFacet(String name) {
 		return getParsingFacet(name, PreparsedFacetValueParser.getInstance());
-	}	
+	}
 
 	static Facet getDate045Facet(String name) {
 		Facet facet = getParsingFacet(name, Date045FacetValueParser
@@ -194,10 +192,10 @@ class Facet extends Field {
 	@Override
 	boolean insert(String value, Populate handler) throws SQLException {
 		String[][] facets = parser.parse(value, handler);
-//		if (facets.length > 0 && facets[0].length > 0
-//				&& "07".equals(facets[0][0])) {
-//			Util.print(this + " " + value + " " + Util.valueOfDeep(facets));
-//		}
+		// if (facets.length > 0 && facets[0].length > 0
+		// && "07".equals(facets[0][0])) {
+		// Util.print(this + " " + value + " " + Util.valueOfDeep(facets));
+		// }
 		for (int i = 0; i < facets.length; i++) {
 			List<String> path = new ArrayList<String>(facets[i].length + 1);
 			path.add(name);
