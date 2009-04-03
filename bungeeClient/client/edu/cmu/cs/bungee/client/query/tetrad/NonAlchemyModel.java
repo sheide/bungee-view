@@ -18,14 +18,8 @@ import edu.cmu.cs.bungee.client.query.Query;
 import edu.cmu.cs.bungee.javaExtensions.PerspectiveObserver;
 import edu.cmu.cs.bungee.javaExtensions.Util;
 import edu.cmu.cs.bungee.javaExtensions.graph.Graph;
-
-//import pal.mathx.ConjugateGradientSearch;
-//import pal.mathx.MFWithGradient;
-//import pal.mathx.MultivariateFunction;
-
-import lbfgs.LBFGS;
-import lbfgs.Mcsrch;
-import lbfgs.LBFGS.ExceptionWithIflag;
+import edu.cmu.cs.bungee.lbfgs.LBFGS;
+import edu.cmu.cs.bungee.lbfgs.LBFGS.ExceptionWithIflag;
 
 public class NonAlchemyModel extends Explanation
 // implements MultivariateFunction MFWithGradient
@@ -132,8 +126,8 @@ public class NonAlchemyModel extends Explanation
 	private static Explanation getExplanationForFacets(List facets) {
 		long start = (new Date()).getTime();
 		totalNumFuns = 0;
-		totalNumGrad = 0;
-		totalNumLineSearches = 0;
+		// totalNumGrad = 0;
+		// totalNumLineSearches = 0;
 
 		List candidates = candidateFacets(facets, true);
 		Distribution.cacheCandidateDistributions(facets, candidates);
@@ -153,8 +147,7 @@ public class NonAlchemyModel extends Explanation
 		long duration = (new Date()).getTime() - start;
 		Util.print("getExplanation duration=" + (duration / 1000) + " nEdges="
 				+ result.predicted.nEdges() + " Function Evaluations: "
-				+ totalNumFuns + " Line Searches: " + totalNumLineSearches
-				+ " Gradients: " + totalNumGrad + "\n");
+				+ totalNumFuns + "\n");
 
 		return result;
 	}
@@ -358,46 +351,46 @@ public class NonAlchemyModel extends Explanation
 				lbfgsSearch(startW);
 			}
 
-			else {
-				if (Mcsrch.x0 != null) {
-					Util.print("\nx0,xstep,searchDir:\n"
-							+ Util.valueOfDeep(Mcsrch.x0) + "\n"
-							+ Util.valueOfDeep(Mcsrch.xstep) + "\n"
-							+ Util.valueOfDeep(Mcsrch.searchDir));
-					Util
-							.print("\nstep\tf(step)\t\t\tdelta f(step)\t\tg(step)\t\t\tdelta g(step)\t\tx(step)\tgrad(step)");
-					double[] iw = new double[sw.length];
-					double lastFstp = f;
-					double lastDg = 0;
-					for (int i = 0; i < 101; i++) {
-						float zeroToOne = i / 100.0f;
-						for (int j = 0; j < sw.length; j++) {
-							iw[j] = Util.interpolate(Mcsrch.x0[j],
-									Mcsrch.xstep[j], zeroToOne);
-						}
-						double fstp = evaluate(iw, grad);
-						double dg = 0;
-						for (int j = 0; j < iw.length; j++) {
-							dg = dg + grad[j] * Mcsrch.searchDir[j];
-						}
-						Util.print(zeroToOne + "\t" + fstp + "\t"
-								+ (fstp - lastFstp) + "\t" + dg + "\t"
-								+ (dg - lastDg) + "\t" + Util.valueOfDeep(iw)
-								+ "\t" + Util.valueOfDeep(grad));
-						lastFstp = fstp;
-						lastDg = dg;
-					}
-				}
-				System.exit(0);
-			}
+			// else {
+			// if (Mcsrch.x0 != null) {
+			// Util.print("\nx0,xstep,searchDir:\n"
+			// + Util.valueOfDeep(Mcsrch.x0) + "\n"
+			// + Util.valueOfDeep(Mcsrch.xstep) + "\n"
+			// + Util.valueOfDeep(Mcsrch.searchDir));
+			// Util
+			// .print("\nstep\tf(step)\t\t\tdelta f(step)\t\tg(step)\t\t\tdelta g(step)\t\tx(step)\tgrad(step)");
+			// double[] iw = new double[sw.length];
+			// double lastFstp = f;
+			// double lastDg = 0;
+			// for (int i = 0; i < 101; i++) {
+			// float zeroToOne = i / 100.0f;
+			// for (int j = 0; j < sw.length; j++) {
+			// iw[j] = Util.interpolate(Mcsrch.x0[j],
+			// Mcsrch.xstep[j], zeroToOne);
+			// }
+			// double fstp = evaluate(iw, grad);
+			// double dg = 0;
+			// for (int j = 0; j < iw.length; j++) {
+			// dg = dg + grad[j] * Mcsrch.searchDir[j];
+			// }
+			// Util.print(zeroToOne + "\t" + fstp + "\t"
+			// + (fstp - lastFstp) + "\t" + dg + "\t"
+			// + (dg - lastDg) + "\t" + Util.valueOfDeep(iw)
+			// + "\t" + Util.valueOfDeep(grad));
+			// lastFstp = fstp;
+			// lastDg = dg;
+			// }
+			// }
+			// System.exit(0);
+			// }
 		}
 		if (iFlag[0] < 0) {
 			// Util.err("LBFGS barfed: " + iFlag[0]);
 		}
 
 		totalNumFuns += LBFGS.nfevaluations() + BURN_IN * predicted.nEdges();
-		totalNumGrad += LBFGS.nfevaluations();
-		totalNumLineSearches += LBFGS.nLineEvaluations();
+		// totalNumGrad += LBFGS.nfevaluations();
+		// totalNumLineSearches += LBFGS.nLineEvaluations();
 		return sw;
 	}
 
@@ -686,10 +679,9 @@ public class NonAlchemyModel extends Explanation
 		double result = evaluate(argument);
 		computeGradient(gradient);
 		if (PRINT_LEVEL > 2)
-			Util.print(" ... LBFGS step=" + Mcsrch.curStp + " eval=" + result
-					+ " (KL=" + klDivergence() + " + BigWeightPenalty="
-					+ predicted.bigWeightPenalty() + ") " + "\ngrad: "
-					+ Util.valueOfDeep(gradient));
+			Util.print(" ... eval=" + result + " (KL=" + klDivergence()
+					+ " + BigWeightPenalty=" + predicted.bigWeightPenalty()
+					+ ") " + "\ngrad: " + Util.valueOfDeep(gradient));
 		return result;
 	}
 
@@ -857,18 +849,18 @@ public class NonAlchemyModel extends Explanation
 
 	private static void testPairs(int[][] pairs1, Query query) {
 		long start = (new Date()).getTime();
-		int nFns = 0, nL = 0;
+		int nFns = 0;
 		int[] counts = new int[50];
 		for (int i = 0; i < pairs1.length; i++) {
 			int[] IDs = pairs1[i];
 			List pair = new ArrayList(2);
-			pair.add(query.findPerspective(IDs[0]));
-			pair.add(query.findPerspective(IDs[1]));
+			pair.add(query.findPerspectiveNow(IDs[0]));
+			pair.add(query.findPerspectiveNow(IDs[1]));
 			Collections.sort(pair);
 			// Util.print(pair);
 			Explanation result = getExplanationForFacets(pair);
 			nFns += totalNumFuns;
-			nL += totalNumLineSearches;
+			// nL += totalNumLineSearches;
 
 			int nEdges = result.predicted.nEdges();
 			counts[nEdges]++;
@@ -879,8 +871,7 @@ public class NonAlchemyModel extends Explanation
 		long duration = (new Date()).getTime() - start;
 		// result.printGraphAndNull();
 		// ((NonAlchemyModel) result).stats();
-		Util.print("test duration=" + (duration / 1000) + " #Evals: " + nFns
-				+ " #Line Searches: " + nL);
+		Util.print("test duration=" + (duration / 1000) + " #Evals: " + nFns);
 		Util.print("nEdges distribution: " + Util.valueOfDeep(counts));
 	}
 

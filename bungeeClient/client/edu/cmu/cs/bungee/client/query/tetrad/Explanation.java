@@ -24,7 +24,7 @@ public abstract class Explanation implements PerspectiveObserver {
 	 */
 	protected static double NULL_MODEL_ACCURACY_IMPORTANCE = 0;
 	protected static final double EDGE_COST = 0.06;
-	private static final int MAX_CANDIDATES = 50;
+	private static final int MAX_CANDIDATES = 10;
 
 	/**
 	 * 0 Print candidate facets, duration, & number of edges
@@ -37,15 +37,16 @@ public abstract class Explanation implements PerspectiveObserver {
 	 */
 	static final int PRINT_LEVEL = 0;
 	private static boolean PRINT_RSQUARED = false;
-	static boolean PRINT_CANDIDATES_TO_FILE= false;
+	static boolean PRINT_CANDIDATES_TO_FILE = false;
 
 	// protected final Explanation parentModel;
 	protected final GraphicalModel predicted;
 	protected final Distribution observed;
 
 	protected static int totalNumFuns = 0;
-	protected static int totalNumGrad;
-	protected static int totalNumLineSearches;
+
+	// protected static int totalNumGrad;
+	// protected static int totalNumLineSearches;
 
 	/**
 	 * @return an explanation with different facets
@@ -247,7 +248,7 @@ public abstract class Explanation implements PerspectiveObserver {
 	 * Compares predicted, rather than do a logistic regression
 	 */
 	private double pseudoRsquared(Perspective caused) {
-		//PRINT_RSQUARED=predicted.nEdges()==0&&caused.getID()==150&&nFacets()==
+		// PRINT_RSQUARED=predicted.nEdges()==0&&caused.getID()==150&&nFacets()==
 		// 4;
 		double residuals = 0;
 		double baseResiduals = 0;
@@ -441,49 +442,51 @@ public abstract class Explanation implements PerspectiveObserver {
 		return causedRs;
 	}
 
-//	/**
-//	 * I read in some article that averaging over all the orders for adding
-//	 * edges is the best way to determine which causes are momst important.
-//	 * However, it doesn't correspond to how important causes are in the current
-//	 * model, so it's misleading to display.
-//	 */
-//	private double getRNormalizedWeight1(Perspective cause, Perspective caused) {
-//		int nPerm = 0;
-//		double sumR2 = 0;
-//		Collection otherCauses = new LinkedList(predicted.getCauses(caused));
-//		otherCauses.remove(cause);
-//		for (Iterator combIt = new Util.CombinationIterator(otherCauses); combIt
-//				.hasNext();) {
-//			Collection x = (Collection) combIt.next();
-//
-//			Set edges = predicted.getEdges(false);
-//			edges.removeAll(GraphicalModel.getEdgesTo(x, caused));
-//			Explanation withModel = x.isEmpty() ? this
-//					: getAlternateExplanation(edges);
-//			double with = withModel.R(caused);
-//			edges.remove(GraphicalModel.getEdge(cause, caused));
-//			Explanation withoutModel = getAlternateExplanation(edges);
-//			double without = withoutModel.R(caused);
-//
-//			Util.print(" averageSumR2 " + without + " => " + with + " " + x
-//					+ " + " + cause + " => " + caused + " " + withoutModel
-//					+ " " + withModel);
-//
-//			// If lbfgs works better for one model than another, just hope
-//			// the errors average out.
-//			if (with > without)
-//				sumR2 += with - without;
-//			nPerm++;
-//		}
-//		double result = Util.sgn(predicted.getWeight(cause, caused)) * sumR2
-//				/ nPerm;
-//
-//		Util.print("averageSumR2 " + predicted.nEdges() + " " + result + " + "
-//				+ cause + " => " + caused + " " + this);
-//
-//		assert -1 <= result && result <= 1 : sumR2 + " " + nPerm;
-//		return result;
-//	}
+	// /**
+	// * I read in some article that averaging over all the orders for adding
+	// * edges is the best way to determine which causes are momst important.
+	// * However, it doesn't correspond to how important causes are in the
+	// current
+	// * model, so it's misleading to display.
+	// */
+	// private double getRNormalizedWeight1(Perspective cause, Perspective
+	// caused) {
+	// int nPerm = 0;
+	// double sumR2 = 0;
+	// Collection otherCauses = new LinkedList(predicted.getCauses(caused));
+	// otherCauses.remove(cause);
+	// for (Iterator combIt = new Util.CombinationIterator(otherCauses); combIt
+	// .hasNext();) {
+	// Collection x = (Collection) combIt.next();
+	//
+	// Set edges = predicted.getEdges(false);
+	// edges.removeAll(GraphicalModel.getEdgesTo(x, caused));
+	// Explanation withModel = x.isEmpty() ? this
+	// : getAlternateExplanation(edges);
+	// double with = withModel.R(caused);
+	// edges.remove(GraphicalModel.getEdge(cause, caused));
+	// Explanation withoutModel = getAlternateExplanation(edges);
+	// double without = withoutModel.R(caused);
+	//
+	// Util.print(" averageSumR2 " + without + " => " + with + " " + x
+	// + " + " + cause + " => " + caused + " " + withoutModel
+	// + " " + withModel);
+	//
+	// // If lbfgs works better for one model than another, just hope
+	// // the errors average out.
+	// if (with > without)
+	// sumR2 += with - without;
+	// nPerm++;
+	// }
+	// double result = Util.sgn(predicted.getWeight(cause, caused)) * sumR2
+	// / nPerm;
+	//
+	// Util.print("averageSumR2 " + predicted.nEdges() + " " + result + " + "
+	// + cause + " => " + caused + " " + this);
+	//
+	// assert -1 <= result && result <= 1 : sumR2 + " " + nPerm;
+	// return result;
+	// }
 
 	void initializeWeights(Explanation base) {
 		GraphicalModel baseModel = base.predicted;

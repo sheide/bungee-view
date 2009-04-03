@@ -60,6 +60,11 @@ import edu.umd.cs.piccolo.PNode;
 final class PerspectiveList extends LazyPNode implements MouseDoc,
 		PerspectiveObserver, SortButtons {
 	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+
+	/**
 	 * Draw the list above the rank label (as opposed to below)?
 	 */
 	private static final boolean onTop = false;
@@ -263,9 +268,9 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 			showList(lineOffset());
 	}
 
-//	public void setMouseDoc(PNode source, boolean state) {
-//		art.setMouseDoc(source, state);
-//	}
+	// public void setMouseDoc(PNode source, boolean state) {
+	// art.setMouseDoc(source, state);
+	// }
 
 	public void setMouseDoc(String doc) {
 		art.setMouseDoc(doc);
@@ -276,7 +281,7 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 	// }
 
 	void toggle() {
-//		Util.print("PL.toggle "+isHidden());
+		// Util.print("PL.toggle "+isHidden());
 		if (!isHidden()) {
 			removeFromParent();
 			// It's confusing if the arrows don't go by natural order if the
@@ -338,8 +343,8 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 				// If isRestricted but rs == null, must have no other
 				// restrictions, and need to use totalCount.
 				counts[i] = isRestricted ? v.getTotalCount() : v.guessOnCount();
-				
-//				Util.print("no rs "+v+" "+counts[i]+" "+isRestricted+" "+query().isQueryValid());
+
+				// Util.print("no rs "+v+" "+counts[i]+" "+isRestricted+" "+query().isQueryValid());
 
 				if (counts[i] > maxCount)
 					maxCount = counts[i];
@@ -354,9 +359,9 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 					int count = rs.getInt(2);
 					assert count <= v.getTotalCount() : count + " " + v;
 					counts[i] = count;
-					
-//					Util.print("rs "+v+" "+count);
-					
+
+					Util.print("rs " + v + " " + count);
+
 					if (counts[i] > maxCount)
 						maxCount = counts[i];
 					updateLongestNamedFacet(v);
@@ -573,7 +578,7 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 
 			// We want to paint based on counts ignoring restrictions, so make
 			// sure highlighting doesn't fade it.
-//			pLabel.setPermanentTextPaint(pLabel.getTextPaint());
+			// pLabel.setPermanentTextPaint(pLabel.getTextPaint());
 
 			pLabel.dontHideTransients = true;
 			addChild(pLabel);
@@ -594,7 +599,7 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 
 	void highlightFacet() {
 		if (!isHidden()) {
-//			 Util.print("PL.showFacet " + art.highlightedFacets);
+			// Util.print("PL.showFacet " + art.highlightedFacets);
 			for (Iterator it = getChildrenIterator(); it.hasNext();) {
 				PNode n = (PNode) it.next();
 				if (n instanceof FacetText) {
