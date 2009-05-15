@@ -3,6 +3,7 @@ package edu.cmu.cs.bungee.dbScripts;
 import java.io.File;
 import java.io.FilenameFilter;
 import java.io.IOException;
+import java.net.URI;
 import java.sql.SQLException;
 import java.util.HashSet;
 import java.util.Hashtable;
@@ -145,14 +146,24 @@ class Options extends DefaultHandler {
 		boolean result = sm_main.parseArgs(args);
 		if (result) {
 			String dbName = getStringValue("db");
+			JDBCSample initJdbc = new JDBCSample(getStringValue("server"),
+					"mysql", getStringValue("user"), getStringValue("pass"));
+			if (!initJdbc.databaseExists(dbName)) {
+			initJdbc.SQLupdate("CREATE DATABASE " + dbName);
+			initJdbc
+					.SQLupdate("GRANT SELECT, INSERT, UPDATE, CREATE, DELETE, ALTER ROUTINE, EXECUTE,"
+							+ " CREATE TEMPORARY TABLES ON "
+							+ dbName
+							+ ".* TO p5@localhost");
+			}
 			JDBCSample jdbc = new JDBCSample(getStringValue("server"), dbName,
 					getStringValue("user"), getStringValue("pass"));
 			handler = new Populate(jdbc, getBooleanValue("verbose"));
 
 			if (!getBooleanValue("dont_read_data")) {
-				
+
 				// Allows NULLS until compile sets a value
-				jdbc.SQLupdate("ALTER TABLE item MODIFY facet_names TEXT");
+//				jdbc.SQLupdate("ALTER TABLE item MODIFY facet_names TEXT");
 				if (getBooleanValue("reset"))
 					handler.clearTables();
 
@@ -165,9 +176,11 @@ class Options extends DefaultHandler {
 					handler.setMoves(parsePairFiles(directory, movesFile));
 				String citiesFile = getStringValue("cities");
 				if (citiesFile != null)
-					handler.setPlaces(parseSingletonFiles(directory, citiesFile));
+					handler
+							.setPlaces(parseSingletonFiles(directory,
+									citiesFile));
 
-				readData();
+//				readData();
 				handler.cleanUp();
 
 				if (getBooleanValue("renumber"))
@@ -202,12 +215,10 @@ class Options extends DefaultHandler {
 			SAXParser parser = getParser();
 			String[] filenames = filenameList.split(",");
 			for (int i = 0; i < filenames.length; i++) {
-				String[] matches = getFilenames(directory, filenames[i]);
+				File[] matches = getFilenames(directory, filenames[i]);
 				for (int j = 0; j < matches.length; j++) {
 					Util.print("\nParsing " + matches[j]);
-					parser
-							.parse(directory + matches[j].replace(':', '-'),
-									this);
+					parser.parse(matches[j].toString(), this);
 				}
 			}
 			Util.print("... done parsing ");
@@ -221,16 +232,28 @@ class Options extends DefaultHandler {
 		return parser;
 	}
 
-	static String[] getFilenames(String directory, final String filenamePattern) {
+	static File[] getFilenames(String directory, String filenamePattern) {
+		File temp = new File(filenamePattern);
+		if (temp.isAbsolute()) {
+			directory = temp.getParent().toString();
+			filenamePattern = temp.getName();
+//			Util.print("Absolute "+filenamePattern);
+		}
+		final String pattern = filenamePattern.replaceAll("\\\\", "\\\\\\\\")
+				.replaceAll("\\.", "\\\\.").replaceAll("\\*", ".*");
 		FilenameFilter filter = new FilenameFilter() {
 			public boolean accept(File dir1, String name) {
-				String pattern = filenamePattern.replaceAll("\\\\", "\\\\\\\\");
-				pattern = pattern.replaceAll("\\.", "\\\\.");
-				pattern = pattern.replaceAll("\\*", ".*");
 				return name.matches(pattern);
 			}
 		};
-		return new File(directory).list(filter);
+		File dir = new File(directory);
+		String[] names = dir.list(filter);
+		Util.print(dir + " " + pattern);
+		File[] result = new File[names.length];
+		for (int i = 0; i < result.length; i++) {
+			result[i] = new File(dir, names[i].replace(':', '-'));
+		}
+		return result;
 	}
 
 	private static List<String[]> parsePairFiles(String directory,
@@ -240,15 +263,11 @@ class Options extends DefaultHandler {
 			result = new LinkedList<String[]>();
 			String[] fnames = filenames.split(",");
 			for (int j = 0; j < fnames.length; j++) {
-				String filename = fnames[j];
-				Util.print("Parsing " + filename);
-				if (directory != null)
-					filename = directory + filename;
-				String[] renames = Util.readFile(filename).split("\n");
+				String[] renames = readLines(directory, fnames[j]);
 				for (int i = 0; i < renames.length; i++) {
 					String[] pair = renames[i].split("\t");
 					assert pair.length == 2 : "On line " + (i + 1)
-							+ " of file " + filename
+							+ " of file " + fnames[j]
 							+ ":\n Should have exactly one tab character: "
 							+ renames[i];
 					result.add(pair);
@@ -265,16 +284,18 @@ class Options extends DefaultHandler {
 			result = new HashSet<String>();
 			String[] fnames = filenames.split(",");
 			for (int j = 0; j < fnames.length; j++) {
-				String filename = fnames[j];
-				Util.print("Parsing " + filename);
-				if (directory != null)
-					filename = directory + filename;
-				String[] renames = Util.readFile(filename).split("\n");
+				String[] renames = readLines(directory, fnames[j]);
 				for (int i = 0; i < renames.length; i++) {
 					result.add(renames[i]);
 				}
 			}
 		}
 		return result;
+	}
+
+	private static String[] readLines(String directory, String filename) {
+		Util.print("Parsing " + filename);
+		File f = new File(directory, filename);
+		return Util.readFile(f).split("\n");
 	}
 }
