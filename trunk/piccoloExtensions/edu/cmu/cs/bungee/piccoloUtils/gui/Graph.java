@@ -136,9 +136,12 @@ public class Graph extends LazyPPath {
 
 			Arrow arrow = new Arrow(Color.white, ARROW_SIZE, 1);
 			arrow.addLabels(edge.getLabels(), font);
-			arrow.setVisible(Arrow.LEFT_TAIL, false);
-			arrow.setVisible(Arrow.LEFT_HEAD, edge.isArrowhead(node1));
-			arrow.setVisible(Arrow.RIGHT_HEAD, edge.isArrowhead(node2));
+			int type1 = edge.getEndpoint(node1).type;
+			arrow.setVisible(Arrow.LEFT_TAIL, type1 == Edge.CIRCLE);
+			int type2 = edge.getEndpoint(node2).type;
+			arrow.setVisible(Arrow.RIGHT_TAIL, type2 == Edge.CIRCLE);
+			arrow.setVisible(Arrow.LEFT_HEAD, type1 == Edge.ARROW);
+			arrow.setVisible(Arrow.RIGHT_HEAD, type2 == Edge.ARROW);
 			arrow.setEndpoints(end1.getX(), end1.getY(), end2.getX(), end2
 					.getY());
 			addChild(arrow);
