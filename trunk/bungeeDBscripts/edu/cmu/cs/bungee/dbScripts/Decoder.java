@@ -46,6 +46,8 @@ class DC extends Decoder {
 		addCode("language", Facet.getGenericFacet("Language"));
 		addCode("creator", Facet.getGenericFacet("Creator"));
 		addCode("source", Facet.getGenericFacet("Source"));
+		addCode("contributor", Facet.getGenericFacet("Contributor"));
+		addCode("coverage", Facet.getPlaceFacet("Coverage"));
 	}
 
 }

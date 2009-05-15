@@ -122,7 +122,7 @@ final class Populate extends DefaultHandler {
 			converter = new ConvertFromRaw(db.getJdbc());
 		return converter;
 	}
-	
+
 	void compile() throws SQLException {
 		convertFromRaw().convert(1000);
 	}
@@ -158,7 +158,7 @@ final class Populate extends DefaultHandler {
 
 			// if (moves != null)
 			// promoteSingletons();
-			convertFromRaw().findBrokenLinks(true, 0);
+//			convertFromRaw().findBrokenLinks(true, 0);
 		}
 	}
 
@@ -432,18 +432,18 @@ final class Populate extends DefaultHandler {
 				ps.setInt(1, singleton);
 				db.db(ps, "Update sort");
 				db.setParent(singleton, grandparent);
-//				Util.print("pp "
-//						+ db.getName(singleton)
-//						+ " "
-//						+ db.getName(parent)
-//						+ " "
-//						+ db.getJdbc().SQLqueryInt(
-//								"SELECT sort FROM raw_facet where facet_id = "
-//										+ singleton)
-//				+ " "
-//				+ db.getJdbc().SQLqueryInt(
-//						"SELECT sort FROM raw_facet where facet_id = "
-//								+ parent));
+				// Util.print("pp "
+				// + db.getName(singleton)
+				// + " "
+				// + db.getName(parent)
+				// + " "
+				// + db.getJdbc().SQLqueryInt(
+				// "SELECT sort FROM raw_facet where facet_id = "
+				// + singleton)
+				// + " "
+				// + db.getJdbc().SQLqueryInt(
+				// "SELECT sort FROM raw_facet where facet_id = "
+				// + parent));
 				db.deleteFacet(parent);
 			} else {
 				// log("Can't promote singleton "
@@ -580,13 +580,15 @@ final class Populate extends DefaultHandler {
 	}
 
 	void printDuplicates() throws SQLException {
-		Util.print("Listing duplicate facet names...");
+		Util.print("Listing possible duplicate facets based on name...");
 		ResultSet rs = db
 				.getJdbc()
 				.SQLquery(
-						"SELECT GROUP_CONCAT(f.facet_id), COUNT(DISTINCT parent.name) cnt "
-								+ "FROM raw_facet f LEFT JOIN raw_facet parent ON f.parent_facet_id = parent.facet_id "
-								+ "GROUP BY f.name HAVING COUNT(*) > 1 AND cnt > 1");
+						"SELECT GROUP_CONCAT(facet_id)"
+								+ "FROM raw_facet INNER JOIN (SELECT f.name "
+								+ "FROM raw_facet f "
+								+ "GROUP BY f.name HAVING COUNT(*) > 1) foo USING (name)"
+								+ "GROUP BY name");
 		while (rs.next()) {
 			String[] facets = Util.splitComma(rs.getString(1));
 			for (int i = 0; i < facets.length; i++) {
@@ -619,7 +621,7 @@ final class Populate extends DefaultHandler {
 			}
 			Util.print("");
 		}
-		Util.print("\nListing duplicate facet names...done");
+		Util.print("\nListing possible duplicate facets...done");
 	}
 
 	/**

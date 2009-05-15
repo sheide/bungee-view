@@ -170,9 +170,10 @@ final class SaxWFMovieHandler extends HTMLEditorKit.ParserCallback {
 			// for (int i=0; i<titleWords.length; i++)
 			// titleWords[i] = SaxMovieHandler.capitalize(titleWords[i]);
 			try {
-				URL url = new URL("http://www.starpulse.com/Movies/"
+//				URL url = new URL("http://www.starpulse.com/Movies/"
+//						+ Util.join(titleWords, "_") + "/index.html");
+				String content = Util.readURL("http://www.starpulse.com/Movies/"
 						+ Util.join(titleWords, "_") + "/index.html");
-				String content = Util.fetch(url);
 				int index = content
 						.indexOf("http://images.starpulse.com/AMGPhotos/");
 				if (index > 0) {
@@ -201,13 +202,15 @@ final class SaxWFMovieHandler extends HTMLEditorKit.ParserCallback {
 			Util.print(year1);
 			for (int page = 1; page < 21; page++) {
 				Util.print("Page " + page);
-				URL url;
+//				URL url;
 				try {
-					url = new URL(
-							"http://www.moviegoods.com/find.asp?mscssid=&str1="
-									+ year1 + "&pre1=&opt1=RD&showForm=N&page="
-									+ page);
-					String content = Util.fetch(url);
+//					url = new URL(
+//							"http://www.moviegoods.com/find.asp?mscssid=&str1="
+//									+ year1 + "&pre1=&opt1=RD&showForm=N&page="
+//									+ page);
+					String content = Util.readURL("http://www.moviegoods.com/find.asp?mscssid=&str1="
+							+ year1 + "&pre1=&opt1=RD&showForm=N&page="
+							+ page);
 					if (content != null) {
 						String[] records = content
 								.split("<img src=\"/Assets/product_images/");

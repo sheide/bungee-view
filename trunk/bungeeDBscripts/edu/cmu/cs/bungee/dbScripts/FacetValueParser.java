@@ -58,7 +58,8 @@ class GenericFacetValueParser implements FacetValueParser {
 }
 
 /**
- * parse '5:51:52' or '123' (as seconds) and return ["5:mm:ss", "5:51:ss", "5:51:52"]
+ * parse '5:51:52' or '123' (as seconds) and return ["5:mm:ss", "5:51:ss",
+ * "5:51:52"]
  * 
  */
 class TimeFacetValueParser implements FacetValueParser {
@@ -71,15 +72,16 @@ class TimeFacetValueParser implements FacetValueParser {
 
 	public String[][] parse(String value, Populate _handler) {
 		String[][] result = { { value } };
-		
+
 		// This is the format we generate
-		Pattern p = Pattern.compile("(\\d+):((?:mm)|(?:\\d{2})):((?:ss)|(?:\\d{2}))");
+		Pattern p = Pattern
+				.compile("(\\d+):((?:mm)|(?:\\d{2})):((?:ss)|(?:\\d{2}))");
 		Matcher m = p.matcher(value);
 		if (m.find()) {
 			String hour = m.group(1);
 			String minute = m.group(2);
 			String second = m.group(3);
-			String[][] x = { { hour+ ":mm:ss", hour + ":" + minute+ ":ss",
+			String[][] x = { { hour + ":mm:ss", hour + ":" + minute + ":ss",
 					hour + ":" + minute + ":" + second } };
 			result = x;
 		}
@@ -100,9 +102,9 @@ class TimeFacetValueParser implements FacetValueParser {
 			String secondName = String.valueOf(second);
 			if (secondName.length() == 1)
 				secondName = "0" + secondName;
-			String[][] x = { {
-					hour + ":mm:ss",
-					hour + ":" + minuteName + ":ss", hour + ":" + minuteName + ":" + secondName } };
+			String[][] x = { { hour + ":mm:ss",
+					hour + ":" + minuteName + ":ss",
+					hour + ":" + minuteName + ":" + secondName } };
 			result = x;
 		}
 		return result;
@@ -248,8 +250,8 @@ class DateFacetValueParser implements FacetValueParser {
 		// 'Nov. 20, 1908' => '11/20/1908'
 		p = Pattern
 		// .compile(
-		// "\\b\\s*([a-zA-Z]{3,})(?:\\.|,)?\\s*(\\d{0,2})[a-z]{0,2},?\\s*(\\d{4})\\z"
-		// );
+				// "\\b\\s*([a-zA-Z]{3,})(?:\\.|,)?\\s*(\\d{0,2})[a-z]{0,2},?\\s*(\\d{4})\\z"
+				// );
 				// .compile(
 				// "\\b([a-zA-Z]{3,})(?:\\.|,)?\\s*(\\d{0,2})[a-z]{0,2},?\\s*(\\d{4})\\z"
 				// );
@@ -330,8 +332,8 @@ class DateFacetValueParser implements FacetValueParser {
 			}
 			return n + suffix;
 		} catch (NumberFormatException e) {
-			Util.err(prefix);
-			e.printStackTrace();
+			Util.err("NumberFormatException for century "+prefix);
+//			e.printStackTrace();
 			return prefix;
 		}
 	}
@@ -362,8 +364,8 @@ class DateFacetValueParser implements FacetValueParser {
 					try {
 						parentName = century(value.substring(0, 2));
 					} catch (java.lang.NumberFormatException e) {
-						Util.err(value);
-						e.printStackTrace();
+						Util.err("NumberFormatException for date "+value);
+//						e.printStackTrace();
 					}
 				}
 			} else {
@@ -567,6 +569,7 @@ class PlaceFacetValueParser implements FacetValueParser {
 		String[][] result = { { value } };
 		if (handler.moves != null) {
 			String ancestorss = handler.moves.get("Places -- " + value);
+//			Util.print("hierPlaces "+value+" "+ancestorss);
 			if (ancestorss != null) {
 				String[] ancestors = Util.splitSemicolon(ancestorss);
 				result = new String[ancestors.length][];
@@ -609,15 +612,18 @@ class PlaceFacetValueParser implements FacetValueParser {
 	 *         Keystone]]
 	 */
 	private String[][] trimPlaces(String value, Populate _handler) {
+		boolean debug = false&&value.matches(".*, Italy");
 		String[][] result = { { value } };
 		// group(1) is everything up to the first comma or parenthesis
 		// group(2) is everything after the first comma or paren up to the next
 		// close parenthesis, colon, or the end
-		Pattern p = Pattern.compile("\\b([^(]+?)(?:,|\\()(.*?)(\\z|:|\\))");
+		Pattern p = Pattern.compile("\\b([^(]+?)(?:,|\\()\\s*(.*?)\\s*(\\z|:|\\))");
 		Matcher m = p.matcher(value);
+		if(debug)Util.print("trimPlaces "+value);
 		if (m.find()) {
 			String narrow = m.group(1); // e.g. "downtown"
 			String broadAbbrev = m.group(2);
+			if(debug)Util.print(" narrow/broad "+narrow+" "+broadAbbrev);
 			if (broadAbbrev != null) {
 				// broadAbbrev = broadAbbrev.toLowerCase();
 				broadAbbrev = broadAbbrev.replaceAll("\\.", "");
@@ -635,12 +641,13 @@ class PlaceFacetValueParser implements FacetValueParser {
 					// ["UT"]
 					String lastBroad = broads[broads.length - 1].trim()
 							.toLowerCase(); // e.g. UT
-					String[] broad = lookupLocation(lastBroad, _handler); //e.g.
+					String[] broad = lookupLocation(lastBroad, _handler); // e.g.
 					// "Location --
 					// North America
 					// -- United
 					// States --
 					// Utah"
+					if(debug)Util.print(" multiple parents "+lastBroad+" "+broad);
 					if (broad == null)
 						broad = lookupLocation(m.group(2), _handler);
 					// If broad is still null, it might be "Russia
@@ -878,7 +885,7 @@ class SubjectFacetValueParser implements FacetValueParser {
 				String s = result[i][j];
 				s = handler.rename(s);
 				if (s.length() == 0) {
-					Util.err("Ignoring zero length facet name in '"
+					Util.print("Ignoring zero length facet name in '"
 							+ result[i][j] + "' in '"
 							+ Util.join(result[i], " -- ") + "' in '" + value
 							+ "'");
@@ -951,7 +958,7 @@ class SubjectFacetValueParser implements FacetValueParser {
 						// Util.print("Not a state: " + s);
 						Pattern p2 = Pattern.compile("(.+)\\s*\\((.+)\\)\\z");
 						Matcher m2 = p2.matcher(s);
-						m2.find();
+						if(m2.find()) {
 						String[] augmented = null;
 						result[i][j] = m2.group(1);
 						if (j > 0)
@@ -963,15 +970,38 @@ class SubjectFacetValueParser implements FacetValueParser {
 								.subArray(result[i], j, String.class),
 								String.class);
 						result[i] = augmented;
-					}
+					}else {
+						Util.err("SubjectFacetValueParser: No match for " + s);
+					}}
 				}
 			}
 		}
+		result=(String[][]) Util.delete(result, null, String[].class);
 		for (int i = 0; i < result.length; i++) {
-			if (result[i] != null && !result[i][0].equals("Places")
+			if (/* result[i] != null && */ !result[i][0].equals("Places")
 					&& Util.member(result[i], "Pennsylvania", 1) > 0)
 				Util.print("Should this be a place? ["
 						+ Util.join(result[i], ",") + "] " + value);
+		}
+		return result;
+	}
+
+}
+
+class ANDedValuesParser implements FacetValueParser {
+
+	private static final ANDedValuesParser self = new ANDedValuesParser();
+
+	static ANDedValuesParser getInstance() {
+		return self;
+	}
+
+	public String[][] parse(String value, Populate handler) {
+		String[] terms = value.split(" and ");
+		String[][] result = new String[terms.length][];
+		for (int i = 0; i < result.length; i++) {
+			result[i] = new String[1];
+			result[i][0] = terms[i];
 		}
 		return result;
 	}

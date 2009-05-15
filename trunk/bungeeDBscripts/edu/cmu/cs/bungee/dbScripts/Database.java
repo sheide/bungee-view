@@ -27,7 +27,7 @@ public class Database {
 	JDBCSample jdbc;
 	String descriptionFields;
 
-	 int recordNum;
+	int recordNum;
 
 	/**
 	 * Truncate names to this length before inserting
@@ -103,13 +103,13 @@ public class Database {
 	void createTables() throws SQLException {
 		String copyFrom = "wpa";
 
-		String[] tablesToCopy = { "raw_facet_type", "globals" /*, "043places"*/ };
+		String[] tablesToCopy = { "raw_facet_type", "globals" /* , "043places" */};
 		for (int i = 0; i < tablesToCopy.length; i++) {
-			if (!jdbc.tableExists(tablesToCopy[i])) {
-				db("CREATE TABLE " + tablesToCopy[i] + " LIKE " + copyFrom
-						+ "." + tablesToCopy[i]);
-				db("REPLACE INTO " + tablesToCopy[i] + " SELECT * FROM "
-						+ copyFrom + "." + tablesToCopy[i]);
+			String table = tablesToCopy[i];
+			if (!jdbc.tableExists(table)) {
+				db("CREATE TABLE " + table + " LIKE " + copyFrom + "." + table);
+				db("INSERT INTO " + table + " SELECT * FROM " + copyFrom + "."
+						+ table);
 			}
 		}
 
@@ -199,7 +199,6 @@ public class Database {
 				Util.print(itemDescColumns());
 				throw (e);
 			} catch (SQLException e1) {
-				// TODO Auto-generated catch block
 				e1.printStackTrace();
 			}
 		}
@@ -220,6 +219,7 @@ public class Database {
 	}
 
 	private int getFacet(List<String> hierValue) throws SQLException {
+//		Util.print("getFacet " + hierValue);
 		assert isReadingData();
 		int result;
 		if (isReadingData()) {
@@ -281,7 +281,7 @@ public class Database {
 			Integer result = names2facet.get(hierValue);
 			if (result == null) {
 				assert hierValue.size() > 1 : "Can't find tag category "
-						+ hierValue;
+						+ hierValue + ". Must add it to raw_facet_type.";
 				// Defensive copy
 				hierValue = new ArrayList<String>(hierValue);
 				List<String> parent = hierValue
@@ -296,7 +296,7 @@ public class Database {
 	}
 
 	void addItemFacet(int record_num, int facet_id) throws SQLException {
-		// Util.print("addItemFacet " + facet_id);
+//		Util.print("addItemFacet " + facet_id+" "+record_num);
 		assert getName(facet_id) != null;
 		assert getAttribute("record_num") != null;
 		if (!dontUpdate) {
@@ -332,7 +332,7 @@ public class Database {
 		// + subfield);
 		// // Util.printStackTrace();
 		// }
-//		Util.print("new facet "+name);
+		// Util.print("new facet "+name);
 		name = truncateName(name, false);
 		if (!dontUpdate) {
 			// facetCache compares names in binary mode, so may create facets
@@ -369,7 +369,7 @@ public class Database {
 		if (name.length() > maxNameLength) {
 			String tName = name.substring(0, maxNameLength - 1);
 			if (!noWarn)
-				Util.err("Truncating facet name '" + name + "' to '" + tName
+				Util.print("Truncating facet '" + name + "' to '" + tName
 						+ "'");
 			name = tName;
 		}
@@ -599,6 +599,7 @@ public class Database {
 	}
 
 	int getFacetType(String name) throws SQLException {
+		assert name != null;
 		PreparedStatement ps = lookupPS("SELECT facet_type_id FROM raw_facet_type WHERE name = ?");
 		ps.setString(1, name);
 		int result = jdbc.SQLqueryInt(ps);
@@ -634,34 +635,35 @@ public class Database {
 		return result;
 	}
 
-//	/**
-//	 * @param name
-//	 *            look for facets with this name
-//	 * @param type
-//	 *            look for facets of this type
-//	 * @return all facets with name and type
-//	 * @throws SQLException
-//	 */
-//	int[] lookupFacets(String name, int type) throws SQLException {
-//		int[] result = new int[0];
-//		ResultSet rs = null;
-//		try {
-//			PreparedStatement lookupFacets = lookupPS("SELECT facet_id FROM raw_facet WHERE name = ?");
-//			lookupFacets.setString(1, truncateName(name, true));
-//			// lookupSomeFacet.setInt(2, type);
-//			for (rs = jdbc.SQLquery(lookupFacets,
-//					"Find one facet with name and type"); rs.next();) {
-//				int facet = rs.getInt(1);
-//				if (getFacetType(facet) == type) {
-//					result = Util.push(result, facet);
-//				}
-//			}
-//		} finally {
-//			if (rs != null)
-//				jdbc.close(rs);
-//		}
-//		return result;
-//	}
+	// /**
+	// * @param name
+	// * look for facets with this name
+	// * @param type
+	// * look for facets of this type
+	// * @return all facets with name and type
+	// * @throws SQLException
+	// */
+	// int[] lookupFacets(String name, int type) throws SQLException {
+	// int[] result = new int[0];
+	// ResultSet rs = null;
+	// try {
+	// PreparedStatement lookupFacets =
+	// lookupPS("SELECT facet_id FROM raw_facet WHERE name = ?");
+	// lookupFacets.setString(1, truncateName(name, true));
+	// // lookupSomeFacet.setInt(2, type);
+	// for (rs = jdbc.SQLquery(lookupFacets,
+	// "Find one facet with name and type"); rs.next();) {
+	// int facet = rs.getInt(1);
+	// if (getFacetType(facet) == type) {
+	// result = Util.push(result, facet);
+	// }
+	// }
+	// } finally {
+	// if (rs != null)
+	// jdbc.close(rs);
+	// }
+	// return result;
+	// }
 
 	int[] getChildIDs(int parentFacet) throws SQLException {
 		PreparedStatement ps = lookupPS("SELECT facet_id FROM raw_facet WHERE parent_facet_id = ?");
