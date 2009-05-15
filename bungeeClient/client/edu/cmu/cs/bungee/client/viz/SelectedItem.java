@@ -250,7 +250,7 @@ final class SelectedItem extends LazyContainer implements MouseDoc {
 
 	public double minWidth() {
 		// assert Util.ignore(boundary1);
-		Util.print("SI.minWidth fontsize=" + getFontSize());
+//		Util.print("SI.minWidth fontsize=" + getFontSize());
 		return labelWidth();
 	}
 

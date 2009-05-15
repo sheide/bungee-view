@@ -360,7 +360,7 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 					assert count <= v.getTotalCount() : count + " " + v;
 					counts[i] = count;
 
-					Util.print("rs " + v + " " + count);
+//					Util.print("rs " + v + " " + count);
 
 					if (counts[i] > maxCount)
 						maxCount = counts[i];

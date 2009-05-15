@@ -2232,8 +2232,11 @@ public class Perspective implements Comparable, ItemPredicate {
 								_onCount, query());
 						boolean siblingSelected = parent != null
 								&& parent.isRestricted();
-						if (chiSq.sign() > 0 || !siblingSelected)
-							top.maybeAdd(chiSq, chiSq.myCramersPhi());
+						if (chiSq.sign() > 0 || !siblingSelected) {
+							double myCramersPhi = chiSq.myCramersPhi();
+							double relativePhi = myCramersPhi/Math.sqrt(parentTotalCount());
+							top.maybeAdd(chiSq, relativePhi);
+						}
 					}
 				}
 			}

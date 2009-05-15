@@ -988,6 +988,10 @@ final class Summary extends LazyContainer implements MouseDoc {
 		return result;
 	}
 
+	public void convertgraphToTetrad() {
+		facetDesc.convertToTetrad();
+	}
+
 	void showPopup(Perspective facet) {
 		if (isShowPopup(facet)) {
 			// Work your way up from facet until you find an ancestor with a pv.

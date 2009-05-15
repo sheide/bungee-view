@@ -1,8 +1,11 @@
 package edu.cmu.cs.bungee.client.query.tetrad;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Set;
 
 import edu.cmu.cs.bungee.javaExtensions.Util;
@@ -24,6 +27,7 @@ public abstract class GreedySubset {
 
 	protected GreedySubset(double threshold, Collection variables, int mode) {
 		super();
+		assert variables.size() > 0;
 		assert mode == ADD_AND_REMOVE || mode == ADD || mode == REMOVE;
 		this.currentGuess = new HashSet();
 		this.threshold = threshold;
@@ -41,8 +45,8 @@ public abstract class GreedySubset {
 			// Keep updating until at local optimum
 		}
 		if (Explanation.PRINT_LEVEL > 0)
-			Util.print(Util.shortClassName(this) + " => #" + currentGuess.size()
-					+ " " + currentGuess + "\n");
+			Util.print(Util.shortClassName(this) + " => #"
+					+ currentGuess.size() + " " + currentGuess + "\n");
 		return currentGuess;
 	}
 
@@ -82,11 +86,13 @@ public abstract class GreedySubset {
 	private Object bestCandidate(boolean isAdd) {
 		double bestEval = Double.NEGATIVE_INFINITY;
 		Object best = null;
+		List evals = new LinkedList();
 		for (Iterator it = variables.iterator(); it.hasNext();) {
 			Object variable = it.next();
 			if (isAdd != currentGuess.contains(variable)) {
 				toggle(variable);
 				double eval = eval(variable, bestEval);
+				evals.add(new Eval(eval, variable));
 				// Util.print("eval " + eval + (isAdd?" + ":" - ") + variable);
 				if (eval > bestEval) {
 					// Util.print("new best eval " + eval + " " + variable);
@@ -96,12 +102,44 @@ public abstract class GreedySubset {
 				toggle(variable);
 			}
 		}
-		boolean win = bestEval > (isAdd ? threshold : -threshold);
+
+		double thresh = isAdd ? threshold : -threshold;
+
+		if (Explanation.PRINT_LEVEL == 1) {
+			Util.print("\n" + Util.shortClassName(this)
+					+ ".improvement: threshold = " + thresh
+					+ (isAdd ? "; adding to " : "; removing from ")
+					+ currentGuess);
+			Collections.sort(evals);
+			for (Iterator it = evals.iterator(); it.hasNext();) {
+				Eval e = (Eval) it.next();
+				double result = e.eval;
+				boolean win = result > thresh;
+				Util.print((win ? "  " : " [") + result + (win ? " \t" : "]\t")
+						+ e.object);
+			}
+		}
+
+		boolean win = bestEval > thresh;
 		// Util.print("BEST Candidate " + bestEval + (isAdd ? " + " : " - ")
 		// + (win ? best : "[" + best + "]"));
 		if (!win)
 			best = null;
 		return best;
+	}
+
+	private class Eval implements Comparable {
+		double eval;
+		Object object;
+
+		Eval(double eval, Object object) {
+			this.eval = eval;
+			this.object = object;
+		}
+
+		public int compareTo(Object arg0) {
+			return Util.sgn(((Eval) arg0).eval - eval);
+		}
 	}
 
 	protected void newBest(Object candidate) {
@@ -118,12 +156,12 @@ public abstract class GreedySubset {
 		double thresh = isAdd ? threshold : -threshold;
 		double result = improvement(candidate, Math.max(thresh, bestEval));
 
-		if (Explanation.PRINT_LEVEL > 0) {
+		if (Explanation.PRINT_LEVEL > 2) {
 			boolean win = result > thresh;
 			Util.print(Util.shortClassName(this) + ".improvement "
 					+ (win ? result + " > " : "[" + result + "] < ") + thresh
 					+ (isAdd ? " + " : " - ") + candidate + " " + currentGuess);
-			if (Explanation.PRINT_LEVEL > 1)
+			if (Explanation.PRINT_LEVEL > 2)
 				Util.print("");
 		}
 

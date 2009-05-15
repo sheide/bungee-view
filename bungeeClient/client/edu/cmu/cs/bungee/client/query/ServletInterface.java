@@ -244,6 +244,8 @@ final class ServletInterface {
 
 			conn.setUseCaches(false);
 			conn.setRequestMethod("POST");
+			conn.setRequestProperty("Content-length", "0");
+//			conn.setChunkedStreamingMode(HttpClient., "0");
 			// if (!command.equals("printUserAction"))
 			in = new DataInputStream(new InflaterInputStream(
 					new BufferedInputStream(conn.getInputStream())));
@@ -809,9 +811,15 @@ final class ServletInterface {
 				Integer.toString(table), needBaseCounts ? "1" : "0" };
 
 		DataInputStream in = getStream("getPairCounts", args);
+		boolean needCandidateCounts = candidates.length() > 0;
+		assert needBaseCounts || needCandidateCounts;
 		ResultSet[] result = {
 				needBaseCounts ? new MyResultSet(in, MyResultSet.SNMINT_INT_INT)
-						: null, new MyResultSet(in, MyResultSet.SNMINT_INT_INT) };
+						: null,
+				needCandidateCounts ? new MyResultSet(in,
+						MyResultSet.SNMINT_INT_INT) : null,
+				needCandidateCounts ? new MyResultSet(in,
+						MyResultSet.SNMINT_INT_INT) : null };
 		closeNcatch(in, "getPairCounts", args);
 		return result;
 	}

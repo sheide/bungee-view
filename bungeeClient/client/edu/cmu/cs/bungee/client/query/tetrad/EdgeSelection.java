@@ -10,8 +10,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import edu.cmu.cs.bungee.javaExtensions.Util;
-
 public class EdgeSelection extends GreedySubset {
 
 	private final Map explanations = new HashMap();
@@ -20,7 +18,7 @@ public class EdgeSelection extends GreedySubset {
 	private final Explanation nullModel;
 
 	protected static Explanation selectEdges(Explanation explanation,
-			double threshold,Explanation nullModel) {
+			double threshold, Explanation nullModel) {
 		/**
 		 * @param isCoreEdges
 		 *            Once core edges are removed, removing others will have no
@@ -29,30 +27,37 @@ public class EdgeSelection extends GreedySubset {
 		 */
 		Set startCoreEdges = candidateEdges(explanation, true, nullModel);
 		Set startNonCoreEdges = candidateEdges(explanation, false, nullModel);
-		EdgeSelection nonCoreSearch = new EdgeSelection(threshold,
-				startNonCoreEdges, startCoreEdges, explanation, nullModel);
-		Set nonCoreEdges = nonCoreSearch.selectVariables();
-//		if (Explanation.PRINT_LEVEL > 0)
-//			Util.print("non-core EdgeSelection => " + nonCoreEdges.size() + " "
-//					+ nonCoreEdges);
-		Explanation intermediateExplanation = nonCoreSearch.lookupExplanation(
-				nonCoreEdges, explanation);
+
+		Set nonCoreEdges = startNonCoreEdges;
+		Explanation intermediateExplanation = explanation;
+		if (startNonCoreEdges.size() > 0) {
+			EdgeSelection nonCoreSearch = new EdgeSelection(threshold,
+					startNonCoreEdges, startCoreEdges, explanation, nullModel);
+			nonCoreEdges = nonCoreSearch.selectVariables();
+			// if (Explanation.PRINT_LEVEL > 0)
+			// Util.print("non-core EdgeSelection => " + nonCoreEdges.size() +
+			// " "
+			// + nonCoreEdges);
+			intermediateExplanation = nonCoreSearch.lookupExplanation(
+					nonCoreEdges, explanation);
+		}
+
 		EdgeSelection coreSearch = new EdgeSelection(threshold, startCoreEdges,
 				nonCoreEdges, intermediateExplanation, nullModel);
 		Set coreEdges = coreSearch.selectVariables();
-//		if (Explanation.PRINT_LEVEL > 0)
-//			Util.print("core EdgeSelection => " + coreEdges.size() + " "
-//					+ coreEdges);
+		// if (Explanation.PRINT_LEVEL > 0)
+		// Util.print("core EdgeSelection => " + coreEdges.size() + " "
+		// + coreEdges);
 		return coreSearch.lookupExplanation(coreEdges, intermediateExplanation);
 	}
 
 	private EdgeSelection(double threshold, Set candidateEdges,
-			Set committedEdges, Explanation base,Explanation nullModel) {
+			Set committedEdges, Explanation base, Explanation nullModel) {
 		super(threshold, candidateEdges, GreedySubset.REMOVE);
 		addAllVariables();
 		this.committedEdges = Collections.unmodifiableSet(committedEdges);
 		this.maxModel = base;
-		this.nullModel=nullModel;
+		this.nullModel = nullModel;
 		// base.predicted.edgesFixed = true;
 		cacheExplanation(allEdges(candidateEdges), base);
 		// explanations.put(allEdges(candidateEdges), base);
@@ -78,9 +83,10 @@ public class EdgeSelection extends GreedySubset {
 				null);
 		Explanation current = lookupExplanation(currentGuess, previous);
 		// Util.print("es.improv "+toggledEdge+" "+current+" "+previous);
-		if(Explanation.PRINT_CANDIDATES_TO_FILE)
-		 current.printToFile(nullModel);
-		double result = -current.improvement(previous, threshold1, nullModel.facets());
+		if (Explanation.PRINT_CANDIDATES_TO_FILE)
+			current.printToFile(nullModel);
+		double result = -current.improvement(previous, threshold1, nullModel
+				.facets());
 
 		return result;
 	}

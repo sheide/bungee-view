@@ -684,8 +684,11 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 				}
 				// Util.print(" " + minOffset + " " + maxOffset + " "
 				// + rs.getRow());
-				assert i == maxOffset : minOffset + "-" + maxOffset + " " + i
-						+ " " + rs.getRow() + "/" + MyResultSet.nRows(rs);
+				assert i == maxOffset : "offsetItems returned "
+						+ MyResultSet.nRows(rs) + " rows, but "
+						+ (maxOffset - minOffset) + " were expected. "
+						+ minOffset + "-" + maxOffset + " " + i + " "
+						+ rs.getRow();
 			} catch (Throwable e) {
 				e.printStackTrace();
 			} finally {

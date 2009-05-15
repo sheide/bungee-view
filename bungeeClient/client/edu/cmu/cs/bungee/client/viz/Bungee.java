@@ -314,7 +314,7 @@ final class Bungee extends PFrame {
 
 	static final Color helpColor = Color.orange;
 
-	static final Color mouseDocFG = headerFG; // helpColor; // new
+	static final Color mouseDocFG = Color.white; //headerFG; // helpColor; // new
 	// Color(0x99CCCC);
 
 	static final Color summaryFG = Markup.UNASSOCIATED_COLORS[0]; // new Color(
@@ -2589,6 +2589,7 @@ final class Bungee extends PFrame {
 		static final char CONTROL_A = 1;
 		static final char CONTROL_C = 3;
 		static final char CONTROL_P = 16;
+		static final char CONTROL_T = 20;
 
 		private boolean handleKey(char keyChar) {
 			if (keyChar == ' ') {
@@ -2597,6 +2598,8 @@ final class Bungee extends PFrame {
 			} else if (keyChar == CONTROL_P) {
 				printUserAction(Bungee.TOGGLE_POPUPS, 0, 0);
 				togglePopups();
+			} else if (keyChar == CONTROL_T) {
+				summary.convertgraphToTetrad();
 			} else if (keyChar == CONTROL_C) {
 				if (getIsClustering())
 					showClusters();
@@ -3433,7 +3436,8 @@ final class Bungee extends PFrame {
 
 				public void run() {
 					initializeFrames();
-					NonAlchemyModel.test(query, 5);
+//					NonAlchemyModel.test(query, 100);
+//					NonAlchemyModel.testPairList(query);
 				}
 			};
 

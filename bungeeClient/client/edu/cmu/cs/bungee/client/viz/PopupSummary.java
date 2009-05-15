@@ -15,6 +15,7 @@ import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.cmu.cs.bungee.client.query.Query;
 import edu.cmu.cs.bungee.client.query.tetrad.Explanation;
 import edu.cmu.cs.bungee.client.query.tetrad.NonAlchemyModel;
+import edu.cmu.cs.bungee.client.query.tetrad.Tetrad;
 import edu.cmu.cs.bungee.javaExtensions.PerspectiveObserver;
 import edu.cmu.cs.bungee.javaExtensions.Util;
 import edu.cmu.cs.bungee.javaExtensions.graph.Graph.GraphWeigher;
@@ -631,24 +632,43 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 				// different, and we don't want the graph to change on redraws
 				removeChild(graph);
 				// relabel(tetradGraph);
-			} else {
-				// tetradGraph = Tetrad.getTetradGraph(facet, this, this);
+			} else if (!useTetrad) {
+				// tetradGraph = Tetrad.getTetradGraph(facet, null, this);
 				// tetradGraph = Alchemy.getAlchemyGraph(facet, this, this,
 				// art.dbName);
-				explanation = NonAlchemyModel.getExplanation(facet);
 				// drawTetradGraph(tetradGraph, "tetrad");
+
+				explanation = NonAlchemyModel.getExplanation(facet);
 			}
-			// if (explanation == null) {
-			// return false;
-			// }
-			graph = getGraph();
-			addChild(graph);
-			graph.setWidth(barBG.getWidth());
-			align(graph, 2, barBG, 18);
-			graph.translate(-graph.getX(), -graph.getY() - MARGIN);
+			if (explanation == null && !useTetrad)
+				return false;
+
+			setTetradInternal(useTetrad ? getGraphInternal(Tetrad
+					.getTetradGraph(facet, null, this)) : getGraph());
 		}
 		return result;
 		// return false;
+	}
+
+	void convertToTetrad() {
+		if (explanation != null) {
+			Graph g = getGraphInternal(Tetrad
+					.getTetradGraph(facet,
+							Explanation.relevantFacetsSet(facet), explanation
+									.facets(), null, this));
+			setTetradInternal(g);
+			g.setLabel("Tetrad Graph");
+		}
+	}
+
+	private void setTetradInternal(Graph graph1) {
+		if (graph != null)
+			removeChild(graph);
+		graph = graph1;
+		addChild(graph);
+		graph.setWidth(barBG.getWidth());
+		align(graph, 2, barBG, 18);
+		graph.translate(-graph.getX(), -graph.getY() - MARGIN);
 	}
 
 	// private void relabel(
@@ -668,6 +688,11 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 		} else {
 			tetradGraph = explanation.buildGraph(this, facet);
 		}
+		return getGraphInternal(tetradGraph);
+	}
+
+	private Graph getGraphInternal(
+			edu.cmu.cs.bungee.javaExtensions.graph.Graph tetradGraph) {
 		Graph graph1 = new Graph(tetradGraph, art.font);
 		graph1.setStrokePaint(BGcolor);
 		graph1
@@ -1998,6 +2023,12 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 
 	Query query() {
 		return art.query;
+	}
+
+	static boolean useTetrad = false;
+
+	public static void toggleTetrad() {
+		useTetrad = !useTetrad;
 	}
 
 	// public void setVisible(boolean state) {

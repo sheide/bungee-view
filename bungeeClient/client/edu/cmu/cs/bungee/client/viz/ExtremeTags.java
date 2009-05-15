@@ -95,12 +95,13 @@ public class ExtremeTags extends LazyContainer implements MouseDoc,
 			TagRelevance tag = (TagRelevance) it.next();
 			Perspective facet = (Perspective) tag.tag.object;
 			double relevance = tag.relevance;
+//			Util.print("udi "+y+"\t"+relevance); 
 			int score = (int) Math
 					.round(Util.sgn(relevance)
 							* 100
 							* Math
 									.pow(Math.abs(relevance
-											/ maxRelevance(facet)), 0.25));
+											/* / maxRelevance(facet) */), 0.25));
 
 			FacetText text = FacetText.getFacetText(facet, art, numW, nameW,
 					false, false, score, this, isUnderline(facet));
