@@ -316,11 +316,20 @@ public class Graph {
 	 * Place node centers in a circle, ordered to minimize edge crossings.
 	 */
 	public void layout() {
-		List nodes = new ArrayList(getNodes());
-		Collections.sort(nodes);
-//		Util.print("layout " + nodes);
+//		long start = new Date().getTime();
 		int nNodes = getNumNodes();
 		assert nNodes > 0;
+		List nodes = new ArrayList(getNodes());
+
+		// use centerY as scratchpad for "moreCaused"
+		for (Iterator it = nodes.iterator(); it.hasNext();) {
+			Node node = (Node) it.next();
+			node.setCenterY(netCauses(node) * nNodes + nodeIndex(node));
+		}
+
+		Collections.sort(nodes);
+		// Util.print("layout " + nodes);
+		Edge[] edges1 = (Edge[]) getEdges().toArray(emptyEdges);
 		List bestPerm = null;
 		int bestEdgeCrossings = Integer.MAX_VALUE;
 		for (PermutationIterator it = new PermutationIterator(nodes); it
@@ -328,16 +337,25 @@ public class Graph {
 			List perm = (List) it.next();
 			if (perm == null)
 				break;
-			if (perm.get(0) == nodes.get(0)
-					&& (nNodes < 3 || moreCaused((Node) perm.get(1),
-							(Node) perm.get(nNodes - 1)))
-							) {
+			if (perm.get(0) == nodes.get(0) && (nNodes < 3 ||
+
+			// moreCaused((Node) perm.get(1), (Node) perm.get(nNodes - 1))
+					((Node) perm.get(1)).getCenterY() < ((Node) perm
+							.get(nNodes - 1)).getCenterY()
+
+					)) {
+
 				// Canonicalize by starting at 0 and preferring arrows that
 				// point to the right.
-				arrangeInCircle(0, GRAPH_EDGE_LENGTH, GRAPH_EDGE_LENGTH, perm);
-				int edgeCrossings = edgeCrossings();
-//				Util.print("layout " + edgeCrossings + "/" + getNumEdges()
-//						+ " " + perm);
+
+				// arrangeInCircle(0, GRAPH_EDGE_LENGTH, GRAPH_EDGE_LENGTH,
+				// perm);
+				// int edgeCrossings = edgeCrossings();
+
+				int edgeCrossings = edgeCrossings(perm, edges1);
+
+				// Util.print("layout " + edgeCrossings + "/" + getNumEdges()
+				// + " " + perm);
 				if (edgeCrossings < bestEdgeCrossings
 						|| edgeCrossings == bestEdgeCrossings
 						&& nMoreCaused(perm) > nMoreCaused(bestPerm)) {
@@ -348,7 +366,9 @@ public class Graph {
 		}
 		// assert isPerm(bestPerm);
 		arrangeInCircle(0, GRAPH_EDGE_LENGTH, GRAPH_EDGE_LENGTH, bestPerm);
-//		Util.print("best layout " + bestPerm);
+		// Util.print("best layout " + bestPerm);
+//		Util.print("layout took " + (new Date().getTime() - start) + " ms; "
+//				+ bestEdgeCrossings + " edge crossings");
 	}
 
 	public int getNumNodes() {
@@ -394,22 +414,73 @@ public class Graph {
 		return Collections.unmodifiableSet(nodesTable.keySet());
 	}
 
-	private int edgeCrossings() {
+	private static Edge[] emptyEdges = new Edge[0];
+
+	// private static Node[] emptyNodes = new Node[0];
+
+	private int edgeCrossings(List perm, Edge[] edges1) {
+		for (int i = 0; i < perm.size(); i++) {
+			Node node1 = (Node) perm.get(i);
+			// use centerX as a scratchpad to record order
+			node1.setCenterX(i);
+		}
 		int nCrosses = 0;
-		List edges1 = new ArrayList(getEdges());
-		int index = 0;
-		for (Iterator it1 = edges1.iterator(); it1.hasNext();) {
-			index++;
-			Edge edge1 = (Edge) it1.next();
-			for (Iterator it2 = edges1.subList(index, edges1.size()).iterator(); it2
-					.hasNext();) {
-				Edge edge2 = (Edge) it2.next();
-				if (edge1.getIntersection(edge2) != null)
-					nCrosses++;
+		for (int i = 0; i < edges1.length; i++) {
+			Edge edge1 = edges1[i];
+			int edge1node1 = edge1.getNode1().getCenterX();
+			int edge1node2 = edge1.getNode2().getCenterX();
+			double edge1min = Math.min(edge1node1, edge1node2);
+			double edge1max = Math.max(edge1node1, edge1node2);
+			for (int j = i + 1; j < edges1.length; j++) {
+				Edge edge2 = edges1[j];
+				int between1 = edgeCrossingsInternal(edge2.getNode1()
+						.getCenterX(), edge1min, edge1max);
+				if (between1 != 0) {
+					int between2 = edgeCrossingsInternal(edge2.getNode2()
+							.getCenterX(), edge1min, edge1max);
+					if (between1 * between2 < 0)
+						nCrosses++;
+				}
 			}
 		}
 		return nCrosses;
 	}
+
+	// 1 if min<node1<max; 0 if node1==min || node1==max; -1 otherwise
+	private int edgeCrossingsInternal(double node1, double min, double max) {
+		return node1 > min ? (node1 > max ? -1 : node1 == max ? 0 : 1)
+				: (node1 == min ? 0 : -1);
+	}
+
+//	private int edgeCrossings() {
+//		int nCrosses = 0;
+//		// int index = 0;
+//		Edge[] edges1 = (Edge[]) getEdges().toArray(emptyEdges);
+//		for (int i = 0; i < edges1.length; i++) {
+//			// index++;
+//			Edge edge1 = edges1[i];
+//			for (int j = i + 1; j < edges1.length; j++) {
+//				Edge edge2 = edges1[j];
+//				if (edge1.getIntersection(edge2) != null)
+//					nCrosses++;
+//			}
+//		}
+//
+//		// List edges1 = new ArrayList(getEdges());
+//		// for (Iterator it1 = edges1.iterator(); it1.hasNext();) {
+//		// index++;
+//		// Edge edge1 = (Edge) it1.next();
+//		// for (Iterator it2 = edges1.subList(index, edges1.size()).iterator();
+//		// it2
+//		// .hasNext();) {
+//		// Edge edge2 = (Edge) it2.next();
+//		// if (edge1.getIntersection(edge2) != null)
+//		// nCrosses++;
+//		// }
+//		// }
+//
+//		return nCrosses;
+//	}
 
 	public Set getAdjacentNodes(Node node) {
 		assert hasNode(node);
@@ -530,7 +601,7 @@ public class Graph {
 				pathEdges.addAll(pathEdges(primary1, primary2, 0));
 			}
 		}
-		//Util.print("removeNPE "+Util.valueOfDeep(primaryNodes)+" "+pathEdges);
+		// Util.print("removeNPE "+Util.valueOfDeep(primaryNodes)+" "+pathEdges);
 		int result = retainAllEdges(pathEdges);
 		Collection nodesToRemove = new LinkedList();
 		for (Iterator it = getNodes().iterator(); it.hasNext();) {

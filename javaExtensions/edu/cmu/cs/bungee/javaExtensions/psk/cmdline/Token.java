@@ -47,7 +47,7 @@ public abstract class Token {
 
 	protected Token(String a_name, String a_message,
 			String a_environment_variable, int aTokenOptions // of type
-																// TokenOptions
+	// TokenOptions
 	) {
 		m_name = a_name;
 		m_message = a_message;
@@ -274,6 +274,7 @@ class StringArrayIterator {
 	}
 
 	public String get() {
+//		Util.print("get '" + m_strings[m_index] + "'");
 		return m_strings[m_index];
 	}
 

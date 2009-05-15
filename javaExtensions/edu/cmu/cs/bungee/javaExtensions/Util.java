@@ -48,6 +48,7 @@ import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.lang.reflect.Array;
+import java.net.URI;
 import java.net.URL;
 import java.net.URLConnection;
 
@@ -86,6 +87,7 @@ import java.util.Set;
 import java.util.Map.Entry;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.zip.GZIPInputStream;
 
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReadParam;
@@ -1575,6 +1577,7 @@ public final class Util {
 	// }
 	// }
 
+	// Use readURL instead
 	public static String fetch(URL a_url) throws IOException {
 		BufferedReader dis = null;
 		try {
@@ -1923,10 +1926,15 @@ public final class Util {
 	public static BufferedReader getReader(File file) {
 		BufferedReader in = null;
 		try {
-			in = new BufferedReader(new InputStreamReader(new FileInputStream(
-					file)));
+			InputStream inputStream = new FileInputStream(file);
+			if (file.getName().endsWith(".gz"))
+				inputStream = new GZIPInputStream(inputStream);
+			in = new BufferedReader(new InputStreamReader(inputStream));
 		} catch (FileNotFoundException e) {
 			System.err.println("Can't find file " + file);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}
 		return in;
 	}
@@ -2017,6 +2025,18 @@ public final class Util {
 	// If the dst file does not exist, it is created
 	public static void copyFile(File src, File dst) throws IOException {
 		InputStream in = new FileInputStream(src);
+		copyStreamToFile(dst, in);
+	}
+
+	// Copies src file to dst file.
+	// If the dst file does not exist, it is created
+	public static void copyURI(URI src, File dst) throws IOException {
+		InputStream in = src.toURL().openStream();
+		copyStreamToFile(dst, in);
+	}
+
+	private static void copyStreamToFile(File dst, InputStream in)
+			throws FileNotFoundException, IOException {
 		OutputStream out = new FileOutputStream(dst);
 
 		// Transfer bytes from in to out

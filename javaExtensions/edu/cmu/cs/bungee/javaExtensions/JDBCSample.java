@@ -38,9 +38,9 @@ public class JDBCSample {
 
 	/**
 	 * Print queries that take longer than this. Print all queries and extra
-	 * info if slowQueryTime = 0 Never print if slowQueryTime < 0.
+	 * info if slowQueryTime = 0. Never print if slowQueryTime < 0.
 	 */
-	private final static int slowQueryTime = 0;
+	private final static int slowQueryTime = -1;
 
 	/**
 	 * Only used by showSlow.
@@ -85,7 +85,8 @@ public class JDBCSample {
 
 		connectString += compression + "&useUnicode=true"
 				+ "&characterEncoding=UTF-8" + "&characterSetResults=UTF-8"
-				+ "&connectionCollation=utf8_general_ci";
+				+ "&connectionCollation=utf8_general_ci"
+				+"&useUsageAdvisor=true";
 		if (driver == null)
 			driver = Class.forName("com.mysql.jdbc.Driver").newInstance();
 		con = DriverManager.getConnection(connectString);
@@ -530,6 +531,7 @@ public class JDBCSample {
 
 		private PreparedStatement ps;
 		private String SQL;
+		private String[] paramValues = new String[10];
 
 		MyPreparedStatement(String _SQL) throws SQLException {
 			try {
@@ -543,7 +545,21 @@ public class JDBCSample {
 		}
 
 		public String toString() {
-			return "<MyPreparedStatement " + SQL + ">";
+			StringBuffer buf = new StringBuffer();
+			buf.append("<MyPreparedStatement ").append(SQL).append("[");
+			try {
+				ParameterMetaData parameterMetaData = ps.getParameterMetaData();
+				int parameterCount = parameterMetaData.getParameterCount();
+				for (int i = 1; i <= parameterCount; i++) {
+					if (i > 1)
+						buf.append(", ");
+					buf.append(paramValues[i]);
+				}
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+			buf.append("]>");
+			return buf.toString();
 		}
 
 		public void addBatch() throws SQLException {
@@ -575,73 +591,89 @@ public class JDBCSample {
 		}
 
 		public void setArray(int i, Array x) throws SQLException {
+			paramValues[i] = x.toString();
 			ps.setArray(i, x);
 		}
 
 		public void setAsciiStream(int parameterIndex, InputStream x, int length)
 				throws SQLException {
+			paramValues[parameterIndex] = x.toString();
 			ps.setAsciiStream(parameterIndex, x, length);
 		}
 
 		public void setBigDecimal(int parameterIndex, BigDecimal x)
 				throws SQLException {
+			paramValues[parameterIndex] = x.toString();
 			ps.setBigDecimal(parameterIndex, x);
 		}
 
 		public void setBinaryStream(int parameterIndex, InputStream x,
 				int length) throws SQLException {
+			paramValues[parameterIndex] = x.toString();
 			ps.setBinaryStream(parameterIndex, x, length);
 		}
 
 		public void setBlob(int i, Blob x) throws SQLException {
+			paramValues[i] = x.toString();
 			ps.setBlob(i, x);
 		}
 
 		public void setBoolean(int parameterIndex, boolean x)
 				throws SQLException {
+			paramValues[parameterIndex] = Boolean.toString(x);
 			ps.setBoolean(parameterIndex, x);
 		}
 
 		public void setByte(int parameterIndex, byte x) throws SQLException {
+			paramValues[parameterIndex] = Byte.toString(x);
 			ps.setByte(parameterIndex, x);
 		}
 
 		public void setBytes(int parameterIndex, byte[] x) throws SQLException {
+			paramValues[parameterIndex] = x.toString();
 			ps.setBytes(parameterIndex, x);
 		}
 
 		public void setCharacterStream(int parameterIndex, Reader reader,
 				int length) throws SQLException {
+			paramValues[parameterIndex] = reader.toString();
 			ps.setCharacterStream(parameterIndex, reader, length);
 		}
 
 		public void setClob(int i, Clob x) throws SQLException {
+			paramValues[i] = x.toString();
 			ps.setClob(i, x);
 		}
 
 		public void setDate(int parameterIndex, java.sql.Date x)
 				throws SQLException {
+			paramValues[parameterIndex] = x.toString();
 			ps.setDate(parameterIndex, x);
 		}
 
 		public void setDate(int parameterIndex, java.sql.Date x, Calendar cal)
 				throws SQLException {
+			paramValues[parameterIndex] = x.toString();
 			ps.setDate(parameterIndex, x, cal);
 		}
 
 		public void setDouble(int parameterIndex, double x) throws SQLException {
+			paramValues[parameterIndex] = Double.toString(x);
 			ps.setDouble(parameterIndex, x);
 		}
 
 		public void setFloat(int parameterIndex, float x) throws SQLException {
+			paramValues[parameterIndex] = Float.toString(x);
 			ps.setFloat(parameterIndex, x);
 		}
 
 		public void setInt(int parameterIndex, int x) throws SQLException {
+			paramValues[parameterIndex] = Integer.toString(x);
 			ps.setInt(parameterIndex, x);
 		}
 
 		public void setLong(int parameterIndex, long x) throws SQLException {
+			paramValues[parameterIndex] = Long.toString(x);
 			ps.setLong(parameterIndex, x);
 		}
 
@@ -656,56 +688,68 @@ public class JDBCSample {
 		}
 
 		public void setObject(int parameterIndex, Object x) throws SQLException {
+			paramValues[parameterIndex] = x.toString();
 			ps.setObject(parameterIndex, x);
 		}
 
 		public void setObject(int parameterIndex, Object x, int targetSqlType)
 				throws SQLException {
+			paramValues[parameterIndex] = x.toString();
 			ps.setObject(parameterIndex, x, targetSqlType);
 		}
 
 		public void setObject(int parameterIndex, Object x, int targetSqlType,
 				int scale) throws SQLException {
+			paramValues[parameterIndex] = x.toString();
 			ps.setObject(parameterIndex, x, targetSqlType, scale);
 		}
 
 		public void setRef(int i, Ref x) throws SQLException {
+			paramValues[i] = x.toString();
 			ps.setRef(i, x);
 		}
 
 		public void setShort(int parameterIndex, short x) throws SQLException {
+			paramValues[parameterIndex] = Short.toString(x);
 			ps.setShort(parameterIndex, x);
 		}
 
 		public void setString(int parameterIndex, String x) throws SQLException {
+			paramValues[parameterIndex] = x;
 			ps.setString(parameterIndex, x);
 		}
 
 		public void setTime(int parameterIndex, Time x) throws SQLException {
+			paramValues[parameterIndex] = x.toString();
 			ps.setTime(parameterIndex, x);
 		}
 
 		public void setTime(int parameterIndex, Time x, Calendar cal)
 				throws SQLException {
+			paramValues[parameterIndex] = x.toString();
 			ps.setTime(parameterIndex, x, cal);
 		}
 
 		public void setTimestamp(int parameterIndex, Timestamp x)
 				throws SQLException {
+			paramValues[parameterIndex] = x.toString();
 			ps.setTimestamp(parameterIndex, x);
 		}
 
 		public void setTimestamp(int parameterIndex, Timestamp x, Calendar cal)
 				throws SQLException {
+			paramValues[parameterIndex] = x.toString();
 			ps.setTimestamp(parameterIndex, x, cal);
 		}
 
 		public void setURL(int parameterIndex, URL x) throws SQLException {
+			paramValues[parameterIndex] = x.toString();
 			ps.setURL(parameterIndex, x);
 		}
 
 		public void setUnicodeStream(int parameterIndex, InputStream x,
 				int length) throws SQLException {
+			paramValues[parameterIndex] = x.toString();
 			// ps.setUnicodeStream(parameterIndex, x,
 			// length);
 		}
@@ -1032,7 +1076,7 @@ public class JDBCSample {
 				+ "' AND index_name = '"
 				+ name
 				+ "' ORDER BY seq_in_index");
-		if (!columnNames.equals(oldColumns)) {
+		if (!columnNames.equalsIgnoreCase(oldColumns)) {
 			Util.print("Redoing index " + table + "." + name + " " + oldColumns
 					+ " => " + columnNames);
 			if (oldColumns != null)
@@ -1048,6 +1092,11 @@ public class JDBCSample {
 			SQLupdate("ALTER TABLE " + table + " ADD " + indexSpec + " " + name
 					+ " (" + columnNames + ")");
 		}
+	}
+
+	public boolean databaseExists(String dbName1) throws SQLException {
+		return SQLqueryInt("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = '"
+				+ dbName1 + "'") > 0;
 	}
 
 	public boolean tableExists(String table) throws SQLException {

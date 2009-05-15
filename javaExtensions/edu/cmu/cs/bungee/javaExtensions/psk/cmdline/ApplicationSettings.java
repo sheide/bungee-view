@@ -111,6 +111,7 @@ public class ApplicationSettings {
 
 		while (!m_cmdLineArgs.EOF()) {
 			try {
+//				Util.print(m_cmdLineArgs.get()+" "+Token.isASwitch(m_cmdLineArgs.get()));
 				if (Token.isASwitch(m_cmdLineArgs.get())) {
 					this.parseSwitch();
 				} else {
