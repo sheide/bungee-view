@@ -17,7 +17,6 @@ import javax.swing.text.JTextComponent;
 
 import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.cmu.cs.bungee.client.query.Query;
-import edu.cmu.cs.bungee.javaExtensions.Util;
 import edu.cmu.cs.bungee.piccoloUtils.gui.APText;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyContainer;
 import edu.umd.cs.piccolox.event.PStyledTextEventHandler;
@@ -98,7 +97,7 @@ public class TextSearch extends LazyContainer {
 	void doSearch() {
 		String s = editor.getText().trim();
 		art().printUserAction(Bungee.SEARCH, s, 0);
-		Util.print("doSearch '" + s + "'");
+//		Util.print("doSearch '" + s + "'");
 		String error = Query.isShortSearch(s);
 		if (error != null) {
 			art().setTip(error);

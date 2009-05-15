@@ -12,17 +12,17 @@
     </manifest>
     <selectedElements exportClassFiles="true" exportJavaFiles="false" exportOutputFolder="false">
         <javaElement handleIdentifier="=piccolo/src&lt;edu.umd.cs.piccolo.nodes{PImage.java"/>
-        <javaElement handleIdentifier="=piccolo/src&lt;edu.umd.cs.piccolo.util{PDimension.java"/>
         <javaElement handleIdentifier="=javaExtensions/&lt;edu.cmu.cs.bungee.javaExtensions{PerspectiveObserver.java"/>
+        <javaElement handleIdentifier="=piccolo/src&lt;edu.umd.cs.piccolo.util{PDimension.java"/>
         <javaElement handleIdentifier="=piccolo/src&lt;edu.umd.cs.piccolo.util{PNodeFilter.java"/>
         <javaElement handleIdentifier="=piccoloExtensions/&lt;edu.cmu.cs.bungee.piccoloUtils.gui{TextButton.java"/>
-        <javaElement handleIdentifier="=statistics/&lt;JSci.maths{AbstractMath.java"/>
-        <javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.query.tetrad{LimitedCausesDistribution.java"/>
         <javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.viz{GridImage.java"/>
+        <javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.query.tetrad{LimitedCausesDistribution.java"/>
         <javaElement handleIdentifier="=piccoloExtensions/&lt;edu.cmu.cs.bungee.piccoloUtils.gui{MyInputEventHandler.java"/>
         <javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.query.tetrad{FacetSelection.java"/>
-        <javaElement handleIdentifier="=javaExtensions/&lt;edu.cmu.cs.bungee.javaExtensions.comparator{IntValueComparator.java"/>
+        <file path="/nlp/.project"/>
         <javaElement handleIdentifier="=javaExtensions/&lt;edu.cmu.cs.bungee.javaExtensions{PermutationIterator.java"/>
+        <javaElement handleIdentifier="=javaExtensions/&lt;edu.cmu.cs.bungee.javaExtensions.comparator{IntValueComparator.java"/>
         <javaElement handleIdentifier="=piccoloExtensions/&lt;edu.cmu.cs.bungee.piccoloUtils.gui{SolidBorder.java"/>
         <javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.query{QuerySQL.java"/>
         <javaElement handleIdentifier="=piccoloExtensions/&lt;edu.cmu.cs.bungee.piccoloUtils.gui{Arrow.java"/>
@@ -34,7 +34,6 @@
         <javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.viz{PreferencesDialog.java"/>
         <javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.query{Cluster.java"/>
         <javaElement handleIdentifier="=piccolo/extras&lt;edu.umd.cs.piccolox.util{PNodeLocator.java"/>
-        <javaElement handleIdentifier="=statistics/&lt;JSci.maths{NumericalConstants.java"/>
         <javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.query.tetrad{GreedySubset.java"/>
         <javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.viz{ItemImage.java"/>
         <javaElement handleIdentifier="=piccolo/src&lt;edu.umd.cs.piccolo.nodes{PPath.java"/>
@@ -77,12 +76,13 @@
         <javaElement handleIdentifier="=piccolo/src&lt;edu.umd.cs.piccolo.util{PPaintContext.java"/>
         <javaElement handleIdentifier="=piccolo/extras&lt;edu.umd.cs.piccolox.handles{PBoundsHandle.java"/>
         <javaElement handleIdentifier="=statistics/&lt;JSci.maths.statistics{ChiSqrDistribution.java"/>
+        <javaElement handleIdentifier="=statistics/&lt;JSci.maths"/>
         <javaElement handleIdentifier="=piccoloExtensions/&lt;edu.cmu.cs.bungee.piccoloUtils.gui{Button.java"/>
         <javaElement handleIdentifier="=piccolo/extras&lt;edu.umd.cs.piccolox.event{PNotification.java"/>
         <javaElement handleIdentifier="=javaExtensions/&lt;edu.cmu.cs.bungee.javaExtensions.comparator{DoubleValueComparator.java"/>
         <javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.query{Markup.java"/>
+        <file path="/nlp/.classpath"/>
         <javaElement handleIdentifier="=piccolo/extras&lt;edu.umd.cs.piccolox.nodes{PStyledText.java"/>
-        <javaElement handleIdentifier="=lbfgs/&lt;edu.cmu.cs.bungee.lbfgs"/>
         <javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.viz{ResultsGrid.java"/>
         <javaElement handleIdentifier="=piccoloExtensions/&lt;edu.cmu.cs.bungee.piccoloUtils.gui{BevelBorder.java"/>
         <javaElement handleIdentifier="=piccolo/src&lt;edu.umd.cs.piccolo.event{PInputEvent.java"/>
@@ -92,7 +92,6 @@
         <javaElement handleIdentifier="=piccoloExtensions/&lt;edu.cmu.cs.bungee.piccoloUtils.gui{MenuButton.java"/>
         <javaElement handleIdentifier="=javaExtensions/&lt;edu.cmu.cs.bungee.javaExtensions.graph{Node.java"/>
         <javaElement handleIdentifier="=piccolo/src&lt;edu.umd.cs.piccolo.activities{PActivityScheduler.java"/>
-        <javaElement handleIdentifier="=statistics/&lt;JSci.maths{SpecialMath.java"/>
         <javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.viz{SearchText.java"/>
         <javaElement handleIdentifier="=piccoloExtensions/&lt;edu.cmu.cs.bungee.piccoloUtils.gui{LazyPNode.java"/>
         <javaElement handleIdentifier="=piccolo/src&lt;edu.umd.cs.piccolo.util{PUtil.java"/>
@@ -117,8 +116,8 @@
         <javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.viz{FacetClickHandler.java"/>
         <javaElement handleIdentifier="=piccolo/extras&lt;edu.umd.cs.piccolox.util{PBoundsLocator.java"/>
         <javaElement handleIdentifier="=javaExtensions/&lt;edu.cmu.cs.bungee.javaExtensions{Util.java"/>
-        <javaElement handleIdentifier="=piccolo/src&lt;edu.umd.cs.piccolo.activities{PActivity.java"/>
         <javaElement handleIdentifier="=javaExtensions/&lt;edu.cmu.cs.bungee.javaExtensions{URLQuery.java"/>
+        <javaElement handleIdentifier="=piccolo/src&lt;edu.umd.cs.piccolo.activities{PActivity.java"/>
         <javaElement handleIdentifier="=javaExtensions/&lt;edu.cmu.cs.bungee.javaExtensions{StringAlign.java"/>
         <javaElement handleIdentifier="=javaExtensions/&lt;edu.cmu.cs.bungee.javaExtensions{IntHashtable.java"/>
         <javaElement handleIdentifier="=piccoloExtensions/&lt;edu.cmu.cs.bungee.piccoloUtils.gui{TextBox.java"/>
@@ -149,6 +148,7 @@
         <javaElement handleIdentifier="=piccolo/src&lt;edu.umd.cs.piccolo.event{PPanEventHandler.java"/>
         <javaElement handleIdentifier="=piccoloExtensions/&lt;edu.cmu.cs.bungee.piccoloUtils.gui{Menu.java"/>
         <javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.viz{PopupSummary.java"/>
+        <javaElement handleIdentifier="=nlp/src&lt;edu.berkeley.nlp.math"/>
         <javaElement handleIdentifier="=piccoloExtensions/&lt;edu.cmu.cs.bungee.piccoloUtils.gui{MenuItem.java"/>
         <javaElement handleIdentifier="=piccolo/src&lt;edu.umd.cs.piccolo{PCanvas.java"/>
         <javaElement handleIdentifier="=javaExtensions/&lt;edu.cmu.cs.bungee.javaExtensions.threads{UpdateThread.java"/>

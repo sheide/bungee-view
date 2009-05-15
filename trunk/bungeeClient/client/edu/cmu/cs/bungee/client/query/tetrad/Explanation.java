@@ -8,6 +8,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.SortedSet;
 
 import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.cmu.cs.bungee.client.query.Query;
@@ -24,18 +25,18 @@ public abstract class Explanation implements PerspectiveObserver {
 	 */
 	protected static double NULL_MODEL_ACCURACY_IMPORTANCE = 0;
 	protected static final double EDGE_COST = 0.06;
-	private static final int MAX_CANDIDATES = 10;
+	private static final int MAX_CANDIDATES = 20;
 
 	/**
 	 * 0 Print candidate facets, duration, & number of edges
 	 * 
-	 * 1 Print lbfgs errors
+	 * 1 Print improvement for each guess
 	 * 
 	 * 2 Print graph of each guess
 	 * 
-	 * 3 Print every lbfgs evaluation
+	 * 3 Prints weights & KL for each guess
 	 */
-	static final int PRINT_LEVEL = 0;
+	static final int PRINT_LEVEL = 3;
 	private static boolean PRINT_RSQUARED = false;
 	static boolean PRINT_CANDIDATES_TO_FILE = false;
 
@@ -118,7 +119,7 @@ public abstract class Explanation implements PerspectiveObserver {
 	 */
 	abstract void learnWeights(Explanation base);
 
-	List facets() {
+	public List facets() {
 		assert predicted.facets.equals(observed.facets) : predicted.facets
 				+ " " + observed.facets;
 		return predicted.facets;
@@ -155,8 +156,12 @@ public abstract class Explanation implements PerspectiveObserver {
 				nullModel), Util.convertForFilename(toString()));
 	}
 
-	static List relevantFacets(Perspective popupFacet) {
-		Set primaryFacets1 = popupFacet.query().allRestrictions();
+	public static List relevantFacets(Perspective popupFacet) {
+		return new ArrayList(relevantFacetsSet(popupFacet));
+	}
+
+	public static Set relevantFacetsSet(Perspective popupFacet) {
+		SortedSet primaryFacets1 = popupFacet.query().allRestrictions();
 		primaryFacets1.add(popupFacet);
 		// TopTags topTags = popupFacet.query().topTags(2 * MAX_FACETS);
 		// for (Iterator it = topTags.topIterator(); it.hasNext()
@@ -166,7 +171,7 @@ public abstract class Explanation implements PerspectiveObserver {
 		// primaryFacets1.add(p);
 		removeAncestorFacets(primaryFacets1, popupFacet);
 		// }
-		return new ArrayList(primaryFacets1);
+		return primaryFacets1;
 	}
 
 	private static void removeAncestorFacets(Collection primary,
@@ -182,33 +187,44 @@ public abstract class Explanation implements PerspectiveObserver {
 
 	static List candidateFacets(List primaryFacets, boolean excludePrimary) {
 		Query query = ((Perspective) Util.some(primaryFacets)).query();
-		List topTags = query.topMutInf(primaryFacets, MAX_CANDIDATES);
-		Set candidates = new HashSet(MAX_CANDIDATES);
-		for (Iterator it = topTags.iterator(); it.hasNext();) {
-			Perspective tr = (Perspective) it.next();
-			if (!primaryFacets.contains(tr)) {
-				candidates.add(tr);
-
-				// List facets = new LinkedList(primaryFacets);
-				// facets.add(tr);
-				// Collections.sort(facets);
-				// List facet = new ArrayList(1);
-				// facet.add(tr);
-				// Distribution dist = Distribution.getObservedDistribution(
-				// facets, null);
-				// Util.print(tr + " "
-				// + dist.mutualInformation(primaryFacets, facet) + " "
-				// + dist.sumCorrelation(tr));
-			}
-		}
+		// List topTags = query.topMutInf(primaryFacets, MAX_CANDIDATES);
+		Set candidates = new HashSet(query.topMutInf(primaryFacets,
+				MAX_CANDIDATES));
+		// for (Iterator it = topTags.iterator(); it.hasNext();) {
+		// Perspective tr = (Perspective) it.next();
+		// if (!primaryFacets.contains(tr)) {
+		// candidates.add(tr);
+		//
+		// // List facets = new LinkedList(primaryFacets);
+		// // facets.add(tr);
+		// // Collections.sort(facets);
+		// // List facet = new ArrayList(1);
+		// // facet.add(tr);
+		// // Distribution dist = Distribution.getObservedDistribution(
+		// // facets, null);
+		// // Util.print(tr + " "
+		// // + dist.mutualInformation(primaryFacets, facet) + " "
+		// // + dist.sumCorrelation(tr));
+		// }
+		// }
 		// result.add(query.findPerspective(402));
 		if (excludePrimary)
 			candidates.removeAll(primaryFacets);
 		else
 			candidates.addAll(primaryFacets);
-		Util.print("candidateFacets " + primaryFacets + " => " + candidates);
+
+		int queryCount = query.getTotalCount();
+		for (Iterator it = candidates.iterator(); it.hasNext();) {
+			Perspective candidate = (Perspective) it.next();
+			assert candidate.getTotalCount() < queryCount : candidate + " "
+					+ primaryFacets;
+			if (candidate.getNameIfPossible() == null)
+				query.importFacet(candidate.getID());
+		}
+
 		ArrayList result = new ArrayList(candidates);
 		Collections.sort(result);
+		Util.print("candidateFacets " + primaryFacets + " => " + result);
 		return result;
 	}
 
@@ -359,11 +375,11 @@ public abstract class Explanation implements PerspectiveObserver {
 
 		// When trying to model a larger distribution, it can end up predicting
 		// the primary facets worse than the unconditional average
-		assert Rsquare <= 1.0001 : this + " Rsquare=" + Rsquare
-				+ " unconditional=" + unconditional + " "
-				+ Util.valueOfDeep(predicted) + " residuals=" + residuals
+		assert Rsquare <= 1.0001
+				&& (predicted.nEdges() > 0 || Rsquare + 0.1 > 0) : this
+				+ " Rsquare=" + Rsquare + " unconditional=" + unconditional
+				+ " " + Util.valueOfDeep(predicted) + " residuals=" + residuals
 				+ " baseResiduals=" + baseResiduals;
-		assert predicted.nEdges() > 0 || Rsquare + 0.1 > 0;
 
 		assert !Double.isNaN(Rsquare) : residuals + " " + baseResiduals;
 		assert !Double.isInfinite(Rsquare) : causedIndex + " " + predicted
@@ -565,6 +581,13 @@ public abstract class Explanation implements PerspectiveObserver {
 
 	protected Perspective getFacet(int i) {
 		return predicted.getFacet(i);
+	}
+
+	void printTable(Perspective p) {
+		boolean prev = PRINT_RSQUARED;
+		PRINT_RSQUARED = true;
+		pseudoRsquared(p);
+		PRINT_RSQUARED = prev;
 	}
 
 	// protected void printGraphAndNull() {

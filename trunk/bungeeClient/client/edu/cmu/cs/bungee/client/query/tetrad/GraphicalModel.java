@@ -18,7 +18,8 @@ import edu.cmu.cs.bungee.javaExtensions.graph.Edge;
 import edu.cmu.cs.bungee.javaExtensions.graph.Graph;
 import edu.cmu.cs.bungee.javaExtensions.graph.Node;
 import edu.cmu.cs.bungee.javaExtensions.graph.Graph.GraphWeigher;
-import edu.cmu.cs.bungee.lbfgs.LBFGS;
+
+//import edu.cmu.cs.bungee.lbfgs.LBFGS;
 
 public class GraphicalModel extends Distribution {
 
@@ -211,8 +212,8 @@ public class GraphicalModel extends Distribution {
 			}
 			double expWeight = Math.exp(weight);
 			assert expWeight > 0 && !Double.isNaN(expWeight)
-					&& !Double.isInfinite(expWeight) : weight + " "
-					+ LBFGS.nfevaluations() + "\n" + Util.valueOfDeep(argument);
+					&& !Double.isInfinite(expWeight) : weights[edgeIndex]
+					+ " => " + weight + "\n" + Util.valueOfDeep(argument);
 			weights[edgeIndex] = weight;
 			expWeights[edgeIndex] = expWeight;
 
@@ -1002,6 +1003,7 @@ public class GraphicalModel extends Distribution {
 			if (excess > 0)
 				result += excess * excess;
 		}
+		// if (result>0)System.err.println("BWP="+result);
 		return result;
 	}
 
@@ -1011,6 +1013,7 @@ public class GraphicalModel extends Distribution {
 			double w = weights[edgeIndex];
 			double excess = Math.abs(w) - MAX_WEIGHT;
 			gradient[edgeIndex] = excess > 0 ? 2 * excess * Util.sgn(w) : 0;
+			assert !Double.isNaN(gradient[edgeIndex]) : excess + " " + w;
 		}
 	}
 

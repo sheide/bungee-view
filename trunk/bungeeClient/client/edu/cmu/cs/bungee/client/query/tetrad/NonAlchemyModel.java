@@ -13,23 +13,27 @@ import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
+import edu.berkeley.nlp.math.DifferentiableFunction;
+import edu.berkeley.nlp.math.LBFGSMinimizer;
 import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.cmu.cs.bungee.client.query.Query;
 import edu.cmu.cs.bungee.javaExtensions.PerspectiveObserver;
 import edu.cmu.cs.bungee.javaExtensions.Util;
 import edu.cmu.cs.bungee.javaExtensions.graph.Graph;
-import edu.cmu.cs.bungee.lbfgs.LBFGS;
-import edu.cmu.cs.bungee.lbfgs.LBFGS.ExceptionWithIflag;
+
+//import edu.cmu.cs.bungee.lbfgs.LBFGS;
+//import edu.cmu.cs.bungee.lbfgs.LBFGS.ExceptionWithIflag;
 
 public class NonAlchemyModel extends Explanation
 // implements MultivariateFunction MFWithGradient
-{
+		implements DifferentiableFunction {
 	private static final int BURN_IN = 0;
 	private static final int PRE_BURN_IN = 0;
-	static double machinePrecision = 1E-15;
+	// static double machinePrecision = 1E-15;
 	private static double lbfgsAccuracy = 1e-9;
-	private static int[] printInterval = {
-			Explanation.PRINT_LEVEL > 2 ? 1 : -1, 3 };
+	// private static int[] printInterval = { Explanation.PRINT_LEVEL > 2 ? 1 :
+	// -1,
+	// 3 };
 	static final double WEIGHT_STABILITY_SMOOTHNESS = 1e-9;
 	static final boolean USE_SIGMOID = true;
 
@@ -148,6 +152,13 @@ public class NonAlchemyModel extends Explanation
 		Util.print("getExplanation duration=" + (duration / 1000) + " nEdges="
 				+ result.predicted.nEdges() + " Function Evaluations: "
 				+ totalNumFuns + "\n");
+
+		if (PRINT_LEVEL > 2)
+			for (Iterator it = facets.iterator(); it.hasNext();) {
+				Perspective p = (Perspective) it.next();
+				nullModel.printTable(p);
+				result.printTable(p);
+			}
 
 		return result;
 	}
@@ -271,11 +282,11 @@ public class NonAlchemyModel extends Explanation
 		double[] weights = lbfgsSearch(sw);
 		setWeights(weights);
 
-		if (debug || PRINT_LEVEL > 1) {
+		if (debug || PRINT_LEVEL > 2) {
 			double kl = klDivergence();
 			Util.print("final weights " + (new Date().getTime() - start)
-					+ "ms, " + LBFGS.nfevaluations() + " evaluations, KL " + kl
-					+ " " + Util.valueOfDeep(sw) + " " + predicted);
+					+ "ms, KL " + kl + " " + Util.valueOfDeep(sw) + " "
+					+ predicted);
 		}
 	}
 
@@ -299,14 +310,16 @@ public class NonAlchemyModel extends Explanation
 	private double[] lbfgsSearch(double[] sw) {
 		double[] startW = new double[sw.length];
 		System.arraycopy(sw, 0, startW, 0, startW.length);
-		int historyLength = 4;
-		boolean useDiag = false;
-		double[] grad = new double[sw.length];
-		double[] diag = new double[sw.length];
-		double f = evaluate(sw, grad);
+
+		// int historyLength = 4;
+		// boolean useDiag = false;
+		// double[] grad = new double[sw.length];
+		// double[] diag = new double[sw.length];
+		// double f = evaluate(sw, grad);
+		// int[] iFlag = { 0 };
+
 		// if (useDiag)
 		// hessianDiagonal(diag);
-		int[] iFlag = { 0 };
 		// if (nFacets()>6)printInterval[0]=1;
 		// LBFGS.maxfev = 100;
 		// if (predicted.nEdges()==0&&nFacets()==4
@@ -319,83 +332,97 @@ public class NonAlchemyModel extends Explanation
 		// printInterval[0] = -1;
 		// // LBFGS.gtol=0.9;
 		// }
-		try {
-			LBFGS.lbfgs(sw.length, historyLength, sw, f, grad, useDiag, diag,
-					printInterval, lbfgsAccuracy, machinePrecision, iFlag);
-			while (iFlag[0] > 0) {
-				// for (int i = 0; i < sw.length; i++) {
-				// sw[i] = Util.constrain(sw[i], -100, 100);
-				// }
-				// if (iFlag[0] == 2) {
-				// assert useDiag;
-				// hessianDiagonal(diag);
-				// } else {
-				assert iFlag[0] == 1;
-				f = evaluate(sw, grad);
-				LBFGS.lbfgs(sw.length, historyLength, sw, f, grad, useDiag,
-						diag, printInterval, lbfgsAccuracy, machinePrecision,
-						iFlag);
-			}
-		} catch (ExceptionWithIflag e) {
-			if (PRINT_LEVEL > 0) {
-				Util.err(e);
-				// Util.err(Util.valueOfDeep(sw) + " "
-				// + Util.valueOfDeep(predicted.getWeights()));
-			}
-		} catch (Exception e) {
-			Util.err(LBFGS.nfevaluations() + " " + Util.valueOfDeep(startW));
-			Util.err(e);
-			e.printStackTrace();
-			if (printInterval[0] < 0) {
-				printInterval[0] = 1;
-				lbfgsSearch(startW);
-			}
 
-			// else {
-			// if (Mcsrch.x0 != null) {
-			// Util.print("\nx0,xstep,searchDir:\n"
-			// + Util.valueOfDeep(Mcsrch.x0) + "\n"
-			// + Util.valueOfDeep(Mcsrch.xstep) + "\n"
-			// + Util.valueOfDeep(Mcsrch.searchDir));
-			// Util
-			// .print("\nstep\tf(step)\t\t\tdelta f(step)\t\tg(step)\t\t\tdelta g(step)\t\tx(step)\tgrad(step)");
-			// double[] iw = new double[sw.length];
-			// double lastFstp = f;
-			// double lastDg = 0;
-			// for (int i = 0; i < 101; i++) {
-			// float zeroToOne = i / 100.0f;
-			// for (int j = 0; j < sw.length; j++) {
-			// iw[j] = Util.interpolate(Mcsrch.x0[j],
-			// Mcsrch.xstep[j], zeroToOne);
-			// }
-			// double fstp = evaluate(iw, grad);
-			// double dg = 0;
-			// for (int j = 0; j < iw.length; j++) {
-			// dg = dg + grad[j] * Mcsrch.searchDir[j];
-			// }
-			// Util.print(zeroToOne + "\t" + fstp + "\t"
-			// + (fstp - lastFstp) + "\t" + dg + "\t"
-			// + (dg - lastDg) + "\t" + Util.valueOfDeep(iw)
-			// + "\t" + Util.valueOfDeep(grad));
-			// lastFstp = fstp;
-			// lastDg = dg;
-			// }
-			// }
-			// System.exit(0);
-			// }
-		}
-		if (iFlag[0] < 0) {
-			// Util.err("LBFGS barfed: " + iFlag[0]);
-		}
+		// try {
+		// LBFGS.lbfgs(sw.length, historyLength, sw, f, grad, useDiag, diag,
+		// printInterval, lbfgsAccuracy, machinePrecision, iFlag);
+		// while (iFlag[0] > 0) {
+		// // for (int i = 0; i < sw.length; i++) {
+		// // sw[i] = Util.constrain(sw[i], -100, 100);
+		// // }
+		// // if (iFlag[0] == 2) {
+		// // assert useDiag;
+		// // hessianDiagonal(diag);
+		// // } else {
+		// assert iFlag[0] == 1;
+		// f = evaluate(sw, grad);
+		// LBFGS.lbfgs(sw.length, historyLength, sw, f, grad, useDiag,
+		// diag, printInterval, lbfgsAccuracy, machinePrecision,
+		// iFlag);
+		// }
+		// } catch (ExceptionWithIflag e) {
+		// if (PRINT_LEVEL > 0) {
+		// Util.err(e);
+		// // Util.err(Util.valueOfDeep(sw) + " "
+		// // + Util.valueOfDeep(predicted.getWeights()));
+		// }
+		// } catch (Exception e) {
+		// Util.err(LBFGS.nfevaluations() + " " + Util.valueOfDeep(startW));
+		// Util.err(e);
+		// e.printStackTrace();
+		// if (printInterval[0] < 0) {
+		// printInterval[0] = 1;
+		// lbfgsSearch(startW);
+		// }
+		//
+		// // else {
+		// // if (Mcsrch.x0 != null) {
+		// // Util.print("\nx0,xstep,searchDir:\n"
+		// // + Util.valueOfDeep(Mcsrch.x0) + "\n"
+		// // + Util.valueOfDeep(Mcsrch.xstep) + "\n"
+		// // + Util.valueOfDeep(Mcsrch.searchDir));
+		// // Util
+		// //
+		// .print("\nstep\tf(step)\t\t\tdelta f(step)\t\tg(step)\t\t\tdelta g(step)\t\tx(step)\tgrad(step)");
+		// // double[] iw = new double[sw.length];
+		// // double lastFstp = f;
+		// // double lastDg = 0;
+		// // for (int i = 0; i < 101; i++) {
+		// // float zeroToOne = i / 100.0f;
+		// // for (int j = 0; j < sw.length; j++) {
+		// // iw[j] = Util.interpolate(Mcsrch.x0[j],
+		// // Mcsrch.xstep[j], zeroToOne);
+		// // }
+		// // double fstp = evaluate(iw, grad);
+		// // double dg = 0;
+		// // for (int j = 0; j < iw.length; j++) {
+		// // dg = dg + grad[j] * Mcsrch.searchDir[j];
+		// // }
+		// // Util.print(zeroToOne + "\t" + fstp + "\t"
+		// // + (fstp - lastFstp) + "\t" + dg + "\t"
+		// // + (dg - lastDg) + "\t" + Util.valueOfDeep(iw)
+		// // + "\t" + Util.valueOfDeep(grad));
+		// // lastFstp = fstp;
+		// // lastDg = dg;
+		// // }
+		// // }
+		// // System.exit(0);
+		// // }
+		// }
+		// if (iFlag[0] < 0) {
+		// // Util.err("LBFGS barfed: " + iFlag[0]);
+		// }
+		//
+		// totalNumFuns += LBFGS.nfevaluations() + BURN_IN * predicted.nEdges();
+		// // totalNumGrad += LBFGS.nfevaluations();
+		// // totalNumLineSearches += LBFGS.nLineEvaluations();
 
-		totalNumFuns += LBFGS.nfevaluations() + BURN_IN * predicted.nEdges();
-		// totalNumGrad += LBFGS.nfevaluations();
-		// totalNumLineSearches += LBFGS.nLineEvaluations();
-		return sw;
+		double[] result = new LBFGSMinimizer().minimize(this, sw,
+				lbfgsAccuracy, false);
+
+		return result;
 	}
 
 	private boolean setWeights(double[] argument) {
-		boolean result = predicted.setWeights(argument);
+		boolean result = true;
+		try {
+			result = predicted.setWeights(argument);
+		} catch (Error e) {
+			Util.err("While setting weights for\n" + observed + "\n"
+					+ predicted);
+			Util.err(e);
+			// throw(e);
+		}
 		if (result) {
 			cachedEval = Double.NaN;
 			getCachedGradient()[0] = Double.NaN;
@@ -440,48 +467,6 @@ public class NonAlchemyModel extends Explanation
 		double previousDivergence = previous.klDivergence();
 		double divergenceIncrease = (divergence - previousDivergence)
 				* NULL_MODEL_ACCURACY_IMPORTANCE;
-		// assert divergenceIncrease >= -1e-4 : "\n    this: " + divergence +
-		// " "
-		// + this + "\n" + Util.valueOfDeep(observed.getDistribution())
-		// + "\n" + Util.valueOfDeep(predicted.getDistribution()) + "\n"
-		// + Util.valueOfDeep(predicted.getMarginal(previous.facets()))
-		// + "; " + "\nprevious: " + previousDivergence + " " + previous
-		// + "\n" + Util.valueOfDeep(previous.observed.getDistribution())
-		// + "\n" + Util.valueOfDeep(previous.predicted.getDistribution());
-
-		// double parentVsLargerDivergence = parentModel.observed
-		// .klDivergence(largerModel.predicted.getMarginal(parentFacets()));
-		// double parentDivergence = parentModel.klDivergence();
-		// double largerDivergenceIncreaseOverParent = (parentVsLargerDivergence
-		// - parentDivergence)
-		// * NULL_MODEL_ACCURACY_IMPORTANCE;
-		// assert !Double.isInfinite(largerDivergenceIncreaseOverParent) :
-		// parentVsLargerDivergence
-		// + " "
-		// + parentDivergence
-		// + " "
-		// + Util.valueOfDeep(largerModel.predicted
-		// .getMarginal(parentFacets()));
-		//
-		// assert largerModel.nFacets() > nFacets()
-		// || parentDivergence + 0.00001 > parentVsLargerDivergence : this
-		// + "\n" + parentModel + " " + parentDivergence + "\n"
-		// + largerModel + " " + parentVsLargerDivergence;
-		//
-		// double divergenceIncreaseOverParent = Double.POSITIVE_INFINITY;
-		// if (largerModel.nFacets() == nFacets()) {
-		// assert largerModel == parentModel;
-		// divergenceIncreaseOverParent = (klDivergence() - parentDivergence)
-		// * FULL_MODEL_ACCURACY_IMPORTANCE;
-		// }
-		// if (divergenceIncrease < threshold1)
-		// return divergenceIncrease;
-
-		// Util.print("grad "+primaryFacets());
-		// printToFile();
-		// double weightSpaceChange = largerModel.predicted.weightSpaceChange(
-		// predicted, primaryFacets(), observed, largerModel.observed,
-		// true);
 
 		double weightSpaceChange = weightSpaceChange(previous, primaryFacets,
 				true);
@@ -500,7 +485,7 @@ public class NonAlchemyModel extends Explanation
 			// threshold1);
 		}
 
-		if (PRINT_LEVEL > 1) {
+		if (PRINT_LEVEL > 2) {
 			Util.print("      "
 					+ (isSlow ? "*" : " ")
 					+ "improvement "
@@ -623,7 +608,7 @@ public class NonAlchemyModel extends Explanation
 			}
 		}
 
-		if (Explanation.PRINT_LEVEL > 1) {
+		if (Explanation.PRINT_LEVEL > 2) {
 			printWSC(cause, caused, fastMax, control, diffU, diffN);
 		}
 
@@ -671,19 +656,19 @@ public class NonAlchemyModel extends Explanation
 		return buf;
 	}
 
-	private double evaluate(double[] argument, double[] gradient) {
-		// nEvalNgrad++;
-		// Util.print("evalNgrad");
-		if (PRINT_LEVEL > 2)
-			Util.print("evaluate " + Util.valueOfDeep(argument));
-		double result = evaluate(argument);
-		computeGradient(gradient);
-		if (PRINT_LEVEL > 2)
-			Util.print(" ... eval=" + result + " (KL=" + klDivergence()
-					+ " + BigWeightPenalty=" + predicted.bigWeightPenalty()
-					+ ") " + "\ngrad: " + Util.valueOfDeep(gradient));
-		return result;
-	}
+	// private double evaluate(double[] argument, double[] gradient) {
+	// // nEvalNgrad++;
+	// // Util.print("evalNgrad");
+	// // if (PRINT_LEVEL > 2)
+	// // Util.print("evaluate " + Util.valueOfDeep(argument));
+	// double result = evaluate(argument);
+	// computeGradient(gradient);
+	// // if (PRINT_LEVEL > 2)
+	// // Util.print(" ... eval=" + result + " (KL=" + klDivergence()
+	// // + " + BigWeightPenalty=" + predicted.bigWeightPenalty()
+	// // + ") " + "\ngrad: " + Util.valueOfDeep(gradient));
+	// return result;
+	// }
 
 	private double[] getCachedGradient() {
 		if (cachedGradient == null) {
@@ -722,6 +707,7 @@ public class NonAlchemyModel extends Explanation
 			int nWeights = weights.length;
 			for (int w = 0; w < nWeights; w++) {
 				gradient[weights[w]] += q - p;
+				assert !Double.isNaN(gradient[weights[w]]) : q + " " + p;
 				// addends[weights[w]][state * 2] = q;
 				// addends[weights[w]][state * 2 + 1] = -p;
 			}
@@ -789,11 +775,11 @@ public class NonAlchemyModel extends Explanation
 		}
 	}
 
-	public static void test(Query query, int nCandidates) {
+	public static void testPairList(Query query) {
 		testPairs(pairs, query);
 	}
 
-	public static void testOLD(Query query, int nCandidates) {
+	public static void test(Query query, int nCandidates) {
 		if (nCandidates <= 0)
 			return;
 		long start = (new Date()).getTime();
@@ -902,5 +888,20 @@ public class NonAlchemyModel extends Explanation
 			{ 23899, 24859 }, { 23899, 26741 }, { 24405, 24859 },
 			{ 24405, 26741 }, { 6376, 24859 }, { 6376, 26741 }, { 298, 6376 },
 			{ 297, 8462 }, { 297, 23899 }, { 297, 24405 }, { 298, 414 } };
+
+	public double[] derivativeAt(double[] x) {
+		evaluate(x);
+		double[] result = new double[x.length];
+		computeGradient(result);
+		return result;
+	}
+
+	public int dimension() {
+		return predicted.getNumEdgesPlusBiases();
+	}
+
+	public double valueAt(double[] x) {
+		return evaluate(x);
+	}
 
 }

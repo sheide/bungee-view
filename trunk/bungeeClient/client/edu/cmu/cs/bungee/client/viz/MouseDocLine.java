@@ -48,9 +48,6 @@ import edu.umd.cs.piccolo.util.PPaintContext;
 
 final class MouseDocLine extends LazyPNode implements PerspectiveObserver {
 
-	/**
-	 * 
-	 */
 	private static final long serialVersionUID = 1L;
 
 	private static final Color tipBG = Bungee.helpColor; // Color.yellow;

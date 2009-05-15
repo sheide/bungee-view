@@ -1207,7 +1207,7 @@ public final class Query implements ItemPredicate {
 			assert rs.getInt(2) == facetID;
 			int parentID = rs.getInt(1);
 			Perspective parent = findPerspectiveIfPossible(parentID);
-			if (parent == null || parent.childrenOffset() < 0)
+			if (parent == null || !parent.isInstantiated()||parent.childrenOffset() < 0)
 				parent = importFacet(parentID);
 			result = ensurePerspective(facetID, parent, rs.getString(3), rs
 					.getInt(5), rs.getInt(4));
@@ -2069,7 +2069,7 @@ public final class Query implements ItemPredicate {
 	public ResultSet[] onCountMatrix(Collection facetsOfInterest,
 			Collection candidates, boolean needBaseCounts) {
 		// Util.print("ocm " + facetsOfInterest + " " + candidates);
-		assert candidates != null && candidates.size() > 0;
+//		assert candidates != null && candidates.size() > 0;
 		return db.onCountMatrix(getFacetIDs(facetsOfInterest),
 				getFacetIDs(candidates), onItemsTable(), needBaseCounts);
 	}

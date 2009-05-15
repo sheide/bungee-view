@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.cmu.cs.bungee.javaExtensions.Util;
 
 public class FacetSelection extends GreedySubset {
@@ -32,7 +33,7 @@ public class FacetSelection extends GreedySubset {
 
 	private FacetSelection(Explanation nullModel, List candidates,
 			double edgeThreshold) {
-		super(edgeThreshold * nullModel.nFacets(), candidates, GreedySubset.ADD);
+		super(edgeThreshold * 2 /* nullModel.nFacets() */, candidates, GreedySubset.ADD);
 		this.candidates = Collections.unmodifiableList(candidates);
 		this.nullModel = nullModel;
 		this.edgeThreshold = edgeThreshold;
@@ -47,12 +48,14 @@ public class FacetSelection extends GreedySubset {
 		Explanation larger = isAdding ? current : previous;
 		if (larger.nFacets() >= 7)
 			return 0;
-		threshold = edgeThreshold * smaller.nFacets();
+		threshold = edgeThreshold * 2; // smaller.nFacets();
 		// current.printGraph(false);
 //		assert larger.parentModel == smaller : "\n" + larger + "\n"
 //				+ larger.parentModel + "\n" + smaller;
 		double result = (isAdding ? 1 : -1)
 				* larger.improvement(smaller, threshold1, nullModel.facets());
+		
+		Util.print("FS.improv "+toggledFacet);larger.printTable((Perspective) toggledFacet);
 
 		if(Explanation.PRINT_CANDIDATES_TO_FILE)
 		 current.printToFile(nullModel);
