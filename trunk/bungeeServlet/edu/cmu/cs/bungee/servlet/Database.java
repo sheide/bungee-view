@@ -74,9 +74,9 @@ import edu.cmu.cs.bungee.javaExtensions.MyResultSet;
 import edu.cmu.cs.bungee.javaExtensions.Util;
 import edu.cmu.cs.bungee.javaExtensions.MyResultSet.Column;
 
-// Permissions to add (ALTER ROUTINE is for finding clusters; EXECUTE is for tetrad):
+// Permissions to add (ALTER ROUTINE is for finding clusters; EXECUTE is for tetrad; DROP is for truncate table):
 // GRANT SELECT, INSERT, UPDATE, CREATE, DELETE, ALTER ROUTINE, EXECUTE
-// CREATE TEMPORARY TABLES ON
+// CREATE TEMPORARY TABLES, DROP ON
 // chartresvezelay.* TO p5@localhost
 
 // In order to edit, you also need these:
@@ -106,7 +106,7 @@ public class Database {
 		// connectString += "&password=" + _pass;
 		// servlet = _servlet;
 		jdbc = new JDBCSample(_server, _db, _user, _pass, _servlet);
-		ensureDBinitted();
+		ConvertFromRaw.ensureDBinitted(jdbc);
 		String item_id_column_type = jdbc.unsignedTypeForMaxValue(jdbc
 				.SQLqueryInt("SELECT MAX(record_num) FROM item"));
 		String facet_id_column_type = jdbc.unsignedTypeForMaxValue(jdbc
@@ -350,7 +350,7 @@ public class Database {
 
 	private PreparedStatement itemIdPS;
 
-	private String xxx;
+	// private String xxx;
 
 	String getItemURL(int item) throws SQLException, ServletException {
 		// Util.print("itemDesc " + item);
@@ -376,28 +376,6 @@ public class Database {
 		// se.printStackTrace();
 		// }
 		return result;
-	}
-
-	private void ensureDBinitted() throws SQLException {
-		if (jdbc.SQLqueryInt("SELECT COUNT(*) FROM item_facet_heap") == 0) {
-			jdbc
-					.SQLupdate("INSERT INTO item_facet_heap SELECT * FROM item_facet;");
-			jdbc.SQLupdate("TRUNCATE TABLE item_facet_type_heap;");
-			jdbc.SQLupdate("INSERT INTO item_facet_type_heap "
-					+ "SELECT distinct i.record_num, f.parent_facet_id "
-					+ "FROM facet f "
-					+ "INNER JOIN item_facet i ON i.facet_id = f.facet_id "
-					+ "WHERE f.parent_facet_id <= " + maxFacetTypeID());
-			jdbc.SQLupdate("TRUNCATE TABLE item_order_heap;");
-			jdbc.SQLupdate("INSERT INTO item_order_heap "
-					+ "SELECT * FROM item_order");
-			// updateUsageCounts();
-		}
-	}
-
-	int maxFacetTypeID() throws SQLException {
-		return jdbc
-				.SQLqueryInt("SELECT MAX(facet_id) FROM facet WHERE parent_facet_id = 0");
 	}
 
 	// private void updateUsageCounts() throws SQLException {
@@ -454,9 +432,9 @@ public class Database {
 						+ " o INNER JOIN item_order_heap r USING (record_num)"
 						+ " ORDER BY r." + columnToSortBy + " LIMIT ?, ?");
 
-				xxx = "SELECT o.record_num FROM " + sortedResultTable(i)
-						+ " o INNER JOIN item_order_heap r USING (record_num)"
-						+ " ORDER BY r." + columnToSortBy;
+				// xxx = "SELECT o.record_num FROM " + sortedResultTable(i)
+				// + " o INNER JOIN item_order_heap r USING (record_num)"
+				// + " ORDER BY r." + columnToSortBy;
 
 				// Have to use 2 queries to work around the "can't reopen
 				// temporary
@@ -617,7 +595,8 @@ public class Database {
 		ResultSet rs = jdbc
 				.SQLquery("SELECT f.n_items as cnt "
 						+ "FROM facet f WHERE f.parent_facet_id > 0 AND f.parent_facet_id <= "
-						+ maxFacetTypeID() + " ORDER BY f.facet_ID");
+						+ ConvertFromRaw.maxFacetTypeID(jdbc)
+						+ " ORDER BY f.facet_ID");
 		sendResultSet(rs, MyResultSet.INT, out);
 	}
 
@@ -751,19 +730,19 @@ public class Database {
 			s.setInt(1, minOffset);
 			s.setInt(2, nRows);
 			ResultSet rs = jdbc.SQLquery(s);
-			if (false && MyResultSet.nRows(rs) != nRows) {
+			if (MyResultSet.nRows(rs) != nRows) {
 				int onCount = jdbc.SQLqueryInt("SELECT COUNT(*) FROM "
 						+ sortedResultTable(table));
 
-				if (onCount >= maxOffset) {
-					log(xxx);
-					ResultSet zz = jdbc.SQLquery(xxx);
-					log(sortedResultTable(table) + " nRows="
-							+ MyResultSet.nRows(zz));
-				}
+				// if (onCount >= maxOffset) {
+				// log(xxx);
+				// ResultSet zz = jdbc.SQLquery(xxx);
+				// log(sortedResultTable(table) + " nRows="
+				// + MyResultSet.nRows(zz));
+				// }
 
 				myAssert(onCount < maxOffset, minOffset + "-" + nRows + " "
-						+ MyResultSet.nRows(rs) + " " + onCount);
+						+ MyResultSet.nRows(rs) + " " + onCount + "\n" + s);
 			}
 			sendResultSet(rs, MyResultSet.INT, out);
 		}
@@ -867,31 +846,12 @@ public class Database {
 				s2.setInt(1, ordinal);
 				offset = jdbc.SQLqueryInt(s2);
 			}
-
-			// try {
-			// int onCount = jdbc.SQLqueryInt("SELECT COUNT(*) FROM "
-			// + sortedResultTable(table));
-			// if (onCount < 5 || offset >= onCount) {
-			// printRecords(
-			// jdbc
-			// .SQLquery("SELECT s.record_num, s.random_id FROM item_order_heap
-			// s "
-			// + "INNER JOIN onItems Using (record_num)"),
-			// MyResultSet.INT_INT);
-			// log(item + " " + offset + " " + table);
-			// throw new ServletException("Bad index: " + offset + " >= "
-			// + onCount + " for table " + table + " item " + item
-			// + " query " + lastQuery);
-			// }
-			// } catch (ServletException e) {
-			// e.printStackTrace();
-			// }
 		}
 		// Util.print("itemIndex " + item + " => " + result);
 		return offset;
 	}
 
-	// private static Object itemStatesLock = "itemStatesLock";
+	private boolean pairCountTablesCreated = false;
 
 	/**
 	 * Given facets="1,2,3" return the counts in the 2^3 combinations
@@ -905,58 +865,6 @@ public class Database {
 	 * @throws ServletException
 	 * @throws IOException
 	 */
-	// @SuppressWarnings("unchecked")
-	// void getPairCountsOLD(String facetNames, String candidates, int table,
-	// DataOutputStream out) throws SQLException, ServletException,
-	// IOException {
-	//
-	// // We're not dealing with facet types, for speed
-	// // List[] candidateTypes = new LinkedList[2];
-	// // candidateTypes[0] = new LinkedList<String>();
-	// // candidateTypes[1] = new LinkedList<String>();
-	// // if (candidates.length() > 0) {
-	// // String[] IDs = candidates.split(",");
-	// // for (int i = 0; i < IDs.length; i++) {
-	// // int ID = Integer.parseInt(IDs[i]);
-	// // int type = ID <= maxFacetTypeID() ? 0 : 1;
-	// // candidateTypes[type].add(IDs[i]);
-	// // }
-	// // }
-	//
-	// // synchronized (itemStatesLock) {
-	// // updateItemStates(facetNames, table);
-	//
-	// // List<String> selects = new LinkedList<String>();
-	// // selects.add(getPairCountSQL(facetNames, null, null));
-	//
-	// // if (candidateTypes[0].size() > 0)
-	// // selects.add(getPairCountSQL(Util.join(candidateTypes[0], ","),
-	// // "item_facet_type_heap"));
-	// // if (candidateTypes[1].size() > 0)
-	// // selects.add(getPairCountSQL(Util.join(candidateTypes[1], ","),
-	// // "item_facet_heap"));
-	//
-	// String stateCountsQuery;
-	// if (candidates.length() > 0) {
-	// stateCountsQuery = getPairCountSQL(facetNames, candidates,
-	// "item_facet_heap")
-	// + " ORDER BY perspective";
-	// } else {
-	// stateCountsQuery = getPairCountSQL(facetNames, null, null)
-	// + " ORDER BY null";
-	// }
-	//
-	// // String stateCountsQuery = Util.join(selects, " UNION ");
-	// // if (selects.size() > 1)
-	// // log(stateCountsQuery);
-	// ResultSet rs = jdbc.SQLquery(stateCountsQuery);
-	// // sendResultSet(rs, MyResultSet.SNMINT_INT_INT, out);
-	// log("\nOLD");
-	// printRecords(rs, MyResultSet.SNMINT_INT_INT);
-	// // }
-	// }
-	private boolean pairCountTablesCreated = false;
-
 	@SuppressWarnings("unchecked")
 	void getPairCounts(String facetNames, String candidates, int table,
 			boolean needBaseCounts, DataOutputStream out) throws SQLException,
@@ -967,108 +875,55 @@ public class Database {
 			// jdbc.SQLupdate("DROP TABLE IF EXISTS tetrad_facets");
 			// jdbc.SQLupdate("DROP TABLE IF EXISTS tetrad_items");
 			jdbc.SQLupdate("CREATE temporary TABLE tetrad_facets("
-					+ "facet_id mediumint(8) unsigned NOT NULL, "
-					+ "bit smallint(8) unsigned NOT NULL, "
+					+ "facet_id MEDIUMINT(8) UNSIGNED NOT NULL, "
+					+ "bit SMALLINT(8) UNSIGNED NOT NULL, "
 					+ "PRIMARY KEY (facet_id)) ENGINE=MEMORY");
-			jdbc.SQLupdate("CREATE temporary TABLE tetrad_items("
-					+ "record_num mediumint(8) unsigned NOT NULL, "
-					+ "state smallint(8) unsigned NOT NULL, "
+			jdbc.SQLupdate("CREATE TEMPORARY TABLE tetrad_items("
+					+ "record_num MEDIUMINT(8) UNSIGNED NOT NULL, "
+					+ "state SMALLINT(8) UNSIGNED NOT NULL, "
 					+ "PRIMARY KEY (record_num)) ENGINE=MEMORY");
 		} else {
-			jdbc.SQLupdate("truncate table tetrad_facets");
-			jdbc.SQLupdate("truncate table tetrad_items");
+			jdbc.SQLupdate("TRUNCATE TABLE tetrad_facets");
+			jdbc.SQLupdate("TRUNCATE TABLE tetrad_items");
 		}
-		// if (!itemTable.equals(pairCountTablesCreated)) {
-		// // jdbc.SQLupdate("insert into tetrad_items "
-		// // + "select record_num, 0 from " + itemTable);
-		// } else {
-		// // jdbc.SQLupdate("update tetrad_items set state=0;");
-		// }
-		jdbc.SQLupdate("set @index = 1");
-		jdbc.SQLupdate("insert into tetrad_facets "
-				+ "select facet_id,(@index :=@index*2)/2 "
-				+ "from facet where facet_id in (" + facetNames + ")");
-
-		// String[]facets=Util.splitComma(facetNames);
-		// PreparedStatement
-		// setStates=jdbc.lookupPS("update tetrad_items i,item_facet_heap ifh "
-		// + "set state = state + ? "
-		// + "where ifh.facet_id = ? "
-		// + "and ifh.record_num = i.record_num;");
-		// for (int i = 0, bit=1; i < facets.length; i++,bit*=2) {
-		// setStates.setInt(1, bit);
-		// setStates.setString(2, facets[i]);
-		// jdbc.SQLupdate(setStates);
-		// }
+		jdbc.SQLupdate("SET @index = 1");
+		jdbc.SQLupdate("INSERT INTO tetrad_facets "
+				+ "SELECT facet_id,(@index :=@index*2)/2 "
+				+ "FROM facet WHERE facet_id IN (" + facetNames + ")");
 
 		jdbc
-				.SQLupdate("insert into tetrad_items "
-						+ "select record_num, sum(bit) "
-						+ "from tetrad_facets f, item_facet_heap ifh "
-						+ (itemTable.equals("restricted") ? "inner join restricted using (record_num) "
-								: "") + "where ifh.facet_id = f.facet_id "
-						+ "group by record_num");
-
-		// jdbc
-		// .SQLupdate("update tetrad_items i,tetrad_facets f,item_facet_heap ifh "
-		// + "set state = state + bit "
-		// + "where ifh.facet_id = f.facet_id "
-		// + "and ifh.record_num = i.record_num;");
+				.SQLupdate("INSERT INTO tetrad_items "
+						+ "SELECT ifnull(ifh.record_num,ifth.record_num) rn, SUM(bit) "
+						+ "FROM tetrad_facets f "
+						+ (itemTable.equals("restricted") ? "INNER JOIN restricted USING (record_num) "
+								: "")
+						+ "left join item_facet_heap ifh on ifh.facet_id = f.facet_id "
+						+ "left join item_facet_type_heap ifth on ifth.facet_id = f.facet_id "
+						+ "GROUP BY rn");
 
 		if (needBaseCounts) {
 			ResultSet baseCounts = jdbc
-					.SQLquery("select SQL_SMALL_RESULT 0, state, count(*) from tetrad_items "
-							+ "group by state order by null");
+					.SQLquery("SELECT SQL_SMALL_RESULT 0, state, COUNT(*) FROM tetrad_items "
+							+ "GROUP BY state ORDER BY NULL");
 			sendResultSet(baseCounts, MyResultSet.SNMINT_INT_INT, out);
 		}
 
 		if (candidates.length() > 0) {
-			ResultSet candidateCounts = jdbc
-					.SQLquery("select SQL_SMALL_RESULT facet_id, ifnull(state, 0) s, count(*) "
-							+ "from item_facet_heap left join tetrad_items using (record_num) "
-							+ "where facet_id in ("
-							+ candidates
-							+ ") group by facet_id, s order by facet_id");
-			sendResultSet(candidateCounts, MyResultSet.SNMINT_INT_INT, out);
+			String[] tables = { "item_facet_heap", "item_facet_type_heap" };
+			// UNION is expensive, so just send 2 result sets
+			for (int i = 0; i < tables.length; i++) {
+				ResultSet candidateCounts = jdbc
+						.SQLquery("SELECT SQL_SMALL_RESULT facet_id, IFNULL(state, 0) s, COUNT(*) "
+								+ "FROM "
+								+ tables[i]
+								+ " LEFT JOIN tetrad_items USING (record_num) "
+								+ "WHERE facet_id IN ("
+								+ candidates
+								+ ") GROUP BY facet_id, s ORDER BY facet_id");
+				sendResultSet(candidateCounts, MyResultSet.SNMINT_INT_INT, out);
+			}
 		}
 	}
-
-	// private void updateItemStates(String facetNames, int table)
-	// throws SQLException {
-	// String itemTable = table == 1 ? "restricted" : "item_order_heap";
-	// String[] result = updateItemStatesInternal(facetNames);
-	// String x = result[0] + " FROM " + itemTable + " items " + result[1];
-	// String updateItemStatesQuery =
-	// "INSERT INTO itemStates1 SELECT items.record_num, "
-	// + x;
-	// // log(updateItemStatesQuery);
-	// jdbc.SQLupdate(jdbc.lookupPS("DELETE FROM itemStates1"));
-	// jdbc.SQLupdate(updateItemStatesQuery);
-	// }
-	//
-	// private String[] updateItemStatesInternal(String facetNames)
-	// throws SQLException {
-	// String[] facets = Util.splitComma(facetNames);
-	// int nFacets = facets.length;
-	// String[] states = new String[nFacets];
-	// String[] joins = new String[nFacets];
-	// for (int i = 0; i < nFacets; i++) {
-	// int facet = Integer.parseInt(facets[i]);
-	// String ifTable = facet <= maxFacetTypeID() ? "item_facet_type_heap"
-	// : "item_facet_heap";
-	// joins[i] = "LEFT JOIN " + ifTable + " i" + i + " ON i" + i
-	// + ".record_num = items.record_num AND i" + i
-	// + ".facet_id = " + facet;
-	//
-	// // First facet reprsented by low order bit
-	// int iComplement = nFacets - i - 1;
-	// states[i] = "(i" + iComplement + ".facet_id IS NOT NULL)*"
-	// + (1 << iComplement);
-	// }
-	// String[] result = { Util.join(states, " + ") + " state",
-	// Util.join(joins, " ") };
-	// return result;
-	// }
 
 	@SuppressWarnings("unchecked")
 	void topCandidates(String perspectiveIDs, int n, int table,
@@ -1098,390 +953,26 @@ public class Database {
 		// This version is faster, but ignores candidates whose joint prob is
 		// zero
 		String sql = "select candidateID from ("
+				// Need to UNION ALL so that union won't collapse primes
+				// that have the same correlation.
 				+ "SELECT facet1 candidateID, abs(correlation) corr "
-				+ "FROM correlations where facet2 IN (" + perspectiveIDs
-				+ ") union "
+				+ "FROM correlations where facet2 IN ("
+				+ perspectiveIDs
+				+ ") UNION ALL "
 				+ "SELECT facet2 candidateID, abs(correlation) corr "
-				+ "FROM correlations where facet1 IN (" + perspectiveIDs
-				+ ")) foo group by candidateID " + "having count(*) > 1 "
-				+ "and candidateID NOT IN (" + perspectiveIDs + ") "
+				+ "FROM correlations where facet1 IN ("
+				+ perspectiveIDs
+				+ ")) foo group by candidateID "
+				+ "having candidateID NOT IN ("
+				+ perspectiveIDs
+				+ ") "
+//				+ (perspectiveIDs.split(",").length > 1 ? "and count(*) > 1 "
+//						: "")
 				+ "order by POW(SUM(corr),2) - SUM(corr*corr) desc limit " + n;
 		// log(sql);
 		ResultSet rs = jdbc.SQLquery(sql);
 		sendResultSet(rs, MyResultSet.INT, out);
 	}
-
-	// String getPairCountSQL(String facetIDs, String candidates, String
-	// ifhTable)
-	// throws SQLException {
-	// // boolean isCandidates = candidates.length() > 0;
-	// String[] result = updateItemStatesInternal(facetIDs);
-	// // String suffix = ifhTable == null ? "1" : ifhTable
-	// // .equals("item_facet_heap") ? "2" : "3";
-	// String sql = "SELECT " + (ifhTable == null ? "0" : "items.facet_id")
-	// + " perspective, " + result[0] + ", COUNT(*) FROM "
-	// + (ifhTable == null ? "item_order_heap" : ifhTable) + " items "
-	// + result[1];
-	// if (ifhTable != null)
-	// sql += " WHERE items.facet_id IN (" + candidates + ")";
-	// sql += " GROUP BY perspective, state";
-	// // if (ifhTable != null)
-	// // sql += ", " + ifhTable + " items WHERE items.facet_id IN ("
-	// // + candidates + ") AND itemStates" + suffix
-	// // + ".record_num=items.record_num";
-	// // sql += " GROUP BY state";
-	// // if (ifhTable != null)
-	// // sql += ", items.facet_id";
-	// return sql;
-	// }
-
-	// @SuppressWarnings("unchecked")
-	// void topCandidatesNEW(String facetNames, int n, int table,
-	// DataOutputStream out) throws SQLException, ServletException,
-	// IOException {
-	// synchronized (itemStatesLock) {
-	// updateItemStates(facetNames, table);
-	// // PreparedStatement clear = jdbc
-	// // .lookupPS("TRUNCATE TABLE state_counts");
-	// // jdbc.SQLupdate(clear);
-	// // PreparedStatement stateCounts = jdbc
-	// // .lookupPS(
-	// //
-	// "INSERT INTO state_counts SELECT state, COUNT(*) FROM itemstates1 GROUP BY state"
-	// // );
-	// // jdbc.SQLupdate(stateCounts);
-	// PreparedStatement mutInf = jdbc
-	// .lookupPS("SELECT entropy.facet_id "
-	// + "FROM (SELECT i_f.facet_id, COUNT(*) fCount, its.state"
-	// // too slow to check item_facet_type_heap
-	// +
-	// " FROM item_facet_heap i_f, itemStates1 its WHERE i_f.record_num = its.record_num"
-	// + " GROUP BY facet_id, its.state ORDER BY NULL) foo, "
-	// +
-	// "(SELECT state, COUNT(*) cnt FROM itemstates2 GROUP BY state ORDER BY NULL) sc, entropy"
-	// +
-	// " WHERE sc.state = foo.state AND fCount < cnt AND entropy.facet_id = foo.facet_id"
-	// + " GROUP BY entropy.facet_id"
-	// +
-	// " ORDER BY entropy - SUM(-fCount *log(fCount / cnt)-(cnt-fCount)*log(1-fCount / cnt))"
-	// + " / (SELECT COUNT(*) FROM item) DESC" + " LIMIT "
-	// + n);
-	// ResultSet rs = jdbc.SQLquery(mutInf);
-	// sendResultSet(rs, MyResultSet.INT, out);
-	// }
-	// }
-
-	// @SuppressWarnings("unchecked")
-	// void topCandidatesInteraction(String perspectiveIDs, int n, int table,
-	// DataOutputStream out) throws SQLException, ServletException,
-	// IOException {
-	// String[] perspectiveNames = perspectiveIDs.split(",");
-	// int nPerspectives = perspectiveNames.length;
-	// if (nPerspectives != 2) {
-	// // topCandidatesCorrelation(perspectiveIDs, nPerspectives, table,
-	// // out);
-	// } else {
-	// PreparedStatement ps = jdbc
-	// .lookupPS("SELECT facet_id FROM "
-	// +
-	// "(SELECT facet_id, sum(d0) d0, sum(d1) d1, if(sum(vd0)=0,var, sum(vd0)) vd0, if (sum(vd1)=0,var,sum(vd1)) vd1, SUM(r) / SUM(r1) d00 "
-	// + "FROM (SELECT facet_id, 2*z*z/varDenom var, if (substate=0, d, 0) d0,"
-	// +
-	// " if (substate=1, d, 0) d1, if (substate=0, vd, 0) vd0, if (substate=1, vd, 0) vd1,"
-	// + " if (vd=0,0, d/vd) r , if (vd=0,varDenom/2/z/z, d/d/vd) r1 "
-	// +
-	// "FROM (SELECT facet_id, substate, SUM(p) d, z, varDenom, (SUM(varNum) + (2-COUNT(*))*z*z)/varDenom vd "
-	// + "FROM (SELECT facet_id, state%2=1 substate, state, IF(state>1,-p,p) p,"
-	// +
-	// " (z*z  + 4 * n * p * (1 - p)) varNum,  (4 * (n + z * z) * (n + z * z)) varDenom, z "
-	// +
-	// "FROM (SELECT facet_id, foo.state, bar.cnt n, foo.cnt / bar.cnt p, 1.96 z "
-	// +
-	// "FROM (SELECT i2.facet_id, (i0.record_num IS NOT NULL)*2 + (i1.record_num IS NOT NULL)*1 state, COUNT(*) cnt "
-	// + "FROM item_order rnd "
-	// +
-	// "LEFT JOIN item_facet_heap i0 ON rnd.record_num = i0.record_num AND i0.facet_id = ? "
-	// +
-	// "LEFT JOIN item_facet_heap i1 ON rnd.record_num = i1.record_num AND i1.facet_id = ? "
-	// + "LEFT JOIN item_facet_heap i2 ON rnd.record_num = i2.record_num "
-	// +
-	// "where i2.facet_id != i0.facet_id or i0.facet_id is null and i2.facet_id != i1.facet_id or i1.facet_id is null "
-	// + "GROUP BY i2.facet_id, state ORDER BY null) foo ,"
-	// +
-	// " (SELECT (i0.record_num IS NOT NULL)*2 + (i1.record_num IS NOT NULL)*1 state, COUNT(*) cnt "
-	// +
-	// "FROM item_order rnd LEFT JOIN item_facet_heap i0 ON rnd.record_num = i0.record_num AND i0.facet_id = ? "
-	// +
-	// "LEFT JOIN item_facet_heap i1 ON rnd.record_num = i1.record_num AND i1.facet_id = ? "
-	// + "GROUP BY state ORDER BY null) bar "
-	// + "where foo.state = bar.state) baz) fras "
-	// + "GROUP BY facet_id, substate ORDER BY null) ack) bab "
-	// + "GROUP BY facet_id ORDER BY null) gab "
-	// +
-	// "order by (d0 - d00) * (d0 - d00) / vd0 + (d1 - d00) * (d1 - d00) / vd1 desc "
-	// + "limit ?");
-	// int f1 = Integer.parseInt(perspectiveNames[0]);
-	// int f2 = Integer.parseInt(perspectiveNames[1]);
-	// ps.setInt(1, f1);
-	// ps.setInt(2, f2);
-	// ps.setInt(3, f1);
-	// ps.setInt(4, f2);
-	// ps.setInt(5, n);
-	//
-	// ResultSet rs = jdbc.SQLquery(ps);
-	// sendResultSet(rs, MyResultSet.INT, out);
-	// }
-	// }
-	//
-	// String topCandQuery(int nFacets) {
-	// String x = "?, ?, ?, ?, ?, ?, ?";
-	// String IDs = x.substring(0, 3 * nFacets - 2);
-	// String result = "SELECT candidateID "
-	// + "FROM (SELECT candidateID, "
-	// + "ABS(jointProb - primaryProb*candidateProb)/"
-	// +
-	// "SQRT((primaryProb-primaryProb*primaryProb)*(candidateProb-candidateProb*candidateProb)) corr "
-	// + "FROM (SELECT candidateID, "
-	// + "(SELECT n_items FROM facet"
-	// +
-	// " WHERE facet_id=primaryID)/(SELECT COUNT(*) FROM item_order_heap) primaryProb, "
-	// + "n_items/(SELECT COUNT(*) FROM item_order_heap) candidateProb, "
-	// + "jointCount/(SELECT COUNT(*) FROM item_order_heap) jointProb "
-	// + "FROM ( "
-	// +
-	// "SELECT candidate.facet_id candidateID, candidate.n_items, prime.facet_id primaryID, "
-	// +
-	// "(SELECT COUNT(*) FROM item_facet_heap i1 WHERE candidate.facet_id=i1.facet_id "
-	// + "AND EXISTS (SELECT * FROM item_facet_heap i0"
-	// +
-	// " WHERE i0.record_num=i1.record_num AND i0.facet_id = prime.facet_id)) jointCount "
-	// + "FROM facet candidate, (SELECT facet_id FROM facet WHERE facet_id IN ("
-	// + IDs + ")) prime " + "WHERE candidate.facet_id NOT IN (" + IDs
-	// + ") AND candidate.parent_facet_id > 0 " + ") foo "
-	// // + "HAVING candidateProb>0.00001 "
-	// + ") bar " + ") baz " + "GROUP BY candidateID "
-	// + "ORDER BY POW(SUM(corr),2) - SUM(corr*corr) DESC LIMIT ?";
-	// return result;
-	// }
-	//
-	// @SuppressWarnings("unchecked")
-	// void topCandidates(String perspectiveIDs, int n, int table,
-	// DataOutputStream out) throws SQLException, ServletException,
-	// IOException {
-	// myAssert(table != 1,
-	// "topCandidates needs a second case for restricted queries.");
-	// // String baseTable = table == 1 ? "restricted" : "item_order_heap";
-	// String sql = "CREATE TEMPORARY TABLE IF NOT EXISTS jointCounts ("
-	// + " candidateID smallint(5) unsigned NOT NULL,"
-	// + " primaryID smallint(5) unsigned NOT NULL,"
-	// + " jointCount bigint(21) NOT NULL default 0,"
-	// + " PRIMARY KEY USING HASH (candidateID, primaryID)"
-	// + ") ENGINE=MEMORY DEFAULT CHARSET=utf8";
-	// jdbc.SQLupdate(sql);
-	// jdbc.SQLupdate("TRUNCATE TABLE jointCounts");
-	// sql = "INSERT INTO jointCounts "
-	// +
-	// "SELECT i1.facet_id candidateID, i0.facet_id primaryID, COUNT(*) jointCount "
-	// + "FROM item_facet_heap i0 "
-	// + "INNER JOIN item_facet_heap i1 ON i0.record_num = i1.record_num"
-	// + " WHERE i1.facet_id NOT IN (" + perspectiveIDs
-	// + ") AND i0.facet_id IN (" + perspectiveIDs
-	// + ") GROUP BY candidateID, primaryID " + "ORDER BY NULL";
-	// // log(sql);
-	// jdbc.SQLupdate(sql);
-	// sql = "SELECT candidateID "
-	// + "FROM (SELECT candidateID,"
-	// + "ABS(jointProb - primaryProb*candidateProb)/"
-	// +
-	// "SQRT((primaryProb-primaryProb*primaryProb)*(candidateProb-candidateProb*candidateProb)) corr "
-	// + "FROM ("
-	// +
-	// "SELECT candidate.facet_id candidateID, candidate.n_items/(SELECT COUNT(*) FROM item_order_heap) candidateProb,"
-	// +
-	// " prime.n_items/(SELECT COUNT(*) FROM item_order_heap) primaryProb, foo.jointCount/(SELECT COUNT(*) FROM item_order_heap) jointProb "
-	// + "FROM facet candidate INNER JOIN facet prime LEFT JOIN "
-	// + "jointCounts foo "
-	// +
-	// "ON foo.candidateID = candidate.facet_id AND foo.primaryID = prime.facet_id "
-	// + "WHERE candidate.parent_facet_id > 0 "
-	// + "AND candidate.facet_id NOT IN (" + perspectiveIDs + ")"
-	// + " AND prime.facet_id IN (" + perspectiveIDs + ")"
-	// + "HAVING candidateProb>0.00001)" + " bar) baz "
-	// + "GROUP BY candidateID "
-	// + "ORDER BY POW(SUM(corr),2) - SUM(corr*corr) DESC LIMIT 20"
-	// + n;
-	// // log(sql);
-	// ResultSet rs = jdbc.SQLquery(sql);
-	// sendResultSet(rs, MyResultSet.INT, out);
-	// }
-
-	// @SuppressWarnings("unchecked")
-	// void topCandidates1(String perspectiveIDs, int n, int table,
-	// DataOutputStream out) throws SQLException, ServletException,
-	// IOException {
-	// myAssert(table != 1,
-	// "topCandidates needs a second case for restricted queries.");
-	// // String baseTable = table == 1 ? "restricted" : "item_order_heap";
-	// String sql = "SELECT candidateID "
-	// + "FROM (SELECT candidateID, "
-	// + "ABS(jointProb - primaryProb*candidateProb)/"
-	// +
-	// "SQRT((primaryProb-primaryProb*primaryProb)*(candidateProb-candidateProb*candidateProb)) corr "
-	// + "FROM (SELECT candidateID, "
-	// + "(SELECT n_items FROM facet"
-	// +
-	// " WHERE facet_id=primaryID)/(SELECT COUNT(*) FROM item_order_heap) primaryProb, "
-	// + "n_items/(SELECT COUNT(*) FROM item_order_heap) candidateProb, "
-	// + "jointCount/(SELECT COUNT(*) FROM item_order_heap) jointProb "
-	// + "FROM ( "
-	// +
-	// "SELECT candidate.facet_id candidateID, candidate.n_items, prime.facet_id primaryID, "
-	// +
-	// "(SELECT COUNT(*) FROM item_facet_heap i1 WHERE candidate.facet_id=i1.facet_id "
-	// + "AND EXISTS (SELECT * FROM item_facet_heap i0"
-	// +
-	// " WHERE i0.record_num=i1.record_num AND i0.facet_id = prime.facet_id)) jointCount "
-	// + "FROM facet candidate, (SELECT facet_id FROM facet WHERE facet_id IN ("
-	// + perspectiveIDs + ")) prime "
-	// + "WHERE candidate.facet_id NOT IN (" + perspectiveIDs
-	// + ") AND candidate.parent_facet_id > 0 " + ") foo "
-	// // + "HAVING candidateProb>0.00001 "
-	// + ") bar " + ") baz " + "GROUP BY candidateID "
-	// + "ORDER BY POW(SUM(corr),2) - SUM(corr*corr) DESC LIMIT " + n;
-	// // log(sql);
-	// ResultSet rs = jdbc.SQLquery(sql);
-	// sendResultSet(rs, MyResultSet.INT, out);
-	// }
-	//
-	// @SuppressWarnings("unchecked")
-	// void topCandidates(String perspectiveIDs, int n, int table,
-	// DataOutputStream out) throws SQLException, ServletException,
-	// IOException {
-	// String[] perspectiveNames = perspectiveIDs.split(",");
-	// int nPerspectives = perspectiveNames.length;
-	// int[] IDs = new int[nPerspectives];
-	// String[] addends = new String[IDs.length];
-	// String[] where = new String[IDs.length];
-	// String[] clauses = new String[IDs.length];
-	// String baseTable = table == 1 ? "restricted" : "item_order_heap";
-	// for (int i = 0; i < IDs.length; i++) {
-	// IDs[i] = Integer.parseInt(perspectiveNames[i]);
-	// clauses[i] = "(select f1.facet_id id"
-	// + i
-	// + ", f0.n_items/(SELECT COUNT(*) "
-	// + "FROM item_order_heap) p1"
-	// + i
-	// + ", f1.n_items/(SELECT COUNT(*) FROM "
-	// + baseTable
-	// + ") p2"
-	// + i
-	// + ", "
-	// + "COUNT(*)/(SELECT COUNT(*) FROM item_order_heap) p12"
-	// + i
-	// + " "
-	// +
-	// "FROM item_order rnd INNER JOIN item_facet_heap i0 ON rnd.record_num = i0.record_num AND i0.facet_id = "
-	// + IDs[i]
-	// + " INNER JOIN item_facet_heap i1 ON rnd.record_num = i1.record_num "
-	// + "INNER JOIN facet f0 on f0.facet_id = i0.facet_id "
-	// + "INNER JOIN facet f1 on f1.facet_id = i1.facet_id "
-	// + "where f0.facet_id != f1.facet_id "
-	// + "group by f1.facet_id " + "order by null) t" + i;
-	// where[i] = "id" + i + " = id0";
-	// addends[i] = "abs(p12" + i + " - p1" + i + "*p2" + i + ")/"
-	// + "sqrt((p1" + i + "-p1" + i + "*p1" + i + ")*(p2" + i
-	// + "-p2" + i + "*p2" + i + "))";
-	// }
-	//
-	// String sql = "SELECT id0 FROM " + Util.join(clauses)
-	// + " WHERE " + Util.join(where, " AND ") + " ORDER BY "
-	// + Util.join(addends, " + ") + " DESC LIMIT " + n;
-	// log(sql);
-	// ResultSet rs = jdbc.SQLquery(sql);
-	// sendResultSet(rs, MyResultSet.INT, out);
-	// }
-
-	// @SuppressWarnings("unchecked")
-	// void topCandidatesMutInf(String perspectiveIDs, int n, int table,
-	// DataOutputStream out) throws SQLException, ServletException,
-	// IOException {
-	// String[] perspectiveNames = perspectiveIDs.split(",");
-	// int nPerspectives = perspectiveNames.length;
-	// int[] IDs = new int[nPerspectives];
-	// for (int i = 0; i < IDs.length; i++) {
-	// IDs[i] = Integer.parseInt(perspectiveNames[i]);
-	// // log("topCandidates "
-	// // + i
-	// // + " "
-	// // + jdbc
-	// // .SQLqueryString("Select name from facet where facet_id = "
-	// // + IDs[i]));
-	// }
-	// String baseTable = table == 1 ? "restricted" : "item_order_heap";
-	// double total = jdbc.SQLqueryInt("SELECT COUNT(*) FROM " + baseTable);
-	// jdbc.SQLupdate("TRUNCATE TABLE mutInf");
-	// mutInfQuery1.setDouble(1, total);
-	// jdbc.SQLupdate(mutInfQuery1);
-	//
-	// // debug();
-	//
-	// for (int substate = 0; substate < 1 << nPerspectives; substate++) {
-	// jdbc.SQLupdate("TRUNCATE TABLE state_items");
-	// int[] include = new int[Util.weight(substate)];
-	// int[] exclude = new int[nPerspectives - include.length];
-	// int includeIndex = 0;
-	// int excludeIndex = 0;
-	// for (int i = 0; i < nPerspectives; i++) {
-	// if (Util.isBit(substate, i)) {
-	// include[includeIndex++] = IDs[i];
-	// } else {
-	// exclude[excludeIndex++] = IDs[i];
-	// }
-	// }
-	// String SQL = QuerySQL.onItemsQuery(Collections.EMPTY_SET, include,
-	// exclude, Collections.EMPTY_SET, null, true,
-	// Collections.EMPTY_SET, baseTable);
-	// int substateCount = jdbc
-	// .SQLupdate("INSERT INTO state_items SELECT record_num FROM ("
-	// + SQL + ") foo");
-	// if (substateCount > 0) {
-	// double p = substateCount / total;
-	// // log(substate + " " + p);
-	// mutInfQuery2.setInt(1, substateCount);
-	// mutInfQuery2.setDouble(2, p);
-	// jdbc.SQLupdate(mutInfQuery2);
-	//
-	// // debug();
-	//
-	// // ResultSet rs1 = jdbc
-	// // .SQLquery("SELECT f.facet_id, COUNT(*)/? AS p "
-	// // + "FROM relevantFacets f "
-	// // + "INNER JOIN item_facet_heap i_f USING (facet_id) "
-	// // + "INNER JOIN substateItems USING (record_num) "
-	// // + "GROUP BY f.facet_id ORDER BY f.facet_id"
-	// // + ")
-	//
-	// }
-	// }
-	//
-	// // debug();
-	//
-	// ResultSet rs = jdbc
-	// .SQLquery("SELECT facet_id FROM mutInf ORDER BY mutInf DESC LIMIT "
-	// + n);
-	// sendResultSet(rs, MyResultSet.INT, out);
-	// }
-
-	// @SuppressWarnings("unchecked")
-	// private void debug() throws SQLException {
-	// ResultSet rs1 = jdbc
-	// .SQLquery(
-	// "SELECT name,1000*mutInf FROM mutInf inner join facet using (facet_id) where mutinf.facet_id=802 ORDER BY mutInf DESC LIMIT "
-	// + 1);
-	// // log(MyResultSet.valueOfDeep(rs1, MyResultSet.STRING_INT, 100));
-	// printRecords(rs1, MyResultSet.STRING_INT);
-	// // log("total=" + total);
-	// }
 
 	private PreparedStatement printUserActionStmt;
 
