@@ -4,6 +4,7 @@ import java.io.BufferedOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.sql.SQLException;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -121,11 +122,11 @@ public class Servlet extends HttpServlet {
 	void logRequest(HttpServletRequest request) {
 		log("Request info: " + request.getRequestURL().toString() + " "
 				+ request.getQueryString() + " " + request.getRemoteHost());
-		// Enumeration<String> e = request.getHeaderNames();
-		// while (e.hasMoreElements()) {
-		// String s = e.nextElement();
-		// log(s + ": " + request.getHeader(s));
-		// }
+		Enumeration<String> e = request.getHeaderNames();
+		while (e.hasMoreElements()) {
+			String s = e.nextElement();
+			log(s + ": " + request.getHeader(s));
+		}
 	}
 
 	@Override
@@ -145,7 +146,8 @@ public class Servlet extends HttpServlet {
 			Integer xsession = getSession(request);
 			Command command = parseCommand(request.getParameter("command"));
 			// if (command != Command.prefetch)
-			// log("doPost " + request.getQueryString());
+			log("doPost " + request.getQueryString());
+			logRequest(request);
 			if (command == Command.CONNECT) {
 				String dbName = request.getParameter("arg1");
 				ServletConfig config = getServletConfig();
@@ -165,7 +167,7 @@ public class Servlet extends HttpServlet {
 							"IPpermissions").split(",");
 					for (int i = 0; i < authorizedIPs.length && !isAuthorized; i++) {
 						isAuthorized = requestIP.startsWith(authorizedIPs[i]);
-						//log(i+" "+isAuthorized+" "+requestIP+" "+authorizedIPs
+						// log(i+" "+isAuthorized+" "+requestIP+" "+authorizedIPs
 						// [i]);
 					}
 					if (!isAuthorized)
@@ -202,7 +204,7 @@ public class Servlet extends HttpServlet {
 						new Deflater(Deflater.BEST_COMPRESSION)));
 				// response.setContentLength(999);
 
-				// log("...doPost " + command + " to db");
+				log("...doPost " + command + " to db");
 				try {
 					doPostInternal(xsession, command, out, request);
 					// } catch (SQLException e) {
@@ -225,11 +227,11 @@ public class Servlet extends HttpServlet {
 							errMsg);
 				}
 			}
+			log("...doPost " + command + " done");
 		} finally {
 			if (out != null)
 				out.close();
 		}
-		// log("...doPost " + command + " done");
 	}
 
 	private void doPostInternal(Integer xsession, Command command,
@@ -439,7 +441,7 @@ public class Servlet extends HttpServlet {
 		default:
 			throw (new ServletException("Unknown command: " + command));
 		}
-		// log("...doPost " + command + " writing");
+		log("...doPost " + command + " writing");
 	}
 
 	private void handleUserActions(Integer xsession, HttpServletRequest request)
