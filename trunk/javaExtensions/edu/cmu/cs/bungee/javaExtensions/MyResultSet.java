@@ -563,7 +563,7 @@ public class MyResultSet implements ResultSet {
 		}
 
 		public Object[] getValues() {
-			return (String[]) values.clone();
+			return values.clone();
 		}
 	}
 

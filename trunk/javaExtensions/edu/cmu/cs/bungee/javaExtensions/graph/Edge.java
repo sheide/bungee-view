@@ -12,10 +12,10 @@ import java.util.List;
 
 public class Edge {
 
-	private static final int NEITHER = 0;
-	private static final int FORWARD = 1;
-	private static final int BACKWARD = 2;
-	private static final int BIDIRECTIONAL = FORWARD | BACKWARD;
+	// private static final int NEITHER = 0;
+	// private static final int FORWARD = 1;
+	// private static final int BACKWARD = 2;
+	// private static final int BIDIRECTIONAL = FORWARD | BACKWARD;
 
 	// left is nodes[0]; right is nodes[1]
 	public static final int LEFT_LABEL = 0;
@@ -23,9 +23,11 @@ public class Edge {
 	public static final int RIGHT_LABEL = 2;
 
 	private String labels[];
-	private int orientation = BIDIRECTIONAL;
-	private final Node node1;
-	private final Node node2;
+	// private int orientation = BIDIRECTIONAL;
+	// private final Node node1;
+	// private final Node node2;
+	private final Endpoint endpoint1;
+	private final Endpoint endpoint2;
 	private final List nodes;
 
 	// private int x1, y1, x2, y2;
@@ -33,29 +35,38 @@ public class Edge {
 	Edge(String[] labels, Node node1, Node node2) {
 		super();
 		this.labels = labels;
-		this.node1 = node1;
-		this.node2 = node2;
+		this.endpoint1 = new Endpoint(node1);
+		this.endpoint2 = new Endpoint(node2);
 		List nodes1 = new ArrayList(2);
 		nodes1.add(node1);
 		nodes1.add(node2);
 		nodes = Collections.unmodifiableList(nodes1);
 	}
 
+	 Node getNode1() {
+		return endpoint1.node;
+	}
+
+	 Node getNode2() {
+		return endpoint2.node;
+	}
+
 	boolean hasNode(Node node) {
-		return node == node1 || node == node2;
+		return node == getNode1() || node == getNode2();
 	}
 
-	private int getMask(Node caused) {
-		assert hasNode(caused);
-		return caused == node1 ? 1 : 2;
-	}
+	// private int getMask(Node caused) {
+	// assert hasNode(caused);
+	// return caused == getNode1() ? 1 : 2;
+	// }
 
-	boolean isNull() {
-		return orientation == NEITHER;
-	}
+	// boolean isNull() {
+	// return orientation == NEITHER;
+	// }
 
 	public void setBidirectional() {
-		orientation = BIDIRECTIONAL;
+		endpoint1.type = ARROW;
+		endpoint2.type = ARROW;
 	}
 
 	public void removeDirection(Node caused) {
@@ -70,19 +81,28 @@ public class Edge {
 
 		assert hasNode(caused);
 		assert canCause(caused);
-		orientation &= ~getMask(caused);
+		getEndpoint(caused).type = NONE;
+		// orientation &= ~getMask(caused);
+	}
+
+	public Endpoint getEndpoint(Node caused) {
+		assert hasNode(caused);
+		return caused == getNode1() ? endpoint1 : endpoint2;
 	}
 
 	public void addDirection(Node caused) {
 		assert hasNode(caused);
 		// if (!canCause(caused))
 		// System.out.println("addDirection "+this);
-		orientation |= getMask(caused);
+		getEndpoint(caused).type = ARROW;
+		// orientation |= getMask(caused);
 	}
 
 	public void setDirection(Node caused) {
 		assert hasNode(caused);
-		orientation = getMask(caused);
+		getEndpoint(caused).type = ARROW;
+		getEndpoint(getDistalNode(caused)).type = NONE;
+		// orientation = getMask(caused);
 		// System.out.println("setDirection "+this);
 	}
 
@@ -91,12 +111,13 @@ public class Edge {
 	}
 
 	public Node getDistalNode(Node proximalNode) {
-		assert proximalNode == node1 || proximalNode == node2;
-		return proximalNode == node1 ? node2 : node1;
+		assert proximalNode == getNode1() || proximalNode == getNode2();
+		return proximalNode == getNode1() ? getNode2() : getNode1();
 	}
 
 	public boolean canCause(Node caused) {
-		return (orientation & getMask(caused)) > 0;
+		return getEndpoint(caused).type == ARROW;
+		// return (orientation & getMask(caused)) > 0;
 	}
 
 	public String getLabel(int position) {
@@ -113,9 +134,9 @@ public class Edge {
 	}
 
 	private int getPosition(Node node) {
-		if (node == node1)
+		if (node == getNode1())
 			return LEFT_LABEL;
-		else if (node == node2)
+		else if (node == getNode2())
 			return RIGHT_LABEL;
 		assert false;
 		return -1;
@@ -126,18 +147,19 @@ public class Edge {
 	}
 
 	public int getNumDirections() {
-		switch (orientation) {
-		case NEITHER:
-			return 0;
-		case FORWARD:
-		case BACKWARD:
-			return 1;
-		case BIDIRECTIONAL:
-			return 2;
-		default:
-			assert false;
-			return -1;
-		}
+		return (canCause(getNode1()) ? 1 : 0) + (canCause(getNode2()) ? 1 : 0);
+		// switch (orientation) {
+		// case NEITHER:
+		// return 0;
+		// case FORWARD:
+		// case BACKWARD:
+		// return 1;
+		// case BIDIRECTIONAL:
+		// return 2;
+		// default:
+		// assert false;
+		// return -1;
+		// }
 	}
 
 	// public void setEndpoint(int x, int y, Node node) {
@@ -208,13 +230,35 @@ public class Edge {
 	 *         >Intersection point of two lines< /a>
 	 */
 	Point2D getIntersection(Edge edge2) {
+		// if (getNodes().contains(edge2.getNode1())
+		// || getNodes().contains(edge2.getNode2()))
+		// return null;
+		if (minX() >= edge2.maxX() || maxX() <= edge2.minX()
+				|| minY() >= edge2.maxY() || maxY() <= edge2.minY())
+			return null;
 		return getIntersection(getCenterToCenterLine(), edge2
 				.getCenterToCenterLine());
 	}
 
+	int maxX() {
+		return Math.max(getNode1().getCenterX(), getNode2().getCenterX());
+	}
+
+	int minX() {
+		return Math.min(getNode1().getCenterX(), getNode2().getCenterX());
+	}
+
+	int maxY() {
+		return Math.max(getNode1().getCenterY(), getNode2().getCenterY());
+	}
+
+	int minY() {
+		return Math.min(getNode1().getCenterY(), getNode2().getCenterY());
+	}
+
 	private Double getCenterToCenterLine() {
-		Node node11 = node1;
-		Node node12 = node2;
+		Node node11 = getNode1();
+		Node node12 = getNode2();
 		int x11 = node11.getCenterX();
 		int y11 = node11.getCenterY();
 		int x12 = node12.getCenterX();
@@ -260,11 +304,21 @@ public class Edge {
 			} else {
 				// lines are parallel. result remains null.
 			}
-		} else if (between(numeratorA, 0, denom)
-				&& between(numeratorB, 0, denom)) {
+		} else {
 			double ua = numeratorA / denom;
-			result = new Point2D.Double(x11 + ua * (x12 - x11), y11 + ua
-					* (y12 - y11));
+			if (ua > 0 && ua < 1) {
+				double ub = numeratorB / denom;
+				if (ub > 0 && ub < 1) {
+					result = new Point2D.Double(x11 + ua * (x12 - x11), y11
+							+ ua * (y12 - y11));
+				}
+			}
+
+			// } else if (between(numeratorA, 0, denom)
+			// && between(numeratorB, 0, denom)) {
+			// double ua = numeratorA / denom;
+			// result = new Point2D.Double(x11 + ua * (x12 - x11), y11 + ua
+			// * (y12 - y11));
 		}
 		return result;
 	}
@@ -279,29 +333,68 @@ public class Edge {
 
 	public String toString() {
 		StringBuffer buf = new StringBuffer();
-		Node caused = isArrowhead(node1) ? node1 : node2;
-		String connector = isArrowhead(caused) ? " --> " : " --- ";
+		String connector = " " + endpoint1.symbol("<") + "-"
+				+ endpoint2.symbol(">") + " ";
+
+		Node caused = isArrowhead(getNode1()) ? getNode1() : getNode2();
+		// String connector = isArrowhead(caused) ? " --> " : " --- ";
+
 		buf.append(getDistalNode(caused).getLabel()).append(connector).append(
 				caused.getLabel());
 		return buf.toString();
 	}
 
 	public Node getCausedNode() {
-		if (isArrowhead(node1))
-			return node1;
-		else if (isArrowhead(node2))
-			return node2;
+		if (isArrowhead(getNode1()))
+			return getNode1();
+		else if (isArrowhead(getNode2()))
+			return getNode2();
 		assert false;
 		return null;
 	}
 
 	public Node getCausingNode() {
-		if (isArrowhead(node1))
-			return node2;
-		else if (isArrowhead(node2))
-			return node1;
+		if (isArrowhead(getNode1()))
+			return getNode2();
+		else if (isArrowhead(getNode2()))
+			return getNode1();
 		assert false;
 		return null;
+	}
+
+	public final static int ARROW = 1;
+	public final static int CIRCLE = 2;
+	public final static int NONE = 3;
+
+	public static class Endpoint {
+		public int type;
+		final Node node;
+
+		Endpoint(Node node) {
+			this.type = NONE;
+			this.node = node;
+		}
+
+		Endpoint(int type, Node node) {
+			assert type == ARROW || type == CIRCLE || type == NONE;
+			this.type = type;
+			this.node = node;
+		}
+
+		String symbol(String arrowSymbol) {
+			switch (type) {
+			case ARROW:
+				return arrowSymbol;
+			case CIRCLE:
+				return "o";
+			case NONE:
+				return "-";
+
+			default:
+				assert false;
+				return "?";
+			}
+		}
 	}
 
 }

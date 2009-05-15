@@ -11,14 +11,14 @@ import java.util.List;
 public class PermutationIterator implements Iterator {
 
 	private final Object[] objects;
-	private final IntegerPermutationGenerator integerPermGenerator;
+	private final IntegerPermutationIter integerPermGenerator;
 	private int nRemainingPerms;
 	private final List perm;
 
 	public PermutationIterator(List collection) {
 		objects = collection.toArray();
 		int nObjects = objects.length;
-		integerPermGenerator = new IntegerPermutationGenerator(nObjects);
+		integerPermGenerator = new IntegerPermutationIter(nObjects);
 		nRemainingPerms = factorial(nObjects);
 		perm = new ArrayList(nObjects);
 		for (int i = 0; i < nObjects; i++) {
@@ -35,7 +35,7 @@ public class PermutationIterator implements Iterator {
 	 */
 	public Object next() {
 		nRemainingPerms--;
-		int[] integerPerm = integerPermGenerator.next();
+		int[] integerPerm = (int[]) integerPermGenerator.next();
 		for (int i = 0; i < integerPerm.length; i++) {
 			perm.set(i, objects[integerPerm[i]]);
 		}
