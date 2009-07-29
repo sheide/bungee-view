@@ -169,6 +169,7 @@ public class Mcsrch {
 	public static void mcsrch(final int n, double[] x, double f, double[] g,
 			double[] s, int is0, double[] stp, double ftol, double xtol,
 			int maxfev, int[] info, int[] nfev, double[] wa, int[] iprint) {
+//		System.err.println("mc " + f + " " + stp[0]);
 
 		if (info[0] != -1) {
 			infoc[0] = 1;
@@ -179,13 +180,13 @@ public class Mcsrch {
 
 			// Compute the initial gradient in the search direction
 			// and check that s is a descent direction.
-
 			dginit = 0;
-
 			for (j = 1; j <= n; j += 1) {
-				dginit = dginit + g[j - 1] * s[is0 + j - 1];
+				dginit += g[j - 1] * s[is0 + j - 1];
+				if (Double.isNaN(dginit))
+					System.err
+							.println("NaN " + g[j - 1] + " " + s[is0 + j - 1]);
 			}
-
 			if (dginit >= 0) {
 				System.out
 						.println("The search direction is not a descent direction.");
@@ -211,20 +212,22 @@ public class Mcsrch {
 			// the interval of uncertainty.
 			// The variables stp, f, dg contain the values of the step,
 			// function, and derivative at the current step.
-
 			stx[0] = 0;
 			fx[0] = finit;
 			dgx[0] = dginit;
 			sty[0] = 0;
 			fy[0] = finit;
 			dgy[0] = dginit;
+
+			if (iprint[0] > 0)
+				System.err.println("new line search f=" + finit + " dg="
+						+ dginit + " stp=" + stp[0]);
 		}
 
 		while (true) {
 			if (info[0] != -1) {
 				// Set the minimum and maximum steps to correspond
 				// to the present interval of uncertainty.
-
 				if (brackt[0]) {
 					stmin = Math.min(stx[0], sty[0]);
 					stmax = Math.max(stx[0], sty[0]);
@@ -234,24 +237,19 @@ public class Mcsrch {
 				}
 
 				// Force the step to be within the bounds stpmax and stpmin.
-
 				setSTP(stp, Math.max(stp[0], LBFGS.stpmin));
 				setSTP(stp, Math.min(stp[0], LBFGS.stpmax));
-				// stp[0] = Math.max(stp[0], LBFGS.stpmin);
-				// stp[0] = Math.min(stp[0], LBFGS.stpmax);
 
 				// If an unusual termination is to occur then let
 				// stp be the lowest point obtained so far.
-
-				if ((brackt[0] && (stp[0] <= stmin || stp[0] >= stmax))
-						|| nfev[0] >= maxfev - 1 || infoc[0] == 0
-						|| (brackt[0] && stmax - stmin <= xtol * stmax))
+				if ((brackt[0] && (stp[0] <= stmin || stp[0] >= stmax || stmax
+						- stmin <= xtol * stmax))
+						|| nfev[0] >= maxfev - 1 || infoc[0] == 0)
 					setSTP(stp, stx[0]);
 
 				// Evaluate the function and gradient at stp
 				// and compute the directional derivative.
 				// We return to main program to obtain F and G.
-
 				for (j = 1; j <= n; j += 1) {
 					x[j - 1] = wa[j - 1] + stp[0] * s[is0 + j - 1];
 					if (Math.abs(x[j - 1]) > 40) {
@@ -275,7 +273,6 @@ public class Mcsrch {
 			ftest1 = finit + stp[0] * dgtest;
 
 			// Test for convergence.
-
 			if ((brackt[0] && (stp[0] <= stmin || stp[0] >= stmax))
 					|| infoc[0] == 0)
 				// Rounding errors prevent further
@@ -309,18 +306,13 @@ public class Mcsrch {
 				info[0] = 1;
 
 			// Check for termination.
-
-			if (info[0] != 0)
+			if (info[0] != 0) {
+				info[0] = 1;
 				return;
-
-			if (iprint[0] > 0)
-				System.err.println("msrch internal nfev=" + nfev[0] + " info="
-						+ info[0] + " stx=" + stx[0] + " sty=" + sty[0]
-						+ " brackt=" + brackt[0] + " stp=" + stp[0]);
+			}
 
 			// In the first stage we seek a step for which the modified
 			// function has a nonpositive value and nonnegative derivative.
-
 			if (stage1 && f <= ftest1
 					&& dg >= Math.min(ftol, LBFGS.gtol) * dginit)
 				stage1 = false;
@@ -330,10 +322,8 @@ public class Mcsrch {
 			// function has a nonpositive function value and nonnegative
 			// derivative, and if a lower function value has been
 			// obtained but the decrease is not sufficient.
-
 			if (stage1 && f <= fx[0] && f > ftest1) {
 				// Define the modified function and derivative values.
-
 				fm = f - stp[0] * dgtest;
 				fxm[0] = fx[0] - stx[0] * dgtest;
 				fym[0] = fy[0] - sty[0] * dgtest;
@@ -343,12 +333,10 @@ public class Mcsrch {
 
 				// Call cstep to update the interval of uncertainty
 				// and to compute the new step.
-
 				mcstep(stx, fxm, dgxm, sty, fym, dgym, stp, fm, dgm, brackt,
 						stmin, stmax, infoc, iprint);
 
 				// Reset the function and gradient values for f.
-
 				fx[0] = fxm[0] + stx[0] * dgtest;
 				fy[0] = fym[0] + sty[0] * dgtest;
 				dgx[0] = dgxm[0] + dgtest;
@@ -356,18 +344,20 @@ public class Mcsrch {
 			} else {
 				// Call mcstep to update the interval of uncertainty
 				// and to compute the new step.
-
 				mcstep(stx, fx, dgx, sty, fy, dgy, stp, f, dg, brackt, stmin,
 						stmax, infoc, iprint);
 			}
 
+			if (iprint[0] > 0)
+				System.err.println(" msrch internal f=" + f + " dg=" + dg
+						+ " stx=" + stx[0] + " sty=" + sty[0] + " brackt="
+						+ brackt[0] + " stp=" + stp[0]);
+
 			// Force a sufficient decrease in the size of the
 			// interval of uncertainty.
-
 			if (brackt[0]) {
 				if (Math.abs(sty[0] - stx[0]) >= TWO_THIRDS * width1)
 					setSTP(stp, (sty[0] + stx[0]) / 2.0);
-				// stp[0] = (sty[0] + stx[0]) / 2.0;
 				width1 = width;
 				width = Math.abs(sty[0] - stx[0]);
 			}
@@ -392,10 +382,10 @@ public class Mcsrch {
 	 * Variables that must be modified by <code>mcstep</code> are implemented as
 	 * 1-element arrays.
 	 * 
-	 * @param stx
+	 * @param stx1
 	 *            Step at the best step obtained so far. This variable is
 	 *            modified by <code>mcstep</code>.
-	 * @param fx
+	 * @param fx1
 	 *            Function value at the best step obtained so far. This variable
 	 *            is modified by <code>mcstep</code>.
 	 * @param dx
@@ -404,10 +394,10 @@ public class Mcsrch {
 	 *            <code>dx</code> and <code>stp-stx</code> must have opposite
 	 *            signs. This variable is modified by <code>mcstep</code>.
 	 * 
-	 * @param sty
+	 * @param sty1
 	 *            Step at the other endpoint of the interval of uncertainty.
 	 *            This variable is modified by <code>mcstep</code>.
-	 * @param fy
+	 * @param fy1
 	 *            Function value at the other endpoint of the interval of
 	 *            uncertainty. This variable is modified by <code>mcstep</code>.
 	 * @param dy
@@ -424,7 +414,7 @@ public class Mcsrch {
 	 * @param dp
 	 *            Derivative at the current step.
 	 * 
-	 * @param brackt
+	 * @param brackt1
 	 *            Tells whether a minimizer has been bracketed. If the minimizer
 	 *            has not been bracketed, then on input this variable must be
 	 *            set <code>false</code>. If the minimizer has been bracketed,
@@ -445,22 +435,22 @@ public class Mcsrch {
 	 *         part of Minpack project. Argonne Nat'l Laboratory, June 1983.
 	 *         Robert Dodier: Java translation, August 1997.
 	 */
-	public static void mcstep(double[] stx, double[] fx, double[] dx,
-			double[] sty, double[] fy, double[] dy, double[] stp, double fp,
-			double dp, boolean[] brackt, double stpmin, double stpmax,
+	public static void mcstep(double[] stx1, double[] fx1, double[] dx,
+			double[] sty1, double[] fy1, double[] dy, double[] stp, double fp,
+			double dp, boolean[] brackt1, double stpmin, double stpmax,
 			int[] info, int[] iprint) {
 		boolean bound;
 		double gamma, p, q, r, s, sgnd, stpc, stpf, stpq, theta;
 
 		info[0] = 0;
 
-		if ((brackt[0] && (stp[0] <= Math.min(stx[0], sty[0]) || stp[0] >= Math
-				.max(stx[0], sty[0])))
-				|| dx[0] * (stp[0] - stx[0]) >= 0.0 || stpmax < stpmin) {
+		if ((brackt1[0] && (stp[0] <= Math.min(stx1[0], sty1[0]) || stp[0] >= Math
+				.max(stx1[0], sty1[0])))
+				|| dx[0] * (stp[0] - stx1[0]) >= 0.0 || stpmax < stpmin) {
 			if (iprint[0] > 0)
-				System.err.println("mcstep=0 " + brackt[0] + " " + stp[0] + " "
-						+ stx[0] + " " + sty[0] + " " + dx[0] + " " + stpmax
-						+ " " + stpmin);
+				System.err.println("mcstep=0 " + brackt1[0] + " " + stp[0]
+						+ " " + stx1[0] + " " + sty1[0] + " " + dx[0] + " "
+						+ stpmax + " " + stpmin);
 			return;
 		}
 
@@ -468,7 +458,7 @@ public class Mcsrch {
 
 		sgnd = dp * (dx[0] / Math.abs(dx[0]));
 
-		if (fp > fx[0]) {
+		if (fp > fx1[0]) {
 			// First case. A higher function value.
 			// The minimum is bracketed. If the cubic step is closer
 			// to stx than the quadratic step, the cubic step is taken,
@@ -476,24 +466,24 @@ public class Mcsrch {
 
 			info[0] = 1;
 			bound = true;
-			theta = 3 * (fx[0] - fp) / (stp[0] - stx[0]) + dx[0] + dp;
+			theta = 3 * (fx1[0] - fp) / (stp[0] - stx1[0]) + dx[0] + dp;
 			s = max3(Math.abs(theta), Math.abs(dx[0]), Math.abs(dp));
 			gamma = s * Math.sqrt(sqr(theta / s) - (dx[0] / s) * (dp / s));
-			if (stp[0] < stx[0])
+			if (stp[0] < stx1[0])
 				gamma = -gamma;
 			p = (gamma - dx[0]) + theta;
 			q = ((gamma - dx[0]) + gamma) + dp;
 			r = p / q;
-			stpc = stx[0] + r * (stp[0] - stx[0]);
-			stpq = stx[0]
-					+ ((dx[0] / ((fx[0] - fp) / (stp[0] - stx[0]) + dx[0])) / 2)
-					* (stp[0] - stx[0]);
-			if (Math.abs(stpc - stx[0]) < Math.abs(stpq - stx[0])) {
+			stpc = stx1[0] + r * (stp[0] - stx1[0]);
+			stpq = stx1[0]
+					+ ((dx[0] / ((fx1[0] - fp) / (stp[0] - stx1[0]) + dx[0])) / 2)
+					* (stp[0] - stx1[0]);
+			if (Math.abs(stpc - stx1[0]) < Math.abs(stpq - stx1[0])) {
 				stpf = stpc;
 			} else {
 				stpf = stpc + (stpq - stpc) / 2;
 			}
-			brackt[0] = true;
+			brackt1[0] = true;
 		} else if (sgnd < 0.0) {
 			// Second case. A lower function value and derivatives of
 			// opposite sign. The minimum is bracketed. If the cubic
@@ -502,22 +492,22 @@ public class Mcsrch {
 
 			info[0] = 2;
 			bound = false;
-			theta = 3 * (fx[0] - fp) / (stp[0] - stx[0]) + dx[0] + dp;
+			theta = 3 * (fx1[0] - fp) / (stp[0] - stx1[0]) + dx[0] + dp;
 			s = max3(Math.abs(theta), Math.abs(dx[0]), Math.abs(dp));
 			gamma = s * Math.sqrt(sqr(theta / s) - (dx[0] / s) * (dp / s));
-			if (stp[0] > stx[0])
+			if (stp[0] > stx1[0])
 				gamma = -gamma;
 			p = (gamma - dp) + theta;
 			q = ((gamma - dp) + gamma) + dx[0];
 			r = p / q;
-			stpc = stp[0] + r * (stx[0] - stp[0]);
-			stpq = stp[0] + (dp / (dp - dx[0])) * (stx[0] - stp[0]);
+			stpc = stp[0] + r * (stx1[0] - stp[0]);
+			stpq = stp[0] + (dp / (dp - dx[0])) * (stx1[0] - stp[0]);
 			if (Math.abs(stpc - stp[0]) > Math.abs(stpq - stp[0])) {
 				stpf = stpc;
 			} else {
 				stpf = stpq;
 			}
-			brackt[0] = true;
+			brackt1[0] = true;
 		} else if (Math.abs(dp) < Math.abs(dx[0])) {
 			// Third case. A lower function value, derivatives of the
 			// same sign, and the magnitude of the derivative decreases.
@@ -530,25 +520,25 @@ public class Mcsrch {
 
 			info[0] = 3;
 			bound = true;
-			theta = 3 * (fx[0] - fp) / (stp[0] - stx[0]) + dx[0] + dp;
+			theta = 3 * (fx1[0] - fp) / (stp[0] - stx1[0]) + dx[0] + dp;
 			s = max3(Math.abs(theta), Math.abs(dx[0]), Math.abs(dp));
 			gamma = s
 					* Math.sqrt(Math.max(0, sqr(theta / s) - (dx[0] / s)
 							* (dp / s)));
-			if (stp[0] > stx[0])
+			if (stp[0] > stx1[0])
 				gamma = -gamma;
 			p = (gamma - dp) + theta;
 			q = (gamma + (dx[0] - dp)) + gamma;
 			r = p / q;
 			if (r < 0.0 && gamma != 0.0) {
-				stpc = stp[0] + r * (stx[0] - stp[0]);
-			} else if (stp[0] > stx[0]) {
+				stpc = stp[0] + r * (stx1[0] - stp[0]);
+			} else if (stp[0] > stx1[0]) {
 				stpc = stpmax;
 			} else {
 				stpc = stpmin;
 			}
-			stpq = stp[0] + (dp / (dp - dx[0])) * (stx[0] - stp[0]);
-			if (brackt[0]) {
+			stpq = stp[0] + (dp / (dp - dx[0])) * (stx1[0] - stp[0]);
+			if (brackt1[0]) {
 				if (Math.abs(stp[0] - stpc) < Math.abs(stp[0] - stpq)) {
 					stpf = stpc;
 				} else {
@@ -569,18 +559,18 @@ public class Mcsrch {
 
 			info[0] = 4;
 			bound = false;
-			if (brackt[0]) {
-				theta = 3 * (fp - fy[0]) / (sty[0] - stp[0]) + dy[0] + dp;
+			if (brackt1[0]) {
+				theta = 3 * (fp - fy1[0]) / (sty1[0] - stp[0]) + dy[0] + dp;
 				s = max3(Math.abs(theta), Math.abs(dy[0]), Math.abs(dp));
 				gamma = s * Math.sqrt(sqr(theta / s) - (dy[0] / s) * (dp / s));
-				if (stp[0] > sty[0])
+				if (stp[0] > sty1[0])
 					gamma = -gamma;
 				p = (gamma - dp) + theta;
 				q = ((gamma - dp) + gamma) + dy[0];
 				r = p / q;
-				stpc = stp[0] + r * (sty[0] - stp[0]);
+				stpc = stp[0] + r * (sty1[0] - stp[0]);
 				stpf = stpc;
-			} else if (stp[0] > stx[0]) {
+			} else if (stp[0] > stx1[0]) {
 				stpf = stpmax;
 			} else {
 				stpf = stpmin;
@@ -590,18 +580,18 @@ public class Mcsrch {
 		// Update the interval of uncertainty. This update does not
 		// depend on the new step or the case analysis above.
 
-		if (fp > fx[0]) {
-			sty[0] = stp[0];
-			fy[0] = fp;
+		if (fp > fx1[0]) {
+			sty1[0] = stp[0];
+			fy1[0] = fp;
 			dy[0] = dp;
 		} else {
 			if (sgnd < 0.0) {
-				sty[0] = stx[0];
-				fy[0] = fx[0];
+				sty1[0] = stx1[0];
+				fy1[0] = fx1[0];
 				dy[0] = dx[0];
 			}
-			stx[0] = stp[0];
-			fx[0] = fp;
+			stx1[0] = stp[0];
+			fx1[0] = fp;
 			dx[0] = dp;
 		}
 
@@ -610,21 +600,16 @@ public class Mcsrch {
 		stpf = Math.min(stpmax, stpf);
 		stpf = Math.max(stpmin, stpf);
 		setSTP(stp, stpf);
-		// stp[0] = stpf;
 
-		if (brackt[0] && bound) {
-			if (sty[0] > stx[0]) {
-				setSTP(stp, Math.min(stx[0] + TWO_THIRDS * (sty[0] - stx[0]),
-						stp[0]));
-				// stp[0] = Math.min(stx1[0] + 0.66 * (sty1[0] - stx1[0]),
-				// stp[0]);
+		if (brackt1[0] && bound) {
+			double possibleStep = stx1[0] + TWO_THIRDS * (sty1[0] - stx1[0]);
+			if (sty1[0] > stx1[0]) {
+				setSTP(stp, Math.min(possibleStep, stp[0]));
 			} else {
-				setSTP(stp, Math.max(stx[0] + TWO_THIRDS * (sty[0] - stx[0]),
-						stp[0]));
-				// stp[0] = Math.max(stx1[0] + 0.66 * (sty1[0] - stx1[0]),
-				// stp[0]);
+				setSTP(stp, Math.max(possibleStep, stp[0]));
 			}
 		}
+//		System.err.println("mcsetp stp => " + stp[0] + " info=" + info[0]);
 
 		return;
 	}
