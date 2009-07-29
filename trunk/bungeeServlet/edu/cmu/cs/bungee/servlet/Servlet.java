@@ -21,10 +21,12 @@ import javax.servlet.http.HttpServletResponse;
 import edu.cmu.cs.bungee.javaExtensions.Util;
 
 enum Command {
-	CONNECT, CLOSE, getCountsIgnoringFacet, ABOUT_COLLECTION, getFilteredCounts, updateOnItems, prefetch, offsetItems, getThumbs, cluster, getDescAndImage, getItemInfo, ITEM_URL, itemIndex, itemIndexFromURL, restrict, baseFacets, getFilteredCountTypes, addItemsFacet, addChildFacet, removeItemFacet, reparent, addItemFacet, writeback, revert, rotate, rename, removeItemsFacet, getNames, reorderItems, setItemDescription, opsSpec, getLetterOffsets, caremediaPlayArgs, caremediaGetItems, getPairCounts, topCandidates, getFacetInfo
+	CONNECT, CLOSE, getCountsIgnoringFacet, ABOUT_COLLECTION, getFilteredCounts, updateOnItems, prefetch, offsetItems, getThumbs, cluster, getDescAndImage, getItemInfo, ITEM_URL, itemIndex, itemIndexFromURL, restrict, baseFacets, getFilteredCountTypes, addItemsFacet, addChildFacet, removeItemFacet, reparent, addItemFacet, writeback, revert, rotate, rename, removeItemsFacet, getNames, reorderItems, setItemDescription, opsSpec, getLetterOffsets, caremediaPlayArgs, caremediaGetItems, onCountMatrix, topCandidates, getFacetInfo
 }
 
 public class Servlet extends HttpServlet {
+
+	private static boolean DEBUG = false;
 
 	private Map<Integer, Database> sessions = new HashMap<Integer, Database>();
 
@@ -118,7 +120,7 @@ public class Servlet extends HttpServlet {
 		doPost(request, response);
 	}
 
-	// @SuppressWarnings("unchecked")
+	@SuppressWarnings("unchecked")
 	void logRequest(HttpServletRequest request) {
 		log("Request info: " + request.getRequestURL().toString() + " "
 				+ request.getQueryString() + " " + request.getRemoteHost());
@@ -146,8 +148,10 @@ public class Servlet extends HttpServlet {
 			Integer xsession = getSession(request);
 			Command command = parseCommand(request.getParameter("command"));
 			// if (command != Command.prefetch)
-			log("doPost " + request.getQueryString());
-			logRequest(request);
+			if (DEBUG) {
+				log("doPost " + request.getQueryString());
+				logRequest(request);
+			}
 			if (command == Command.CONNECT) {
 				String dbName = request.getParameter("arg1");
 				ServletConfig config = getServletConfig();
@@ -175,7 +179,8 @@ public class Servlet extends HttpServlet {
 								+ ", is not authorized to use database "
 								+ dbName;
 				}
-				logRequest(request);
+				if (DEBUG)
+					logRequest(request);
 				if (errMsg == null) {
 					// log("Connect to " + dbName + " session = " + xsession);
 					Database db;
@@ -204,7 +209,8 @@ public class Servlet extends HttpServlet {
 						new Deflater(Deflater.BEST_COMPRESSION)));
 				// response.setContentLength(999);
 
-				log("...doPost " + command + " to db");
+				if (DEBUG)
+					log("...doPost " + command + " to db");
 				try {
 					doPostInternal(xsession, command, out, request);
 					// } catch (SQLException e) {
@@ -227,7 +233,8 @@ public class Servlet extends HttpServlet {
 							errMsg);
 				}
 			}
-			log("...doPost " + command + " done");
+			if (DEBUG)
+				log("...doPost " + command + " done");
 		} finally {
 			if (out != null)
 				out.close();
@@ -355,12 +362,12 @@ public class Servlet extends HttpServlet {
 			String description = request.getParameter("arg2");
 			db.setItemDescription(item, description);
 			break;
-		case getPairCounts:
+		case onCountMatrix:
 			String facets = request.getParameter("arg1");
 			String candidates = request.getParameter("arg2");
 			table = getIntParameter(request, "arg3");
 			boolean needBaseCounts = getIntParameter(request, "arg4") > 0;
-			db.getPairCounts(facets, candidates, table, needBaseCounts, out);
+			db.onCountMatrix(facets, candidates, table, needBaseCounts, out);
 			break;
 		case topCandidates:
 			facets = request.getParameter("arg1");
