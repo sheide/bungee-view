@@ -1451,6 +1451,8 @@ public class MyResultSet implements ResultSet {
 	}
 
 	public static String valueOfDeep(ResultSet result, List types, int maxRows) {
+		if (result == null)
+			return "<NULL ResultSet>";
 		StringBuffer buf = new StringBuffer();
 		try {
 			int nRows = MyResultSet.nRows(result);
