@@ -413,8 +413,8 @@ public class ConvertFromRaw {
 						+ " KEY facet (facet_id)"
 						+ ") ENGINE=HEAP DEFAULT CHARSET=ascii PACK_KEYS=1 ROW_FORMAT=FIXED");
 
-//		jdbc
-//				.SQLupdate("INSERT INTO item_facet_heap SELECT record_num, facet_id FROM item_facet");
+		// jdbc
+		// .SQLupdate("INSERT INTO item_facet_heap SELECT record_num, facet_id FROM item_facet");
 	}
 
 	// rgt table is used by populateRandomItemIDs
@@ -759,15 +759,14 @@ public class ConvertFromRaw {
 		int nErrors = deleteUnusedItems(maxPrint, i_f)
 				+ deleteUnusedFacets(raw, maxPrint, f, i_f);
 
-//		String q0 = "SELECT i_f.facet_id, i_f.record_num"
-//			+ " FROM " + i_f
-//			+ " i_f LEFT JOIN item ON item.record_num = i_f.record_num"
-//			+ " WHERE item.record_num IS NULL";
+		// String q0 = "SELECT i_f.facet_id, i_f.record_num"
+		// + " FROM " + i_f
+		// + " i_f LEFT JOIN item ON item.record_num = i_f.record_num"
+		// + " WHERE item.record_num IS NULL";
 
-		String q0 = "select bar.record_num, group_concat(facet_id)"
-				+ "from "+i_f+" inner join"
-				+ "(select foo.record_num from"
-				+ "(select distinct record_num from "+i_f+") foo "
+		String q0 = "select bar.record_num, group_concat(facet_id)" + "from "
+				+ i_f + " inner join" + "(select foo.record_num from"
+				+ "(select distinct record_num from " + i_f + ") foo "
 				+ "left join item using (record_num)"
 				+ "where item.record_num is null) bar using (record_num)"
 				+ "group by bar.record_num";
@@ -781,11 +780,10 @@ public class ConvertFromRaw {
 		// + " facet ON facet.facet_id = i_f.facet_id"
 		// + " WHERE facet.facet_id IS NULL";
 
-		String q = "select bar.facet_id, group_concat(record_num)"
-				+ "from "+i_f+" inner join"
-				+ "(select foo.facet_id from"
-				+ "(select distinct facet_id from "+i_f+") foo "
-				+ "left join "+f+" facet using (facet_id)"
+		String q = "select bar.facet_id, group_concat(record_num)" + "from "
+				+ i_f + " inner join" + "(select foo.facet_id from"
+				+ "(select distinct facet_id from " + i_f + ") foo "
+				+ "left join " + f + " facet using (facet_id)"
 				+ "where facet.facet_id is null) bar using (facet_id)"
 				+ "group by bar.facet_id";
 
@@ -1051,23 +1049,43 @@ public class ConvertFromRaw {
 	}
 
 	public static void ensureDBinitted(JDBCSample jdbc) throws SQLException {
-		if (jdbc.SQLqueryInt("SELECT COUNT(*) FROM item_facet_heap") == 0) {
-//			long st=new Date().getTime();
-//			jdbc.SQLquery("select count(*) from (SELECT * FROM item_facet) foo");
-//			jdbc.print("q "+(new Date().getTime()-st));
-//			jdbc.SQLupdate("ALTER TABLE item_facet_heap DISABLE KEYS");
-//			jdbc.print("disable "+(new Date().getTime()-st));
+
+		// TEMPORARY until DBs updated
+		try {
 			jdbc
-					.SQLupdate("INSERT INTO item_facet_heap SELECT * FROM item_facet;");
-//			jdbc.print("insert "+(new Date().getTime()-st));
-//			jdbc.SQLupdate("ALTER TABLE item_facet_heap ENABLE KEYS");
-//			jdbc.print("enable "+(new Date().getTime()-st));
-			jdbc.SQLupdate("TRUNCATE TABLE item_facet_type_heap;");
-			jdbc.SQLupdate("INSERT INTO item_facet_type_heap "
+					.SQLupdate("create table if not exists item_facetNtype_heap like item_facet_heap;");
+			jdbc.SQLupdate("DROP TABLE IF EXISTS item_facet_heap");
+			jdbc.SQLupdate("DROP TABLE IF EXISTS item_facet_type_heap");
+		} catch (Exception e) {
+			// Skip if DB already updated
+		}
+
+		if (jdbc.SQLqueryInt("SELECT COUNT(*) FROM item_facetNtype_heap") == 0) {
+			// long st=new Date().getTime();
+			// jdbc.SQLquery("select count(*) from (SELECT * FROM item_facet) foo");
+			// jdbc.print("q "+(new Date().getTime()-st));
+			// jdbc.SQLupdate("ALTER TABLE item_facet_heap DISABLE KEYS");
+			// jdbc.print("disable "+(new Date().getTime()-st));
+			jdbc
+					.SQLupdate("INSERT INTO item_facetNtype_heap SELECT * FROM item_facet;");
+			// jdbc.print("insert "+(new Date().getTime()-st));
+			// jdbc.SQLupdate("ALTER TABLE item_facet_heap ENABLE KEYS");
+			// jdbc.print("enable "+(new Date().getTime()-st));
+			// jdbc.SQLupdate("TRUNCATE TABLE item_facet_type_heap;");
+			jdbc.SQLupdate("INSERT INTO item_facetNtype_heap "
 					+ "SELECT distinct i.record_num, f.parent_facet_id "
 					+ "FROM facet f "
 					+ "INNER JOIN item_facet i ON i.facet_id = f.facet_id "
 					+ "WHERE f.parent_facet_id <= " + maxFacetTypeID(jdbc));
+			int nTypes = jdbc
+					.SQLqueryInt("SELECT MAX(facet_id) FROM facet WHERE parent_facet_id = 0");
+
+			jdbc.SQLupdate("CREATE OR REPLACE VIEW item_facet_heap AS"
+					+ " SELECT * FROM item_facetNtype_heap WHERE facet_id > "
+					+ nTypes);
+			jdbc.SQLupdate("CREATE OR REPLACE VIEW item_facet_type_heap AS"
+					+ " SELECT * FROM item_facetNtype_heap WHERE facet_id <= "
+					+ nTypes);
 			jdbc.SQLupdate("TRUNCATE TABLE item_order_heap;");
 			jdbc.SQLupdate("INSERT INTO item_order_heap "
 					+ "SELECT * FROM item_order");
