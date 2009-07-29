@@ -10,7 +10,7 @@
 #-printseeds shrink.seeds
 -dontskipnonpubliclibraryclasses
 
-#-dontobfuscate
+-dontobfuscate
 #-dontshrink
 #-dontoptimize
 -allowaccessmodification

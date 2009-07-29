@@ -75,7 +75,7 @@ import edu.cmu.cs.bungee.javaExtensions.Util;
 import edu.cmu.cs.bungee.javaExtensions.MyResultSet.Column;
 
 // Permissions to add (ALTER ROUTINE is for finding clusters; EXECUTE is for tetrad; DROP is for truncate table):
-// GRANT SELECT, INSERT, UPDATE, CREATE, DELETE, ALTER ROUTINE, EXECUTE
+// GRANT SELECT, INSERT, UPDATE, CREATE, DELETE, ALTER ROUTINE, EXECUTE, CREATE VIEW,
 // CREATE TEMPORARY TABLES, DROP ON
 // chartresvezelay.* TO p5@localhost
 
@@ -91,6 +91,8 @@ import edu.cmu.cs.bungee.javaExtensions.MyResultSet.Column;
 // mysqldump -u root -p --add-drop-database --databases wpa > wpa.sql
 
 public class Database {
+
+	private static final int SQL_INT_BITS = 32;
 
 	private String dbName;
 
@@ -758,9 +760,7 @@ public class Database {
 		sendResultSet(rs, MyResultSet.SINT_IMAGE_INT_INT, imageW, imageH,
 				quality, out);
 		rs = jdbc
-				.SQLquery("SELECT * FROM item_facet_heap WHERE record_num IN("
-						+ items
-						+ ") UNION SELECT * FROM item_facet_type_heap WHERE record_num IN("
+				.SQLquery("SELECT * FROM item_facetNtype_heap WHERE record_num IN("
 						+ items + ") ORDER BY record_num");
 		sendResultSet(rs, MyResultSet.SNMINT_PINT, out);
 	}
@@ -854,9 +854,12 @@ public class Database {
 	private boolean pairCountTablesCreated = false;
 
 	/**
-	 * Given facets="1,2,3" return the counts in the 2^3 combinations
+	 * Given facetIDs="1,2,3" return for each candidate the counts in the 2^3-1
+	 * combinations where the candidate is on and at least one other is on. From
+	 * that you can reconstruct the 2^4 states from the 2^3 base states and the
+	 * candidate's totalCount.
 	 * 
-	 * @param facetNames
+	 * @param facetIDs
 	 *            list of facets to find co-occurence counts among
 	 * @param table
 	 *            either "restricted" or "item_order_heap". Currently ignored.
@@ -866,40 +869,62 @@ public class Database {
 	 * @throws IOException
 	 */
 	@SuppressWarnings("unchecked")
-	void getPairCounts(String facetNames, String candidates, int table,
+	void onCountMatrix(String facetIDs, String candidates, int table,
 			boolean needBaseCounts, DataOutputStream out) throws SQLException,
 			ServletException, IOException {
+		String[] IDs = Util.splitComma(facetIDs);
+		myAssert(IDs.length < SQL_INT_BITS, "Too many facets (" + IDs.length
+				+ "): " + facetIDs);
 		String itemTable = table == 1 ? "restricted" : "item_order_heap";
 		if (!pairCountTablesCreated) {
 			pairCountTablesCreated = true;
-			// jdbc.SQLupdate("DROP TABLE IF EXISTS tetrad_facets");
+			jdbc.SQLupdate("DROP TABLE IF EXISTS tetrad_facets");
 			// jdbc.SQLupdate("DROP TABLE IF EXISTS tetrad_items");
-			jdbc.SQLupdate("CREATE temporary TABLE tetrad_facets("
+			jdbc.SQLupdate("CREATE TEMPORARY TABLE tetrad_facets("
 					+ "facet_id MEDIUMINT(8) UNSIGNED NOT NULL, "
-					+ "bit SMALLINT(8) UNSIGNED NOT NULL, "
+					+ "bit INT(8) UNSIGNED NOT NULL, "
 					+ "PRIMARY KEY (facet_id)) ENGINE=MEMORY");
 			jdbc.SQLupdate("CREATE TEMPORARY TABLE tetrad_items("
 					+ "record_num MEDIUMINT(8) UNSIGNED NOT NULL, "
-					+ "state SMALLINT(8) UNSIGNED NOT NULL, "
+					+ "state INT(8) UNSIGNED NOT NULL, "
 					+ "PRIMARY KEY (record_num)) ENGINE=MEMORY");
 		} else {
 			jdbc.SQLupdate("TRUNCATE TABLE tetrad_facets");
 			jdbc.SQLupdate("TRUNCATE TABLE tetrad_items");
 		}
-		jdbc.SQLupdate("SET @index = 1");
-		jdbc.SQLupdate("INSERT INTO tetrad_facets "
-				+ "SELECT facet_id,(@index :=@index*2)/2 "
-				+ "FROM facet WHERE facet_id IN (" + facetNames + ")");
+
+		StringBuffer buf = new StringBuffer();
+		buf.append("INSERT INTO tetrad_facets VALUES");
+		for (int i = 0; i < IDs.length; i++) {
+			String[] mexFacets = IDs[i].split("-");
+			for (int j = 0; j < mexFacets.length; j++) {
+				// jdbc.SQLupdate("INSERT INTO tetrad_facets VALUES("
+				// + mexFacets[j] + ", " + (1 << i) + ")");
+				if (i + j > 0)
+					buf.append(",");
+				buf.append("(").append(mexFacets[j]).append(", ").append(
+						(1 << i)).append(")");
+			}
+		}
+		jdbc.SQLupdate(buf.toString());
+
+		// jdbc.SQLupdate("SET @index = 1");
+		// jdbc.SQLupdate("INSERT INTO tetrad_facets "
+		// + "SELECT facet_id,(@index :=@index*2)/2 "
+		// + "FROM facet WHERE facet_id IN (" + facetIDs + ")");
 
 		jdbc
 				.SQLupdate("INSERT INTO tetrad_items "
-						+ "SELECT ifnull(ifh.record_num,ifth.record_num) rn, SUM(bit) "
+						+ "SELECT record_num rn, SUM(bit) "
+						// +
+						// "SELECT ifnull(ifh.record_num, ifth.record_num) rn, SUM(bit) "
 						+ "FROM tetrad_facets f "
 						+ (itemTable.equals("restricted") ? "INNER JOIN restricted USING (record_num) "
 								: "")
-						+ "left join item_facet_heap ifh on ifh.facet_id = f.facet_id "
-						+ "left join item_facet_type_heap ifth on ifth.facet_id = f.facet_id "
-						+ "GROUP BY rn");
+						+ "inner join item_facetNtype_heap ifh USING (facet_id) "
+						// +
+						// "left join item_facet_type_heap ifth on ifth.facet_id = f.facet_id "
+						+ "GROUP BY rn ORDER BY null");
 
 		if (needBaseCounts) {
 			ResultSet baseCounts = jdbc
@@ -909,19 +934,13 @@ public class Database {
 		}
 
 		if (candidates.length() > 0) {
-			String[] tables = { "item_facet_heap", "item_facet_type_heap" };
-			// UNION is expensive, so just send 2 result sets
-			for (int i = 0; i < tables.length; i++) {
-				ResultSet candidateCounts = jdbc
-						.SQLquery("SELECT SQL_SMALL_RESULT facet_id, IFNULL(state, 0) s, COUNT(*) "
-								+ "FROM "
-								+ tables[i]
-								+ " LEFT JOIN tetrad_items USING (record_num) "
-								+ "WHERE facet_id IN ("
-								+ candidates
-								+ ") GROUP BY facet_id, s ORDER BY facet_id");
-				sendResultSet(candidateCounts, MyResultSet.SNMINT_INT_INT, out);
-			}
+			ResultSet candidateCounts = jdbc
+					.SQLquery("SELECT SQL_SMALL_RESULT facet_id, state s, COUNT(*) "
+							+ "FROM item_facetNtype_heap INNER JOIN tetrad_items USING (record_num) "
+							+ "WHERE facet_id IN ("
+							+ candidates
+							+ ") GROUP BY facet_id, s ORDER BY facet_id");
+			sendResultSet(candidateCounts, MyResultSet.SNMINT_INT_INT, out);
 		}
 	}
 
@@ -956,18 +975,16 @@ public class Database {
 				// Need to UNION ALL so that union won't collapse primes
 				// that have the same correlation.
 				+ "SELECT facet1 candidateID, abs(correlation) corr "
-				+ "FROM correlations where facet2 IN ("
-				+ perspectiveIDs
+				+ "FROM correlations where facet2 IN (" + perspectiveIDs
 				+ ") UNION ALL "
 				+ "SELECT facet2 candidateID, abs(correlation) corr "
-				+ "FROM correlations where facet1 IN ("
-				+ perspectiveIDs
+				+ "FROM correlations where facet1 IN (" + perspectiveIDs
 				+ ")) foo group by candidateID "
-				+ "having candidateID NOT IN ("
-				+ perspectiveIDs
-				+ ") "
-//				+ (perspectiveIDs.split(",").length > 1 ? "and count(*) > 1 "
-//						: "")
+				+ "having candidateID NOT IN (" + perspectiveIDs + ") "
+				// + (perspectiveIDs.split(",").length > 1 ? "and count(*) > 1 "
+				// : "")
+
+				// Could this be simplified to ABS(PROD(corr)) ?
 				+ "order by POW(SUM(corr),2) - SUM(corr*corr) desc limit " + n;
 		// log(sql);
 		ResultSet rs = jdbc.SQLquery(sql);
@@ -1719,16 +1736,18 @@ public class Database {
 			maxClusterSize = 3;
 
 		ConvertFromRaw.populatePairs(jdbc);
-		createClusterTables(maxClusterSize);
+		String[] clusterTables = clusterTables(maxClusterSize);
+		createClusterTables(clusterTables);
 
 		for (int n = 1; n <= maxClusterSize; n++) {
-			pValue = addClusters(n, pValue, maxClusters, facetRestriction);
+			pValue = addClusters(n, pValue, maxClusters, facetRestriction,
+					clusterTables);
 		}
 
-		extractClustersFromTables(maxClusters, out);
+		extractClustersFromTables(maxClusters, clusterTables, out);
 	}
 
-	void createClusterTables(int maxClusterSize) throws SQLException {
+	void createClusterTables(String[] clusterTables) throws SQLException {
 		jdbc.SQLupdate("CREATE TEMPORARY TABLE IF NOT EXISTS clusterInfo "
 				+ "(cluster_id MEDIUMINT UNSIGNED NOT NULL PRIMARY KEY, "
 				+ "nFacets TINYINT UNSIGNED NOT NULL, "
@@ -1737,55 +1756,63 @@ public class Database {
 				+ "pValue FLOAT NOT NULL) "
 				// + "ENGINE=HEAP "
 				+ "PACK_KEYS=1 ROW_FORMAT=FIXED;");
+		jdbc.SQLupdate("TRUNCATE TABLE clusterInfo");
 
 		// jdbc.SQLupdate("DROP TABLE IF EXISTS clusterFacets21");
 		// facet_index == 0 means ancestor
-		String clusterFacetsDef = ""
-				+ "(cluster_id MEDIUMINT UNSIGNED NOT NULL, "
-				+ "facet_id MEDIUMINT UNSIGNED NOT NULL, "
-				+ "facet_index TINYINT NOT NULL, "
-				+ "INDEX facet_index (facet_index), "
-				+ "INDEX cluster (cluster_id), "
-				+ "INDEX facet (facet_id, facet_index), "
-				+ "PRIMARY KEY (cluster_id, facet_index)) ";
-		jdbc.SQLupdate("CREATE TEMPORARY TABLE IF NOT EXISTS clusterFacets21 "
-				+ clusterFacetsDef);
+		jdbc
+				.SQLupdate("CREATE TEMPORARY TABLE IF NOT EXISTS clusterFacetsScratch "
+						+ "(cluster_id MEDIUMINT UNSIGNED NOT NULL, "
+						+ "facet_id MEDIUMINT UNSIGNED NOT NULL, "
+						+ "facet_index TINYINT NOT NULL, "
+						+ "INDEX facet_index (facet_index), "
+						+ "INDEX cluster (cluster_id), "
+						+ "INDEX facet (facet_id, facet_index), "
+						+ "PRIMARY KEY (cluster_id, facet_index)) ");
+		jdbc.SQLupdate("TRUNCATE TABLE clusterFacetsScratch");
 
-		// jdbc.SQLupdate("TRUNCATE TABLE clusterFacets21");
-		// Truncate doesn't work with these MERGE tables. Need DELETE with a
-		// WHERE clause
-		jdbc.SQLupdate("DELETE FROM clusterFacets21 WHERE cluster_id > 0");
-		jdbc.SQLupdate("TRUNCATE TABLE clusterInfo");
-		try {
-			myAssert(
-					jdbc.SQLqueryInt("SELECT COUNT(*) FROM clusterFacets21") == 0,
-					"Truncate didnt work");
-		} catch (ServletException e) {
-			e.printStackTrace();
-		} catch (SQLException e) {
-			e.printStackTrace();
-		}
-
-		// work around MySQL limitation that you can't use a temporary table
-		// more than once in a query
-		int nCFtables = Math.max(3, maxClusterSize);
-		for (int i = 1; i <= nCFtables; i++) {
-			for (int j = 1; j <= nCFtables; j++) {
-				if (j != i && !(i == 2 && j == 1)) {
-					jdbc
-							.SQLupdate("CREATE TEMPORARY TABLE IF NOT EXISTS clusterFacets"
-									+ i
-									+ j
-									+ clusterFacetsDef
-									+ "ENGINE=MERGE UNION(clusterFacets21)");
-				}
-			}
+		for (int i = 0; i < clusterTables.length; i++) {
+			String tName = clusterTables[i];
+			jdbc.SQLupdate("CREATE TEMPORARY TABLE IF NOT EXISTS " + tName
+					+ " LIKE clusterFacetsScratch");
+			jdbc.SQLupdate("TRUNCATE TABLE " + tName);
 		}
 	}
 
+	void insertClusterFacets(String[] clusterTables, String SQL)
+			throws SQLException {
+		// work around MySQL limitation that you can't use a temporary table
+		// more than once in a query
+		jdbc.SQLupdate("TRUNCATE TABLE clusterFacetsScratch");
+		jdbc.SQLupdate("INSERT INTO clusterFacetsScratch " + SQL);
+		for (int i = 0; i < clusterTables.length; i++) {
+			String tName = clusterTables[i];
+			jdbc.SQLupdate("INSERT INTO " + tName
+					+ " SELECT * FROM clusterFacetsScratch");
+		}
+	}
+
+	String[] clusterTables(int maxClusterSize) {
+		// work around MySQL limitation that you can't use a temporary table
+		// more than once in a query
+		int nCFtables = Math.max(3, maxClusterSize);
+		String[] result = new String[nCFtables * (nCFtables - 1)];
+		int index = 0;
+		for (int i = 1; i <= nCFtables; i++) {
+			for (int j = 1; j <= nCFtables; j++) {
+				if (j != i) {
+					String tName = "clusterFacets" + i + j;
+					result[index++] = tName;
+				}
+			}
+		}
+		assert index == result.length;
+		return result;
+	}
+
 	private synchronized double addClusters(int nFacets, double pValue,
-			int maxClusters, String facetRestriction) throws SQLException,
-			ServletException {
+			int maxClusters, String facetRestriction, String[] clusterTables)
+			throws SQLException, ServletException {
 		int neededClusters = maxClusters
 				- jdbc.SQLqueryInt("SELECT COUNT(*) FROM clusterInfo");
 		if (pValue > 0 || neededClusters > 0) {
@@ -1793,8 +1820,8 @@ public class Database {
 			try {
 				PreparedStatement addCluster = jdbc
 						.lookupPS("INSERT INTO clusterInfo VALUES(?, ?, ?, ?, ?)");
-				PreparedStatement addClusterFacets = jdbc
-						.lookupPS("INSERT INTO clusterFacets21 VALUES(?, ?, ?)");
+				// PreparedStatement addClusterFacets = jdbc
+				// .lookupPS("INSERT INTO clusterFacets21 VALUES(?, ?, ?)");
 				int q = jdbc.SQLqueryInt("SELECT COUNT(*) FROM onItems");
 				int db = jdbc.SQLqueryInt("SELECT COUNT(*) FROM item");
 				int c = jdbc
@@ -1814,11 +1841,14 @@ public class Database {
 							addCluster.setInt(4, ctot);
 							addCluster.setDouble(5, p);
 							jdbc.SQLupdate(addCluster);
-							addClusterFacets.setInt(1, c);
+							// addClusterFacets.setInt(1, c);
 							for (int i = 0; i < nFacets; i++) {
-								addClusterFacets.setInt(2, rs.getInt(i + 3));
-								addClusterFacets.setInt(3, i + 1);
-								jdbc.SQLupdate(addClusterFacets);
+								// addClusterFacets.setInt(2, rs.getInt(i + 3));
+								// addClusterFacets.setInt(3, i + 1);
+								// jdbc.SQLupdate(addClusterFacets);
+								insertClusterFacets(clusterTables, "VALUES("
+										+ c + ", " + rs.getInt(i + 3) + ", "
+										+ (i + 1) + ")");
 							}
 							if (--neededClusters < 0) {
 								double newPvalue = jdbc
@@ -1843,8 +1873,9 @@ public class Database {
 	}
 
 	@SuppressWarnings("unchecked")
-	void extractClustersFromTables(int maxClusters, DataOutputStream out)
-			throws SQLException, ServletException, IOException {
+	void extractClustersFromTables(int maxClusters, String[] clusterTables,
+			DataOutputStream out) throws SQLException, ServletException,
+			IOException {
 		ResultSet rs = null;
 		ResultSet rs1 = null;
 		try {
@@ -1854,9 +1885,9 @@ public class Database {
 					.SQLqueryInt("SELECT COUNT(*) FROM clusterFacets21")) > prevRows) {
 				// Add ancestors of all the facets, with facet_index < 0
 				prevRows = nRows;
-				jdbc
-						.SQLupdate("INSERT INTO clusterFacets21 "
-								+ "SELECT cf.cluster_id, parent_facet_id, "
+				insertClusterFacets(
+						clusterTables,
+						"SELECT cf.cluster_id, parent_facet_id, "
 								+ "MIN(previ.facet_index) - ABS(MIN(cf.facet_index)) - 1 "
 								+ "FROM clusterFacets12 cf "
 								+ "INNER JOIN facet f ON cf.facet_id = f.facet_id "
@@ -1865,6 +1896,19 @@ public class Database {
 								+ "WHERE parent_facet_id > 0 "
 								+ "AND dup.facet_id IS NULL "
 								+ "GROUP BY cf.cluster_id, parent_facet_id ORDER BY NULL");
+				// jdbc
+				// .SQLupdate("INSERT INTO clusterFacets21 "
+				// + "SELECT cf.cluster_id, parent_facet_id, "
+				// + "MIN(previ.facet_index) - ABS(MIN(cf.facet_index)) - 1 "
+				// + "FROM clusterFacets12 cf "
+				// + "INNER JOIN facet f ON cf.facet_id = f.facet_id "
+				// +
+				// "LEFT JOIN clusterFacets31 previ ON cf.cluster_id = previ.cluster_id "
+				// +
+				// "LEFT JOIN clusterFacets23 dup ON cf.cluster_id = dup.cluster_id AND dup.facet_id = parent_facet_id "
+				// + "WHERE parent_facet_id > 0 "
+				// + "AND dup.facet_id IS NULL "
+				// + "GROUP BY cf.cluster_id, parent_facet_id ORDER BY NULL");
 			}
 			rs = jdbc
 					.SQLquery("SELECT cluster_id, pValue, nOn, nTotal FROM clusterInfo "
