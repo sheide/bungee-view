@@ -155,7 +155,7 @@ public class Graph extends LazyPPath {
 		if (node.object != null)
 			nodeObjectMap.put(node.object, pNode);
 		pNode.setTextPaint(textColor);
-		pNode.setText(Util.truncateText(node.getLabel(), 100, font));
+		pNode.setText(Util.truncateText(node.getLabel(), abstractGraph.labelW, font));
 		pNode.setOffset(Math.rint(node.getCenterX() - pNode.getWidth() / 2),
 				Math.rint(node.getCenterY() - pNode.getHeight() / 2));
 		// pNode.setPaint(Color.white);
