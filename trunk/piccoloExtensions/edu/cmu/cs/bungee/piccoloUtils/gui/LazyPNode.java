@@ -35,6 +35,7 @@ import java.awt.Color;
 
 import edu.umd.cs.piccolo.PNode;
 import edu.umd.cs.piccolo.activities.PColorActivity.Target;
+import edu.umd.cs.piccolo.util.PBounds;
 
 public class LazyPNode extends PNode implements Target {
 
@@ -109,12 +110,24 @@ public class LazyPNode extends PNode implements Target {
 	public double getMaxX() {
 		return getXOffset() + getWidth() * getScale();
 	}
+	public double getIntMaxX() {
+		return Math.round(getMaxX());
+	}
 
 	/**
 	 * @return y-coordinate of bottom edge in parents coordinate system
 	 */
 	public double getMaxY() {
 		return getYOffset() + getHeight() * getScale();
+	}
+	public double getIntMaxY() {
+		return Math.round(getMaxY());
+	}
+
+	public boolean setBoundsFromFullBounds() {
+		PBounds bounds = getFullBoundsReference();
+		return setBounds(Math.round(bounds.getX()), Math.round(bounds.getY()),
+				Math.round(bounds.getWidth()), Math.round(bounds.getHeight()));
 	}
 
 	/**

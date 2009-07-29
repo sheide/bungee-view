@@ -110,6 +110,12 @@ public class APText extends PText {
 		return super.setBounds(x, y, w, h);
 	}
 
+	public boolean setBoundsFromFullBounds() {
+		PBounds bounds = getFullBoundsReference();
+		return setBounds(Math.floor(bounds.getX()), Math.floor(bounds.getY()),
+				Math.ceil(bounds.getWidth()), Math.ceil(bounds.getHeight()));
+	}
+
 	public void setOffset(double x, double y) {
 		assert x == Math.round(x) : x;
 		// assert y == Math.round(y) : y;
@@ -142,8 +148,16 @@ public class APText extends PText {
 		return getXOffset() + getWidth() * getScale();
 	}
 
+	public double getIntMaxX() {
+		return Math.round(getMaxX());
+	}
+
 	public double getMaxY() {
 		return getYOffset() + getHeight() * getScale();
+	}
+
+	public double getIntMaxY() {
+		return Math.round(getMaxY());
 	}
 
 	public void setScale(double scale) {
