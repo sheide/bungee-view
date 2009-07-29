@@ -7,7 +7,7 @@ import edu.cmu.cs.bungee.javaExtensions.PerspectiveObserver;
 /**
  * @author mad Generalization of Perspective and Cluster
  */
-public interface ItemPredicate {
+public interface ItemPredicate extends Comparable {
 
 	/**
 	 * modifier flagging that user gesture adds a negated filter choose a bit
@@ -172,5 +172,12 @@ public interface ItemPredicate {
 	 * @return the onCount, or totalCount if we don't know.
 	 */
 	public abstract int guessOnCount();
+
+	/**
+	 * @return String to send to server to identify this ItemPredicate
+	 */
+	public abstract String getServerID();
+
+	public abstract String toString(PerspectiveObserver redrawer);
 
 }

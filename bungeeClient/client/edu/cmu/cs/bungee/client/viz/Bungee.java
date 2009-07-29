@@ -33,9 +33,16 @@ package edu.cmu.cs.bungee.client.viz;
 /**
  * ToDo:
  * 
+ * "select this match" => "select this work"
+ * 
+ * Sometimes can't undo text search, because description contracts when you move the mouse down far 
+ * enough to click on the search term.
+ * 
  * Partial unrestrict
  * 
  * Copy text in text boxes; highlight search terms.
+ * 
+ * Explanations should consider consecutive ordered facets as one.
  * 
  * Fancy thumb scrolling: when sorted, show facet labels to the right of the
  * scroll bar when scrolling. Label the first thumb with each facet value (on
@@ -314,7 +321,8 @@ final class Bungee extends PFrame {
 
 	static final Color helpColor = Color.orange;
 
-	static final Color mouseDocFG = Color.white; //headerFG; // helpColor; // new
+	static final Color mouseDocFG = Color.white; // headerFG; // helpColor; //
+	// new
 	// Color(0x99CCCC);
 
 	static final Color summaryFG = Markup.UNASSOCIATED_COLORS[0]; // new Color(
@@ -1354,6 +1362,14 @@ final class Bungee extends PFrame {
 		return query.isEditable() && features.editing;
 	}
 
+	boolean getIsGraph() {
+		return features.graph;
+	}
+
+	boolean getIsDebugGraph() {
+		return features.debugGraph;
+	}
+
 	void setSelectedItem(Item item) {
 		setSelectedItem(item, -1, -1, -1, -1, false);
 	}
@@ -1669,7 +1685,7 @@ final class Bungee extends PFrame {
 				first = false;
 			else
 				buf.append("/");
-			buf.append(p.getID());
+			buf.append(p.getServerID());
 		}
 		printUserAction(TOGGLE_CLUSTER, buf.toString(), 0);
 		query.toggleCluster(cluster);
@@ -2659,6 +2675,9 @@ final class Bungee extends PFrame {
 			return false;
 			// } else if (Util.isAltDown(modifiers) && editArrow(key)) {
 			// return true;
+		} else if (isPopups() && summary.facetDesc.getVisible()) {
+			summary.facetDesc.handleArrow(key);
+			return true;
 		} else if (arrowFocus == null) {
 			grid.handleArrow(key);
 			return true;
@@ -3436,8 +3455,8 @@ final class Bungee extends PFrame {
 
 				public void run() {
 					initializeFrames();
-//					NonAlchemyModel.test(query, 100);
-//					NonAlchemyModel.testPairList(query);
+//					 NonAlchemyModel.test(query, 100, false);
+//					 NonAlchemyModel.testPairList(query, false);
 				}
 			};
 

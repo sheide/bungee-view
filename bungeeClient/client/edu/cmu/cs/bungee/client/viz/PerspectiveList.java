@@ -496,7 +496,7 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 								+ selected.getParent().getName()
 								+ " tags with non-zero count found in response to navigation keypress.");
 			} else {
-				art.printUserAction(Bungee.FACET_ARROW, selected.getID(),
+				art.printUserAction(Bungee.FACET_ARROW, selected.getServerID(),
 						modifiers);
 				if (!isHidden())
 					showList(selected);

@@ -27,15 +27,16 @@ public final class Cluster implements ItemPredicate {
 
 	private final double pValue;
 
-//	/**
-//	 * @return the number of facets in the cluster
-//	 */
-//	public int size() {
-//		return facets.size();
-//	}
+	// /**
+	// * @return the number of facets in the cluster
+	// */
+	// public int size() {
+	// return facets.size();
+	// }
 
 	/**
-	 * @return the minimum number of this Cluster's facets an item must have to satisfy this ItemPredicate
+	 * @return the minimum number of this Cluster's facets an item must have to
+	 *         satisfy this ItemPredicate
 	 */
 	public int quorumSize() {
 		return nRestrictions() / 2 + 1;
@@ -64,8 +65,7 @@ public final class Cluster implements ItemPredicate {
 				Perspective parent = rs.getInt(1) > 0 ? q.findPerspective(rs
 						.getInt(1)) : null;
 				Perspective p = q.ensurePerspective(rs.getInt(2), parent, rs
-						.getString(3), rs.getInt(5), 
-						rs.getInt(4));
+						.getString(3), rs.getInt(5), rs.getInt(4));
 				if (rs.getInt(7) == 0) {
 					_facets.add(p);
 					_nOnItems = rs.getInt(9);
@@ -91,7 +91,7 @@ public final class Cluster implements ItemPredicate {
 
 	public double pValue() {
 		// If cluster is created by replayOps, pValue = -1;
-//		assert 0 <= pValue && pValue <= 1;
+		// assert 0 <= pValue && pValue <= 1;
 		return pValue;
 	}
 
@@ -171,11 +171,13 @@ public final class Cluster implements ItemPredicate {
 	public int getTotalCount() {
 		return nItems;
 	}
+
 	public int parentTotalCount() {
-			return query().getTotalCount();
+		return query().getTotalCount();
 	}
+
 	public int parentOnCount() {
-			return query().getOnCount();
+		return query().getOnCount();
 	}
 
 	public String getName() {
@@ -242,9 +244,9 @@ public final class Cluster implements ItemPredicate {
 		return getName();
 	}
 
-//	public ItemPredicate getParent() {
-//		return null;
-//	}
+	// public ItemPredicate getParent() {
+	// return null;
+	// }
 
 	public boolean isEffectiveChildren() {
 		return false;
@@ -256,6 +258,20 @@ public final class Cluster implements ItemPredicate {
 
 	public int guessOnCount() {
 		return getOnCount();
+	}
+
+	public int compareTo(Object caused) {
+		assert false : caused;
+		return 0;
+	}
+
+	public String getServerID() {
+		assert false;
+		return null;
+	}
+
+	public String toString(PerspectiveObserver redrawer) {
+		return toString();
 	}
 
 }

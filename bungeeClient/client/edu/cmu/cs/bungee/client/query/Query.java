@@ -1,5 +1,6 @@
 package edu.cmu.cs.bungee.client.query;
 
+import java.awt.Color;
 import java.io.DataInputStream;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -287,16 +288,22 @@ public final class Query implements ItemPredicate {
 	 * @return e.g. '... for works from 20th century.'
 	 */
 	public Markup descriptionVerbPhrase() {
-		Markup summary;
+		Markup summary = emptyMarkup();
 		if (isRestricted()) {
-			summary = description();
-			summary.add(0, "viewing "
-					+ Util.formatPercent(onCount
-							/ (double) query().getTotalCount(), null)
-					+ ": the " + Util.addCommas(onCount) + " ");
+			summary.add("viewing ");
+			summary.add(Color.white);
+			summary.add(Util.formatPercent(
+					onCount / (double) query().getTotalCount(), null)
+					.toString());
+			summary.add(Markup.DEFAULT_COLOR_TAG);
+			summary.add(": the ");
+			summary.add(Color.white);
+			summary.add(Util.addCommas(onCount) + " ");
+			summary.add(Markup.DEFAULT_COLOR_TAG);
+			summary.addAll(description().uncolor());
 			// summary.add(".");
 		} else {
-			summary = emptyMarkup();
+			// summary = emptyMarkup();
 			// summary.add("(No filters applied)");
 		}
 		// Util.print("description: " + summary);
@@ -304,9 +311,13 @@ public final class Query implements ItemPredicate {
 	}
 
 	public String toString() {
+		return toString(null);
+	}
+
+	public String toString(PerspectiveObserver redrawer) {
 		// Util.printStackTrace();
-		return (isQueryValid() ? "<Query " : "<Invalid Query ") + getName()
-				+ ">";
+		return (isQueryValid() ? "<Query " : "<Invalid Query ")
+				+ getName(redrawer) + ">";
 	}
 
 	/**
@@ -775,7 +786,7 @@ public final class Query implements ItemPredicate {
 	String getFilteredCountsInternal(List persps) {
 		if (persps.size() == 0)
 			return null;
-		String result = getFacetIDs(persps);
+		String result = getItemPredicateIDs(persps);
 		persps.clear();
 		return result;
 	}
@@ -1207,10 +1218,12 @@ public final class Query implements ItemPredicate {
 			assert rs.getInt(2) == facetID;
 			int parentID = rs.getInt(1);
 			Perspective parent = findPerspectiveIfPossible(parentID);
-			if (parent == null || !parent.isInstantiated()||parent.childrenOffset() < 0)
+			if (parent == null || !parent.isInstantiated()
+					|| parent.childrenOffset() < 0)
 				parent = importFacet(parentID);
 			result = ensurePerspective(facetID, parent, rs.getString(3), rs
 					.getInt(5), rs.getInt(4));
+			result.setTotalCount(rs.getInt(6));
 			rs.close();
 		} catch (SQLException e) {
 			e.printStackTrace();
@@ -2053,14 +2066,14 @@ public final class Query implements ItemPredicate {
 		return buf.toString();
 	}
 
-	private String getFacetIDs(Collection facets) {
+	static String getItemPredicateIDs(Collection facets) {
 		StringBuffer buf = new StringBuffer();
 		if (facets != null) {
 			for (Iterator it = facets.iterator(); it.hasNext();) {
-				Perspective p = (Perspective) it.next();
+				ItemPredicate p = (ItemPredicate) it.next();
 				if (buf.length() > 0)
 					buf.append(",");
-				buf.append(p.getID());
+				buf.append(p.getServerID());
 			}
 		}
 		return buf.toString();
@@ -2069,9 +2082,18 @@ public final class Query implements ItemPredicate {
 	public ResultSet[] onCountMatrix(Collection facetsOfInterest,
 			Collection candidates, boolean needBaseCounts) {
 		// Util.print("ocm " + facetsOfInterest + " " + candidates);
-//		assert candidates != null && candidates.size() > 0;
-		return db.onCountMatrix(getFacetIDs(facetsOfInterest),
-				getFacetIDs(candidates), onItemsTable(), needBaseCounts);
+		// assert candidates != null && candidates.size() > 0;
+		ResultSet[] result = db
+						.onCountMatrix(getItemPredicateIDs(facetsOfInterest),
+								getItemPredicateIDs(candidates), onItemsTable(),
+								needBaseCounts);
+		
+//		Util.print("onCountMatrix "+facetsOfInterest);
+//		for (int i = 0; i < result.length; i++) {
+//			Util.print(MyResultSet.valueOfDeep(result[i], MyResultSet.SNMINT_INT_INT, 100));
+//		}
+		
+		return result;
 	}
 
 	public String getGenericObjectLabel(boolean isPlural) {
@@ -2085,8 +2107,18 @@ public final class Query implements ItemPredicate {
 
 	public List topMutInf(Collection primaryFacets, int maxCandidates) {
 		// Util.print("tmi " + primaryFacets);
-		ResultSet rs = db.topMutInf(getFacetIDs(primaryFacets), onItemsTable(),
-				maxCandidates);
+		Collection unrolledFacets = new LinkedList();
+		for (Iterator it = primaryFacets.iterator(); it.hasNext();) {
+			ItemPredicate p = (ItemPredicate) it.next();
+			if (p instanceof MexPerspectives) {
+				MexPerspectives mp = (MexPerspectives) p;
+				unrolledFacets.addAll(mp.facets);
+			} else {
+				unrolledFacets.add(p);
+			}
+		}
+		ResultSet rs = db.topMutInf(getItemPredicateIDs(unrolledFacets),
+				onItemsTable(), maxCandidates);
 		try {
 			ArrayList result = new ArrayList(MyResultSet.nRows(rs));
 			while (rs.next()) {
@@ -2098,6 +2130,16 @@ public final class Query implements ItemPredicate {
 			e.printStackTrace();
 			return null;
 		}
+	}
+
+	public int compareTo(Object caused) {
+		assert false : caused;
+		return 0;
+	}
+
+	public String getServerID() {
+		assert false;
+		return null;
 	}
 }
 

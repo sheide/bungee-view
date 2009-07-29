@@ -10,6 +10,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import edu.cmu.cs.bungee.client.query.tetrad.GraphicalModel.SimpleEdge;
+
 public class EdgeSelection extends GreedySubset {
 
 	private final Map explanations = new HashMap();
@@ -70,8 +72,9 @@ public class EdgeSelection extends GreedySubset {
 		List primaryFacets = nullModel.facets();
 		Set result = explanation.predicted.getEdges(false);
 		for (Iterator it = result.iterator(); it.hasNext();) {
-			List candidateEdge = (List) it.next();
-			if (isCoreEdges != (primaryFacets.containsAll(candidateEdge))) {
+			SimpleEdge candidateEdge = (SimpleEdge) it.next();
+			if (isCoreEdges != (primaryFacets.contains(candidateEdge.p1) && primaryFacets
+					.contains(candidateEdge.p2))) {
 				it.remove();
 			}
 		}

@@ -50,7 +50,7 @@ class SummaryText extends TextNfacets implements PickFacetTextNotifier {
 		// if (getText() == null
 		// || !getText().equals(description)) {
 		// Util.print("Summary.setDescription");
-		setContent(hackSearches(description.uncolor()));
+		setContent(hackSearches(description));
 		layoutBestFit();
 		// setTextPaint(q.isRestricted() ? summaryTextColor : FG);
 		// Util.print("SummaryText.setDescription " + getGlobalFullBounds());

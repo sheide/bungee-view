@@ -88,6 +88,7 @@
         <javaElement handleIdentifier="=piccolo/src&lt;edu.umd.cs.piccolo.event{PInputEvent.java"/>
         <javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.viz{MouseDocLine.java"/>
         <javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.viz{BungeeTextButton.java"/>
+        <javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.viz{EulerDiagram.java"/>
         <javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.viz{Bungee.java"/>
         <javaElement handleIdentifier="=piccoloExtensions/&lt;edu.cmu.cs.bungee.piccoloUtils.gui{MenuButton.java"/>
         <javaElement handleIdentifier="=javaExtensions/&lt;edu.cmu.cs.bungee.javaExtensions.graph{Node.java"/>

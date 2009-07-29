@@ -288,7 +288,7 @@ final class ClusterViz extends LazyPNode implements MouseDoc,
 					Perspective p = (Perspective) it.next();
 					if (p != exclude.first())
 						buf.append(", ");
-					buf.append(p.getID());
+					buf.append(p.getServerID());
 				}
 				buf.append(") WHERE a.facet_id IS NULL");
 				facetRestrictions = buf.toString();

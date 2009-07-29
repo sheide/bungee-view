@@ -29,8 +29,7 @@ class LimitedCausesDistribution extends Distribution {
 			result = (Distribution) cachedDistributions.get(args);
 			if (result == null) {
 				result = new LimitedCausesDistribution(facets, counts, edges);
-				cachedDistributions.put(args,
-						result);
+				cachedDistributions.put(args, result);
 			}
 		}
 		return result;
@@ -38,7 +37,7 @@ class LimitedCausesDistribution extends Distribution {
 
 	private LimitedCausesDistribution(List facets, int[] counts, Set edges) {
 		super(facets, counts);
-//		int nFacets = nFacets();
+		// int nFacets = nFacets();
 		causes = new List[nFacets];
 		for (int i = 0; i < nFacets; i++) {
 			Perspective caused = (Perspective) facets.get(i);
@@ -57,7 +56,7 @@ class LimitedCausesDistribution extends Distribution {
 		assert checkCauses() : Util.valueOfDeep(causes) + " " + edges;
 	}
 
-	protected Distribution getMarginalDistribution(List subFacets) {
+	public Distribution getMarginalDistribution(List subFacets) {
 		if (subFacets.equals(facets))
 			return this;
 		Set subedges = getEdgesAmong(subFacets);
