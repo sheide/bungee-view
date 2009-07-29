@@ -24,6 +24,7 @@ public class Graph {
 	}
 
 	private static final int GRAPH_EDGE_LENGTH = 250;
+	public float labelW = GRAPH_EDGE_LENGTH * 0.7f; 
 	private final Map edgesLookupTable;
 	private final Set edges;
 	private final Map nodesTable;
@@ -316,7 +317,7 @@ public class Graph {
 	 * Place node centers in a circle, ordered to minimize edge crossings.
 	 */
 	public void layout() {
-//		long start = new Date().getTime();
+		// long start = new Date().getTime();
 		int nNodes = getNumNodes();
 		assert nNodes > 0;
 		List nodes = new ArrayList(getNodes());
@@ -367,8 +368,8 @@ public class Graph {
 		// assert isPerm(bestPerm);
 		arrangeInCircle(0, GRAPH_EDGE_LENGTH, GRAPH_EDGE_LENGTH, bestPerm);
 		// Util.print("best layout " + bestPerm);
-//		Util.print("layout took " + (new Date().getTime() - start) + " ms; "
-//				+ bestEdgeCrossings + " edge crossings");
+		// Util.print("layout took " + (new Date().getTime() - start) + " ms; "
+		// + bestEdgeCrossings + " edge crossings");
 	}
 
 	public int getNumNodes() {
@@ -452,35 +453,35 @@ public class Graph {
 				: (node1 == min ? 0 : -1);
 	}
 
-//	private int edgeCrossings() {
-//		int nCrosses = 0;
-//		// int index = 0;
-//		Edge[] edges1 = (Edge[]) getEdges().toArray(emptyEdges);
-//		for (int i = 0; i < edges1.length; i++) {
-//			// index++;
-//			Edge edge1 = edges1[i];
-//			for (int j = i + 1; j < edges1.length; j++) {
-//				Edge edge2 = edges1[j];
-//				if (edge1.getIntersection(edge2) != null)
-//					nCrosses++;
-//			}
-//		}
-//
-//		// List edges1 = new ArrayList(getEdges());
-//		// for (Iterator it1 = edges1.iterator(); it1.hasNext();) {
-//		// index++;
-//		// Edge edge1 = (Edge) it1.next();
-//		// for (Iterator it2 = edges1.subList(index, edges1.size()).iterator();
-//		// it2
-//		// .hasNext();) {
-//		// Edge edge2 = (Edge) it2.next();
-//		// if (edge1.getIntersection(edge2) != null)
-//		// nCrosses++;
-//		// }
-//		// }
-//
-//		return nCrosses;
-//	}
+	// private int edgeCrossings() {
+	// int nCrosses = 0;
+	// // int index = 0;
+	// Edge[] edges1 = (Edge[]) getEdges().toArray(emptyEdges);
+	// for (int i = 0; i < edges1.length; i++) {
+	// // index++;
+	// Edge edge1 = edges1[i];
+	// for (int j = i + 1; j < edges1.length; j++) {
+	// Edge edge2 = edges1[j];
+	// if (edge1.getIntersection(edge2) != null)
+	// nCrosses++;
+	// }
+	// }
+	//
+	// // List edges1 = new ArrayList(getEdges());
+	// // for (Iterator it1 = edges1.iterator(); it1.hasNext();) {
+	// // index++;
+	// // Edge edge1 = (Edge) it1.next();
+	// // for (Iterator it2 = edges1.subList(index, edges1.size()).iterator();
+	// // it2
+	// // .hasNext();) {
+	// // Edge edge2 = (Edge) it2.next();
+	// // if (edge1.getIntersection(edge2) != null)
+	// // nCrosses++;
+	// // }
+	// // }
+	//
+	// return nCrosses;
+	// }
 
 	public Set getAdjacentNodes(Node node) {
 		assert hasNode(node);

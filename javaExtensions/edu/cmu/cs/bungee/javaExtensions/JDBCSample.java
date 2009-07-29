@@ -85,10 +85,11 @@ public class JDBCSample {
 
 		connectString += compression + "&useUnicode=true"
 				+ "&characterEncoding=UTF-8" + "&characterSetResults=UTF-8"
-				+ "&connectionCollation=utf8_general_ci"
-				+"&useUsageAdvisor=true";
+				+ "&connectionCollation=utf8_general_ci";
+//				+"&useUsageAdvisor=true";
 		if (driver == null)
 			driver = Class.forName("com.mysql.jdbc.Driver").newInstance();
+		print("Connect string " + connectString);
 		con = DriverManager.getConnection(connectString);
 	}
 
