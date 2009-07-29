@@ -810,7 +810,7 @@ final class ServletInterface {
 		String[] args = { facetsOfInterest, candidates,
 				Integer.toString(table), needBaseCounts ? "1" : "0" };
 
-		DataInputStream in = getStream("getPairCounts", args);
+		DataInputStream in = getStream("onCountMatrix", args);
 		boolean needCandidateCounts = candidates.length() > 0;
 		assert needBaseCounts || needCandidateCounts;
 		ResultSet[] result = {
@@ -818,9 +818,10 @@ final class ServletInterface {
 						: null,
 				needCandidateCounts ? new MyResultSet(in,
 						MyResultSet.SNMINT_INT_INT) : null,
-				needCandidateCounts ? new MyResultSet(in,
-						MyResultSet.SNMINT_INT_INT) : null };
-		closeNcatch(in, "getPairCounts", args);
+//				needCandidateCounts ? new MyResultSet(in,
+//						MyResultSet.SNMINT_INT_INT) : null 
+						};
+		closeNcatch(in, "onCountMatrix", args);
 		return result;
 	}
 

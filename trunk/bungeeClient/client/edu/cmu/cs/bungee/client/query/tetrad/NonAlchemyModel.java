@@ -15,6 +15,7 @@ import java.util.TreeSet;
 
 import edu.berkeley.nlp.math.DifferentiableFunction;
 import edu.berkeley.nlp.math.LBFGSMinimizer;
+import edu.cmu.cs.bungee.client.query.ItemPredicate;
 import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.cmu.cs.bungee.client.query.Query;
 import edu.cmu.cs.bungee.javaExtensions.PerspectiveObserver;
@@ -79,7 +80,7 @@ public class NonAlchemyModel extends Explanation
 			Explanation base, List likelyCandidates) {
 		if (edges == null)
 			edges = GraphicalModel.allEdges(facets, facets);
-		Object args = args(facets, edges);
+		Object args = args(facets, edges, base);
 		Explanation prev = (Explanation) explanations.get(args);
 		if (prev == null)
 			prev = new NonAlchemyModel(facets, edges, base, likelyCandidates);
@@ -115,15 +116,8 @@ public class NonAlchemyModel extends Explanation
 		List primaryFacets = Explanation.relevantFacets(popupFacet);
 		if (primaryFacets.size() > 1) {
 			result = getExplanationForFacets(primaryFacets);
-			// Util.print("BURN-IN: " + BURN_IN + "; gtol: " + LBFGS.gtol
-			// + "; xtol: " + machinePrecision + "; epsilon: " + lbfgsAccuracy);
+			// result.writeVennMasterFile(primaryFacets);
 		}
-		// for (int i = 0; i < 10; i++) {
-		// int max = (int) Math.pow(10, i);
-		// Util.print(max);
-		// testSum(max);
-		// }
-		// result = null;
 		return result;
 	}
 
@@ -155,11 +149,11 @@ public class NonAlchemyModel extends Explanation
 
 		if (PRINT_LEVEL > 2)
 			for (Iterator it = facets.iterator(); it.hasNext();) {
-				Perspective p = (Perspective) it.next();
+				ItemPredicate p = (ItemPredicate) it.next();
 				nullModel.printTable(p);
 				result.printTable(p);
 			}
-
+		assert result.facets().containsAll(facets) : result;
 		return result;
 	}
 
@@ -176,22 +170,39 @@ public class NonAlchemyModel extends Explanation
 	 * @param facets
 	 * @param edges
 	 * @param base
-	 *            - only used as a speed-up for learnWeights. A base is needed
-	 *            to evaluate the model (with improvement), though.
+	 *            - only base.predicted is used, to evaluate the model (with
+	 *            improvement).
 	 * @param likelyCandidates
 	 */
 	protected NonAlchemyModel(List facets, Set edges, Explanation base,
 			List likelyCandidates) {
 		super(facets, edges, likelyCandidates);
 		learnWeights(base);
-		cache();
+		cache(base);
 	}
 
-	private void cache() {
-		Object args = args(facets(), predicted.getEdges(false));
+	private void cache(Explanation base) {
+		Object args = args(facets(), predicted.getEdges(false), base);
 		Explanation prev = (Explanation) explanations.get(args);
 		if (prev == null) {
 			// Util.print("caching " + facets());
+
+//			int n = base == null ? nFacets() : base.nFacets();
+//			double[] rs2 = getRs();
+//			double[] brs2 = new double[n];
+//			int brs2i = 0;
+//			List nbfs = new ArrayList(nFacets() - n);
+//			for (int i = 0; i < rs2.length; i++) {
+//				ItemPredicate f = (ItemPredicate) facets().get(i);
+//				if (base == null || base.facets().contains(f)) {
+//					brs2[brs2i++] = rs2[i];
+//				} else {
+//					nbfs.add(f);
+//				}
+//			}
+//			Util.print("c " + nbfs + " " + Util.sum(brs2) + " "
+//					+ Util.valueOfDeep(brs2));
+
 			explanations.put(args, this);
 		} else if (!approxEquals(prev)) {
 			printGraph();
@@ -200,7 +211,50 @@ public class NonAlchemyModel extends Explanation
 		}
 	}
 
-	private static List args(List facets, Set edges) {
+	/**
+	 * force fewer/additional facets for this model
+	 */
+	public Explanation addFacets(List primary, int delta) {
+		int n = nUsedFacets() + delta;
+		if (n < 0)
+			return this;
+		assert edgeCost >= 0 : edgeCost;
+		double minEdgeCost = delta > 0 ? 0 : edgeCost;
+		double maxEdgeCost = delta > 0 ? edgeCost : Double.POSITIVE_INFINITY;
+		Explanation result = this;
+		List candidates = candidateFacets(primary, true);
+		Distribution.cacheCandidateDistributions(primary, candidates);
+		Explanation nullModel = getInstance(primary, null, null, null);
+		Explanation best = null;
+		do {
+			double currentEdgeCost = maxEdgeCost == Double.POSITIVE_INFINITY ? minEdgeCost * 2
+					: (minEdgeCost + maxEdgeCost) / 2;
+
+			result = FacetSelection.selectFacets(nullModel, candidates,
+					currentEdgeCost);
+			result = EdgeSelection.selectEdges(result, currentEdgeCost,
+					nullModel);
+			result.edgeCost = currentEdgeCost;
+			Util.print("currentEdgeCost => " + currentEdgeCost
+					+ "; nUsedFacets = " + result.nUsedFacets() + "; goal = "
+					+ n);
+			if ((result.nUsedFacets() - nUsedFacets()) * delta > 0
+					&& (best == null || (result.nUsedFacets() - best
+							.nUsedFacets())
+							* delta < 0))
+				best = result;
+			if (result.nUsedFacets() < n)
+				maxEdgeCost = currentEdgeCost;
+			else if (result.nUsedFacets() > n)
+				minEdgeCost = currentEdgeCost;
+		} while (result.nUsedFacets() != n
+				&& !Util.approxEquals(maxEdgeCost, minEdgeCost));
+		if (best == null)
+			best = this;
+		return best;
+	}
+
+	private static List args(List facets, Set edges, Explanation base) {
 		List args = new ArrayList(3);
 		// List nf = new ArrayList(baseFacets);
 		// Collections.sort(nf);
@@ -210,8 +264,9 @@ public class NonAlchemyModel extends Explanation
 		args.add(f);
 		Set e = new HashSet(edges);
 		args.add(e);
-		args.add(new Double(NULL_MODEL_ACCURACY_IMPORTANCE));
-		return Collections.unmodifiableList(args);
+		// args.add(new Double(NULL_MODEL_ACCURACY_IMPORTANCE));
+		args.add(base);
+		return args; // Collections.unmodifiableList(args);
 	}
 
 	protected void learnWeights(Explanation base) {
@@ -420,8 +475,8 @@ public class NonAlchemyModel extends Explanation
 		} catch (Error e) {
 			Util.err("While setting weights for\n" + observed + "\n"
 					+ predicted);
-			Util.err(e);
-			// throw(e);
+			// e.printStackTrace();
+			throw (e);
 		}
 		if (result) {
 			cachedEval = Double.NaN;
@@ -462,25 +517,24 @@ public class NonAlchemyModel extends Explanation
 	 */
 	double improvement(Explanation previous, double threshold1,
 			List primaryFacets) {
-		double divergence = previous.observed.klDivergence(predicted
-				.getMarginal(previous.facets()));
-		double previousDivergence = previous.klDivergence();
-		double divergenceIncrease = (divergence - previousDivergence)
-				* NULL_MODEL_ACCURACY_IMPORTANCE;
+		// double divergence = previous.observed.klDivergence(predicted
+		// .getMarginal(previous.facets()));
+		// double previousDivergence = previous.klDivergence();
+		// double divergenceIncrease = (divergence - previousDivergence)
+		// * NULL_MODEL_ACCURACY_IMPORTANCE;
 
-		double weightSpaceChange = weightSpaceChange(previous, primaryFacets,
-				true);
+		double fastWeighSpaceChange = weightSpaceChange(previous,
+				primaryFacets, true);
 
 		// Util.print("fastImprov " + weightSpaceChange + " " + threshold1);
-		double fastWeighSpaceChange = weightSpaceChange;
-		assert Util.ignore(fastWeighSpaceChange);
+		double weightSpaceChange = fastWeighSpaceChange;
 		double sgn = Util.sgn(threshold1);
-		double result = weightSpaceChange - sgn * divergenceIncrease;
+		double result = weightSpaceChange /* - sgn * divergenceIncrease */;
 		boolean isSlow = result > threshold1 * sgn;
 		if (isSlow) {
 			weightSpaceChange = weightSpaceChange(previous, primaryFacets,
 					false);
-			result = weightSpaceChange - divergenceIncrease;
+			result = weightSpaceChange /* - divergenceIncrease */;
 			// Util.print(" slowImprov " + weightSpaceChange + " " +
 			// threshold1);
 		}
@@ -490,16 +544,16 @@ public class NonAlchemyModel extends Explanation
 					+ (isSlow ? "*" : " ")
 					+ "improvement "
 					+ result
-					+ " = ("
-					+ weightSpaceChange
-					+ " (wc) - ("
-					+ divergence
-					+ " (current) - "
-					+ previousDivergence
-					+ "(previous)) * "
-					+ NULL_MODEL_ACCURACY_IMPORTANCE
-					+ " = "
-					+ divergenceIncrease
+					// + " = ("
+					// + weightSpaceChange
+					// + " (wc) - ("
+					// + divergence
+					// + " (current) - "
+					// + previousDivergence
+					// + "(previous)) * "
+					// + NULL_MODEL_ACCURACY_IMPORTANCE
+					// + " = "
+					// + divergenceIncrease
 					// + ", "
 					// + divergenceIncreaseOverParent
 					+ " (dKL))"
@@ -548,10 +602,10 @@ public class NonAlchemyModel extends Explanation
 		double delta2 = 0;
 		for (Iterator causedIt = facetsOfInterest.iterator(); causedIt
 				.hasNext();) {
-			Perspective caused = (Perspective) causedIt.next();
+			ItemPredicate caused = (ItemPredicate) causedIt.next();
 			for (Iterator causeIt = facetsOfInterest.iterator(); causeIt
 					.hasNext();) {
-				Perspective cause = (Perspective) causeIt.next();
+				ItemPredicate cause = (ItemPredicate) causeIt.next();
 				if (cause.compareTo(caused) < 0) {
 					double change = weightSpaceChange(control, fastMax, cause,
 							caused);
@@ -578,7 +632,7 @@ public class NonAlchemyModel extends Explanation
 	}
 
 	private double weightSpaceChange(Explanation control, boolean fastMax,
-			Perspective cause, Perspective caused) {
+			ItemPredicate cause, ItemPredicate caused) {
 		assert cause != caused;
 
 		// Don't normalize, because a single strong predictor will
@@ -615,28 +669,28 @@ public class NonAlchemyModel extends Explanation
 		return Math.min(diffU, diffN);
 	}
 
-	private void printWSC(Perspective cause, Perspective caused,
+	private void printWSC(ItemPredicate cause, ItemPredicate caused,
 			boolean fastMax, Explanation control, double diffU, double diffN) {
 		StringBuffer buf = new StringBuffer();
 		buf.append("weightSpaceChange ");
 		if (diffN < diffU)
-			buf.append("N ").append(diffN).append("(U=").append(diffU).append(
+			buf.append("N ").append(diffN).append(" (U=").append(diffU).append(
 					")");
 		else {
 			buf.append("U ").append(diffU);
 			if (diffN < Double.POSITIVE_INFINITY)
-				buf.append("(N=").append(diffN).append(")");
+				buf.append(" (N=").append(diffN).append(")");
 		}
 		buf.append(" ").append(cause).append(" => ").append(caused).append(" ");
-		printW(cause, caused, fastMax, buf).append(" => ");
 		((NonAlchemyModel) control).printW(cause, caused, fastMax, buf).append(
-				" ");
+				" => ");
+		printW(cause, caused, fastMax, buf).append(" ");
 		// if (!fastMax)
 		// buf.append(" (").append(diffN).append(")");
 		Util.print(buf.toString());
 	}
 
-	private StringBuffer printW(Perspective cause, Perspective caused,
+	private StringBuffer printW(ItemPredicate cause, ItemPredicate caused,
 			boolean fastMax, StringBuffer buf) {
 		double w = predicted.getWeightOrZero(cause, caused);
 		if (buf == null)
@@ -750,11 +804,11 @@ public class NonAlchemyModel extends Explanation
 	// // Util.print("c2g " + Util.valueOfDeep(gradient));
 	// }
 
-	public Graph buildGraph(PerspectiveObserver redrawer, Perspective popupFacet) {
+	public Graph buildGraph(PerspectiveObserver redrawer, Perspective popupFacet, boolean debug) {
 		List primaryFacets = Explanation.relevantFacets(popupFacet);
 		Explanation nullModel = NonAlchemyModel.getInstance(primaryFacets,
 				null, null, null);
-		return buildGraph(redrawer, nullModel);
+		return buildGraph(redrawer, nullModel, debug);
 	}
 
 	static class CompareCount implements Comparator {
@@ -762,24 +816,26 @@ public class NonAlchemyModel extends Explanation
 		public int compare(Object data1, Object data2) {
 			int result = Util.sgn(value(data1) - value(data2));
 			if (result == 0)
-				result = Util.sgn(id(data1) - id(data2));
+				result = ((ItemPredicate) data1).compareTo(data2);// Util.sgn(id(data1)
+																	// -
+																	// id(data2));
 			return result;
 		}
 
-		private int id(Object data) {
-			return ((Perspective) data).getID();
-		}
+		// private int id(Object data) {
+		// return ((Perspective) data).getID();
+		// }
 
 		private double value(Object data) {
-			return ((Perspective) data).getTotalCount();
+			return ((ItemPredicate) data).getTotalCount();
 		}
 	}
 
-	public static void testPairList(Query query) {
-		testPairs(pairs, query);
+	public static void testPairList(Query query, boolean printToFile) {
+		testPairs(pairs, query, printToFile);
 	}
 
-	public static void test(Query query, int nCandidates) {
+	public static void test(Query query, int nCandidates, boolean printToFile) {
 		if (nCandidates <= 0)
 			return;
 		long start = (new Date()).getTime();
@@ -821,7 +877,7 @@ public class NonAlchemyModel extends Explanation
 				result = getExplanationForFacets(pair);
 				int nEdges = result.predicted.nEdges();
 				counts[nEdges]++;
-				if (nEdges > 1)
+				if (printToFile&&nEdges > 1)
 					result.printToFile(NonAlchemyModel.getInstance(pair, null,
 							null, null));
 			}
@@ -833,9 +889,9 @@ public class NonAlchemyModel extends Explanation
 		Util.print("nEdges distribution: " + Util.valueOfDeep(counts));
 	}
 
-	private static void testPairs(int[][] pairs1, Query query) {
+	private static void testPairs(int[][] pairs1, Query query, boolean printToFile) {
 		long start = (new Date()).getTime();
-		int nFns = 0;
+//		int nFns = 0;
 		int[] counts = new int[50];
 		for (int i = 0; i < pairs1.length; i++) {
 			int[] IDs = pairs1[i];
@@ -845,19 +901,19 @@ public class NonAlchemyModel extends Explanation
 			Collections.sort(pair);
 			// Util.print(pair);
 			Explanation result = getExplanationForFacets(pair);
-			nFns += totalNumFuns;
+//			nFns += totalNumFuns;
 			// nL += totalNumLineSearches;
 
 			int nEdges = result.predicted.nEdges();
 			counts[nEdges]++;
-			if (nEdges > 1)
+			if (printToFile&&nEdges > 1)
 				result.printToFile(NonAlchemyModel.getInstance(pair, null,
 						null, null));
 		}
 		long duration = (new Date()).getTime() - start;
 		// result.printGraphAndNull();
 		// ((NonAlchemyModel) result).stats();
-		Util.print("test duration=" + (duration / 1000) + " #Evals: " + nFns);
+		Util.print("test duration=" + (duration / 1000) );
 		Util.print("nEdges distribution: " + Util.valueOfDeep(counts));
 	}
 

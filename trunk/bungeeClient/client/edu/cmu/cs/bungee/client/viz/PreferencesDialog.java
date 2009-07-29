@@ -52,6 +52,8 @@ class PreferencesDialog extends JPanel implements ActionListener {
 	private JCheckBox sortMenus;
 	private JCheckBox clustering;
 	private JCheckBox editing;
+	private JCheckBox debugGraph;
+	private JCheckBox graph;
 
 	private JSpinner columnsSpinner;
 
@@ -70,9 +72,7 @@ class PreferencesDialog extends JPanel implements ActionListener {
 
 		add(leftPane, BorderLayout.LINE_START);
 
-		if (art.query.isEditable()) {
-			add(superExpertPreferencesPanel(features));
-		}
+		add(superExpertPreferencesPanel(features));
 
 		add(okCancelPanel());
 	}
@@ -192,6 +192,10 @@ class PreferencesDialog extends JPanel implements ActionListener {
 		clustering.setSelected(features.clustering);
 		expertFeaturesPane.add(clustering);
 
+		graph = new JCheckBox("Show Influence Diagrams with popup tag details");
+		graph.setSelected(features.graph);
+		expertFeaturesPane.add(graph);
+
 		JPanel shortcutPanel = new JPanel();
 		JButton expert = new JButton("All expert features");
 		expert.setActionCommand("expert");
@@ -231,10 +235,16 @@ class PreferencesDialog extends JPanel implements ActionListener {
 				BorderFactory.createTitledBorder("Do not try this at home"),
 				BorderFactory.createEmptyBorder(5, 5, 5, 5)));
 
-		editing = new JCheckBox(
-				"Allow updating the database by clicking with the middle mouse button");
-		editing.setSelected(features.editing);
-		superExpertFeaturesPane.add(editing);
+		if (art.query.isEditable()) {
+			editing = new JCheckBox(
+					"Allow updating the database by clicking with the middle mouse button");
+			editing.setSelected(features.editing);
+			superExpertFeaturesPane.add(editing);
+		}
+		debugGraph = new JCheckBox(
+				"Show debugging information on Influence Diagrams");
+		debugGraph.setSelected(features.debugGraph);
+		superExpertFeaturesPane.add(debugGraph);
 		return superExpertFeaturesPane;
 	}
 
@@ -317,6 +327,10 @@ class PreferencesDialog extends JPanel implements ActionListener {
 			buf.append(",zoom");
 		if (editing != null && editing.isSelected())
 			buf.append(",editing");
+		if (debugGraph.isSelected())
+			buf.append(",debugGraph");
+		if (graph.isSelected())
+			buf.append(",graph");
 		// Util.print("kk " + new Preferences(null, buf.toString(), true));
 		return new Preferences(null, buf.toString(), true);
 	}
@@ -333,6 +347,7 @@ class PreferencesDialog extends JPanel implements ActionListener {
 		medians.setSelected(state);
 		sortMenus.setSelected(state);
 		clustering.setSelected(state);
+		graph.setSelected(state);
 	}
 
 	/**
@@ -372,14 +387,16 @@ class Preferences {
 	final boolean tagLists;
 	final boolean zoom;
 	final boolean editing;
+	final boolean graph;
+	final boolean debugGraph;
 
 	private static final String[] featureNames = { "fontSize", "nColumns",
 			"arrows", "boundaries", "brushing", "checkboxes", "clustering",
 			"medians", "openClose", "popups", "pvalues", "shortcuts",
-			"sortMenus", "tagLists", "zoom", "editing" };
+			"sortMenus", "tagLists", "zoom", "editing", "graph", "debugGraph" };
 
 	static String expertFeatureNames = "arrows,boundaries,brushing,checkboxes,clustering,medians,"
-			+ "pvalues,shortcuts,sortMenus,tagLists,zoom";
+			+ "pvalues,shortcuts,sortMenus,tagLists,zoom,graph";
 
 	static Preferences defaultFeatures = new Preferences(null,
 			"fontSize=14,popups", true);
@@ -430,6 +447,9 @@ class Preferences {
 		zoom = Util.isMember(options, "zoom") ? changeTo : a && base.zoom;
 		editing = Util.isMember(options, "editing") ? changeTo : a
 				&& base.editing;
+		graph = Util.isMember(options, "graph") ? changeTo : a && base.graph;
+		debugGraph = Util.isMember(options, "debugGraph") ? changeTo : a
+				&& base.debugGraph;
 	}
 
 	String features2string() {
@@ -465,6 +485,10 @@ class Preferences {
 			buf.append(",zoom");
 		if (editing)
 			buf.append(",editing");
+		if (graph)
+			buf.append(",graph");
+		if (debugGraph)
+			buf.append(",debugGraph");
 		return buf.toString();
 	}
 
@@ -486,7 +510,8 @@ class Preferences {
 				&& options.shortcuts == shortcuts
 				&& options.sortMenus == sortMenus
 				&& options.tagLists == tagLists && options.zoom == zoom
-				&& options.editing == editing;
+				&& options.editing == editing && options.graph == graph
+				&& options.debugGraph == debugGraph;
 	}
 
 	public int hashCode() {
@@ -506,6 +531,8 @@ class Preferences {
 		result = 37 * result + (tagLists ? 0 : 1);
 		result = 37 * result + (zoom ? 0 : 1);
 		result = 37 * result + (editing ? 0 : 1);
+		result = 37 * result + (graph ? 0 : 1);
+		result = 37 * result + (debugGraph ? 0 : 1);
 		return result;
 	}
 

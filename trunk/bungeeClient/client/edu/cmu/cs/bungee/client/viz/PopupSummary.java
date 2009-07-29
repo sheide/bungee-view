@@ -5,6 +5,7 @@ import java.awt.font.TextAttribute;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Vector;
@@ -13,6 +14,7 @@ import edu.cmu.cs.bungee.client.query.Cluster;
 import edu.cmu.cs.bungee.client.query.Markup;
 import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.cmu.cs.bungee.client.query.Query;
+import edu.cmu.cs.bungee.client.query.tetrad.Distribution;
 import edu.cmu.cs.bungee.client.query.tetrad.Explanation;
 import edu.cmu.cs.bungee.client.query.tetrad.NonAlchemyModel;
 import edu.cmu.cs.bungee.client.query.tetrad.Tetrad;
@@ -232,6 +234,10 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 	Graph graph;
 
 	private Explanation explanation;
+
+	private EulerDiagram observedEulerDiagram;
+
+	private EulerDiagram predictedEulerDiagram;
 
 	private static final float TRANSPARENT = 0;
 
@@ -478,6 +484,8 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 			double margin) {
 		for (int i = 0; i < nodes.length; i++) {
 			setBoundsFromNodes(nodes[i], virtualChildren, margin);
+
+			// Util.print("ftn "+insideTetrad+" "+maxW+" "+nodes[i].getGlobalBounds());
 		}
 	}
 
@@ -617,45 +625,106 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 		}
 	}
 
-	boolean updateTetrad() {
-		boolean result = graph != null;
-		if (result)
-			setTetrad();
-		return result;
-	}
+	// boolean updateTetrad() {
+	// boolean result = graph != null;
+	// if (result)
+	// setTetrad();
+	// return result;
+	// }
 
 	boolean setTetrad() {
-		boolean result = facet != null && facet.query().isRestricted();
+		boolean result = art.getIsGraph() && facet != null
+				&& facet.query().isRestricted();
 		if (result) {
 			if (graph != null) {
 				// If we generate a new Tetrad, the facetsOfInterest might be
 				// different, and we don't want the graph to change on redraws
 				removeChild(graph);
+				graph = null;
 				// relabel(tetradGraph);
 			} else if (!useTetrad) {
 				// tetradGraph = Tetrad.getTetradGraph(facet, null, this);
 				// tetradGraph = Alchemy.getAlchemyGraph(facet, this, this,
 				// art.dbName);
 				// drawTetradGraph(tetradGraph, "tetrad");
-
-				explanation = NonAlchemyModel.getExplanation(facet);
+				try {
+					explanation = NonAlchemyModel.getExplanation(facet);
+				} catch (Throwable e) {
+					Util.err("Ignoring error getting explanation: ");
+					e.printStackTrace();
+					return false;
+				}
 			}
 			if (explanation == null && !useTetrad)
 				return false;
 
 			setTetradInternal(useTetrad ? getGraphInternal(Tetrad
 					.getTetradGraph(facet, null, this)) : getGraph());
+
+			showEuler(explanation, Explanation.relevantFacets(facet));
 		}
 		return result;
 		// return false;
 	}
 
+	void handleArrow(char key) {
+		int delta = 0;
+		switch (key) {
+		case java.awt.event.KeyEvent.VK_KP_DOWN:
+		case java.awt.event.KeyEvent.VK_DOWN:
+			delta--;
+			break;
+		case java.awt.event.KeyEvent.VK_KP_UP:
+		case java.awt.event.KeyEvent.VK_UP:
+			delta++;
+			break;
+		}
+		addTetradFacets(delta);
+	}
+
+	boolean addTetradFacets(int delta) {
+		if (explanation != null && delta != 0) {
+			explanation = ((NonAlchemyModel) explanation).addFacets(Explanation
+					.relevantFacets(facet), delta);
+			setTetradInternal(useTetrad ? getGraphInternal(Tetrad
+					.getTetradGraph(facet, null, this)) : getGraph());
+			showEuler(explanation, Explanation.relevantFacets(facet));
+		}
+		return explanation != null;
+	}
+
+	private void showEuler(Explanation explanation2, List relevantFacets) {
+		removeEulerDiagrams();
+		if (art.getIsDebugGraph()) {
+			Distribution observedDestribution = explanation2
+					.getObservedDestribution();
+			Collection unusedFacets = explanation2.unusedFacets();
+			unusedFacets.removeAll(relevantFacets);
+			List usedFacets = new ArrayList(explanation2.facets());
+			usedFacets.removeAll(unusedFacets);
+			try {
+				observedEulerDiagram = new EulerDiagram(observedDestribution,
+						relevantFacets, usedFacets, art.font);
+				addChild(observedEulerDiagram);
+				observedEulerDiagram.setStrokePaint(BGcolor);
+				alignNcorrect(observedEulerDiagram, 2, barBG, 0);
+
+				predictedEulerDiagram = new EulerDiagram(explanation2
+						.getPredictedDestribution(), relevantFacets,
+						usedFacets, art.font);
+				addChild(predictedEulerDiagram);
+				predictedEulerDiagram.setStrokePaint(BGcolor);
+				alignNcorrect(predictedEulerDiagram, 2, observedEulerDiagram, 0);
+			} catch (AssertionError e) {
+				e.printStackTrace();
+			}
+		}
+	}
+
 	void convertToTetrad() {
 		if (explanation != null) {
-			Graph g = getGraphInternal(Tetrad
-					.getTetradGraph(facet,
-							Explanation.relevantFacetsSet(facet), explanation
-									.facets(), null, this));
+			Graph g = getGraphInternal(Tetrad.getTetradGraph(facet, Explanation
+					.relevantFacets(facet), explanation.facets(), null, this));
 			setTetradInternal(g);
 			g.setLabel("Tetrad Graph");
 		}
@@ -666,9 +735,12 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 			removeChild(graph);
 		graph = graph1;
 		addChild(graph);
+		// insideTetrad = true;
+		// reset((int) graph.getWidth());
+		// insideTetrad = false;
 		graph.setWidth(barBG.getWidth());
-		align(graph, 2, barBG, 18);
-		graph.translate(-graph.getX(), -graph.getY() - MARGIN);
+		alignNcorrect(graph, 2, barBG, 18);
+		// graph.translate(-graph.getX(), -graph.getY() - MARGIN);
 	}
 
 	// private void relabel(
@@ -686,7 +758,8 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 			tetradGraph = new edu.cmu.cs.bungee.javaExtensions.graph.Graph(
 					(GraphWeigher) null);
 		} else {
-			tetradGraph = explanation.buildGraph(this, facet);
+			tetradGraph = explanation.buildGraph(this, facet, art
+					.getIsDebugGraph());
 		}
 		return getGraphInternal(tetradGraph);
 	}
@@ -1248,6 +1321,17 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 		return result;
 	}
 
+	private void alignNcorrect(PNode attachment, int attachmentPoint,
+			PNode base, int basePoint) {
+		PBounds ab = attachment.getFullBounds();
+		double dx = isRight(attachmentPoint) && isLeft(basePoint) ? MARGIN
+				: isRight(basePoint) && isLeft(attachmentPoint) ? -MARGIN : 0;
+		double dy = isBottom(attachmentPoint) && isTop(basePoint) ? MARGIN
+				: isBottom(basePoint) && isTop(attachmentPoint) ? -MARGIN : 0;
+		align(attachment, attachmentPoint, base, basePoint, dx - ab.getX(), dy
+				- ab.getY());
+	}
+
 	private void align(PNode attachment, int attachmentPoint, PNode base,
 			int basePoint) {
 		align(attachment, attachmentPoint, base, basePoint, 0, 0);
@@ -1336,6 +1420,22 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 
 	private static boolean isChangeY(int direction) {
 		return (direction & 32) == 0;
+	}
+
+	private static boolean isTop(int direction) {
+		return (direction & 56) == 0;
+	}
+
+	private static boolean isBottom(int direction) {
+		return (direction & 16) > 0;
+	}
+
+	private static boolean isLeft(int direction) {
+		return (direction & 7) == 0;
+	}
+
+	private static boolean isRight(int direction) {
+		return (direction & 2) > 0;
 	}
 
 	// 00 01 02 04
@@ -1781,8 +1881,10 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 		return buf.toString();
 	}
 
+	private int maxW;
+
 	private int maxW() {
-		return (int) (art.getW() - art.summary.w - 33 * MARGIN);
+		return maxW;
 	}
 
 	private Markup getPrefix(Markup facetDescList) {
@@ -1954,16 +2056,25 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 			conditionalMedian = facet.getMedianPerspective(true);
 			unconditionalMedian = facet.getMedianPerspective(false);
 		}
-		performNextStep();
-		setVisible(true);
+		init();
 	}
 
 	void setCluster(Cluster _cluster) {
 		// Util.print("setCluster " + _cluster);
 		assert _cluster != null;
 		cluster = _cluster;
-		performNextStep();
+		init();
+	}
+
+	void init() {
 		setVisible(true);
+		maxW = (int) (art.getW() - art.summary.w - 33 * MARGIN);
+		performNextStep();
+	}
+
+	void reset(int w) {
+		maxW = w;
+		actions();
 	}
 
 	boolean showMoreHelp() {
@@ -2002,6 +2113,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 				graph.removeFromParent();
 				graph = null;
 			}
+			removeEulerDiagrams();
 			if (isHelp) {
 				art.summary.computeRankComponentHeights(0);
 				// animateBarTransparencies(1, 0, 0);
@@ -2018,6 +2130,17 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 			conditionalMedian = null;
 			unconditionalMedian = null;
 			setVisible(false);
+		}
+	}
+
+	private void removeEulerDiagrams() {
+		if (observedEulerDiagram != null) {
+			observedEulerDiagram.removeFromParent();
+			observedEulerDiagram = null;
+		}
+		if (predictedEulerDiagram != null) {
+			predictedEulerDiagram.removeFromParent();
+			predictedEulerDiagram = null;
 		}
 	}
 

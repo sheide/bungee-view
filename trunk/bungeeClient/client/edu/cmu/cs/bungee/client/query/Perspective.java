@@ -61,7 +61,7 @@ import edu.cmu.cs.bungee.javaExtensions.comparator.IntValueComparator;
  * 
  * @author mad
  */
-public class Perspective implements Comparable, ItemPredicate {
+public class Perspective implements ItemPredicate {
 
 	/**
 	 * Perspective for the more general facet or facet_type, Only changes if
@@ -339,11 +339,12 @@ public class Perspective implements Comparable, ItemPredicate {
 		return parent != null ? parent.nChildren() : query().nAttributes;
 	}
 
-	/**
-	 * @return facet_id
-	 */
 	public int getID() {
 		return facet_id;
+	}
+
+	public String getServerID() {
+		return Integer.toString(facet_id);
 	}
 
 	void setID(int _facet_id) {
@@ -1118,7 +1119,7 @@ public class Perspective implements Comparable, ItemPredicate {
 
 	public String toString() {
 		StringBuffer buf = new StringBuffer();
-		buf.append(getNameIfPossible()).append(" (").append(getID())
+		buf.append(getNameIfPossible()).append(" (").append(getServerID())
 				.append(")");
 		// buf.append(" index=" + getIndex() + " ");
 		// buf.append(nChildren).append(" ").append(children_offset);
@@ -1134,7 +1135,8 @@ public class Perspective implements Comparable, ItemPredicate {
 
 	public String toString(PerspectiveObserver redrawer1) {
 		StringBuffer buf = new StringBuffer();
-		buf.append(getName(redrawer1)).append(" (").append(getID()).append(")");
+		buf.append(getName(redrawer1)).append(" (").append(getServerID())
+				.append(")");
 		// buf.append(" index=" + getIndex() + " ");
 		// buf.append(nChildren).append(" ").append(children_offset);
 		// buf.append("; local:
@@ -2184,7 +2186,10 @@ public class Perspective implements Comparable, ItemPredicate {
 
 	public int compareTo(Object arg0) {
 		// return indexComparator.compare(this, arg0);
-		return getID() - ((Perspective) arg0).getID();
+		if (arg0 instanceof Perspective)
+			return getID() - ((Perspective) arg0).getID();
+		else
+			return 1;
 	}
 
 	public boolean equals(Object arg0) {
@@ -2234,7 +2239,8 @@ public class Perspective implements Comparable, ItemPredicate {
 								&& parent.isRestricted();
 						if (chiSq.sign() > 0 || !siblingSelected) {
 							double myCramersPhi = chiSq.myCramersPhi();
-							double relativePhi = myCramersPhi/Math.sqrt(parentTotalCount());
+							double relativePhi = myCramersPhi
+									/ Math.sqrt(parentTotalCount());
 							top.maybeAdd(chiSq, relativePhi);
 						}
 					}
@@ -2243,7 +2249,8 @@ public class Perspective implements Comparable, ItemPredicate {
 		} catch (AssertionError e) {
 			// Do our best even if query is invalid, but ignore errors this
 			// causes
-			assert !query().isQueryValid();
+			if (query().isQueryValid())
+				throw (e);
 		}
 	}
 
@@ -3005,6 +3012,10 @@ public class Perspective implements Comparable, ItemPredicate {
 			return "<InstantiatedPerspective " + name + ">";
 		}
 
+	}
+
+	public int compareTo(ItemPredicate caused) {
+		return (caused instanceof Perspective) ? compareTo((Object) caused) : 1;
 	}
 }
 

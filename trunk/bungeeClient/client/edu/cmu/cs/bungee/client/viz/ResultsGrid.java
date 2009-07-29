@@ -789,11 +789,10 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 					// may have been decached
 					ii.facets.add(facet);
 				// Util.print("vv " + ii + " " + facet);
-				it.remove();
 			} else {
 				// Util.print("xx " + entry.getKey() + " " + entry.getValue());
-
 			}
+			it.remove();
 		}
 	}
 
