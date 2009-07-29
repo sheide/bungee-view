@@ -71,6 +71,7 @@ package edu.cmu.cs.bungee.lbfgs;
  * 	,       (1989), pp. 503-528.
  * 	,       (Postscript file of this paper is available via anonymous ftp
  * 	,       to eecs.nwu.edu in the directory pub/lbfgs/lbfgs_um.)
+ * http://www.ece.northwestern.edu/~nocedal/PDFfiles/limited-memory.pdf
  * </pre>
  * 
  * @author Jorge Nocedal: original Fortran version, including comments (July
@@ -129,7 +130,7 @@ public class LBFGS {
 
 	public static double stpmax = 1e20;
 
-	public static int maxfev = 20;
+	public static int maxfev = 200;
 
 	/**
 	 * The solution vector as it was at the end of the most recently completed
@@ -379,6 +380,8 @@ public class LBFGS {
 
 			for (i = 1; i <= n; i += 1) {
 				w[ispt + i - 1] = -g[i - 1] * diag[i - 1];
+				if (badNum(w[ispt + i - 1]))
+					System.err.println("w1 " + g[i - 1] + " " + diag[i - 1]);
 			}
 
 			gnorm = Math.sqrt(ddot(n, g, 0, 1, g, 0, 1));
@@ -404,7 +407,7 @@ public class LBFGS {
 						yy = ddot(n, w, iypt + npt, 1, w, iypt + npt, 1);
 
 						for (i = 1; i <= n; i += 1) {
-							diag[i - 1] = ys / yy;
+							diag[i - 1] = safeDiv(ys , yy);
 						}
 					} else {
 						iflag[0] = 2;
@@ -431,9 +434,14 @@ public class LBFGS {
 					if (point == 0)
 						cp = m;
 					w[n + cp - 1] = 1 / ys;
+					if (badNum(w[n + cp - 1]))
+						System.err.println("w2 " + ys);
 
 					for (i = 1; i <= n; i += 1) {
 						w[i - 1] = -g[i - 1];
+						if (badNum(w[i - 1]))
+							throw new IllegalArgumentException(i + " "
+									+ g[i - 1]);
 					}
 
 					cp = point;
@@ -445,19 +453,29 @@ public class LBFGS {
 						sq = ddot(n, w, ispt + cp * n, 1, w, 0, 1);
 						inmc = n + m + cp + 1;
 						iycn = iypt + cp * n;
-						w[inmc - 1] = w[n + cp + 1 - 1] * sq;
+						w[inmc - 1] = w[n + cp] * sq;
+						if (badNum(w[inmc - 1])) {
+							System.err.println("w3 " + w[n + cp] + " " + sq);
+							lb1(iprint, iter, nfun, gnorm, n, m, x, f, g, stp,
+									finish);
+						}
 						daxpy(n, -w[inmc - 1], w, iycn, 1, w, 0, 1);
 					}
 
 					for (i = 1; i <= n; i += 1) {
-						w[i - 1] = diag[i - 1] * w[i - 1];
+						w[i - 1] *= diag[i - 1];
+						if (badNum(w[i - 1]))
+							System.err.println("w4 " + diag[i - 1]);
 					}
 
 					for (i = 1; i <= bound; i += 1) {
 						yr = ddot(n, w, iypt + cp * n, 1, w, 0, 1);
-						beta = w[n + cp + 1 - 1] * yr;
+						beta = safeMult(w[n + cp] , yr);
 						inmc = n + m + cp + 1;
 						beta = w[inmc - 1] - beta;
+						if (badNum(beta)) {
+								throw new IllegalArgumentException(w[inmc - 1]+" "+safeMult(w[n + cp] , yr));
+						}
 						iscn = ispt + cp * n;
 						daxpy(n, beta, w, iscn, 1, w, 0, 1);
 						cp = cp + 1;
@@ -467,36 +485,42 @@ public class LBFGS {
 
 					for (i = 1; i <= n; i += 1) {
 						w[ispt + point * n + i - 1] = w[i - 1];
+						if (badNum(w[ispt + point * n + i - 1]))
+							System.err.println("w5 " + w[i - 1]);
 					}
 				}
 
 				nfev[0] = 0;
-				Mcsrch.setSTP(stp, 1);
-				// stp[0] = 1;
-				if (iter == 1 && stp1 < stp[0])
-					Mcsrch.setSTP(stp, stp1);
-				// stp[0] = stp1;
+				Mcsrch.setSTP(stp, iter == 1 && stp1 < 1 ? stp1 : 1);
 
 				for (i = 1; i <= n; i += 1) {
 					w[i - 1] = g[i - 1];
+					if (badNum(w[i - 1]))
+						System.err.println("w6 " + g[i - 1]);
 				}
 			}
 			double MY_MAX_STEP = 1;
 			double directionMag = ddot(n, w, ispt + point * n, 1, w, ispt
 					+ point * n, 1);
-			// System.err.println("directionMag: "+directionMag);
 			double effectiveStep = stp[0] * directionMag;
 			if (effectiveStep > MY_MAX_STEP) {
-				// System.err.println("reducing step: " + stp[0] + " => "
-				// + (MY_MAX_STEP / directionMag));
-				Mcsrch.setSTP(stp, MY_MAX_STEP / directionMag);
-			}
+				if (iprint[0] > 0)
+					System.err.println("reducing step: " + stp[0] + " => "
+							+ (MY_MAX_STEP / directionMag));
+				// stpmax = MY_MAX_STEP / directionMag;
+			} else
+				stpmax = 1e20;
 
-			if (iprint[1 - 1] >= 0)
-				lb1(iprint, iter, nfun, gnorm, n, m, x, f, g, stp, finish);
+			// if (iprint[1 - 1] >= 0)
+			// lb1(iprint, iter, nfun, gnorm, n, m, x, f, g, stp, finish);
 
 			Mcsrch.mcsrch(n, x, f, g, w, ispt + point * n, stp, ftol, xtol,
 					maxfev, info, nfev, diag, iprint);
+
+			if (info[0] == -1) {
+				iflag[0] = 1;
+				return;
+			}
 
 			if (iprint[0] > 0)
 				System.err.println("msrch return = nfev=" + nfev[0] + " nfun="
@@ -505,11 +529,6 @@ public class LBFGS {
 						+ Mcsrch.brackt[0] + " stp=" + stp[0] + " gnorm="
 						+ Math.sqrt(ddot(n, g, 0, 1, g, 0, 1)) + " xnorm="
 						+ Math.sqrt(ddot(n, x, 0, 1, x, 0, 1)));
-
-			if (info[0] == -1) {
-				iflag[0] = 1;
-				return;
-			}
 
 			if (info[0] != 1) {
 				iflag[0] = -1;
@@ -520,15 +539,19 @@ public class LBFGS {
 								+ " Possible causes: function or gradient are incorrect, or incorrect tolerances.");
 			}
 
-			nfun = nfun + nfev[0];
+			nfun += nfev[0];
 			npt = point * n;
 
 			for (i = 1; i <= n; i += 1) {
-				w[ispt + npt + i - 1] = stp[0] * w[ispt + npt + i - 1];
+				w[ispt + npt + i - 1] *= stp[0];
+				if (badNum(w[ispt + npt + i - 1]))
+					System.err.println("w6 " + stp[0]);
 				w[iypt + npt + i - 1] = g[i - 1] - w[i - 1];
+				if (badNum(w[iypt + npt + i - 1]))
+					System.err.println("w7 " + g[i - 1] + " " + w[i - 1]);
 			}
 
-			point = point + 1;
+			point++;
 			if (point == m)
 				point = 0;
 
@@ -548,7 +571,6 @@ public class LBFGS {
 			// mcsrch one more time -- but that will modify the solution vector.
 			// So we need to keep a copy of the solution vector as it was at
 			// the completion (info[0]==1) of the most recent line search.
-
 			System.arraycopy(x, 0, solution_cache, 0, n);
 
 			if (finish) {
@@ -592,11 +614,11 @@ public class LBFGS {
 	 *            <li> <code>iprint[1] = 3</code>: same as
 	 *            <code>iprint[1]=2</code>, plus gradient vector.
 	 *            </ul>
-	 * @param iter
+	 * @param iter1
 	 *            Number of iterations so far.
-	 * @param nfun
+	 * @param nfun1
 	 *            Number of function evaluations so far.
-	 * @param gnorm
+	 * @param gnorm1
 	 *            Norm of gradient at current solution <code>x</code>.
 	 * @param n
 	 *            Number of free parameters.
@@ -608,72 +630,72 @@ public class LBFGS {
 	 *            Function value at current solution.
 	 * @param g
 	 *            Gradient at current solution <code>x</code>.
-	 * @param stp
+	 * @param stp11
 	 *            Current stepsize.
-	 * @param finish
+	 * @param finish1
 	 *            Whether this method should print the ``we're done'' message.
 	 */
-	public static void lb1(int[] iprint, int iter, int nfun, double gnorm,
-			int n, int m, double[] x, double f, double[] g, double[] stp,
-			boolean finish) {
-		String heading = "\ti\tnfn\tfunc\t\t\tgnorm\t\t\txnorm\t\t\tsteplength";
-		int i;
+	public static void lb1(int[] iprint, int iter1, int nfun1, double gnorm1,
+			int n, int m, double[] x, double f, double[] g, double[] stp11,
+			boolean finish1) {
+		String heading = "\ti\tnfn\tfunc\t\t\tgnorm\t\t\tsteplength";
+		int i1;
 
-		if (iter == 0) {
+		if (iter1 == 0) {
 			System.err
 					.println("*************************************************");
 			System.err.println("  n = " + n + "   number of corrections = " + m
 					+ "\n       initial values");
-			System.err.println(" f =  " + f + "   gnorm =  " + gnorm);
+			System.err.println(" f =  " + f + "   gnorm =  " + gnorm1);
 			if (iprint[2 - 1] >= 1) {
 				System.err.print(" vector x =");
-				for (i = 1; i <= n; i++)
-					System.err.print("  " + x[i - 1]);
+				for (i1 = 1; i1 <= n; i1++)
+					System.err.print("  " + x[i1 - 1]);
 				System.err.println("");
 
 				System.err.print(" gradient vector g =");
-				for (i = 1; i <= n; i++)
-					System.err.print("  " + g[i - 1]);
+				for (i1 = 1; i1 <= n; i1++)
+					System.err.print("  " + g[i1 - 1]);
 				System.err.println("");
 			}
 			System.err
 					.println("*************************************************");
 			System.err.println(heading);
 		} else {
-			if ((iprint[1 - 1] == 0) && (iter != 1 && !finish))
+			if ((iprint[1 - 1] == 0) && (iter1 != 1 && !finish1))
 				return;
 			if (iprint[1 - 1] != 0) {
-				if ((iter - 1) % iprint[1 - 1] == 0 || finish) {
-					if (iprint[2 - 1] > 1 && iter > 1)
+				if ((iter1 - 1) % iprint[1 - 1] == 0 || finish1) {
+					if (iprint[2 - 1] > 1 && iter1 > 1)
 						System.err.println(heading);
-					System.err.println("\t" + iter + "\t" + nfun + "\t" + f
-							+ "\t" + gnorm + "\t" + stp[0]);
+					System.err.println("\t" + iter1 + "\t" + nfun1 + "\t" + f
+							+ "\t" + gnorm1 + "\t" + stp11[0]);
 				} else {
 					return;
 				}
 			} else {
-				if (iprint[2 - 1] > 1 && finish)
+				if (iprint[2 - 1] > 1 && finish1)
 					System.err.println(heading);
-				System.err.println("\t" + iter + "\t" + nfun + "\t" + f + "\t"
-						+ gnorm + "\t" + stp[0]);
+				System.err.println("\t" + iter1 + "\t" + nfun1 + "\t" + f
+						+ "\t" + gnorm1 + "\t" + stp11[0]);
 			}
 			if (iprint[2 - 1] == 2 || iprint[2 - 1] == 3) {
-				if (finish) {
+				if (finish1) {
 					System.err.print(" final point x =");
 				} else {
 					System.err.print(" vector x =  ");
 				}
-				for (i = 1; i <= n; i++)
-					System.err.print("  " + x[i - 1]);
+				for (i1 = 1; i1 <= n; i1++)
+					System.err.print("  " + x[i1 - 1]);
 				System.err.println("");
 				if (iprint[2 - 1] == 3) {
 					System.err.print(" gradient vector g =");
-					for (i = 1; i <= n; i++)
-						System.err.print("  " + g[i - 1]);
+					for (i1 = 1; i1 <= n; i1++)
+						System.err.print("  " + g[i1 - 1]);
 					System.err.println("");
 				}
 			}
-			if (finish)
+			if (finish1)
 				System.err
 						.println(" The minimization terminated without detecting errors. iflag = 0");
 		}
@@ -688,7 +710,7 @@ public class LBFGS {
 	 */
 	public static void daxpy(int n, double da, double[] dx, int ix0, int incx,
 			double[] dy, int iy0, int incy) {
-		int i, ix, iy, m, mp1;
+		int i1, ix, iy;// , m, mp1;
 
 		if (n <= 0)
 			return;
@@ -696,45 +718,47 @@ public class LBFGS {
 		if (da == 0)
 			return;
 
-		if (!(incx == 1 && incy == 1)) {
-			ix = 1;
-			iy = 1;
+		// if (!(incx == 1 && incy == 1)) {
+		ix = 1;
+		iy = 1;
 
-			if (incx < 0)
-				ix = (-n + 1) * incx + 1;
-			if (incy < 0)
-				iy = (-n + 1) * incy + 1;
+		if (incx < 0)
+			ix = (-n + 1) * incx + 1;
+		if (incy < 0)
+			iy = (-n + 1) * incy + 1;
 
-			for (i = 1; i <= n; i += 1) {
-				dy[iy0 + iy - 1] = dy[iy0 + iy - 1] + da * dx[ix0 + ix - 1];
-				ix = ix + incx;
-				iy = iy + incy;
-			}
-
-			return;
+		for (i1 = 1; i1 <= n; i1 += 1) {
+			dy[iy0 + iy - 1] += safeMult(da , dx[ix0 + ix - 1]);
+			ix = ix + incx;
+			iy = iy + incy;
 		}
 
-		m = n % 4;
-		if (m != 0) {
-			for (i = 1; i <= m; i += 1) {
-				dy[iy0 + i - 1] = dy[iy0 + i - 1] + da * dx[ix0 + i - 1];
-			}
-
-			if (n < 4)
-				return;
-		}
-
-		mp1 = m + 1;
-		for (i = mp1; i <= n; i += 4) {
-			dy[iy0 + i - 1] = dy[iy0 + i - 1] + da * dx[ix0 + i - 1];
-			dy[iy0 + i + 1 - 1] = dy[iy0 + i + 1 - 1] + da
-					* dx[ix0 + i + 1 - 1];
-			dy[iy0 + i + 2 - 1] = dy[iy0 + i + 2 - 1] + da
-					* dx[ix0 + i + 2 - 1];
-			dy[iy0 + i + 3 - 1] = dy[iy0 + i + 3 - 1] + da
-					* dx[ix0 + i + 3 - 1];
-		}
 		return;
+		// }
+
+		// m = n % 4;
+		// if (m != 0) {
+		// for (i1 = 1; i1 <= m; i1 += 1) {
+		// dy[iy0 + i1 - 1] += da * dx[ix0 + i1 - 1];
+		// if (badNum(dy[iy0 + i1 - 1]))
+		// throw new IllegalArgumentException(da + " " + dx[ix0 + i1 - 1]);
+		// }
+		//
+		// if (n < 4)
+		// return;
+		// }
+		//
+		// mp1 = m + 1;
+		// for (i1 = mp1; i1 <= n; i1 += 4) {
+		// dy[iy0 + i1 - 1] = dy[iy0 + i1 - 1] + da * dx[ix0 + i1 - 1];
+		// dy[iy0 + i1 ] = dy[iy0 + i1 ] + da
+		// * dx[ix0 + i1 ];
+		// dy[iy0 + i1 + 1] = dy[iy0 + i1 + 1] + da
+		// * dx[ix0 + i1 + 1];
+		// dy[iy0 + i1 + 3 - 1] = dy[iy0 + i1 + 3 - 1] + da
+		// * dx[ix0 + i1 + 3 - 1];
+		// }
+		// return;
 	}
 
 	/**
@@ -743,58 +767,48 @@ public class LBFGS {
 	 * ways to carry out this operation; this code is a straight translation
 	 * from the Fortran.
 	 */
-	public static double ddotOLD(int n, double[] dx, int ix0, int incx,
-			double[] dy, int iy0, int incy) {
-		double dtemp;
-		int i, ix, iy, m, mp1;
-
-		dtemp = 0;
-
-		if (n <= 0)
-			return 0;
-
-		if (!(incx == 1 && incy == 1)) {
-			ix = 1;
-			iy = 1;
-			if (incx < 0)
-				ix = (-n + 1) * incx + 1;
-			if (incy < 0)
-				iy = (-n + 1) * incy + 1;
-			for (i = 1; i <= n; i += 1) {
-				dtemp = dtemp + dx[ix0 + ix - 1] * dy[iy0 + iy - 1];
-				ix = ix + incx;
-				iy = iy + incy;
-			}
-			return dtemp;
-		}
-
-		m = n % 5;
-		if (m != 0) {
-			for (i = 1; i <= m; i += 1) {
-				dtemp = dtemp + dx[ix0 + i - 1] * dy[iy0 + i - 1];
-			}
-			if (n < 5)
-				return dtemp;
-		}
-
-		mp1 = m + 1;
-		for (i = mp1; i <= n; i += 5) {
-			dtemp = dtemp + dx[ix0 + i - 1] * dy[iy0 + i - 1]
-					+ dx[ix0 + i + 1 - 1] * dy[iy0 + i + 1 - 1]
-					+ dx[ix0 + i + 2 - 1] * dy[iy0 + i + 2 - 1]
-					+ dx[ix0 + i + 3 - 1] * dy[iy0 + i + 3 - 1]
-					+ dx[ix0 + i + 4 - 1] * dy[iy0 + i + 4 - 1];
-		}
-
-		return dtemp;
-	}
-
 	static double ddot(int n, double[] dx, int ix0, int incx, double[] dy,
 			int iy0, int incy) {
 		double result = 0;
 		for (int in = 0, ix = ix0, iy = iy0; in < n; in++, ix += incx, iy += incy) {
-			result += dx[ix] * dy[iy];
+			result += safeMult(dx[ix], dy[iy]);
 		}
 		return result;
 	}
+
+	static boolean badNum(double n) {
+		return Double.isNaN(n) || Double.isInfinite(n);
+	}
+
+	static double safeMult(double n1, double n2) {
+		double result = n1 * n2;
+		if (badNum(result)) {
+			if (n1 == 0 || n2 == 0) {
+				result = 0;
+			} else {
+				throw new IllegalArgumentException(n1 + " " + n2);
+			}
+		}
+		return result;
+	}
+
+	static double safeDiv(double n1, double n2) {
+		double result = n1 / n2;
+		if (badNum(result)) {
+			if (n1 == 0 && n2 == 0) {
+				result = 1;
+			} else {
+				throw new IllegalArgumentException(n1 + " " + n2);
+			}
+		}
+		return result;
+	}
+
+//	public static double[] subArray(double[] a, int start, int end) {
+//		assert start <= end;
+//		assert end <= a.length;
+//		double[] result = new double[end - start];
+//		System.arraycopy(a, start, result, 0, end - start);
+//		return result;
+//	}
 }
