@@ -31,9 +31,9 @@ out.write (" <all-permissions/> ");
     
 <%
 if (isAssertions){
-	out.write ("<j2se version=\"1.4+\" initial-heap-size=\"256m\" max-heap-size=\"256m\" java-vm-args=\"-enableassertions\"/>");
+	out.write ("<j2se version=\"1.4+\" initial-heap-size=\"256m\" max-heap-size=\"512m\" java-vm-args=\"-enableassertions\"/>");
 } else {
-	out.write ("<j2se version=\"1.4+\" initial-heap-size=\"256m\" max-heap-size=\"256m\"/>");
+	out.write ("<j2se version=\"1.4+\" initial-heap-size=\"256m\" max-heap-size=\"512m\"/>");
 }
 if (isSocket){
 	out.write ("<jar href=\"bungeeClientSigned.jar\"/>");

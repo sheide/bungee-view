@@ -1,36 +1,64 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <!DOCTYPE web-app
-    PUBLIC "-//Sun Microsystems, Inc.//DTD Web Application 2.2//EN"
-    "http://java.sun.com/j2ee/dtds/web-app_2_2.dtd">
-    <web-app>
-      <display-name>Bungee View</display-name>
-        <servlet>
-            <servlet-name>Bungee</servlet-name>
-            <servlet-class>edu.cmu.cs.bungee.servlet.Servlet</servlet-class>
-            <init-param>
-                <param-name> server </param-name>
-                <param-value> jdbc:mysql://localhost/ </param-value>
-            </init-param>
-            <init-param>
-                <param-name> user </param-name>
-                <param-value> p5 </param-value>
-            </init-param>
-            <init-param>
-                <param-name> pwd </param-name>
-                <param-value> p5pass </param-value>
-            </init-param>
-            <init-param>
-                <param-name> dbs </param-name>
-                <param-value>famsf,chipapers,HistoryMakers,loc2,ChartresVezelay,Visuals,Movie,personal,music,wpa,hp3,cm</param-value>
-            </init-param>
-            <init-param>
-                <param-name> IPpermissions </param-name>
-                <param-value>cm128.2.,cm127.0.0.1,historymakers128.2.,historymakers127.0.0.1,hp2127.0.0.1</param-value>
-            </init-param>
-        </servlet>
-    <servlet-mapping>
-        <servlet-name>Bungee</servlet-name>
-        <url-pattern>/Bungee</url-pattern>
-    </servlet-mapping>
-    </web-app>
-    
+	  PUBLIC "-//Sun Microsystems, Inc.//DTD Web Application 2.2//EN"
+	  "http://java.sun.com/j2ee/dtds/web-app_2_2.dtd">
+<web-app>
+  <filter>
+    <filter-name>CacheForMonth</filter-name>
+    <filter-class>edu.cmu.cs.bungee.servlet.ResponseHeaderFile</filter-class>
+    <init-param>
+      <param-name>Cache-Control</param-name>
+      <param-value>max-age=18148000, public</param-value>
+    </init-param>
+  </filter>
+
+  <filter>
+    <filter-name>CompressingFilter</filter-name>
+    <filter-class>com.planetj.servlet.filter.compression.CompressingFilter</filter-class>
+    <init-param>
+      <param-name>Cache-Control</param-name>
+      <param-value>max-age=18148000, public</param-value>
+    </init-param>
+  </filter>
+
+   <filter-mapping> 
+     <filter-name>CacheForMonth</filter-name> 
+     <url-pattern>*.gif</url-pattern> 
+   </filter-mapping> 
+
+   <filter-mapping> 
+     <filter-name>CompressingFilter</filter-name> 
+     <url-pattern>*.html</url-pattern> 
+   </filter-mapping> 
+
+  <display-name>Bungee View</display-name>
+  <servlet>
+    <servlet-name>Bungee</servlet-name>
+    <servlet-class>edu.cmu.cs.bungee.servlet.Servlet</servlet-class>
+    <init-param>
+      <param-name> server </param-name>
+      <param-value> jdbc:mysql://localhost/ </param-value>
+    </init-param>
+    <init-param>
+      <param-name> user </param-name>
+      <param-value> p5 </param-value>
+    </init-param>
+    <init-param>
+      <param-name> pwd </param-name>
+      <param-value> p5pass </param-value>
+    </init-param>
+    <init-param>
+      <param-name> dbs </param-name>
+      <param-value>CSbib,famsf,chipapers,HistoryMakers,loc2,ChartresVezelay,Visuals,Movie,personal,music,wpa,hp3,cm,InternetArchive,CiteSeer</param-value>
+    </init-param>
+    <init-param>
+      <param-name> IPpermissions </param-name>
+      <param-value>cm128.2.,cm127.0.0.1,historymakers128.2.,historymakers127.0.0.1,hp2127.0.0.1</param-value>
+    </init-param>
+  </servlet>
+  <servlet-mapping>
+    <servlet-name>Bungee</servlet-name>
+    <url-pattern>/Bungee</url-pattern>
+  </servlet-mapping>
+</web-app>
+
