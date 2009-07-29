@@ -8,7 +8,7 @@ import edu.cmu.cs.bungee.javaExtensions.StringAlign;
 //_ a ____ b __ query
 //_ c ____ d _ ~query
 /**
- * A bunch of statistics that can be computed on a 2 x 2 table. Remembers that
+ * A bunch of statistics that can be computed on a 2 x 2 table. Remembers the
  * object that generated the table, for use by TopTags.
  * 
  * @author mad
@@ -82,7 +82,7 @@ public class ChiSq2x2 {
 	 * @param col0
 	 *            sum of first column
 	 * @param table00
-	 *            first entry
+	 *            count where both variables are true
 	 * 
 	 * @throws OutOfRangeException
 	 */
@@ -249,27 +249,27 @@ public class ChiSq2x2 {
 		return corr1;
 	}
 
-	/**
-	 * @return correlation divided by the maximum possible correlation with the
-	 *         same sign for the row, column, and table totals. I.e. the
-	 *         correlation when table00 = min(row0, col0) or zero.
-	 */
-	public double correlationPercent() {
-		double dTotal = total();
-		double p00 = table00 / dTotal;
-		double prow0 = row0() / dTotal;
-		double pcol0 = col0() / dTotal;
-		double prowcol = prow0 * pcol0;
-		double numerator = p00 - prowcol;
-		double p00Max = numerator >= 0 ? Math.min(row0(), col0()) / dTotal : 0;
-		double result = numerator / (p00Max - prowcol);
-		// double corr2 = sampleCovariance() / Math.sqrt(sampleVariance(ROW) *
-		// sampleVariance(COL));
-		// assert corr1==corr2:corr1+" "+corr2;
-		assert result >= 0 && result <= 1 : result + " " + numerator + " "
-				+ printTable();
-		return result;
-	}
+//	/**
+//	 * @return correlation divided by the maximum possible correlation with the
+//	 *         same sign for the row, column, and table totals. I.e. the
+//	 *         correlation when table00 = min(row0, col0) or zero.
+//	 */
+//	public double correlationPercent() {
+//		double dTotal = total();
+//		double p00 = table00 / dTotal;
+//		double prow0 = row0() / dTotal;
+//		double pcol0 = col0() / dTotal;
+//		double prowcol = prow0 * pcol0;
+//		double numerator = p00 - prowcol;
+//		double p00Max = numerator >= 0 ? Math.min(row0(), col0()) / dTotal : 0;
+//		double result = numerator / (p00Max - prowcol);
+//		// double corr2 = sampleCovariance() / Math.sqrt(sampleVariance(ROW) *
+//		// sampleVariance(COL));
+//		// assert corr1==corr2:corr1+" "+corr2;
+//		assert result >= 0 && result <= 1 : result + " " + numerator + " "
+//				+ printTable();
+//		return result;
+//	}
 
 	/**
 	 * @return Cov(X,Y) = E(X*Y) - E(X)*E(Y)
