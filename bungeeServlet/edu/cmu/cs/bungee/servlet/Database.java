@@ -1493,7 +1493,7 @@ public class Database {
 
 			ConvertFromRaw converter = new ConvertFromRaw(jdbc);
 			converter.findBrokenLinks(true, 1);
-			converter.convert(1000);
+			converter.convert();
 		}
 	}
 
