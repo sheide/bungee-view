@@ -144,8 +144,7 @@ public class NonAlchemyModel extends Explanation
 		// ((NonAlchemyModel) result).stats();
 		long duration = (new Date()).getTime() - start;
 		Util.print("getExplanation duration=" + (duration / 1000) + " nEdges="
-				+ result.predicted.nEdges() + " Function Evaluations: "
-				+ totalNumFuns + "\n");
+				+ result.predicted.nEdges() + "\n");
 
 		if (PRINT_LEVEL > 2)
 			for (Iterator it = facets.iterator(); it.hasNext();) {

@@ -641,7 +641,7 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 
 						if (ii == null
 								|| !ii.bigEnough(edgeW, edgeH,
-										Bungee.ThumbQuality)) {
+										Bungee.THUMB_QUALITY)) {
 							assert !toLoad.contains(item);
 							toLoad.add(item);
 						} else if (lookupThumb(item) == null) {
@@ -707,7 +707,7 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 			ResultSet[] rss = null;
 			try {
 				rss = query().getThumbs(items, edgeW, edgeH,
-						Bungee.ThumbQuality);
+						Bungee.THUMB_QUALITY);
 				loadThumbsInternal1(rss[0], items);
 				loadThumbsInternal2(rss[1]);
 			} catch (Throwable e) {
@@ -745,7 +745,7 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 					blobItem = Item.ensureItem(rs.getInt(1));
 			}
 			ItemImage ii = art.ensureItemImage(item, rawW, rawH,
-					Bungee.ThumbQuality, blobStream);
+					Bungee.THUMB_QUALITY, blobStream);
 			// Util.print("addThumb " + edgeW + "*" + edgeH + " " + item
 			// + " " + rawW + "*" + rawH);
 			addThumb(item, new GridImage(ii)); // art, item,
