@@ -31,7 +31,6 @@ import edu.cmu.tetrad.graph.Endpoint;
 import edu.cmu.tetrad.search.IndTestChiSquare;
 import edu.cmu.tetrad.search.IndependenceTest;
 import edu.cmu.tetrad.search.PcSearch;
-import edu.cmu.tetrad.search.PcdSearch;
 import edu.cmu.tetrad.util.TetradLogger;
 
 public class Tetrad implements GraphWeigher {

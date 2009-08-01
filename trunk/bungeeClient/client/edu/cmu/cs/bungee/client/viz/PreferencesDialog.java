@@ -84,6 +84,7 @@ class PreferencesDialog extends JPanel implements ActionListener {
 				BorderFactory.createEmptyBorder(5, 5, 5, 5)));
 
 		JPanel fontPanel = new JPanel(new FlowLayout(FlowLayout.LEADING));
+//		Util.print("spinner "+art.getTextSize()+" "+art.maxTextSize());
 		fontSpinner = new JSpinner(new SpinnerNumberModel(art.getTextSize(),
 				Bungee.MIN_TEXT_HEIGHT, art.maxTextSize(), 1));
 		fontPanel.add(fontSpinner);

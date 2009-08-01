@@ -694,7 +694,7 @@ final class ItemSetter extends UpdateThread {
 		int imageH = parent.maxImageH();
 		ItemImage _image = art.lookupItemImage(item);
 		if (_image != null
-				&& _image.bigEnough(imageW, imageH, Bungee.ImageQuality)) {
+				&& _image.bigEnough(imageW, imageH, Bungee.IMAGE_QUALITY)) {
 			// -1 means don't retrieve an image
 			imageW = -1;
 			imageH = -1;
@@ -705,11 +705,11 @@ final class ItemSetter extends UpdateThread {
 		String description = null;
 		try {
 			rs = query.getDescAndImage(item, imageW, imageH,
-					Bungee.ImageQuality);
+					Bungee.IMAGE_QUALITY);
 			while (rs.next()) {
 				InputStream blobStream = ((MyResultSet) rs).getInputStream(2);
 				art.ensureItemImage(item, rs.getInt(3), rs.getInt(4),
-						Bungee.ImageQuality, blobStream);
+						Bungee.IMAGE_QUALITY, blobStream);
 				description = rs.getString(1);
 				if (art.getIsEditing()
 						&& (description == null || description.length() == 0))

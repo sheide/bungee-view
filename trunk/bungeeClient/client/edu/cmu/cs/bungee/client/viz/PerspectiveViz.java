@@ -2000,7 +2000,8 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 	}
 
 	void drawLetters() {
-		if (art().getShowZoomLetters()) {
+		// Check so that setFeatures doesn't initialize Letters before barXs is set.
+		if (art().getShowZoomLetters() && barXs != null) {
 			if (letters == null) {
 				letters = new Letters();
 				layoutLetters();

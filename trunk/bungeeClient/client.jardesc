@@ -82,11 +82,13 @@
         <javaElement handleIdentifier="=javaExtensions/&lt;edu.cmu.cs.bungee.javaExtensions.comparator{DoubleValueComparator.java"/>
         <javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.query{Markup.java"/>
         <file path="/nlp/.classpath"/>
+        <javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.query{MexPerspectives.java"/>
         <javaElement handleIdentifier="=piccolo/extras&lt;edu.umd.cs.piccolox.nodes{PStyledText.java"/>
         <javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.viz{ResultsGrid.java"/>
         <javaElement handleIdentifier="=piccoloExtensions/&lt;edu.cmu.cs.bungee.piccoloUtils.gui{BevelBorder.java"/>
         <javaElement handleIdentifier="=piccolo/src&lt;edu.umd.cs.piccolo.event{PInputEvent.java"/>
         <javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.viz{MouseDocLine.java"/>
+        <javaElement handleIdentifier="=javaExtensions/&lt;edu.cmu.cs.bungee.javaExtensions{IntegerPermutationIter.java"/>
         <javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.viz{BungeeTextButton.java"/>
         <javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.viz{EulerDiagram.java"/>
         <javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.viz{Bungee.java"/>
@@ -104,9 +106,9 @@
         <javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.viz{TextSearch.java"/>
         <javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.query.tetrad{Explanation.java"/>
         <javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.viz{PerspectiveList.java"/>
-        <javaElement handleIdentifier="=piccoloExtensions/&lt;edu.cmu.cs.bungee.piccoloUtils.gui{Util.java"/>
-        <javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.viz{ColorKey.java"/>
         <javaElement handleIdentifier="=piccolo/src&lt;edu.umd.cs.piccolo{PNode.java"/>
+        <javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.viz{ColorKey.java"/>
+        <javaElement handleIdentifier="=piccoloExtensions/&lt;edu.cmu.cs.bungee.piccoloUtils.gui{Util.java"/>
         <javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.viz{QueryViz.java"/>
         <javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.query{FacetTree.java"/>
         <javaElement handleIdentifier="=bungeeClient/client&lt;edu.cmu.cs.bungee.client.query.tetrad{GraphicalModel.java"/>

@@ -42,8 +42,6 @@ package edu.cmu.cs.bungee.client.viz;
  * 
  * Copy text in text boxes; highlight search terms.
  * 
- * Explanations should consider consecutive ordered facets as one.
- * 
  * Fancy thumb scrolling: when sorted, show facet labels to the right of the
  * scroll bar when scrolling. Label the first thumb with each facet value (on
  * top). havea a button to lock each column.
@@ -249,20 +247,17 @@ import edu.umd.cs.piccolox.PFrame;
 
 final class Bungee extends PFrame {
 
-	/**
-	 * 
-	 */
 	private static final long serialVersionUID = 1L;
 
-	static final String version = "7 February 2008";
+	static final String version = "29 July 2009";
 
 	private static final boolean isPrintUserActions = true;
 
 	/** ************* Start of tweakable parameters *************** */
 
-	static final int ThumbQuality = 50;
+	static final int THUMB_QUALITY = 50;
 
-	static final int ImageQuality = 100;
+	static final int IMAGE_QUALITY = 100;
 
 	// int textH = 14;
 	static final int MIN_TEXT_HEIGHT = 8;
@@ -622,14 +617,14 @@ final class Bungee extends PFrame {
 		// } catch (Exception e) {
 		// e.printStackTrace();
 		// }
-		int textH = Preferences.defaultFeatures.fontSize;
+		features = Preferences.defaultFeatures;
 		String fontSizeSpec = argURLQuery.getArgument("fontSize");
-		if (fontSizeSpec.length() > 0) {
-			textH = Integer.parseInt(fontSizeSpec);
-		}
+		int textH = fontSizeSpec.length() > 0 ? Integer.parseInt(fontSizeSpec)
+				: getTextSize();
 
 		// setTextSize is a no-op if the size doesn't change, and we need to
 		// initialize font
+		textH = constrainTextSize(textH);
 		updateTextSize(textH);
 		setTextSize(textH);
 
@@ -689,9 +684,16 @@ final class Bungee extends PFrame {
 		}
 	}
 
-	void setTextSize(int fontSize) {
-		fontSize = Math.max(MIN_TEXT_HEIGHT, Math.min(fontSize, maxTextSize()));
-		setFeatures(new Preferences(features, "fontSize=" + fontSize, true));
+	boolean setTextSize(int fontSize) {
+		// Util.print("setTextSize " + constrainTextSize(fontSize));
+		int current = getTextSize();
+		setFeatures(new Preferences(features, "fontSize="
+				+ constrainTextSize(fontSize), true));
+		return current != getTextSize();
+	}
+
+	private int constrainTextSize(int fontSize) {
+		return Math.max(MIN_TEXT_HEIGHT, Math.min(fontSize, maxTextSize()));
 	}
 
 	int getTextSize() {
@@ -786,7 +788,7 @@ final class Bungee extends PFrame {
 		removeAllChildren();
 		String errorMessage = query.errorMessage();
 		if (errorMessage == null) {
-			Util.print("initializeFrames " + font);
+			// Util.print("initializeFrames " + font);
 			// int dbIndex = dbIndex(_dbName);
 			// String description = databases[dbIndex][2];
 
@@ -926,7 +928,7 @@ final class Bungee extends PFrame {
 		int result = w > 0 ? (int) (getLegacyTextSize() * 0.9 * Math.min(w
 				/ (double) minWidth(), h / (double) minHeight()))
 				: Integer.MAX_VALUE;
-		Util.print("maxTextSize " + w + " " + result);
+		// Util.print("maxTextSize " + w + " " + result);
 		return result;
 	}
 
@@ -988,8 +990,8 @@ final class Bungee extends PFrame {
 	}
 
 	void validateIfReady() {
-		if (isReady) { // && !setTextSize(textH)) {
-			Util.print("validateIfReady " + w + " " + h);
+		if (isReady && !setTextSize(getTextSize())) {
+			// Util.print("validateIfReady " + w + " " + h);
 			// Util.printStackTrace();
 			// This will reduce text size if necessary to fit in the window.
 			// If it changes the text size, it will call validate itself
@@ -1025,7 +1027,7 @@ final class Bungee extends PFrame {
 					clusterViz.validate();
 				mouseDoc.setOffset(0.0, headerH);
 
-				Util.print("validateIfReady OK " + header);
+				// Util.print("validateIfReady OK " + header);
 
 				positionHelp();
 			}
@@ -1075,8 +1077,8 @@ final class Bungee extends PFrame {
 	private boolean setTooSmall() {
 		removeTooSmall();
 		boolean isTooSmall = !smallWindowOK && (w < minWidth() || h < minH);
-		Util.print("setTooSmall " + isTooSmall + " " + w + "x" + h + " "
-				+ minWidth() + "x" + minH);
+		// Util.print("setTooSmall " + isTooSmall + " " + w + "x" + h + " "
+		// + minWidth() + "x" + minH);
 		if (isTooSmall) {
 			getCanvas().setBackground(Color.white);
 			// if (maxTextSize() >= minTextH) {
@@ -2985,9 +2987,9 @@ final class Bungee extends PFrame {
 		if (isPrintUserActions && replayer == null) {
 			// assert location >= BAR && location <= ERROR : location;
 			if (query == null) {
-				Util
-						.err("Tried to printUserAction before query is initialized: "
-								+ location + " " + modifiers + " " + object);
+				// Util
+				// .err("Tried to printUserAction before query is initialized: "
+				// + location + " " + modifiers + " " + object);
 			} else {
 				query.printUserAction(location, object, modifiers);
 
@@ -3455,8 +3457,10 @@ final class Bungee extends PFrame {
 
 				public void run() {
 					initializeFrames();
-//					 NonAlchemyModel.test(query, 100, false);
-//					 NonAlchemyModel.testPairList(query, false);
+					if (false)
+						NonAlchemyModel.test(query, 100, false);
+					if (false)
+						NonAlchemyModel.testPairList(query, false);
 				}
 			};
 

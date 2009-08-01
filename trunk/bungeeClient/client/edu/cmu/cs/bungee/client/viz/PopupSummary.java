@@ -17,7 +17,7 @@ import edu.cmu.cs.bungee.client.query.Query;
 import edu.cmu.cs.bungee.client.query.tetrad.Distribution;
 import edu.cmu.cs.bungee.client.query.tetrad.Explanation;
 import edu.cmu.cs.bungee.client.query.tetrad.NonAlchemyModel;
-import edu.cmu.cs.bungee.client.query.tetrad.Tetrad;
+//import edu.cmu.cs.bungee.client.query.tetrad.Tetrad;
 import edu.cmu.cs.bungee.javaExtensions.PerspectiveObserver;
 import edu.cmu.cs.bungee.javaExtensions.Util;
 import edu.cmu.cs.bungee.javaExtensions.graph.Graph.GraphWeigher;
@@ -658,8 +658,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 			if (explanation == null && !useTetrad)
 				return false;
 
-			setTetradInternal(useTetrad ? getGraphInternal(Tetrad
-					.getTetradGraph(facet, null, this)) : getGraph());
+			setTetradInternal(getTheGraph());
 
 			showEuler(explanation, Explanation.relevantFacets(facet));
 		}
@@ -686,8 +685,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 		if (explanation != null && delta != 0) {
 			explanation = ((NonAlchemyModel) explanation).addFacets(Explanation
 					.relevantFacets(facet), delta);
-			setTetradInternal(useTetrad ? getGraphInternal(Tetrad
-					.getTetradGraph(facet, null, this)) : getGraph());
+			setTetradInternal(getTheGraph());
 			showEuler(explanation, Explanation.relevantFacets(facet));
 		}
 		return explanation != null;
@@ -721,13 +719,29 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 		}
 	}
 
+	static boolean useTetrad = false;
+
+	public static void toggleTetrad() {
+		if (false)
+			// Don't release version with Tetrad, because it requires all kinds
+			// of extra code
+			useTetrad = !useTetrad;
+	}
+
 	void convertToTetrad() {
-		if (explanation != null) {
-			Graph g = getGraphInternal(Tetrad.getTetradGraph(facet, Explanation
-					.relevantFacets(facet), explanation.facets(), null, this));
-			setTetradInternal(g);
-			g.setLabel("Tetrad Graph");
-		}
+		Util.err("Tetrad is commented out of this version.");
+//		if (explanation != null) {
+//			Graph g = getGraphInternal(Tetrad.getTetradGraph(facet, Explanation
+//					.relevantFacets(facet), explanation.facets(), null, this));
+//			setTetradInternal(g);
+//			g.setLabel("Tetrad Graph");
+//		}
+	}
+
+	private Graph getTheGraph() {
+//		return useTetrad ? getGraphInternal(Tetrad.getTetradGraph(facet, null,
+//				this)) : getGraph();
+		return getGraph();
 	}
 
 	private void setTetradInternal(Graph graph1) {
@@ -2146,12 +2160,6 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 
 	Query query() {
 		return art.query;
-	}
-
-	static boolean useTetrad = false;
-
-	public static void toggleTetrad() {
-		useTetrad = !useTetrad;
 	}
 
 	// public void setVisible(boolean state) {
