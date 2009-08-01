@@ -448,7 +448,8 @@ public class Servlet extends HttpServlet {
 		default:
 			throw (new ServletException("Unknown command: " + command));
 		}
-		log("...doPost " + command + " writing");
+		if (DEBUG)
+			log("...doPost " + command + " writing");
 	}
 
 	private void handleUserActions(Integer xsession, HttpServletRequest request)
