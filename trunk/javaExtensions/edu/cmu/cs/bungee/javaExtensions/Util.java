@@ -90,9 +90,7 @@ import java.util.regex.Pattern;
 import java.util.zip.GZIPInputStream;
 
 import javax.imageio.ImageIO;
-import javax.imageio.ImageReadParam;
 import javax.imageio.ImageReader;
-import javax.imageio.ImageTypeSpecifier;
 import javax.imageio.stream.ImageInputStream;
 
 import com.sun.image.codec.jpeg.ImageFormatException;
@@ -1848,27 +1846,65 @@ public final class Util {
 		return transformed;
 	}
 
+	// public static BufferedImage readCompatibleImage(InputStream blobStream) {
+	// BufferedImage result = null;
+	// try {
+	// ByteArrayOutputStream output = new ByteArrayOutputStream();
+	// int a1 = blobStream.read();
+	// while (a1 >= 0) {
+	// output.write((char) a1);
+	// a1 = blobStream.read();
+	// }
+	// Image myImage = Toolkit.getDefaultToolkit().createImage(
+	// output.toByteArray());
+	// output.close();
+	// result = resize(myImage, Integer.MAX_VALUE, Integer.MAX_VALUE, true);
+	// print(describeImage(result));
+	// } catch (IOException e1) {
+	// e1.printStackTrace();
+	// }
+	// return result;
+	// }
+
+	// See bug http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=4799903
 	public static BufferedImage readCompatibleImage(InputStream blobStream) {
 		BufferedImage result = null;
 		try {
 			ImageInputStream iis = ImageIO.createImageInputStream(blobStream);
-			ImageReader reader = (ImageReader) ImageIO.getImageReaders(iis)
-					.next();
+
+			// see
+			// http://www.rhinocerus.net/forum/lang-java-gui/573638-bug-imageio-png-support-2.html
+			// the imageioimpl readers may be buggy in some java installations
+			ImageReader reader = null;
+			for (Iterator it = ImageIO.getImageReaders(iis); reader == null
+					&& it.hasNext();) {
+				ImageReader r = (ImageReader) it.next();
+				if (!r.getClass().getName().startsWith(
+						"com.sun.media.imageioimpl.plugins."))
+					reader = r;
+			}
+			if (reader == null)
+				reader = (ImageReader) ImageIO.getImageReaders(iis).next();
+
 			reader.setInput(iis);
 			int w = reader.getWidth(0);
 			int h = reader.getHeight(0);
-			ImageTypeSpecifier type = reader.getRawImageType(0);
-			if (type == null || type.getNumBands() == 3) {
-				// print(reader.getFormatName());
-				ImageReadParam param = reader.getDefaultReadParam();
-				result = createCompatibleImage(w, h);
-				param.setDestination(result);
-				result = reader.read(0, param);
-			} else
+			
+			//This produces corrupt images on cityscape
+//			ImageTypeSpecifier type = reader.getRawImageType(0);
+//			if (type == null || type.getNumBands() == 3) {
+//				ImageReadParam param = reader.getDefaultReadParam();
+//				result = createCompatibleImage(w, h);
+//				param.setDestination(result);
+//				result = reader.read(0, param);
+//			} else
+			
 				result = resize(reader.read(0), w, h, true);
 			iis.close();
 			blobStream.close();
-			// print(describeImage(result));
+//			print(describeImage(result));
+//			print(reader + " " + reader.getFormatName() + " " + type + " " + w
+//					+ "x" + h);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
