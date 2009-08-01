@@ -3,7 +3,6 @@ package edu.cmu.cs.bungee.dbScripts;
 import java.io.File;
 import java.io.FilenameFilter;
 import java.io.IOException;
-import java.net.URI;
 import java.sql.SQLException;
 import java.util.HashSet;
 import java.util.Hashtable;
@@ -41,8 +40,7 @@ class Options extends DefaultHandler {
 
 	void init(boolean isParser, String[] args) throws ImageFormatException,
 			SQLException, InterruptedException, InstantiationException,
-			IllegalAccessException, ClassNotFoundException, SAXException,
-			IOException, ParserConfigurationException {
+			IllegalAccessException, ClassNotFoundException {
 		addOptions(isParser);
 		if (args != null)
 			populate(args);
@@ -141,8 +139,7 @@ class Options extends DefaultHandler {
 
 	void populate(String[] args) throws SQLException, ImageFormatException,
 			InterruptedException, InstantiationException,
-			IllegalAccessException, ClassNotFoundException, SAXException,
-			IOException, ParserConfigurationException {
+			IllegalAccessException, ClassNotFoundException {
 		boolean result = sm_main.parseArgs(args);
 		if (result) {
 			String dbName = getStringValue("db");

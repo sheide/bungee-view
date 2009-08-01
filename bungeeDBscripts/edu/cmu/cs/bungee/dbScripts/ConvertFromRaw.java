@@ -21,6 +21,8 @@ public class ConvertFromRaw {
 
 	static final int maxErrorsToPrint = 8;
 
+	private static final int MIN_FACETS = 1000;
+
 	static StringToken sm_db = new StringToken("db", "database to convert", "",
 			Token.optRequired | Token.optSwitch, "");
 	static StringToken sm_server = new StringToken("server", "MySQL server",
@@ -51,13 +53,13 @@ public class ConvertFromRaw {
 		if (sm_main.parseArgs(args)) {
 			ConvertFromRaw convert = new ConvertFromRaw(sm_server.getValue(),
 					sm_db.getValue(), sm_user.getValue(), sm_pass.getValue());
-			convert.convert(1000);
+			convert.convert();
 		}
 	}
 
-	public void convert(int minFacets) throws SQLException {
+	public void convert() throws SQLException {
 		// createTables();
-		canonicalize(minFacets);
+		canonicalize(MIN_FACETS);
 		// addImageSizes();
 	}
 
@@ -112,7 +114,7 @@ public class ConvertFromRaw {
 			jdbc.print("...found " + nErrors + " errors in output tables.");
 
 			createPairsTable(facet_idType, item_idType);
-			createCorrelationsTable(facet_idType);
+			createCorrelationsTable(jdbc, facet_idType);
 
 			// createEntropy(facet_idType);
 
@@ -1034,10 +1036,10 @@ public class ConvertFromRaw {
 		return nErrors;
 	}
 
-	private void createCorrelationsTable(String facet_idType)
-			throws SQLException {
-		jdbc.SQLupdate(" DROP TABLE IF EXISTS correlations; ");
-		jdbc.SQLupdate("CREATE TABLE correlations ( " + "  facet1 "
+	private static void createCorrelationsTable(JDBCSample jdbc1,
+			String facet_idType) throws SQLException {
+		jdbc1.SQLupdate(" DROP TABLE IF EXISTS correlations; ");
+		jdbc1.SQLupdate("CREATE TABLE correlations ( " + "  facet1 "
 				+ facet_idType + " NOT NULL, " + "  facet2 " + facet_idType
 				+ " NOT NULL, " + "  correlation FLOAT NOT NULL, "
 				+ "KEY facet1 (facet1), KEY facet2 (facet2))");
@@ -1051,14 +1053,14 @@ public class ConvertFromRaw {
 	public static void ensureDBinitted(JDBCSample jdbc) throws SQLException {
 
 		// TEMPORARY until DBs updated
-		try {
-			jdbc
-					.SQLupdate("create table if not exists item_facetNtype_heap like item_facet_heap;");
-			jdbc.SQLupdate("DROP TABLE IF EXISTS item_facet_heap");
-			jdbc.SQLupdate("DROP TABLE IF EXISTS item_facet_type_heap");
-		} catch (Exception e) {
-			// Skip if DB already updated
-		}
+//		try {
+//			jdbc
+//					.SQLupdate("create table if not exists item_facetNtype_heap like item_facet_heap;");
+//			jdbc.SQLupdate("DROP TABLE IF EXISTS item_facet_heap");
+//			jdbc.SQLupdate("DROP TABLE IF EXISTS item_facet_type_heap");
+//		} catch (Exception e) {
+//			// Skip if DB already updated
+//		}
 
 		if (jdbc.SQLqueryInt("SELECT COUNT(*) FROM item_facetNtype_heap") == 0) {
 			// long st=new Date().getTime();
@@ -1096,6 +1098,16 @@ public class ConvertFromRaw {
 	// Called on demand by topCandidates.
 	public static void populateCorrelations(JDBCSample jdbc1)
 			throws SQLException {
+
+		// Temporary until DBs updated. user must be root.
+//		try {
+//			jdbc1.SQLqueryInt("SELECT COUNT(*) FROM correlations");
+//		} catch (SQLException e) {
+//			createCorrelationsTable(jdbc1, jdbc1.unsignedTypeForMaxValue(Math
+//					.max(MIN_FACETS, jdbc1
+//							.SQLqueryInt("SELECT MAX(facet_id) FROM facet"))));
+//		}
+
 		if (jdbc1.SQLqueryInt("SELECT COUNT(*) FROM correlations") == 0) {
 			jdbc1.print("Finding pair correlations...");
 			jdbc1.SQLupdate("DROP FUNCTION IF EXISTS correlation");
