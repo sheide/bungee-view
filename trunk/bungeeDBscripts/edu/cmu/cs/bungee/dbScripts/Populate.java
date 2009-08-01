@@ -124,7 +124,7 @@ final class Populate extends DefaultHandler {
 	}
 
 	void compile() throws SQLException {
-		convertFromRaw().convert(1000);
+		convertFromRaw().convert();
 	}
 
 	void clearTables() {
