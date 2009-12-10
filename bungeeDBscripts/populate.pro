@@ -1,10 +1,10 @@
 -injars 'C:\Documents and Settings\mad\workspace\bungeeDBscripts\populate-non-shrunk.jar'
 -outjars 'C:\Documents and Settings\mad\workspace\bungeeDBscripts\populate.jar'
 
-#-libraryjars 'C:\Program Files\Java\j2re1.4.2_11\lib\rt.jar'
 -libraryjars 'C:\Program Files\Java\jre1.5.0_06\lib\rt.jar'
--libraryjars 'C:\Documents and Settings\mad\workspace\bungeeServlet\mysql-connector-java-5.0.3-bin.jar'
-#-libraryjars 'C:\Program Files\Apache Software Foundation\Tomcat 5.5\common\lib\servlet-api.jar'
+#-libraryjars 'C:\Program Files\Java\jre6\lib\rt.jar'
+-libraryjars 'C:\Program Files\MySQL\MySQL Tools for 5.0\java\lib\mysql-connector-java-5.1.7-bin.jar'
+-libraryjars 'C:\Program Files\Apache Software Foundation\Tomcat 6.0\lib\servlet-api.jar'
 
 -printusage shrink.log
 -verbose

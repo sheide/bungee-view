@@ -40,7 +40,7 @@ class Options extends DefaultHandler {
 
 	void init(boolean isParser, String[] args) throws ImageFormatException,
 			SQLException, InterruptedException, InstantiationException,
-			IllegalAccessException, ClassNotFoundException {
+			IllegalAccessException, ClassNotFoundException, SAXException, IOException, ParserConfigurationException {
 		addOptions(isParser);
 		if (args != null)
 			populate(args);
@@ -75,7 +75,7 @@ class Options extends DefaultHandler {
 		addStringToken("renames", "List of name pairs", Token.optSwitch, null);
 		addStringToken("moves", "List of name pairs", Token.optSwitch, null);
 		addStringToken("directory", "default directory for file arguments",
-				Token.optSwitch, ".");
+				Token.optSwitch, "./");
 		addBooleanToken("reset", "clear raw_facet, raw_item_facet, and item?",
 				Token.optSwitch);
 		addBooleanToken("renumber",
@@ -139,7 +139,7 @@ class Options extends DefaultHandler {
 
 	void populate(String[] args) throws SQLException, ImageFormatException,
 			InterruptedException, InstantiationException,
-			IllegalAccessException, ClassNotFoundException {
+			IllegalAccessException, ClassNotFoundException, SAXException, IOException, ParserConfigurationException {
 		boolean result = sm_main.parseArgs(args);
 		if (result) {
 			String dbName = getStringValue("db");
@@ -149,9 +149,9 @@ class Options extends DefaultHandler {
 			initJdbc.SQLupdate("CREATE DATABASE " + dbName);
 			initJdbc
 					.SQLupdate("GRANT SELECT, INSERT, UPDATE, CREATE, DELETE, ALTER ROUTINE, EXECUTE,"
-							+ " CREATE TEMPORARY TABLES ON "
+							+ " CREATE TEMPORARY TABLES, CREATE VIEW, DROP ON "
 							+ dbName
-							+ ".* TO p5@localhost");
+							+ ".* TO bungee@localhost");
 			}
 			JDBCSample jdbc = new JDBCSample(getStringValue("server"), dbName,
 					getStringValue("user"), getStringValue("pass"));
@@ -177,7 +177,7 @@ class Options extends DefaultHandler {
 							.setPlaces(parseSingletonFiles(directory,
 									citiesFile));
 
-//				readData();
+				readData();
 				handler.cleanUp();
 
 				if (getBooleanValue("renumber"))

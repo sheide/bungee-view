@@ -217,7 +217,7 @@ class Facet extends Field {
 	void cleanUp(Database db) throws SQLException {
 		if (sortPattern != null) {
 			Pattern pattern = Pattern.compile(sortPattern);
-			setSort(db.getFacetType(name), pattern, db);
+			setSort(db.getFacetType(name,false), pattern, db);
 		}
 	}
 

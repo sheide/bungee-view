@@ -219,7 +219,7 @@ public class Database {
 	}
 
 	private int getFacet(List<String> hierValue) throws SQLException {
-//		Util.print("getFacet " + hierValue);
+		// Util.print("getFacet " + hierValue);
 		assert isReadingData();
 		int result;
 		if (isReadingData()) {
@@ -296,7 +296,7 @@ public class Database {
 	}
 
 	void addItemFacet(int record_num, int facet_id) throws SQLException {
-//		Util.print("addItemFacet " + facet_id+" "+record_num);
+		// Util.print("addItemFacet " + facet_id+" "+record_num);
 		assert getName(facet_id) != null;
 		assert getAttribute("record_num") != null;
 		if (!dontUpdate) {
@@ -369,8 +369,9 @@ public class Database {
 		if (name.length() > maxNameLength) {
 			String tName = name.substring(0, maxNameLength - 1);
 			if (!noWarn)
-				Util.print("Truncating facet '" + name + "' to '" + tName
-						+ "'");
+				Util
+						.print("Truncating facet '" + name + "' to '" + tName
+								+ "'");
 			name = tName;
 		}
 		return name;
@@ -598,12 +599,12 @@ public class Database {
 		return jdbc.SQLqueryString(ps);
 	}
 
-	int getFacetType(String name) throws SQLException {
+	int getFacetType(String name, boolean missingOK) throws SQLException {
 		assert name != null;
 		PreparedStatement ps = lookupPS("SELECT facet_type_id FROM raw_facet_type WHERE name = ?");
 		ps.setString(1, name);
 		int result = jdbc.SQLqueryInt(ps);
-		assert result > 0 : name;
+		assert missingOK || result > 0 : name;
 		return result;
 	}
 

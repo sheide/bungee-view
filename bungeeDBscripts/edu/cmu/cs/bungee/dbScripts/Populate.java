@@ -10,7 +10,6 @@ import java.awt.image.BufferedImage;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -96,6 +95,8 @@ final class Populate extends DefaultHandler {
 		if (pairs != null) {
 			result = new LinkedHashMap<String, String>();
 			for (String[] entry : pairs) {
+				assert entry.length == 2 : "Bad entry: "
+						+ Util.valueOfDeep(entry);
 				String key = entry[0];
 				String value = entry[1];
 				String old = result.get(key);
@@ -158,7 +159,7 @@ final class Populate extends DefaultHandler {
 
 			// if (moves != null)
 			// promoteSingletons();
-//			convertFromRaw().findBrokenLinks(true, 0);
+			// convertFromRaw().findBrokenLinks(true, 0);
 		}
 	}
 
@@ -229,9 +230,9 @@ final class Populate extends DefaultHandler {
 			// and a set of unmoved children
 			Map<String, List<String>[]> results = new Hashtable<String, List<String>[]>();
 			Map.Entry<String, String> entry = null;
-			try {
-				for (Iterator<Entry<String, String>> it = moves.entrySet()
-						.iterator(); it.hasNext();) {
+			for (Iterator<Entry<String, String>> it = moves.entrySet()
+					.iterator(); it.hasNext();) {
+				try {
 					entry = it.next();
 					String oldName = entry.getKey();
 					String[] newNames = Util.splitSemicolon(entry.getValue());
@@ -239,9 +240,9 @@ final class Populate extends DefaultHandler {
 						String newName = newNames[k];
 						String[] olds = oldName.split(" -- ");
 						String[] news = newName.split(" -- ");
-						int parentFacet = db.getFacetType(olds[0]);
-						assert parentFacet > 0 : "Can't find '" + olds[0]
-								+ "' in raw_facet_type";
+						int parentFacet = db.getFacetType(olds[0], true);
+						// assert parentFacet > 0 : "Can't find '" + olds[0]
+						// + "' in raw_facet_type";
 
 						for (int j = 1; j < olds.length && parentFacet > 0
 								&& !"*".equals(olds[j]); j++)
@@ -257,7 +258,7 @@ final class Populate extends DefaultHandler {
 							for (int i = 0; i < leafs.length; i++) {
 								olds[olds.length - 1] = leafs[i];
 								logmove(Arrays.asList(olds), ismoved, results);
-								int type = db.getFacetType(news[0]);
+								int type = db.getFacetType(news[0], false);
 								int newParent = type;
 								for (int j = 1; j < news.length; j++) {
 									int childType = db.lookupFacet(news[j],
@@ -281,10 +282,10 @@ final class Populate extends DefaultHandler {
 							// move");
 						}
 					}
+				} catch (Throwable e) {
+					Util.err("Error moving " + Util.valueOfDeep(entry) + ": ");
+					e.printStackTrace();
 				}
-			} catch (Throwable e) {
-				Util.err("Error moving " + Util.valueOfDeep(entry) + ": ");
-				e.printStackTrace();
 			}
 			printmoveLog(results);
 			Util.print("... moving done");
@@ -496,7 +497,7 @@ final class Populate extends DefaultHandler {
 		String[] toMerge = facetTypeNamesToMerge.split(",");
 		int[] facetTypesToMerge = new int[toMerge.length];
 		for (int i = 0; i < toMerge.length; i++) {
-			facetTypesToMerge[i] = db.getFacetType(toMerge[i]);
+			facetTypesToMerge[i] = db.getFacetType(toMerge[i], false);
 		}
 		db.getJdbc().ensureIndex("item", "URI", "URI(51)");
 		ResultSet pairs = db.getJdbc().SQLquery(
@@ -653,9 +654,8 @@ final class Populate extends DefaultHandler {
 		JDBCSample jdbc = db.getJdbc();
 		String dbName = jdbc.dbName;
 		String uriGetter = jdbc.SQLqueryString("SELECT itemURL FROM globals");
-		String copyFromURIgetter = "copy_it"
-				+ jdbc.SQLqueryString("SELECT itemURL FROM " + copyFrom
-						+ ".globals");
+		String copyFromURIgetter = jdbc.SQLqueryString("SELECT itemURL FROM "
+				+ copyFrom + ".globals");
 		// jdbc.ensureIndex(copyFrom, "item", "URI", "URI(51)", "");
 
 		/**
@@ -666,8 +666,9 @@ final class Populate extends DefaultHandler {
 		boolean isURIcolumn = jdbc.columnExists(dbName, "images", uriGetter);
 
 		uriGetter = "it." + uriGetter;
-		copyFromURIgetter = "copy_it" + qualifySQL(copyFromURIgetter, copyFrom);
-		int n = db.db("REPLACE INTO images	"
+		copyFromURIgetter = "copy_it."
+				+ qualifySQL(copyFromURIgetter, copyFrom);
+		int n = db.db("REPLACE INTO images "
 				+ "SELECT it.record_num, copy_im.image, "
 				+ (isURIcolumn ? copyFromURIgetter + ", " : "")
 				+ "copy_im.w, copy_im.h " + "FROM item it "
@@ -717,18 +718,18 @@ final class Populate extends DefaultHandler {
 									+ ", item.record_num "
 									+ "FROM item LEFT JOIN images "
 									+ "ON item.record_num = images.record_num "
-									+ "inner join temp.nothumb noth on noth.uri = item.uri "
+//									+ "inner join temp.nothumb noth on noth.uri = item.uri "
 									+ "WHERE images.image IS NULL"
 					// "WHERE item.record_num = 195202"
 					);
 			Util.print(MyResultSet.nRows(rs) + " images to load");
-			URL ammemURL = null;
-			try {
-				ammemURL = new URL("http://memory.loc.gov/");
-			} catch (MalformedURLException e1) {
-				// TODO Auto-generated catch block
-				e1.printStackTrace();
-			}
+//			URL ammemURL = null;
+//			try {
+//				ammemURL = new URL("http://memory.loc.gov/");
+//			} catch (MalformedURLException e1) {
+//				// TODO Auto-generated catch block
+//				e1.printStackTrace();
+//			}
 			while (rs.next()) {
 				try {
 					String loc = rs.getString(1);
@@ -739,7 +740,7 @@ final class Populate extends DefaultHandler {
 						Matcher matcher = cPattern.matcher(Util.readURL(loc));
 						if (matcher.find()) {
 							loc = matcher.group(1);
-							thumbURL = ammemURL;
+//							thumbURL = ammemURL;
 						} else {
 							Util.print("Can't find pattern '" + pattern
 									+ "' in " + loc);

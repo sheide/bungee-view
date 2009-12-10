@@ -246,13 +246,13 @@ public class ParseOAI extends Options {
 							field = MARC.getInstance().decode(tag, subfield);
 						}
 						// field = Facet.getGenericFacet(localName, this);
-						assert field != null
-								|| localName.equals("controlfield") : "endElement not handling "
-								+ tag
-								+ " "
-								+ subfield
-								+ " "
-								+ qName + " " + uri;
+//						assert field != null
+//								|| localName.equals("controlfield") : "endElement not handling "
+//								+ tag
+//								+ " "
+//								+ subfield
+//								+ " "
+//								+ qName + " " + uri;
 					} else if (qName.startsWith("dc:")) {
 						field = DC.getInstance().decode(localName);
 						assert field != null : "endElement not handling " + qName + " " + uri;

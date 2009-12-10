@@ -1,5 +1,6 @@
 package edu.cmu.cs.bungee.dbScripts;
 
+import java.util.HashSet;
 import java.util.Hashtable;
 
 import edu.cmu.cs.bungee.javaExtensions.Util;
@@ -17,7 +18,7 @@ class Decoder {
 	}
 
 	void addCode(String name, Field field) {
-//		Util.print("addCode " + name + " " + field);
+		// Util.print("addCode " + name + " " + field);
 		codes.put(name, field);
 	}
 
@@ -62,13 +63,17 @@ class MARC extends Decoder {
 		return self;
 	}
 
+	private HashSet<String> previouslyIgnored = new HashSet<String>();
+
 	// marc21 codes explained at http://www.loc.gov/marc/bibliographic/
 	Field decode(String tag, String subfield) {
-		Field result = super.decode(tag + subfield);
+		String key = tag + subfield;
+		Field result = super.decode(key);
 		if (result == null)
 			result = super.decode(tag);
-		if (result == null) {
-			Util.print("Ignoring " + tag + subfield);
+		if (result == null&&!previouslyIgnored.contains(key)) {			
+			Util.print("Ignoring " + key);
+			previouslyIgnored.add(key);
 		} else if (result == Field.IGNORABLE_FIELD)
 			result = null;
 		return result;
