@@ -15,6 +15,7 @@ public class BooleanToken extends Token {
 		setDefaultValue(new Boolean(false));
 	}
 
+	@Override
 	public String type() {
 		return "";
 	}
@@ -28,6 +29,7 @@ public class BooleanToken extends Token {
 		return in.booleanValue();
 	}
 
+	@Override
 	public Object toObject(String lexeme) {
 		if (lexeme.length() == 0) {
 			Boolean bl = (Boolean) m_defaultValue;
@@ -38,6 +40,7 @@ public class BooleanToken extends Token {
 		return new Boolean(lexeme);
 	}
 
+	@Override
 	public boolean hasOneOrMoreArgs() {
 		return false;
 	}

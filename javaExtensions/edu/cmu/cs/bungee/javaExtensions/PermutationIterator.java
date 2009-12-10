@@ -8,21 +8,21 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
-public class PermutationIterator implements Iterator {
+public class PermutationIterator<V> implements Iterator<List<V>> {
 
-	private final Object[] objects;
+	private final ArrayList<V> objects;
 	private final IntegerPermutationIter integerPermGenerator;
 	private int nRemainingPerms;
-	private final List perm;
+	private final List<V> perm;
 
-	public PermutationIterator(List collection) {
-		objects = collection.toArray();
-		int nObjects = objects.length;
+	public PermutationIterator(List<V> collection) {
+		objects = new ArrayList<V>(collection);
+		int nObjects = objects.size();
 		integerPermGenerator = new IntegerPermutationIter(nObjects);
 		nRemainingPerms = factorial(nObjects);
-		perm = new ArrayList(nObjects);
+		perm = new ArrayList<V>(nObjects);
 		for (int i = 0; i < nObjects; i++) {
-			perm.add("foo");
+			perm.add(null);
 		}
 	}
 
@@ -33,11 +33,11 @@ public class PermutationIterator implements Iterator {
 	/*
 	 * Value is a List ordered the same way as constuctor argument
 	 */
-	public Object next() {
+	public List<V> next() {
 		nRemainingPerms--;
-		int[] integerPerm = (int[]) integerPermGenerator.next();
+		int[] integerPerm = integerPermGenerator.next();
 		for (int i = 0; i < integerPerm.length; i++) {
-			perm.set(i, objects[integerPerm[i]]);
+			perm.set(i, objects.get(integerPerm[i]));
 		}
 		return Collections.unmodifiableList(perm);
 	}

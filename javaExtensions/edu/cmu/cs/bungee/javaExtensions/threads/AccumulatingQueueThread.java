@@ -15,6 +15,7 @@ public class AccumulatingQueueThread extends QueueThread {
 			super(name, null, true, deltaPriority);
 		}
 
+		@Override
 		protected synchronized Object get() {
 			Object result = null;
 			while (isUpToDate()) {

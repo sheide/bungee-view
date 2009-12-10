@@ -38,7 +38,7 @@ public class URLQuery {
 	/**
 	 * The query arguments.
 	 */
-	private Hashtable arguments = null;
+	private Hashtable<String, Vector<String>> arguments = null;
 
 	/**
 	 * Creates a new URLQuery object from the specified URL.
@@ -72,12 +72,12 @@ public class URLQuery {
 		if (getArguments() == null) {
 			return "";
 		}
-		Vector v = (Vector) arguments.get(key);
+		Vector<String> v = arguments.get(key);
 
 		if (v == null || v.size() < 1) {
 			return "";
 		}
-		return (String) v.elementAt(0);
+		return v.elementAt(0);
 	}
 
 	/**
@@ -86,17 +86,17 @@ public class URLQuery {
 	 * @return a Hashtable containing the argument keys as keys and Vectors with
 	 *         the argument values as values.
 	 */
-	private Hashtable getArguments() {
+	private Hashtable<String, Vector<String>> getArguments() {
 		if (arguments != null) {
 			return arguments;
 		}
-		Hashtable table = new Hashtable();
+		Hashtable<String, Vector<String>> table = new Hashtable<String, Vector<String>>();
 
 		String pair = null;
 		String key = null;
 		String value = null;
 		int index = 0;
-		Vector v = null;
+		Vector<String> v = null;
 		StringTokenizer tok = new StringTokenizer(query, "&");
 
 		while (tok.hasMoreElements()) {
@@ -117,10 +117,10 @@ public class URLQuery {
 			}
 
 			if (table.containsKey(key)) {
-				v = (Vector) table.get(key);
+				v = table.get(key);
 				v.addElement(value);
 			} else {
-				v = new Vector();
+				v = new Vector<String>();
 				v.addElement(value);
 				table.put(key, v);
 			}
@@ -134,6 +134,7 @@ public class URLQuery {
 	 * 
 	 * @return the original query that was used when created this URLQuery.
 	 */
+	@Override
 	public String toString() {
 		return query;
 	}

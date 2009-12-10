@@ -11,14 +11,14 @@ import java.sql.Array;
 import java.sql.Blob;
 import java.sql.Clob;
 import java.sql.Date;
-import java.sql.NClob;
+//import java.sql.NClob;
 import java.sql.Ref;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
-import java.sql.RowId;
+//import java.sql.RowId;
 import java.sql.SQLException;
 import java.sql.SQLWarning;
-import java.sql.SQLXML;
+//import java.sql.SQLXML;
 import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
@@ -42,10 +42,10 @@ public class MyResultSet implements ResultSet {
 		return columns.length;
 	}
 
-	static List makeColumnTypeList(Object col1, Object col2, Object col3,
+	static List<Object> makeColumnTypeList(Object col1, Object col2, Object col3,
 			Object col4, Object col5, Object col6, Object col7, Object col8,
 			Object col9, Object col10) {
-		List temp = new ArrayList();
+		List<Object> temp = new ArrayList<Object>();
 		addCol(col1, temp);
 		addCol(col2, temp);
 		addCol(col3, temp);
@@ -59,118 +59,129 @@ public class MyResultSet implements ResultSet {
 		return Collections.unmodifiableList(temp);
 	}
 
-	static void addCol(Object type, List temp) {
+	static void addCol(Object type, List<Object> temp) {
 		if (type != null)
 			temp.add(type);
 	}
 
-	public static final List INT = makeColumnTypeList(Column.IntegerType, null,
+	public static final List<Object> INT = makeColumnTypeList(Column.IntegerType, null,
 			null, null, null, null, null, null, null, null);
 
-	public static final List INT_INT = makeColumnTypeList(Column.IntegerType,
+	public static final List<Object> INT_DOUBLE = makeColumnTypeList(Column.IntegerType, Column.DoubleType,
+			null, null, null, null, null, null, null, null);
+
+	public static final List<Object> INT_DOUBLE_DOUBLE = makeColumnTypeList(Column.IntegerType, Column.DoubleType,
+			Column.DoubleType, null, null, null, null, null, null, null);
+
+	public static final List<Object> INT_INT = makeColumnTypeList(Column.IntegerType,
 			Column.IntegerType, null, null, null, null, null, null, null, null);
 
-	public static final List INT_INT_INT = makeColumnTypeList(
+	public static final List<Object> INT_INT_INT = makeColumnTypeList(
 			Column.IntegerType, Column.IntegerType, Column.IntegerType, null,
 			null, null, null, null, null, null);
 
-	public static final List INT_INT_INT_INT = makeColumnTypeList(
+	public static final List<Object> INT_INT_INT_INT = makeColumnTypeList(
 			Column.IntegerType, Column.IntegerType, Column.IntegerType,
 			Column.IntegerType, null, null, null, null, null, null);
 
-	public static final List INT_INT_STRING = makeColumnTypeList(
+	public static final List<Object> INT_INT_INT_INT_INT_DOUBLE_DOUBLE = makeColumnTypeList(
+			Column.IntegerType, Column.IntegerType, Column.IntegerType,
+			Column.IntegerType, Column.IntegerType, Column.DoubleType, Column.DoubleType, null, null, null);
+
+	public static final List<Object> INT_INT_STRING = makeColumnTypeList(
 			Column.IntegerType, Column.IntegerType, Column.StringType, null,
 			null, null, null, null, null, null);
 
-	public static final List INT_INT_INT_STRING = makeColumnTypeList(
+	public static final List<Object> INT_INT_INT_STRING = makeColumnTypeList(
 			Column.IntegerType, Column.IntegerType, Column.IntegerType,
 			Column.StringType, null, null, null, null, null, null);
 
-	public static final List INT_PINT_STRING_INT_INT_INT_INT_DOUBLE_PINT_PINT = makeColumnTypeList(
+	public static final List<Object> INT_PINT_STRING_INT_INT_INT_INT_DOUBLE_PINT_PINT = makeColumnTypeList(
 			Column.IntegerType, Column.PositiveIntegerType, Column.StringType,
 			Column.IntegerType, Column.IntegerType, Column.IntegerType,
 			Column.IntegerType, Column.DoubleType, Column.PositiveIntegerType,
 			Column.PositiveIntegerType);
 
-	public static final List INT_SINT = makeColumnTypeList(Column.IntegerType,
+	public static final List<Object> INT_SINT = makeColumnTypeList(Column.IntegerType,
 			Column.SortedIntegerType, null, null, null, null, null, null, null,
 			null);
 
-	public static final List INT_STRING = makeColumnTypeList(
+	public static final List<Object> INT_STRING = makeColumnTypeList(
 			Column.IntegerType, Column.StringType, null, null, null, null,
 			null, null, null, null);
 
-	public static final List PINT_SINT_STRING_INT_INT_INT = makeColumnTypeList(
+	public static final List<Object> PINT_SINT_STRING_INT_INT_INT = makeColumnTypeList(
 			Column.PositiveIntegerType, Column.SortedIntegerType,
 			Column.StringType, Column.IntegerType, Column.IntegerType,
 			Column.IntegerType, null, null, null, null);
 
-	public static final List PINT_SINT_STRING_INT_INT_INT_INT = makeColumnTypeList(
+	public static final List<Object> PINT_SINT_STRING_INT_INT_INT_INT = makeColumnTypeList(
 			Column.PositiveIntegerType, Column.SortedIntegerType,
 			Column.StringType, Column.IntegerType, Column.IntegerType,
 			Column.IntegerType, Column.IntegerType, null, null, null);
 
-	public static final List SINT = makeColumnTypeList(
+	public static final List<Object> SINT = makeColumnTypeList(
 			Column.SortedIntegerType, null, null, null, null, null, null, null,
 			null, null);
 
-	public static final List SINT_IMAGE_INT_INT = makeColumnTypeList(
-			Column.SortedIntegerType, Column.ImageType, Column.IntegerType,
-			Column.IntegerType, null, null, null, null, null, null);
+	public static final List<Object> SINT_STRING_IMAGE_INT_INT = makeColumnTypeList(
+			Column.SortedIntegerType, Column.StringType, Column.ImageType,
+			Column.IntegerType, Column.IntegerType, null, null, null, null,
+			null);
 
-	public static final List SINT_PINT = makeColumnTypeList(
+	public static final List<Object> SINT_PINT = makeColumnTypeList(
 			Column.SortedIntegerType, Column.PositiveIntegerType, null, null,
 			null, null, null, null, null, null);
 
-	public static final List SINT_INT = makeColumnTypeList(
+	public static final List<Object> SINT_INT = makeColumnTypeList(
 			Column.SortedIntegerType, Column.IntegerType, null, null, null,
 			null, null, null, null, null);
 
-	public static final List SINT_INT_INT_INT_INT = makeColumnTypeList(
+	public static final List<Object> SINT_INT_INT_INT_INT = makeColumnTypeList(
 			Column.PositiveIntegerType, Column.IntegerType, Column.IntegerType,
 			Column.IntegerType, Column.IntegerType, null, null, null, null,
 			null);
 
-	public static final List SNMINT_INT_INT = makeColumnTypeList(
+	public static final List<Object> SNMINT_INT_INT = makeColumnTypeList(
 			Column.SortedNMIntegerType, Column.IntegerType, Column.IntegerType,
 			null, null, null, null, null, null, null);
 
-	public static final List SNMINT_PINT = makeColumnTypeList(
+	public static final List<Object> SNMINT_PINT = makeColumnTypeList(
 			Column.SortedNMIntegerType, Column.PositiveIntegerType, null, null,
 			null, null, null, null, null, null);
 
-	public static final List STRING = makeColumnTypeList(Column.StringType,
+	public static final List<Object> STRING = makeColumnTypeList(Column.StringType,
 			null, null, null, null, null, null, null, null, null);
 
-	public static final List STRING_IMAGE_INT_INT = makeColumnTypeList(
+	public static final List<Object> STRING_IMAGE_INT_INT = makeColumnTypeList(
 			Column.StringType, Column.ImageType, Column.IntegerType,
 			Column.IntegerType, null, null, null, null, null, null);
 
-	public static final List STRING_INT = makeColumnTypeList(Column.StringType,
+	public static final List<Object> STRING_INT = makeColumnTypeList(Column.StringType,
 			Column.IntegerType, null, null, null, null, null, null, null, null);
 
-	public static final List STRING_INT_INT = makeColumnTypeList(
+	public static final List<Object> STRING_INT_INT = makeColumnTypeList(
 			Column.StringType, Column.IntegerType, Column.IntegerType, null,
 			null, null, null, null, null, null);
 
-	public static final List STRING_INT_INT_INT = makeColumnTypeList(
+	public static final List<Object> STRING_INT_INT_INT = makeColumnTypeList(
 			Column.StringType, Column.IntegerType, Column.IntegerType,
 			Column.IntegerType, null, null, null, null, null, null);
 
-	public static final List STRING_SINT = makeColumnTypeList(
+	public static final List<Object> STRING_SINT = makeColumnTypeList(
 			Column.StringType, Column.SortedIntegerType, null, null, null,
 			null, null, null, null, null);
 
-	public static final List STRING_STRING_STRING_INT_INT_INT_INT = makeColumnTypeList(
+	public static final List<Object> STRING_STRING_STRING_INT_INT_INT_INT = makeColumnTypeList(
 			Column.StringType, Column.StringType, Column.StringType,
 			Column.IntegerType, Column.IntegerType, Column.IntegerType,
 			Column.IntegerType, null, null, null);
 
-	public static final List STRING_STRING_STRING_STRING = makeColumnTypeList(
+	public static final List<Object> STRING_STRING_STRING_STRING = makeColumnTypeList(
 			Column.StringType, Column.StringType, Column.StringType,
 			Column.StringType, null, null, null, null, null, null);
 
-	public MyResultSet(DataInputStream s, List types) {
+	public MyResultSet(DataInputStream s, List<Object> types)  {
 		nRows = readInt(s) - 1;
 		// System.out.println(nRows + " rows");
 		if (nRows >= 0) {
@@ -204,7 +215,7 @@ public class MyResultSet implements ResultSet {
 					} else {
 						assert false : "Unknown column type: " + type;
 					}
-				} catch (IOException e) {
+				} catch (Exception e) {
 					Util.err("While reading " + type + " column " + i + " of "
 							+ types);
 					for (int j = 0; j < i; j++) {
@@ -542,26 +553,31 @@ public class MyResultSet implements ResultSet {
 			}
 		}
 
+		@Override
 		protected String getString(int row) {
 			return values[row - 1];
 		}
 
+		@Override
 		protected int getInt(int row) {
 			assert false;
 			return Integer.parseInt(values[row - 1]);
 		}
 
+		@Override
 		protected InputStream getBlob(int row) {
 			assert Util.ignore(row);
 			assert false;
 			return null;
 		}
 
+		@Override
 		protected double getDouble(int row) {
 			assert false;
 			return Double.parseDouble(values[row - 1]);
 		}
 
+		@Override
 		public Object[] getValues() {
 			return values.clone();
 		}
@@ -582,22 +598,26 @@ public class MyResultSet implements ResultSet {
 			}
 		}
 
+		@Override
 		protected String getString(int row) {
 			assert false;
 			return Double.toString(values[row - 1]);
 		}
 
+		@Override
 		protected int getInt(int row) {
 			assert false;
 			return (int) values[row - 1];
 		}
 
+		@Override
 		protected InputStream getBlob(int row) {
 			assert Util.ignore(row);
 			assert false;
 			return null;
 		}
 
+		@Override
 		protected double getDouble(int row) {
 			return values[row - 1];
 		}
@@ -611,7 +631,7 @@ public class MyResultSet implements ResultSet {
 		private int[] values;
 
 		public IntColumn(DataInputStream s, int nRows1, boolean sorted,
-				boolean positive) throws IOException {
+				boolean positive) throws Exception {
 			// Util.print("IntColumn " + sorted + " " + positive + " " + nRows);
 			values = new int[nRows1];
 			int[] vals = new int[1];
@@ -640,7 +660,7 @@ public class MyResultSet implements ResultSet {
 							values[++i] = vals[0];
 						}
 					}
-				} catch (IOException e) {
+				} catch (Exception e) {
 					Util.err("While reading integer from row " + i + " of "
 							+ nRows);
 					for (int j = 0; j <= i; j++) {
@@ -651,26 +671,31 @@ public class MyResultSet implements ResultSet {
 			}
 		}
 
+		@Override
 		protected String getString(int row) {
 			assert false;
 			return Integer.toString(values[row - 1]);
 		}
 
+		@Override
 		protected int getInt(int row) {
 			return values[row - 1];
 		}
 
+		@Override
 		protected InputStream getBlob(int row) {
 			assert Util.ignore(row);
 			assert false;
 			return null;
 		}
 
+		@Override
 		protected double getDouble(int row) {
 			assert false;
 			return values[row - 1];
 		}
 
+		@Override
 		public Object[] getValues() {
 			Integer[] result = new Integer[values.length];
 			for (int i = 0; i < values.length; i++) {
@@ -694,23 +719,27 @@ public class MyResultSet implements ResultSet {
 			}
 		}
 
+		@Override
 		protected String getString(int row) {
 			assert Util.ignore(row);
 			assert false;
 			return null;
 		}
 
+		@Override
 		protected int getInt(int row) {
 			assert Util.ignore(row);
 			assert false;
 			return -1;
 		}
 
+		@Override
 		protected InputStream getBlob(int row) {
 			assert Util.ignore(row);
 			return values[row - 1];
 		}
 
+		@Override
 		protected double getDouble(int row) {
 			assert Util.ignore(row);
 			assert false;
@@ -1268,7 +1297,7 @@ public class MyResultSet implements ResultSet {
 		return null;
 	}
 
-	public Object getObject(int arg0, Map arg1) {
+	public Object getObject(int arg0, Map<String,Class<?>> arg1) {
 		// TODO Auto-generated method stub
 		assert false;
 		return null;
@@ -1298,7 +1327,7 @@ public class MyResultSet implements ResultSet {
 		return null;
 	}
 
-	public Object getObject(String arg0, Map arg1) {
+	public Object getObject(String arg0, Map<String,Class<?>> arg1) {
 		// TODO Auto-generated method stub
 		assert false;
 		return null;
@@ -1398,12 +1427,10 @@ public class MyResultSet implements ResultSet {
 
 	public void updateClob(int arg0, Clob arg1) {
 		// TODO Auto-generated method stub
-
 	}
 
 	public void updateClob(String arg0, Clob arg1) {
 		// TODO Auto-generated method stub
-
 	}
 
 	public void updateArray(int arg0, Array arg1) {
@@ -1433,7 +1460,7 @@ public class MyResultSet implements ResultSet {
 	}
 
 	public String valueOfDeep(int maxRows) {
-		List types = new LinkedList();
+		List<Object> types = new LinkedList<Object>();
 		for (int i = 0; i < columns.length; i++) {
 			Column column = columns[i];
 			Object type = null;
@@ -1450,7 +1477,7 @@ public class MyResultSet implements ResultSet {
 		return valueOfDeep(this, types, maxRows);
 	}
 
-	public static String valueOfDeep(ResultSet result, List types, int maxRows) {
+	public static String valueOfDeep(ResultSet result, List<Object> types, int maxRows) {
 		if (result == null)
 			return "<NULL ResultSet>";
 		StringBuffer buf = new StringBuffer();
@@ -1598,288 +1625,298 @@ public class MyResultSet implements ResultSet {
 			return false;
 		}
 
-		public boolean isWrapperFor(Class arg0) throws SQLException {
-			// TODO Auto-generated method stub
-			return false;
-		}
-
-		public Object unwrap(Class arg0) throws SQLException {
-			// TODO Auto-generated method stub
-			return null;
-		}
+//		public boolean isWrapperFor(Class arg0) throws SQLException {
+//			// TODO Auto-generated method stub
+//			return false;
+//		}
+//
+//		public Object unwrap(Class arg0) throws SQLException {
+//			// TODO Auto-generated method stub
+//			return null;
+//		}
 
 	}
 
+	/**
+	 * @throws SQLException  
+	 */
 	public int getHoldability() throws SQLException {
 		// TODO Auto-generated method stub
 		return 0;
 	}
 
+	/**
+	 * @param arg0 
+	 * @throws SQLException  
+	 */
 	public Reader getNCharacterStream(int arg0) throws SQLException {
 		// TODO Auto-generated method stub
 		return null;
 	}
 
+	/**
+	 * @param arg0  
+	 * @throws SQLException 
+	 */
 	public Reader getNCharacterStream(String arg0) throws SQLException {
 		// TODO Auto-generated method stub
 		return null;
 	}
 
-	public NClob getNClob(int arg0) throws SQLException {
-		// TODO Auto-generated method stub
-		return null;
-	}
+//	public NClob getNClob(int arg0) throws SQLException {
+//		// TODO Auto-generated method stub
+//		return null;
+//	}
+//
+//	public NClob getNClob(String arg0) throws SQLException {
+//		// TODO Auto-generated method stub
+//		return null;
+//	}
 
-	public NClob getNClob(String arg0) throws SQLException {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
+	@SuppressWarnings("unused")
 	public String getNString(int arg0) throws SQLException {
 		// TODO Auto-generated method stub
 		return null;
 	}
 
+	@SuppressWarnings("unused")
 	public String getNString(String arg0) throws SQLException {
 		// TODO Auto-generated method stub
 		return null;
 	}
 
-	public RowId getRowId(int arg0) throws SQLException {
-		// TODO Auto-generated method stub
-		return null;
-	}
+//	public RowId getRowId(int arg0) throws SQLException {
+//		// TODO Auto-generated method stub
+//		return null;
+//	}
+//
+//	public RowId getRowId(String arg0) throws SQLException {
+//		// TODO Auto-generated method stub
+//		return null;
+//	}
+//
+//	public SQLXML getSQLXML(int arg0) throws SQLException {
+//		// TODO Auto-generated method stub
+//		return null;
+//	}
+//
+//	public SQLXML getSQLXML(String arg0) throws SQLException {
+//		// TODO Auto-generated method stub
+//		return null;
+//	}
 
-	public RowId getRowId(String arg0) throws SQLException {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	public SQLXML getSQLXML(int arg0) throws SQLException {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	public SQLXML getSQLXML(String arg0) throws SQLException {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
+	@SuppressWarnings("unused")
 	public boolean isClosed() throws SQLException {
 		// TODO Auto-generated method stub
 		return false;
 	}
 
+	@SuppressWarnings("unused")
 	public void updateAsciiStream(int arg0, InputStream arg1)
 			throws SQLException {
 		// TODO Auto-generated method stub
-
 	}
 
+	@SuppressWarnings("unused")
 	public void updateAsciiStream(String arg0, InputStream arg1)
 			throws SQLException {
 		// TODO Auto-generated method stub
-
 	}
 
+	@SuppressWarnings("unused")
 	public void updateAsciiStream(int arg0, InputStream arg1, long arg2)
 			throws SQLException {
 		// TODO Auto-generated method stub
-
 	}
 
+	@SuppressWarnings("unused")
 	public void updateAsciiStream(String arg0, InputStream arg1, long arg2)
 			throws SQLException {
 		// TODO Auto-generated method stub
-
 	}
 
+	@SuppressWarnings("unused")
 	public void updateBinaryStream(int arg0, InputStream arg1)
 			throws SQLException {
 		// TODO Auto-generated method stub
-
 	}
 
+	@SuppressWarnings("unused")
 	public void updateBinaryStream(String arg0, InputStream arg1)
 			throws SQLException {
 		// TODO Auto-generated method stub
-
 	}
 
+	@SuppressWarnings("unused")
 	public void updateBinaryStream(int arg0, InputStream arg1, long arg2)
 			throws SQLException {
 		// TODO Auto-generated method stub
-
 	}
 
+	@SuppressWarnings("unused")
 	public void updateBinaryStream(String arg0, InputStream arg1, long arg2)
 			throws SQLException {
 		// TODO Auto-generated method stub
-
 	}
 
+	@SuppressWarnings("unused")
 	public void updateBlob(int arg0, InputStream arg1) throws SQLException {
 		// TODO Auto-generated method stub
-
 	}
 
+	@SuppressWarnings("unused")
 	public void updateBlob(String arg0, InputStream arg1) throws SQLException {
 		// TODO Auto-generated method stub
-
 	}
 
+	@SuppressWarnings("unused")
 	public void updateBlob(int arg0, InputStream arg1, long arg2)
 			throws SQLException {
 		// TODO Auto-generated method stub
-
 	}
 
+	@SuppressWarnings("unused")
 	public void updateBlob(String arg0, InputStream arg1, long arg2)
 			throws SQLException {
 		// TODO Auto-generated method stub
-
 	}
 
+	@SuppressWarnings("unused")
 	public void updateCharacterStream(int arg0, Reader arg1)
 			throws SQLException {
 		// TODO Auto-generated method stub
-
 	}
 
+	@SuppressWarnings("unused")
 	public void updateCharacterStream(String arg0, Reader arg1)
 			throws SQLException {
 		// TODO Auto-generated method stub
-
 	}
 
+	@SuppressWarnings("unused")
 	public void updateCharacterStream(int arg0, Reader arg1, long arg2)
 			throws SQLException {
 		// TODO Auto-generated method stub
-
 	}
 
+	@SuppressWarnings("unused")
 	public void updateCharacterStream(String arg0, Reader arg1, long arg2)
 			throws SQLException {
 		// TODO Auto-generated method stub
-
 	}
 
+	@SuppressWarnings("unused")
 	public void updateClob(int arg0, Reader arg1) throws SQLException {
 		// TODO Auto-generated method stub
-
 	}
 
+	@SuppressWarnings("unused")
 	public void updateClob(String arg0, Reader arg1) throws SQLException {
 		// TODO Auto-generated method stub
-
 	}
 
+	@SuppressWarnings("unused")
 	public void updateClob(int arg0, Reader arg1, long arg2)
 			throws SQLException {
 		// TODO Auto-generated method stub
-
 	}
 
+	@SuppressWarnings("unused")
 	public void updateClob(String arg0, Reader arg1, long arg2)
 			throws SQLException {
 		// TODO Auto-generated method stub
-
 	}
 
+	@SuppressWarnings("unused")
 	public void updateNCharacterStream(int arg0, Reader arg1)
 			throws SQLException {
 		// TODO Auto-generated method stub
-
 	}
 
+	@SuppressWarnings("unused")
 	public void updateNCharacterStream(String arg0, Reader arg1)
 			throws SQLException {
 		// TODO Auto-generated method stub
-
 	}
 
+	@SuppressWarnings("unused")
 	public void updateNCharacterStream(int arg0, Reader arg1, long arg2)
 			throws SQLException {
 		// TODO Auto-generated method stub
-
 	}
 
+	@SuppressWarnings("unused")
 	public void updateNCharacterStream(String arg0, Reader arg1, long arg2)
 			throws SQLException {
 		// TODO Auto-generated method stub
-
 	}
 
-	public void updateNClob(int arg0, NClob arg1) throws SQLException {
-		// TODO Auto-generated method stub
+//	public void updateNClob(int arg0, NClob arg1) throws SQLException {
+//		// TODO Auto-generated method stub
+//	}
+//
+//	public void updateNClob(String arg0, NClob arg1) throws SQLException {
+//		// TODO Auto-generated method stub
+//	}
 
-	}
-
-	public void updateNClob(String arg0, NClob arg1) throws SQLException {
-		// TODO Auto-generated method stub
-
-	}
-
+	@SuppressWarnings("unused")
 	public void updateNClob(int arg0, Reader arg1) throws SQLException {
 		// TODO Auto-generated method stub
-
 	}
 
+	@SuppressWarnings("unused")
 	public void updateNClob(String arg0, Reader arg1) throws SQLException {
 		// TODO Auto-generated method stub
-
 	}
 
+	@SuppressWarnings("unused")
 	public void updateNClob(int arg0, Reader arg1, long arg2)
 			throws SQLException {
 		// TODO Auto-generated method stub
-
 	}
 
+	@SuppressWarnings("unused")
 	public void updateNClob(String arg0, Reader arg1, long arg2)
 			throws SQLException {
 		// TODO Auto-generated method stub
-
 	}
 
+	@SuppressWarnings("unused")
 	public void updateNString(int arg0, String arg1) throws SQLException {
 		// TODO Auto-generated method stub
-
 	}
 
+	@SuppressWarnings("unused")
 	public void updateNString(String arg0, String arg1) throws SQLException {
 		// TODO Auto-generated method stub
-
 	}
 
-	public void updateRowId(int arg0, RowId arg1) throws SQLException {
-		// TODO Auto-generated method stub
+//	public void updateRowId(int arg0, RowId arg1) throws SQLException {
+//		// TODO Auto-generated method stub
+//	}
+//
+//	public void updateRowId(String arg0, RowId arg1) throws SQLException {
+//		// TODO Auto-generated method stub
+//	}
+//
+//	public void updateSQLXML(int arg0, SQLXML arg1) throws SQLException {
+//		// TODO Auto-generated method stub
+//	}
+//
+//	public void updateSQLXML(String arg0, SQLXML arg1) throws SQLException {
+//		// TODO Auto-generated method stub
+//	}
 
-	}
+//	@SuppressWarnings("unused")
+//	public boolean isWrapperFor(Class arg0) throws SQLException {
+//		// TODO Auto-generated method stub
+//		return false;
+//	}
 
-	public void updateRowId(String arg0, RowId arg1) throws SQLException {
-		// TODO Auto-generated method stub
-
-	}
-
-	public void updateSQLXML(int arg0, SQLXML arg1) throws SQLException {
-		// TODO Auto-generated method stub
-
-	}
-
-	public void updateSQLXML(String arg0, SQLXML arg1) throws SQLException {
-		// TODO Auto-generated method stub
-
-	}
-
-	public boolean isWrapperFor(Class arg0) throws SQLException {
-		// TODO Auto-generated method stub
-		return false;
-	}
-
-	public Object unwrap(Class arg0) throws SQLException {
-		// TODO Auto-generated method stub
-		return null;
-	}
+//	@SuppressWarnings("unused")
+//	public Object unwrap(Class arg0) throws SQLException {
+//		// TODO Auto-generated method stub
+//		return null;
+//	}
 
 }
