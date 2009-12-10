@@ -113,6 +113,7 @@ final class MouseDocLine extends LazyPNode implements PerspectiveObserver {
 		tip.setFont(art.font);
 	}
 
+	@Override
 	public double minHeight() {
 		return art.lineH;
 	}
@@ -272,6 +273,7 @@ final class MouseDocLine extends LazyPNode implements PerspectiveObserver {
 		return buf;
 	}
 
+	@Override
 	protected void paint(PPaintContext paintContext) {
 		// Util.print("MD.paint " + clickDesc);
 		// Util.printStackTrace();

@@ -11,13 +11,13 @@ import java.util.List;
 import java.util.Vector;
 
 import edu.cmu.cs.bungee.client.query.Cluster;
+import edu.cmu.cs.bungee.client.query.ItemPredicate;
 import edu.cmu.cs.bungee.client.query.Markup;
 import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.cmu.cs.bungee.client.query.Query;
 import edu.cmu.cs.bungee.client.query.tetrad.Distribution;
 import edu.cmu.cs.bungee.client.query.tetrad.Explanation;
-import edu.cmu.cs.bungee.client.query.tetrad.NonAlchemyModel;
-//import edu.cmu.cs.bungee.client.query.tetrad.Tetrad;
+import edu.cmu.cs.bungee.client.query.tetrad.NonAlchemyModel; //import edu.cmu.cs.bungee.client.query.tetrad.Tetrad;
 import edu.cmu.cs.bungee.javaExtensions.PerspectiveObserver;
 import edu.cmu.cs.bungee.javaExtensions.Util;
 import edu.cmu.cs.bungee.javaExtensions.graph.Graph.GraphWeigher;
@@ -91,10 +91,10 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 		}
 	}
 
-	private static final class Step implements Comparable {
+	private static final class Step implements Comparable<Step> {
 		private static int ordinalCounter = 0;
 
-		private final static List elements = new ArrayList();
+		private final static List<Step> elements = new ArrayList<Step>();
 
 		private final int ordinal = ordinalCounter++;
 
@@ -108,19 +108,20 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 		Step next() {
 			if (elements.size() == ordinal + 1)
 				return null;
-			return (Step) elements.get(ordinal + 1);
+			return elements.get(ordinal + 1);
 		}
 
 		Step previous() {
 			if (0 == ordinal)
 				return null;
-			return (Step) elements.get(ordinal - 1);
+			return elements.get(ordinal - 1);
 		}
 
-		public int compareTo(Object arg0) {
-			return ordinal - ((Step) arg0).ordinal;
+		public int compareTo(Step arg0) {
+			return ordinal - arg0.ordinal;
 		}
 
+		@Override
 		public String toString() {
 			return name;
 		}
@@ -666,7 +667,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 		// return false;
 	}
 
-	void handleArrow(char key) {
+	boolean handleArrow(char key) {
 		int delta = 0;
 		switch (key) {
 		case java.awt.event.KeyEvent.VK_KP_DOWN:
@@ -678,38 +679,42 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 			delta++;
 			break;
 		}
-		addTetradFacets(delta);
+		return addTetradFacets(delta);
 	}
 
 	boolean addTetradFacets(int delta) {
-		if (explanation != null && delta != 0) {
+		boolean result = explanation != null && delta != 0;
+		if (result) {
 			explanation = ((NonAlchemyModel) explanation).addFacets(Explanation
 					.relevantFacets(facet), delta);
 			setTetradInternal(getTheGraph());
 			showEuler(explanation, Explanation.relevantFacets(facet));
 		}
-		return explanation != null;
+		return result;
 	}
 
-	private void showEuler(Explanation explanation2, List relevantFacets) {
+	private void showEuler(Explanation explanation2,
+			List<ItemPredicate> relevantFacets) {
 		removeEulerDiagrams();
 		if (art.getIsDebugGraph()) {
 			Distribution observedDestribution = explanation2
 					.getObservedDestribution();
-			Collection unusedFacets = explanation2.unusedFacets();
+			Collection<ItemPredicate> unusedFacets = explanation2
+					.unusedFacets();
 			unusedFacets.removeAll(relevantFacets);
-			List usedFacets = new ArrayList(explanation2.facets());
+			List<ItemPredicate> usedFacets = new ArrayList<ItemPredicate>(
+					explanation2.facets());
 			usedFacets.removeAll(unusedFacets);
 			try {
 				observedEulerDiagram = new EulerDiagram(observedDestribution,
-						relevantFacets, usedFacets, art.font);
+						relevantFacets, usedFacets, art.font, "Observed");
 				addChild(observedEulerDiagram);
 				observedEulerDiagram.setStrokePaint(BGcolor);
 				alignNcorrect(observedEulerDiagram, 2, barBG, 0);
 
 				predictedEulerDiagram = new EulerDiagram(explanation2
 						.getPredictedDestribution(), relevantFacets,
-						usedFacets, art.font);
+						usedFacets, art.font, "Predicted");
 				addChild(predictedEulerDiagram);
 				predictedEulerDiagram.setStrokePaint(BGcolor);
 				alignNcorrect(predictedEulerDiagram, 2, observedEulerDiagram, 0);
@@ -730,17 +735,18 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 
 	void convertToTetrad() {
 		Util.err("Tetrad is commented out of this version.");
-//		if (explanation != null) {
-//			Graph g = getGraphInternal(Tetrad.getTetradGraph(facet, Explanation
-//					.relevantFacets(facet), explanation.facets(), null, this));
-//			setTetradInternal(g);
-//			g.setLabel("Tetrad Graph");
-//		}
+		// if (explanation != null) {
+		// Graph g = getGraphInternal(Tetrad.getTetradGraph(facet, Explanation
+		// .relevantFacets(facet), explanation.facets(), null, this));
+		// setTetradInternal(g);
+		// g.setLabel("Tetrad Graph");
+		// }
 	}
 
 	private Graph getTheGraph() {
-//		return useTetrad ? getGraphInternal(Tetrad.getTetradGraph(facet, null,
-//				this)) : getGraph();
+		// return useTetrad ? getGraphInternal(Tetrad.getTetradGraph(facet,
+		// null,
+		// this)) : getGraph();
 		return getGraph();
 	}
 
@@ -767,10 +773,10 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 	// }
 
 	private Graph getGraph() {
-		edu.cmu.cs.bungee.javaExtensions.graph.Graph tetradGraph;
+		edu.cmu.cs.bungee.javaExtensions.graph.Graph<ItemPredicate> tetradGraph;
 		if (explanation == null) {
-			tetradGraph = new edu.cmu.cs.bungee.javaExtensions.graph.Graph(
-					(GraphWeigher) null);
+			tetradGraph = new edu.cmu.cs.bungee.javaExtensions.graph.Graph<ItemPredicate>(
+					(GraphWeigher<ItemPredicate>) null);
 		} else {
 			tetradGraph = explanation.buildGraph(this, facet, art
 					.getIsDebugGraph());
@@ -779,7 +785,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 	}
 
 	private Graph getGraphInternal(
-			edu.cmu.cs.bungee.javaExtensions.graph.Graph tetradGraph) {
+			edu.cmu.cs.bungee.javaExtensions.graph.Graph<ItemPredicate> tetradGraph) {
 		Graph graph1 = new Graph(tetradGraph, art.font);
 		graph1.setStrokePaint(BGcolor);
 		graph1
@@ -797,8 +803,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 	// }
 
 	void colorFacetGraph(Graph graph1) {
-		for (Iterator it = graph1.getNodeObjects().iterator(); it.hasNext();) {
-			Object object = it.next();
+		for (Object object:graph1.getNodeObjects()) {
 			if (object instanceof Perspective) {
 				APText node = graph1.getNode(object);
 				node.setTextPaint(art.facetTextColor((Perspective) object));
@@ -1789,6 +1794,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 
 			PActivity ta = new PActivity(delay) {
 
+				@Override
 				protected void activityFinished() {
 					super.activityFinished();
 					performNextStep();
@@ -1903,8 +1909,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 
 	private Markup getPrefix(Markup facetDescList) {
 		Markup result = Query.emptyMarkup();
-		for (Iterator it = facetDescList.iterator(); it.hasNext();) {
-			Object o = it.next();
+		for (Object o:facetDescList) {
 			if (o instanceof Perspective) {
 				break;
 			} else {
@@ -1923,8 +1928,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 	private Markup getPostfix(Markup facetDescList) {
 		Markup result = Query.emptyMarkup();
 		boolean startRecording = false;
-		for (Iterator it = facetDescList.iterator(); it.hasNext();) {
-			Object o = it.next();
+		for (Object o: facetDescList) {
 			if (o instanceof Perspective) {
 				startRecording = true;
 			}
@@ -1983,7 +1987,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 		return showHelp.next() == null;
 	}
 
-	private List animationJobs = new Vector();
+	private List<PActivity> animationJobs = new Vector<PActivity>();
 
 	private void addAnimationJob(PActivity job) {
 		if (job != null) {
@@ -1997,8 +2001,7 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 
 	private long maxFinishTime() {
 		long result = 0;
-		for (Iterator it = animationJobs.iterator(); it.hasNext();) {
-			PActivity job = (PActivity) it.next();
+		for (PActivity job: animationJobs) {
 			long finish = job.getStopTime();
 			result = Math.max(result, finish);
 		}
@@ -2015,8 +2018,8 @@ final class PopupSummary extends LazyPNode implements PerspectiveObserver {
 			finishingAnimation = true;
 			try {
 				// Util.print("finishing anim");
-				for (Iterator it = animationJobs.iterator(); it.hasNext();) {
-					PActivity job = (PActivity) it.next();
+				for (Iterator<PActivity> it = animationJobs.iterator(); it.hasNext();) {
+					PActivity job = it.next();
 					it.remove(); // remove first to avoid infinite
 					// recursion
 					// Util.print("finishing " + job.isStepping() + " " +

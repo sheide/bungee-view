@@ -67,9 +67,6 @@ import edu.umd.cs.piccolo.util.PDimension;
 final class PerspectiveViz extends LazyContainer implements FacetNode,
 		PickFacetTextNotifier {
 
-	/**
-	 * 
-	 */
 	private static final long serialVersionUID = 1L;
 
 	Summary summary;
@@ -169,7 +166,7 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 	 */
 	private Perspective[] labelXs;
 
-	Hashtable barTable = new Hashtable();
+	Hashtable<Perspective, Bar> barTable = new Hashtable<Perspective, Bar>();
 
 	/**
 	 * Remember previous layout parameters, and don't re-layout if they are the
@@ -285,16 +282,17 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 	}
 
 	void updateData() {
-		// Util.print("PV.updateData " + p+" "+p.getTotalChildTotalCount()+"
-		// "+query().isQueryValid());
+		// Util.print("PV.updateData " + p + " " + p.getTotalChildTotalCount()
+		// + " " + query().isQueryValid());
 		if (p.getTotalChildTotalCount() == 0) {
 			query().removeRestrictionInternal(p);
 			summary.synchronizeWithQuery();
 		} else {
 			assert rank.expectedPercentOn() >= 0;
 			if (query().isQueryValid()) {
-				for (Iterator it = barTable.values().iterator(); it.hasNext();) {
-					Bar bar = ((Bar) it.next());
+				for (Iterator<Bar> it = barTable.values().iterator(); it
+						.hasNext();) {
+					Bar bar = it.next();
 					bar.updateData();
 				}
 			}
@@ -311,8 +309,8 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 	}
 
 	void animateData(double zeroToOne) {
-		for (Iterator it = barTable.values().iterator(); it.hasNext();) {
-			Bar bar = ((Bar) it.next());
+		for (Iterator<Bar> it = barTable.values().iterator(); it.hasNext();) {
+			Bar bar = it.next();
 			bar.animateData(zeroToOne);
 		}
 	}
@@ -333,11 +331,13 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 			final double startLeftEdge = leftEdge;
 			final double startLogicalWidth = logicalWidth;
 
+			@Override
 			public void activityFinished() {
 				zoomer = null;
 				super.activityFinished();
 			}
 
+			@Override
 			public void setRelativeTargetValue(float zeroToOne) {
 				// Util.print("animatePanZoom " + zeroToOne);
 				double newLeftEdge = Util.interpolate(startLeftEdge,
@@ -363,12 +363,12 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 			zoomer.terminate(0);
 	}
 
-	void setBarTransparencies(float zeroToOne) {
-		for (Iterator it = barTable.values().iterator(); it.hasNext();) {
-			Bar bar = ((Bar) it.next());
-			bar.setTransparency(zeroToOne);
-		}
-	}
+	// void setBarTransparencies(float zeroToOne) {
+	// for (Iterator it = barTable.values().iterator(); it.hasNext();) {
+	// Bar bar = ((Bar) it.next());
+	// bar.setTransparency(zeroToOne);
+	// }
+	// }
 
 	// Called only by Rank.redraw.
 	void validate(int _visibleWidth, boolean isShowRankLabels) {
@@ -502,10 +502,10 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 				double childFraction = median - medianIndex;
 				Perspective medianChild = p.getNthChild(medianIndex);
 				medianArrow.conditionalMedian = medianChild;
-				Bar bar = (Bar) barTable.get(medianChild);
+				Bar bar = barTable.get(medianChild);
 				while (bar == null && medianIndex < p.nChildren() - 1) {
 					childFraction = 0.0;
-					bar = (Bar) barTable.get(p.getNthChild(++medianIndex));
+					bar = barTable.get(p.getNthChild(++medianIndex));
 				}
 				// Util.print("layoutMedianArrow " + medianChild + " "
 				// + childFraction + " " + bar);
@@ -638,6 +638,7 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 	// return foldH;
 	// }
 
+	@Override
 	public void layoutChildren() {
 		if (logicalWidth > 0) { // Make sure we've been initialized.
 			// double h = getHeight();
@@ -1024,7 +1025,7 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 					iMinX = (iMinX > 1) ? iMinX - 1 : iMaxX + 1;
 					iMaxX = iMinX;
 					Perspective oldFacet = barXs[iMinX];
-					Bar oldBar = (Bar) barTable.get(oldFacet);
+					Bar oldBar = barTable.get(oldFacet);
 					assert oldBar != null : p + " " + facet + " " + oldFacet
 							+ " " + iMinX + "-" + iMaxX + " " + visibleWidth()
 							+ printBarXs();
@@ -1067,7 +1068,7 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 	}
 
 	Bar lookupBar(Perspective facet) {
-		Bar result = (Bar) barTable.get(facet);
+		Bar result = barTable.get(facet);
 		// if (result != null)
 		// Util.print("lookupBar " + facet + " => " + result.facet);
 		return result;
@@ -1081,8 +1082,9 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 	double[] pValues() {
 		double[] result = new double[nBars()];
 		int i = 0;
-		for (Iterator it = barTable.keySet().iterator(); it.hasNext(); i++) {
-			ItemPredicate facet = (ItemPredicate) it.next();
+		for (Iterator<Perspective> it = barTable.keySet().iterator(); it
+				.hasNext(); i++) {
+			ItemPredicate facet = it.next();
 			result[i] = facet.pValue();
 			// Util.print(p + " " + result[i]);
 			// if (result[i]<0)
@@ -1104,13 +1106,14 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 
 	private FacetPText mouseNameLabel;
 
-	void updateSelection(Set facets) {
+	void updateSelection(Set<Perspective> facets) {
+		// Util.print("PV.updateSelection "+facets);
 		updateLightBeamTransparency();
 
 		drawMouseLabel();
 
-		for (Iterator it = facets.iterator(); it.hasNext();) {
-			Perspective facet = (Perspective) it.next();
+		for (Iterator<Perspective> it = facets.iterator(); it.hasNext();) {
+			Perspective facet = it.next();
 			Bar bar = lookupBar(facet);
 			if (bar != null) {
 				bar.updateSelection();
@@ -1237,9 +1240,10 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 	private void drawMouseLabel() {
 		if (areLabelsInited() && labels.getVisible()) {
 			Perspective mousedFacet = null;
-			for (Iterator it = art().highlightedFacets.iterator(); it.hasNext()
+			for (Iterator<Perspective> it = art().highlightedFacets.iterator(); it
+					.hasNext()
 					&& mousedFacet == null;) {
-				Perspective facet = (Perspective) it.next();
+				Perspective facet = it.next();
 				if (facet.getParent() == p && isPerspectiveVisible(facet)) {
 					// There may be more than one. Tough.
 					mousedFacet = facet;
@@ -1479,7 +1483,7 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 						&& art().arrowFocus.getParent() == p)
 					facet = art().arrowFocus;
 				else if (p.nRestrictions() > 0)
-					facet = (Perspective) p.allRestrictions().first();
+					facet = p.allRestrictions().first();
 				else
 					facet = p.getNthChild(0);
 				summary.togglePerspectiveList(facet);
@@ -1549,12 +1553,12 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 		summary.mayHideTransients();
 	}
 
-	Hashtable facetPTexts = new Hashtable();
+	Hashtable<Perspective, FacetPText> facetPTexts = new Hashtable<Perspective, FacetPText>();
 
 	FacetPText getFacetPText(Perspective _facet, double _y, double x) {
 		FacetPText label = null;
 		if (_facet != null)
-			label = (FacetPText) facetPTexts.get(_facet);
+			label = facetPTexts.get(_facet);
 		if (label == null || label.numW != numW || label.nameW != nameW) {
 			label = new FacetPText(_facet, _y, x);
 			if (_facet != null)
@@ -1620,6 +1624,7 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 			// addInputEventListener(Art.facetClickHandler);
 		}
 
+		@Override
 		public boolean pick(int modifiers, PInputEvent e) {
 			// Util.print("FacetPNode.pick " + e.getPosition() + " " +
 			// e.getPositionRelativeTo(this));
@@ -1642,10 +1647,12 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 			return true;
 		}
 
+		@Override
 		void printUserAction(int modifiers) {
 			art.printUserAction(Bungee.BAR_LABEL, facet, modifiers);
 		}
 
+		@Override
 		public boolean highlight(boolean state, int modifiers, PInputEvent e) {
 			// Util.print("PV.FacetPText.highlight " + p + "."
 			// + facet + " " + state + " "
@@ -1723,6 +1730,7 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 		bar.pick(modifiers, null);
 	}
 
+	@Override
 	public String toString() {
 		return "<PerspectiveViz " + p + ">";
 	}
@@ -1829,12 +1837,14 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 				super(PPath.class);
 			}
 
+			@Override
 			public boolean exit(PNode node) {
 				art().showMedianArrowDesc(null);
 				highlight(false);
 				return true;
 			}
 
+			@Override
 			public boolean enter(PNode ignore) {
 				// boolean unconditional = node == tail;
 				// Perspective median = unconditional ? unconditionalMedian
@@ -1961,8 +1971,9 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 			double divisor = barWidthRatio();
 			// Util.print("computebars " + p + " " + p.getTotalChildTotalCount()
 			// + " " + logicalWidth);
-			for (Iterator it = slowVisibleChildIterator(); it.hasNext();) {
-				Perspective child = (Perspective) it.next();
+			for (Iterator<Perspective> it = slowVisibleChildIterator(); it
+					.hasNext();) {
+				Perspective child = it.next();
 				int totalCount = child.getTotalCount();
 				if (totalCount > 0) {
 					int iMaxX = maxBarPixel(child, divisor);
@@ -2000,7 +2011,8 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 	}
 
 	void drawLetters() {
-		// Check so that setFeatures doesn't initialize Letters before barXs is set.
+		// Check so that setFeatures doesn't initialize Letters before barXs is
+		// set.
 		if (art().getShowZoomLetters() && barXs != null) {
 			if (letters == null) {
 				letters = new Letters();
@@ -2036,12 +2048,12 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 		int iVisibleWidth = (int) visibleWidth();
 		labelXs = new Perspective[iVisibleWidth + 1];
 		double divisor = barWidthRatio();
-		Perspective[] restrictions = (Perspective[]) p.allRestrictions()
-				.toArray(new Perspective[0]);
+		Perspective[] restrictions = p.allRestrictions().toArray(
+				new Perspective[0]);
 		int restrictionBonus = query().getTotalCount();
 		boolean isQueryRestricted = query().isRestricted();
-		for (Iterator it = visibleChildIterator(); it.hasNext();) {
-			Perspective child = (Perspective) it.next();
+		for (Iterator<Perspective> it = visibleChildIterator(); it.hasNext();) {
+			Perspective child = it.next();
 			int totalCount = child.getTotalCount();
 			if (totalCount > 0) {
 				int iMaxX = maxBarPixel(child, divisor);
@@ -2259,12 +2271,11 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 
 					Perspective firstWithLetter = firstVisiblePerspective();
 					Perspective lastVisiblePerspective = lastVisiblePerspective();
-					for (Iterator it = p.letterOffsetsIterator(prefix); it
-							.hasNext();) {
-						Entry entry = (Entry) it.next();
-						CollationKey letter = ((CollationKey) entry.getKey());
-						Perspective lastWithLetter = ((Perspective[]) entry
-								.getValue())[1];
+					for (Iterator<Entry<CollationKey, Perspective[]>> it = p
+							.letterOffsetsIterator(prefix); it.hasNext();) {
+						Entry<CollationKey, Perspective[]> entry = it.next();
+						CollationKey letter = entry.getKey();
+						Perspective lastWithLetter = entry.getValue()[1];
 						if (lastWithLetter.compareTo(firstWithLetter) >= 0
 								&& firstWithLetter
 										.compareTo(lastVisiblePerspective) <= 0) {
@@ -2292,6 +2303,9 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 							// + lastWithLetter.whichChild() + "/"
 							// + p.nChildren());
 							firstWithLetter = lastWithLetter.nextSibling();
+
+							// Failures likely due to incompatibility between
+							// MySQL utf8 collation and Java getCollator()
 							assert firstWithLetter != null || !it.hasNext() : this
 									+ " "
 									+ lastWithLetter
@@ -2299,8 +2313,10 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 									+ lastWithLetter.whichChild()
 									+ "/"
 									+ p.nChildren()
-									+ "\n"
-									+ p.getLetterOffsets(prefix);
+									+ " '"
+									+ prefix.getSourceString()
+									+ "'\n"
+									+ p.letterOffsetsString(prefix);
 						}
 					}
 					removeAllChildren();
@@ -2344,7 +2360,7 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 			return result;
 		}
 
-		private Map letterPTextCache = new Hashtable();
+		private Map<String, FacetPText> letterPTextCache = new Hashtable<String, FacetPText>();
 
 		private void maybeDrawLetter(String s, int midX) {
 			// if ("Label".equals(p.getNameIfPossible()))
@@ -2352,7 +2368,7 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 			int iVisibleWidth = (int) visibleWidth();
 			assert midX >= 0 : s;
 			assert midX < iVisibleWidth : s + " " + midX + " " + iVisibleWidth;
-			FacetPText label = (FacetPText) letterPTextCache.get(s);
+			FacetPText label = letterPTextCache.get(s);
 			if (label == null || label.getFont() != art().font) {
 				label = getFacetPText(null, 0.0, midX);
 				label.setPermanentTextPaint(Bungee.summaryFG.darker()); // Color.
@@ -2578,12 +2594,14 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 			assert false;
 		}
 
+		@Override
 		public void setVisible(boolean state) {
 			super.setVisible(state);
 			setPickable(state);
 			setChildrenPickable(state);
 		}
 
+		@Override
 		public String toString() {
 			return "<Letters " + p + ">";
 		}
@@ -2609,7 +2627,7 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 	 * @return Iterator over children whose bars would fall within the visible
 	 *         portion of the logicalWidth.
 	 */
-	Iterator visibleChildIterator() {
+	Iterator<Perspective> visibleChildIterator() {
 		return p.getChildIterator(barXs[0], barXs[(int) visibleWidth()]);
 	}
 
@@ -2624,7 +2642,7 @@ final class PerspectiveViz extends LazyContainer implements FacetNode,
 		// && facet.compareTo(barXs[(int) visibleWidth()]) <= 0;
 	}
 
-	Iterator slowVisibleChildIterator() {
+	Iterator<Perspective> slowVisibleChildIterator() {
 		double divisor = barWidthRatio();
 		int minCount = (int) Math.ceil(leftEdge / divisor + epsilon);
 		int maxCount = (int) ((leftEdge + visibleWidth()) / divisor - epsilon);
@@ -2720,17 +2738,20 @@ final class HotZoneListener extends PBasicInputEventHandler {
 		pv = _pv;
 	}
 
+	@Override
 	public void mouseEntered(PInputEvent e) {
 		double y = e.getPositionRelativeTo(e.getPickedNode()).getY();
 		pv.hotZone(y);
 		e.setHandled(true);
 	}
 
+	@Override
 	public void mouseExited(PInputEvent e) {
 		pv.loseHotZone();
 		e.setHandled(true);
 	}
 
+	@Override
 	public void mouseMoved(PInputEvent e) {
 		double y = e.getPositionRelativeTo(e.getPickedNode()).getY();
 		pv.hotZone(y);
@@ -2780,6 +2801,7 @@ final class SqueezablePNode extends LazyPNode {
 		}
 	}
 
+	@Override
 	public void setVisible(boolean visible) {
 		super.setVisible(visible);
 		setChildrenPickable(visible);

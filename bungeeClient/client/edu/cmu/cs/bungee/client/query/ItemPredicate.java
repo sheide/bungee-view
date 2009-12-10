@@ -7,7 +7,7 @@ import edu.cmu.cs.bungee.javaExtensions.PerspectiveObserver;
 /**
  * @author mad Generalization of Perspective and Cluster
  */
-public interface ItemPredicate extends Comparable {
+public interface ItemPredicate extends Comparable<ItemPredicate> {
 
 	/**
 	 * modifier flagging that user gesture adds a negated filter choose a bit
@@ -52,7 +52,7 @@ public interface ItemPredicate extends Comparable {
 	/**
 	 * @return the child Perspectives involved in positive or negative filters
 	 */
-	public abstract SortedSet allRestrictions();
+	public abstract SortedSet<? extends ItemPredicate> allRestrictions();
 
 	/**
 	 * @param facet

@@ -79,7 +79,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 	RankComponentHeights rankComponentHeights = new RankComponentHeights(0, 0,
 			0, 0);
 
-	final List ranks;
+	final List<Rank> ranks;
 
 	/**
 	 * The drop-down menu on rank labels.
@@ -92,7 +92,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 		// setPaint(Bungee.summaryBG);
 		queryViz = new QueryViz(this);
 		addChild(queryViz);
-		ranks = new ArrayList(art.query.nAttributes);
+		ranks = new ArrayList<Rank>(art.query.nAttributes);
 
 		label = art.oneLineLabel();
 		label.setScale(2.0);
@@ -133,8 +133,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 	}
 
 	void delayedInit() {
-		for (Iterator it = ranks.iterator(); it.hasNext();) {
-			Rank r = (Rank) it.next();
+		for (Rank r: ranks) {
 			r.delayedInit();
 		}
 	}
@@ -194,8 +193,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 		queryViz.validate(queryW, h);
 		label.setOffset(queryW, 0);
 
-		for (Iterator it = ranks.iterator(); it.hasNext();) {
-			Rank r = (Rank) it.next();
+		for (Rank r: ranks) {
 			r.validate(w);
 		}
 
@@ -237,6 +235,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 		return queryViz.getBottomMargin() + art.lineH / 2;
 	}
 
+	@Override
 	public void updateBoundary(Boundary boundary1) {
 		assert boundary1 == boundary;
 		if (art.getShowBoundaries()) {
@@ -246,6 +245,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 		}
 	}
 
+	@Override
 	public void enterBoundary(Boundary boundary1) {
 		if (!art.getShowBoundaries()) {
 			boundary1.exit();
@@ -257,6 +257,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 		validateInternal(w, h, false);
 	}
 
+	@Override
 	public double minWidth() {
 		return minWidth(false);
 	}
@@ -275,17 +276,18 @@ final class Summary extends LazyContainer implements MouseDoc {
 				+ (recomputeQueryW ? queryViz.minWidth() : queryViz.getWidth());
 	}
 
+	@Override
 	public double maxWidth() {
 		return w + art.extremeTags.w - art.extremeTags.minWidth();
 	}
 
+	@Override
 	public double minHeight() {
 		return art.lineH * (10 + art.query.nAttributes);
 	}
 
 	void setFeatures() {
-		for (Iterator it = ranks.iterator(); it.hasNext();) {
-			Rank r = (Rank) it.next();
+		for (Rank r: ranks) {
 			r.setFeatures();
 		}
 		if (!art.getShowTagLists())
@@ -401,11 +403,13 @@ final class Summary extends LazyContainer implements MouseDoc {
 							.lerp(zeroToOne, start.margin, end.margin));
 		}
 
+		@Override
 		public String toString() {
 			return "<RankComponentHeights fold=" + fold + "; front=" + front
 					+ "; labels=" + labels + "; margin=" + margin + ">";
 		}
 
+		@Override
 		public boolean equals(Object o) {
 			if (!(o instanceof RankComponentHeights))
 				return false;
@@ -414,6 +418,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 					&& h.margin == margin;
 		}
 
+		@Override
 		public int hashCode() {
 			int result = 17;
 			// we know that components are really integers
@@ -525,8 +530,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 			double selectedRankH = rankComponentHeights.selectedH();
 			double margin = rankComponentHeights.marginH();
 			double yOffset = getTopMargin();
-			for (Iterator it = ranks.iterator(); it.hasNext();) {
-				Rank r = ((Rank) it.next());
+			for (Rank r: ranks) {
 				// r.updateHeights();
 				double rH = r.isConnected ? selectedRankH : deselectedRankH;
 				r.prepareAnimation(yOffset, rH);
@@ -540,23 +544,23 @@ final class Summary extends LazyContainer implements MouseDoc {
 			if (duration > 0) {
 				rankAnimator = new PInterpolatingActivity(duration,
 						Bungee.rankAnimationStep) {
+					@Override
 					protected void activityFinished() {
 						super.activityFinished();
 						rankAnimator = null;
 					}
 
+					@Override
 					public void setRelativeTargetValue(float zeroToOne) {
 						// Util.print("Summary.animateRank");
-						for (Iterator it = ranks.iterator(); it.hasNext();) {
-							Rank r = ((Rank) it.next());
+						for (Rank r: ranks) {
 							r.animateRank(zeroToOne);
 						}
 					}
 				};
 				addActivity(rankAnimator);
 			} else {
-				for (Iterator it = ranks.iterator(); it.hasNext();) {
-					Rank r = ((Rank) it.next());
+				for (Rank r: ranks) {
 					r.animateRank(1);
 				}
 			}
@@ -564,8 +568,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 	}
 
 	void restrict() {
-		for (Iterator it = ranks.iterator(); it.hasNext();) {
-			Rank r = (Rank) it.next();
+		for (Rank r: ranks) {
 			r.restrict();
 		}
 	}
@@ -573,8 +576,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 	void updateData() {
 		// Util.print("Summary.updateData " + art.query.isQueryValid() + " " +
 		// art.query);
-		for (Iterator it = ranks.iterator(); it.hasNext();) {
-			Rank r = (Rank) it.next();
+		for (Rank r: ranks) {
 			r.updateData();
 			if (r.getParent() == null) {
 				// all its PVs have zero totalChildTotalCount, so rank has been
@@ -593,11 +595,11 @@ final class Summary extends LazyContainer implements MouseDoc {
 			// Util.print("animation activityStarted");
 			// }
 
+			@Override
 			public void setRelativeTargetValue(float zeroToOne) {
 				// updateCount++;
 				// Util.print("Summary.animateData");
-				for (int i = 0; i < nRanks(); i++) {
-					Rank r = (Rank) ranks.get(i);
+				for (Rank r:ranks) {
 					r.animateData(zeroToOne);
 				}
 			}
@@ -614,14 +616,12 @@ final class Summary extends LazyContainer implements MouseDoc {
 	// r.redrawLabels();
 	// }
 
-	void updateSelections(Set facets) {
+	void updateSelections(Set<Perspective> facets) {
 		// Util.print("Summary.updateSelections " + facets);
-		for (Iterator it = ranks.iterator(); it.hasNext();) {
-			Rank r = (Rank) it.next();
+		for (Rank r: ranks) {
 			PerspectiveViz[] ps = r.perspectives;
 			boolean inRank = false;
-			for (Iterator fit = facets.iterator(); fit.hasNext() && !inRank;) {
-				Perspective facet = (Perspective) fit.next();
+			for (Perspective facet: facets){
 				for (int j = 0; j < ps.length && !inRank; j++) {
 					Perspective pvP = ps[j].p;
 					inRank = (pvP == facet || pvP == facet.getParent());
@@ -634,8 +634,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 	}
 
 	PerspectiveViz lookupPV(Perspective facet) {
-		for (Iterator it = ranks.iterator(); it.hasNext();) {
-			Rank r = (Rank) it.next();
+		for (Rank r: ranks) {
 			PerspectiveViz[] ps = r.perspectives;
 			for (int j = 0; j < ps.length; j++) {
 				if (ps[j].p == facet)
@@ -646,8 +645,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 	}
 
 	PerspectiveViz findPerspectiveViz(String facetName) {
-		for (Iterator it = ranks.iterator(); it.hasNext();) {
-			Rank r = (Rank) it.next();
+		for (Rank r: ranks) {
 			PerspectiveViz[] ps = r.perspectives;
 			for (int j = 0; j < ps.length; j++) {
 				if (ps[j].p.getName().equals(facetName))
@@ -670,8 +668,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 		// deletes.
 		// queryViz.positionSearchBox(h);
 		// queryViz.synchronizeWithQuery();
-		for (Iterator it = ranks.iterator(); it.hasNext();) {
-			Rank r = (Rank) it.next();
+		for (Rank r: ranks) {
 			// r.updateHeights();
 			r.updateNameLabels();
 		}
@@ -682,7 +679,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 	 * @param facets
 	 *            facets for which highlighting has changed
 	 */
-	void highlightFacet(Set facets) {
+	void highlightFacet(Set<Perspective> facets) {
 		updateSelections(facets);
 		if (perspectiveList != null)
 			perspectiveList.highlightFacet();
@@ -714,9 +711,9 @@ final class Summary extends LazyContainer implements MouseDoc {
 	// return result;
 	// }
 
-	private Set previousRestrictions = new HashSet();
+	private Set<Perspective> previousRestrictions = new HashSet<Perspective>();
 
-	void synchronizeSelections(Set previousRestrictions2) {
+	void synchronizeSelections(Set<Perspective> previousRestrictions2) {
 		// for (Iterator it = previousRestrictions2.iterator(); it.hasNext();) {
 		// Perspective p = (Perspective) it.next();
 		//
@@ -728,15 +725,14 @@ final class Summary extends LazyContainer implements MouseDoc {
 	// synchronizePerspectives(q.displayedPerspectives());
 	// }
 
-	void synchronizePerspectives(Collection queryPerspectives,
+	void synchronizePerspectives(Collection<Perspective> queryPerspectives,
 			Perspective toConnect) {
-		// Util.print("synchronizePerspectives " + art.highlightedFacet + " " +
-		// queryPerspectives);
+//		Util.print("synchronizePerspectives " + queryPerspectives);
 
 		// out with the old.
 		// Perspective highlight = art.highlightedFacet;
-		for (Iterator pit = ranks.iterator(); pit.hasNext();) {
-			Rank r = (Rank) pit.next();
+		for (Iterator<Rank> pit = ranks.iterator(); pit.hasNext();) {
+			Rank r = pit.next();
 			PerspectiveViz[] ps = r.perspectives;
 			PerspectiveViz[] remove = null;
 			boolean removeAll = true;
@@ -763,8 +759,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 		}
 
 		// in with the new.
-		for (Iterator iter = queryPerspectives.iterator(); iter.hasNext();) {
-			Perspective p = (Perspective) iter.next();
+		for (Perspective p:queryPerspectives) {
 			if (lookupPV(p) == null) {
 				Rank rank = addPerspective(p);
 				rank.delayedInit();
@@ -789,8 +784,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 	}
 
 	Rank findRank(PerspectiveViz pv) {
-		for (Iterator it = ranks.iterator(); it.hasNext();) {
-			Rank r = (Rank) it.next();
+		for (Rank r: ranks) {
 			if (r.usesPerspective(pv))
 				return r;
 		}
@@ -799,8 +793,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 
 	Rank getChildRank(Rank parent) {
 		if (parent != null) {
-			for (Iterator it = ranks.iterator(); it.hasNext();) {
-				Rank r = (Rank) it.next();
+			for (Rank r: ranks) {
 				if (r.parentRank == parent)
 					return r;
 			}
@@ -817,14 +810,13 @@ final class Summary extends LazyContainer implements MouseDoc {
 			result = new Rank(this, parentRank);
 			result.validate(w);
 			addChild(result);
-//			 Util.print("addRank for " + p+" "+parentRank);
+			// Util.print("addRank for " + p+" "+parentRank);
 			if (parentRank == null) {
 				// It's a top-level rank
 
 				// When editing, there may be gaps and unordered IDs, but the
 				// "parent" is still the greatest top-level rank less than p
-				for (Iterator it = ranks.iterator(); it.hasNext();) {
-					Rank rank = (Rank) it.next();
+				for (Rank rank: ranks) {
 					if (rank.parentRank == null
 							&& rank.perspectives[0].p.getID() < p.getID()) {
 						parentRank = rank;
@@ -870,8 +862,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 	}
 
 	Rank connectedRank() {
-		for (Iterator it = ranks.iterator(); it.hasNext();) {
-			Rank r = (Rank) it.next();
+		for (Rank r: ranks) {
 			if (r.isConnected)
 				return r;
 		}
@@ -898,8 +889,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 
 	int nBars() {
 		int result = 0;
-		for (Iterator it = ranks.iterator(); it.hasNext();) {
-			Rank r = (Rank) it.next();
+		for (Rank r: ranks) {
 			result += r.nBars();
 		}
 		return result;
@@ -907,8 +897,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 
 	double[] pValues() {
 		double[] result = null;
-		for (Iterator it = ranks.iterator(); it.hasNext();) {
-			Rank r = (Rank) it.next();
+		for (Rank r: ranks) {
 			result = Util.append(result, r.pValues());
 		}
 		assert result != null : ranks + " " + art.query;
@@ -959,6 +948,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 
 	boolean doneDelayedInit = false;
 
+	@Override
 	protected void paint(PPaintContext ignore) {
 		// Util.print("Summary.paint");
 		if (!doneDelayedInit) {
@@ -982,6 +972,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 		super.paint(ignore);
 	}
 
+	@Override
 	protected boolean pickAfterChildren(PPickPath pickPath) {
 		boolean result = super.pickAfterChildren(pickPath);
 		Util.print("summary.pickAfterChildren " + result);
@@ -1128,7 +1119,7 @@ final class Summary extends LazyContainer implements MouseDoc {
 	}
 
 	Perspective handleArrow(Perspective arrowFocus, int key, int modifiers) {
-		return ensurePerspectiveList(arrowFocus).handleArrow(key, modifiers);
+		return ensurePerspectiveList(arrowFocus).handleArrowForAllPVs(key, modifiers);
 	}
 
 	PerspectiveList ensurePerspectiveList(Perspective _selected) {

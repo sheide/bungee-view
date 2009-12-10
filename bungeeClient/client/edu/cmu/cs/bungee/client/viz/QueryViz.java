@@ -169,6 +169,7 @@ final class QueryViz extends LazyContainer implements MouseDoc {
 	// }
 	// }
 
+	@Override
 	public void updateBoundary(Boundary boundary1) {
 		// System.out.println("Grid.updateBoundary " + boundary.centerX());
 		assert boundary1 == boundary;
@@ -176,16 +177,19 @@ final class QueryViz extends LazyContainer implements MouseDoc {
 		summary.updateQueryBoundary();
 	}
 
+	@Override
 	public void enterBoundary(Boundary boundary1) {
 		if (!art().getShowBoundaries()) {
 			boundary1.exit();
 		}
 	}
 
+	@Override
 	public double minWidth() {
 		return lineH() * 3;
 	}
 
+	@Override
 	public double maxWidth() {
 		return summary.w - summary.minTagWallWidth();
 	}

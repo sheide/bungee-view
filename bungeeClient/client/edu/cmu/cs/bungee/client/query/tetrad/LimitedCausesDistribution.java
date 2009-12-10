@@ -8,69 +8,73 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
+import edu.cmu.cs.bungee.client.query.ItemPredicate;
 import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.cmu.cs.bungee.javaExtensions.Util;
 
 class LimitedCausesDistribution extends Distribution {
 
-	private final List[] causes;
+	private final ArrayList<List<ItemPredicate>> causes;
 
-	protected static Distribution getInstance(List facets, int[] counts,
-			Set edges) {
+	protected static Distribution getInstance(List<ItemPredicate> facets,
+			int[] counts, Set<List<ItemPredicate>> edges) {
 		Distribution result;
 		boolean fullyConnected = edges.size() < facets.size()
 				* (facets.size() - 1) / 2;
 		if (fullyConnected) {
 			result = Distribution.ensureDist(facets, counts);
 		} else {
-			List args = new ArrayList(2);
-			args.add(Collections.unmodifiableList(facets));
-			args.add(Collections.unmodifiableSet(edges));
-			result = (Distribution) cachedDistributions.get(args);
+			CacheDistArgs arg = new CacheDistArgs(facets, edges);
+			result = cachedDistributions.get(arg);
 			if (result == null) {
 				result = new LimitedCausesDistribution(facets, counts, edges);
-				cachedDistributions.put(args, result);
+				cachedDistributions.put(arg, result);
 			}
 		}
 		return result;
 	}
 
-	private LimitedCausesDistribution(List facets, int[] counts, Set edges) {
+	private LimitedCausesDistribution(List<ItemPredicate> facets, int[] counts,
+			Set<List<ItemPredicate>> edges) {
 		super(facets, counts);
 		// int nFacets = nFacets();
-		causes = new List[nFacets];
+		causes = new ArrayList<List<ItemPredicate>>(nFacets);
 		for (int i = 0; i < nFacets; i++) {
 			Perspective caused = (Perspective) facets.get(i);
-			List causs = new LinkedList();
-			for (Iterator it = edges.iterator(); it.hasNext();) {
-				List edge = (List) it.next();
+			List<ItemPredicate> causs = new LinkedList<ItemPredicate>();
+			for (Iterator<List<ItemPredicate>> it = edges.iterator(); it
+					.hasNext();) {
+				List<ItemPredicate> edge = it.next();
 				if (edge.get(0) == caused) {
 					causs.add(edge.get(1));
 				} else if (edge.get(1) == caused) {
 					causs.add(edge.get(0));
 				}
 			}
-			causes[i] = Collections.unmodifiableList(causs);
+			causes.set(i, Collections.unmodifiableList(causs));
 			// assert causes[i].size() > 0 : facets + " " + edges;
 		}
 		assert checkCauses() : Util.valueOfDeep(causes) + " " + edges;
 	}
 
-	public Distribution getMarginalDistribution(List subFacets) {
+	@Override
+	public Distribution getMarginalDistribution(List<ItemPredicate> subFacets) {
 		if (subFacets.equals(facets))
 			return this;
-		Set subedges = getEdgesAmong(subFacets);
+		Set<List<ItemPredicate>> subedges = getEdgesAmong(subFacets);
 		return getInstance(subFacets, getMarginalCounts(subFacets), subedges);
 	}
 
-	private Set getEdgesAmong(List subFacets) {
-		HashSet result = new HashSet();
-		for (Iterator it = subFacets.iterator(); it.hasNext();) {
-			Perspective caused = (Perspective) it.next();
-			for (Iterator it2 = getCauses(caused).iterator(); it2.hasNext();) {
-				Perspective cause = (Perspective) it2.next();
+	private Set<List<ItemPredicate>> getEdgesAmong(List<ItemPredicate> subFacets) {
+		HashSet<List<ItemPredicate>> result = new HashSet<List<ItemPredicate>>();
+		for (Iterator<ItemPredicate> it = subFacets.iterator(); it.hasNext();) {
+			ItemPredicate caused = it.next();
+			for (Iterator<ItemPredicate> it2 = getCauses(caused).iterator(); it2
+					.hasNext();) {
+				ItemPredicate cause = it2.next();
 				if (subFacets.contains(cause) && cause.compareTo(caused) < 0) {
-					List edgeList = new ArrayList(2);
+					List<ItemPredicate> edgeList = new ArrayList<ItemPredicate>(
+							2);
 					edgeList.add(cause);
 					edgeList.add(caused);
 					result.add(edgeList);
@@ -82,24 +86,25 @@ class LimitedCausesDistribution extends Distribution {
 		return result;
 	}
 
-	protected List getCauses(Perspective caused) {
+	protected List<ItemPredicate> getCauses(Perspective caused) {
 		assert checkCauses() : this;
-		return causes[facetIndex(caused)];
+		return causes.get(facetIndex(caused));
 	}
 
 	private boolean checkCauses() {
-		for (Iterator it1 = facets.iterator(); it1.hasNext();) {
+		for (Iterator<ItemPredicate> it1 = facets.iterator(); it1.hasNext();) {
 			Perspective caused = (Perspective) it1.next();
-			for (Iterator it = causes[facetIndex(caused)].iterator(); it
-					.hasNext();) {
-				Perspective cause = (Perspective) it.next();
-				if (!causes[facetIndex(cause)].contains(caused))
+			for (Iterator<ItemPredicate> it = causes.get(facetIndex(caused))
+					.iterator(); it.hasNext();) {
+				ItemPredicate cause = it.next();
+				if (!causes.get(facetIndex(cause)).contains(caused))
 					return false;
 			}
 		}
 		return true;
 	}
 
+	@Override
 	public String toString() {
 		return "<" + Util.shortClassName(this) + " " + facets + " "
 				+ Util.valueOfDeep(getCounts()) + " nEdges=" + nEdges() + "\n"
@@ -112,7 +117,7 @@ class LimitedCausesDistribution extends Distribution {
 
 	private String causesDesc() {
 		StringBuffer buf = new StringBuffer();
-		for (Iterator it1 = facets.iterator(); it1.hasNext();) {
+		for (Iterator<ItemPredicate> it1 = facets.iterator(); it1.hasNext();) {
 			Perspective caused = (Perspective) it1.next();
 			buf.append(caused).append(" <= ").append(getCauses(caused)).append(
 					"\n");

@@ -33,41 +33,40 @@ package edu.cmu.cs.bungee.client.viz;
 /**
  * ToDo:
  * 
- * "select this match" => "select this work"
- * 
- * Sometimes can't undo text search, because description contracts when you move the mouse down far 
- * enough to click on the search term.
- * 
  * Partial unrestrict
  * 
- * Copy text in text boxes; highlight search terms.
+ * Copy text in text boxes.
+ * 
+ * Deeply nested facets will never show up in TopTags.
+ * 
+ * Text search is ignored in Explanations.
  * 
  * Fancy thumb scrolling: when sorted, show facet labels to the right of the
  * scroll bar when scrolling. Label the first thumb with each facet value (on
  * top). havea a button to lock each column.
  * 
- * Tabs for history (query, selected images), top tags, favorites.
+ * Brush grid scrollbar if ordered by an attribute. scrollbar intervals
+ * correspond to tags. Intervals can be computed from perspective cumOnCounts.
+ * 
+ * History mechanism; Tabs for history (query, selected images), top tags, favorites, 
+ * Recent/Saved Items galleries.
+ * 
+ * in expert mode, could have tabs like informedia. A "Save" button would save
+ * the current query in a new tab. Then you could have a tab menu to AND or OR
+ * with the current query. You could also do "compare" where the current query
+ * becomes the OR and you restrict to either one.
+ * 
+ * Shot collector
  * 
  * XML query rep [parent query, searches, required, excluded] & list rep.
  * Bookmark with the former; send the latter to the server, and construct the
  * query there. Markup should have been HTML.
  * 
- * perspective lists aren't highlighting
- * 
- * get rid of clusters in favor of top 10/bottom 10 lists
- * 
  * PerspectiveLists show tags that have zero totalCount in restricted set.
- * 
- * Light beams aren't right when you zoom
- * 
- * History mechanism
  * 
  * Query for percentage on even for deeply nested facets. Pass more arguments
  * analogous to relevantFacets, to get counts for nested facets of the selected
  * item along with all the other counts.
- * 
- * PerspectiveList headers should color facet name and use search color for
- * other text.
  * 
  * When you switch modes, bar label counts don't always line up. Maybe the
  * problem is when they've previsouly been displayed in selected item frame?
@@ -80,13 +79,6 @@ package edu.cmu.cs.bungee.client.viz;
  * Document BV ontology. eg are tags and categories the same kind of object?
  * They use the same color scheme, so why can't you click on Oscar to select
  * Oscar-winning movies?
- * 
- * in expert mode, could have tabs like informedia. A "Save" button would save
- * the current query in a new tab. Then you could have a tab menu to AND or OR
- * with the current query. You could also do "compare" where the current query
- * becomes the OR and you restrict to either one.
- * 
- * Shot collector
  * 
  * Limit inf search names to width of frame, with rollover expansion like
  * summary description.
@@ -110,16 +102,13 @@ package edu.cmu.cs.bungee.client.viz;
  * 
  * Widget to limit cluster size (especially to 1)
  * 
- * Brush grid scrollbar if ordered by an attribute. scrollbar intervals
- * correspond to tags. Intervals can be computed from perspective cumOnCounts.
- * 
  * Search against facets, and display matches nested as usual, but without
  * adding ancestors to query. cf
  * http://www.cs.cmu.edu/~quixote/DynamicCategorySets.pdf Or list these nested
  * under the search term with checkboxes
  * 
  * do search like regular facets. Add bars for search terms to make them look
- * like other categories. Use numerical relvance.
+ * like other categories. Use numerical relevance.
  * 
  * Is itunes data good for bungee view? If so,put identical images together.
  * Draw grid over 1 or 2 copies to represent tracks on 1 album. AlsoARTstor
@@ -156,8 +145,6 @@ package edu.cmu.cs.bungee.client.viz;
  * LOW PRIORITY:
  * 
  * Help: keyboard events(shift, arrow), clippy.
- * 
- * History Recent/Saved Items galleries.
  * 
  * Support aggregation operator other than COUNT. For instance, have area depend
  * on sales volume rather than number of companies.
@@ -458,9 +445,9 @@ final class Bungee extends PFrame {
 
 	private Cursor waitCursor;
 
-	private Hashtable facetNameWidths;
+	private Hashtable<Object, Double> facetNameWidths;
 
-	private transient SoftReference truncatedStrings;
+	private transient SoftReference<ArrayList<Hashtable<String, String>>> truncatedStrings;
 
 	String dbName;
 
@@ -529,9 +516,9 @@ final class Bungee extends PFrame {
 
 	private final static int fontStyle = Font.BOLD;
 
-	Set highlightedFacets;
+	Set<Perspective> highlightedFacets;
 
-	Set highlightedClusters;
+	Set<ItemPredicate> highlightedClusters;
 
 	Informedia informedia;
 
@@ -573,6 +560,8 @@ final class Bungee extends PFrame {
 	 * 
 	 * @see edu.umd.cs.piccolox.PFrame#initialize()
 	 */
+	@SuppressWarnings("deprecation")
+	@Override
 	public void initialize() {
 		Runtime.runFinalizersOnExit(true);
 		argString = getTitle();
@@ -666,8 +655,16 @@ final class Bungee extends PFrame {
 
 		String mode = argURLQuery.getArgument("mode");
 		if ("expert".equalsIgnoreCase(mode))
-			setFeatures(new Preferences(null, Preferences.expertFeatureNames,
-					true));
+			setFeatures(new Preferences(features,
+					Preferences.expertFeatureNames, true));
+
+		String onFeatures = argURLQuery.getArgument("onFeatures");
+		if (onFeatures.length() > 0)
+			setFeatures(new Preferences(features, onFeatures, true));
+
+		String offFeatures = argURLQuery.getArgument("offFeatures");
+		if (offFeatures.length() > 0)
+			setFeatures(new Preferences(features, offFeatures, false));
 	}
 
 	void setFeatures(Preferences options) {
@@ -877,6 +874,7 @@ final class Bungee extends PFrame {
 			setWidth(w);
 		}
 
+		@Override
 		public boolean setWidth(double w) {
 			w = Math.round(w / getScale());
 			msg.setWidth(w);
@@ -978,6 +976,7 @@ final class Bungee extends PFrame {
 		return Math.pow(w / minWidth, power);
 	}
 
+	@Override
 	public void setSize(int width, int height) {
 		if (width != w || height != h) {
 			// Util.print("setSize " + width + "x" + height);
@@ -1125,10 +1124,12 @@ final class Bungee extends PFrame {
 			((APText) child).setConstrainWidthToTextWidth(true);
 		}
 
+		@Override
 		public boolean isEnabled() {
 			return true;
 		}
 
+		@Override
 		public void doPick() {
 			smallWindowOK = true;
 			isReady = false;
@@ -1184,10 +1185,11 @@ final class Bungee extends PFrame {
 		return tooSmall;
 	}
 
+	@SuppressWarnings("unchecked")
 	private void removeTooSmall() {
-		for (Iterator it = getCanvas().getLayer().getChildrenIterator(); it
+		for (Iterator<PNode> it = getCanvas().getLayer().getChildrenIterator(); it
 				.hasNext();) {
-			PNode node = (PNode) it.next();
+			PNode node = it.next();
 			if (node instanceof APText || node instanceof SmallWindowButton) {
 				Util.print("removeTooSmall removing " + node);
 				node.removeFromParent();
@@ -1220,6 +1222,7 @@ final class Bungee extends PFrame {
 
 	}
 
+	@Override
 	protected void finalize() throws Throwable {
 		stop();
 		super.finalize();
@@ -1284,8 +1287,8 @@ final class Bungee extends PFrame {
 		}
 
 		clearTextCaches();
-		highlightedClusters = new HashSet();
-		highlightedFacets = new HashSet();
+		highlightedClusters = new HashSet<ItemPredicate>();
+		highlightedFacets = new HashSet<Perspective>();
 
 		// Need to lose all references to stale facets, or hash tables will have
 		// collisions arrowFocus = null;
@@ -1492,9 +1495,9 @@ final class Bungee extends PFrame {
 		}
 	}
 
-	private Set parsePerspectives(String s) {
+	private Set<Perspective> parsePerspectives(String s) {
 		// Util.print("parsePerspectives " + s);
-		Set result = new HashSet();
+		Set<Perspective> result = new HashSet<Perspective>();
 		String[] disjuncts = s.split("\\|");
 		for (int j = 0; j < disjuncts.length; j++) {
 			String[] ancestors = disjuncts[j].split(" -- ");
@@ -1538,7 +1541,7 @@ final class Bungee extends PFrame {
 					if (x[0].equals("TextSearch")) {
 						summary.q.addTextSearch(x[1]);
 					} else if (x[0].equals("Cluster")) {
-						Set facets = parsePerspectives(x[1]);
+						Set<Perspective> facets = parsePerspectives(x[1]);
 						query.toggleCluster(new Cluster(facets));
 					} else {
 						// Perspective facetType =
@@ -1547,9 +1550,9 @@ final class Bungee extends PFrame {
 						boolean required = ("+".equals(x[0]));
 						// if (!required)
 						// x[1] = x[1].substring(1);
-						Set facets = parsePerspectives(x[1]);
-						for (Iterator it = facets.iterator(); it.hasNext();) {
-							Perspective child = (Perspective) it.next();
+						Set<Perspective> facets = parsePerspectives(x[1]);
+						for (Iterator<Perspective> it = facets.iterator(); it.hasNext();) {
+							Perspective child = it.next();
 							if (!child.isRestriction(required)) {
 								query.toggleFacet(child,
 										required ? InputEvent.CTRL_DOWN_MASK
@@ -1563,9 +1566,9 @@ final class Bungee extends PFrame {
 			setInitialSelectedItem(argURLQuery);
 			String facetName = argURLQuery.getArgument("SelectedFacet");
 			if (facetName.length() > 0) {
-				Set facets = parsePerspectives(facetName);
-				for (Iterator it = facets.iterator(); it.hasNext();) {
-					Perspective p = (Perspective) it.next();
+				Set<Perspective> facets = parsePerspectives(facetName);
+				for (Iterator<Perspective> it = facets.iterator(); it.hasNext();) {
+					Perspective p = it.next();
 					PerspectiveViz pv = summary.lookupPV(p);
 					// PerspectiveViz pv =
 					// summary.findPerspectiveViz(facetName);
@@ -1681,8 +1684,8 @@ final class Bungee extends PFrame {
 		// } else {
 		StringBuffer buf = new StringBuffer();
 		boolean first = true;
-		for (Iterator it = cluster.allRestrictions().iterator(); it.hasNext();) {
-			Perspective p = (Perspective) it.next();
+		for (Iterator<Perspective> it = cluster.allRestrictions().iterator(); it.hasNext();) {
+			Perspective p = it.next();
 			if (first)
 				first = false;
 			else
@@ -1698,8 +1701,8 @@ final class Bungee extends PFrame {
 	// private int nHighlights;
 
 	void highlightCluster(Cluster cluster) {
-		Set prevFacets = highlightedClusters;
-		highlightedClusters = new HashSet();
+		Set<ItemPredicate> prevFacets = highlightedClusters;
+		highlightedClusters = new HashSet<ItemPredicate>();
 		if (cluster != null) {
 			highlightedClusters.add(cluster);
 			prevFacets.add(cluster);
@@ -1741,8 +1744,8 @@ final class Bungee extends PFrame {
 		// assert !highlightedFacets.contains(facet) : facet + " " +
 		// highlightedFacets;
 		// nHighlights++;
-		Set prevFacets = highlightedFacets;
-		highlightedFacets = new HashSet();
+		Set<Perspective> prevFacets = highlightedFacets;
+		highlightedFacets = new HashSet<Perspective>();
 		if (facet != null) {
 			highlightedFacets.add(facet);
 		}
@@ -1757,7 +1760,7 @@ final class Bungee extends PFrame {
 
 			selectedItem.highlightFacet(prevFacets);
 			if (getIsBrushing()) {
-				grid.highlightFacet(prevFacets);
+				grid.highlightFacet();
 			}
 			if (clusterViz != null)
 				clusterViz.highlightFacet(prevFacets);
@@ -1779,12 +1782,12 @@ final class Bungee extends PFrame {
 		}
 	}
 
-	void highlightFacets(Set facets, boolean state) {
+	void highlightFacets(Set<Perspective> facets, boolean state) {
 		if (getIsBrushing()) {
-			Set prevFacets = highlightedFacets;
-			highlightedFacets = state ? facets : new HashSet();
+			Set<Perspective> prevFacets = highlightedFacets;
+			highlightedFacets = state ? facets : new HashSet<Perspective>();
 			if (!prevFacets.equals(highlightedFacets)) {
-				prevFacets = Util.symmetricDifference(new HashSet(
+				prevFacets = Util.symmetricDifference(new HashSet<Perspective>(
 						highlightedFacets), prevFacets);
 				assert !prevFacets.isEmpty();
 
@@ -1798,6 +1801,10 @@ final class Bungee extends PFrame {
 				showPopup(singleHighlightedFacet());
 			}
 		}
+	}
+
+	boolean highlight(String substring) {
+		return selectedItem != null && selectedItem.highlight(substring);
 	}
 
 	// // update mouse doc when shift keys change or you rollover a checkbox
@@ -1898,6 +1905,11 @@ final class Bungee extends PFrame {
 				: false;
 	}
 
+	/**
+	 * This is supposed to be called only on mouse-middle-button events, but
+	 * Alt-Left is treated as middle by PInputEvent.isMiddleMouseButton, so
+	 * sometimes this prints warnings erroneously.
+	 */
 	private boolean ensureEditing() {
 		if (!getIsEditing())
 			// In case user has turned off editing using the Custom menu
@@ -2237,7 +2249,7 @@ final class Bungee extends PFrame {
 	 * All query changes go through here
 	 */
 	void updateAllData(Perspective toConnect) {
-		// Util.print("Art.updateAllData ");
+//		 Util.print("Art.updateAllData ");
 		query.setQueryInvalid();
 		summary.synchronizeWithQuery(toConnect);
 		grid.onItemsInvalid = true;
@@ -2308,18 +2320,21 @@ final class Bungee extends PFrame {
 						// Util.print("doRedraw " + query.isQueryValid());
 						if (query.isQueryValid() && isReady) {
 							// query.setQueryValid();
-							updatePvalue();
 							// assert highlightedFacet != null;
 							showPopup(singleHighlightedFacet());
-							extremeTags.updateData();
 							summary.updateData();
 							header.updateData();
+							grid.updateData();
 							selectedItem.setVisibility();
 							selectedItem.updateColors();
 							if (clusterViz != null)
 								clusterViz.hide();
 							// if (clusterViz != null)
 							// clusterViz.redraw();
+
+							// Must do this after PVs are synchronized
+							updatePvalue();
+							extremeTags.updateData();
 						}
 					} catch (Throwable e) {
 						System.err
@@ -2343,6 +2358,7 @@ final class Bungee extends PFrame {
 		query.waitForValidQuery();
 	}
 
+	@Override
 	public Rectangle getDefaultFrameBounds() {
 		return new Rectangle(0, 0, 1000, 740);
 	}
@@ -2472,8 +2488,8 @@ final class Bungee extends PFrame {
 			return 5;
 		}
 		if (facetNameWidths == null)
-			facetNameWidths = new Hashtable();
-		Double cached = (Double) facetNameWidths.get(facet);
+			facetNameWidths = new Hashtable<Object, Double>();
+		Double cached = facetNameWidths.get(facet);
 		Perspective p = null;
 		if (facet instanceof Perspective)
 			p = (Perspective) facet;
@@ -2506,19 +2522,22 @@ final class Bungee extends PFrame {
 		int wBound = maxCharW * name.length();
 		if (wBound <= iw)
 			return name;
-		Hashtable[] tables = truncatedStrings == null ? null
-				: (Hashtable[]) truncatedStrings.get();
-		if (tables == null || tables.length <= iw) {
-			tables = new Hashtable[iw + 500];
+		ArrayList<Hashtable<String, String>> tables = truncatedStrings == null ? null
+				: truncatedStrings.get();
+		if (tables == null || tables.size() <= iw) {
+			tables = new ArrayList<Hashtable<String,String>>(iw + 500);
+			for (int i = 0; i < iw + 500; i++) {
+				tables.add(null);
+			}
 			// Util.print("new truncatedStrings");
-			truncatedStrings = new SoftReference(tables);
+			truncatedStrings = new SoftReference<ArrayList<Hashtable<String, String>>>(tables);
 		}
-		Hashtable truncatedStringsTable = tables[iw];
+		Hashtable<String, String> truncatedStringsTable = tables.get(iw);
 		if (truncatedStringsTable == null) {
-			truncatedStringsTable = new Hashtable();
-			tables[iw] = truncatedStringsTable;
+			truncatedStringsTable = new Hashtable<String, String>();
+			tables.set(iw, truncatedStringsTable);
 		}
-		String trunc = (String) truncatedStringsTable.get(name);
+		String trunc = truncatedStringsTable.get(name);
 		if (trunc == null) {
 			trunc = edu.cmu.cs.bungee.piccoloUtils.gui.Util.truncateText(name,
 					iw, font);
@@ -2584,6 +2603,7 @@ final class Bungee extends PFrame {
 			super(Bungee.class);
 		}
 
+		@Override
 		public boolean keyPress(char key, PInputEvent e) {
 			// Util.print("keyPress " + key);
 			int modifiers = e.getModifiersEx();
@@ -2608,6 +2628,7 @@ final class Bungee extends PFrame {
 		static final char CONTROL_C = 3;
 		static final char CONTROL_P = 16;
 		static final char CONTROL_T = 20;
+		static final char ESCAPE = 27;
 
 		private boolean handleKey(char keyChar) {
 			if (keyChar == ' ') {
@@ -2625,6 +2646,8 @@ final class Bungee extends PFrame {
 					setTip("Finding clusters is disabled in beginner mode");
 					return false;
 				}
+			} else if (keyChar == ESCAPE) {
+				mayHideTransients(null);
 			} else if (editMenu() != null
 					&& Character.digit(keyChar, editMenu().nChoices()) > 0) {
 				editMenu().choose(keyChar - '1');
@@ -2648,6 +2671,7 @@ final class Bungee extends PFrame {
 			return c >= 32 && c != 127;
 		}
 
+		@Override
 		public void mayHideTransients(PNode ignore) {
 			// Util.print("keyHandler.mayHideTransients");
 			assert Util.ignore(ignore);
@@ -2671,14 +2695,15 @@ final class Bungee extends PFrame {
 	Perspective arrowFocus;
 
 	boolean handleArrow(char key, int modifiers) {
-		// Util.print("Art.handleArrow " + arrowFocus);
+		Util.print("Art.handleArrow " + arrowFocus + " " + key + " "
+				+ modifiers);
 		if (!getUseArrowKeys()) {
 			setTip("Arrow keys are disabled in beginner mode");
 			return false;
 			// } else if (Util.isAltDown(modifiers) && editArrow(key)) {
 			// return true;
-		} else if (isPopups() && summary.facetDesc.getVisible()) {
-			summary.facetDesc.handleArrow(key);
+		} else if (isPopups() && summary.facetDesc.getVisible()
+				&& summary.facetDesc.handleArrow(key)) {
 			return true;
 		} else if (arrowFocus == null) {
 			grid.handleArrow(key);
@@ -2844,17 +2869,18 @@ final class Bungee extends PFrame {
 		return missingImage;
 	}
 
-	transient SoftReference itemImages;
+	transient SoftReference<Map<Item, ItemImage>> itemImages;
 
 	synchronized ItemImage ensureItemImage(Item item, int rawW, int rawH,
-			int quality, InputStream blobStream) {
+			int quality, InputStream blobStream, String description) {
 		ItemImage result = lookupItemImage(item);
 		if (blobStream == null) {
 			if (result == null) {
 				BufferedImage missing = getMissingImage();
 				rawW = missing.getWidth();
 				rawH = missing.getHeight();
-				result = new ItemImage(this, item, rawW, rawH, 100, missing);
+				result = new ItemImage(this, item, rawW, rawH, 100, missing,
+						description);
 			}
 		} else {
 			Image bi = null;
@@ -2867,7 +2893,8 @@ final class Bungee extends PFrame {
 				Util.err("Exception reading blob for item " + item + ":\n" + e);
 			}
 			if (result == null)
-				result = new ItemImage(this, item, rawW, rawH, quality, bi);
+				result = new ItemImage(this, item, rawW, rawH, quality, bi,
+						description);
 			else if (!result.bigEnough(bi, quality)) {
 				assert quality >= result.quality
 						|| bi.getWidth(null) > result.rawImage.getWidth(null)
@@ -2878,8 +2905,8 @@ final class Bungee extends PFrame {
 		return result;
 	}
 
-	Map getItemImagesTable() {
-		return itemImages == null ? null : (Map) itemImages.get();
+	Map<Item, ItemImage> getItemImagesTable() {
+		return itemImages == null ? null : itemImages.get();
 	}
 
 	Item lookupItem(int itemID) {
@@ -2892,15 +2919,15 @@ final class Bungee extends PFrame {
 
 	ItemImage lookupItemImage(Item item) {
 		// Util.print("lookupItem " + item + " " + itemImages.get(item));
-		Map table = getItemImagesTable();
-		return table == null ? null : (ItemImage) table.get(item);
+		Map<Item, ItemImage> table = getItemImagesTable();
+		return table == null ? null : table.get(item);
 	}
 
 	void decacheCurrentItem() {
 		Item item = selectedItemItem();
 		// Util.print("decacheItem " + item);
 		selectedItem.removeFacetTree(item);
-		Map table = getItemImagesTable();
+		Map<Item, ItemImage> table = getItemImagesTable();
 		if (table != null)
 			table.remove(item);
 		updateSelectedItem();
@@ -2911,26 +2938,26 @@ final class Bungee extends PFrame {
 		updateSelectedItem();
 	}
 
-	private transient SoftReference facetTexts;
+	private transient SoftReference<Hashtable<Object, List<FacetText>>> facetTexts;
 
-	private Hashtable getFacetTextTable() {
-		Hashtable table = facetTexts == null ? null : (Hashtable) facetTexts
+	private Hashtable<Object, List<FacetText>> getFacetTextTable() {
+		Hashtable<Object, List<FacetText>> table = facetTexts == null ? null : facetTexts
 				.get();
 		if (table == null) {
-			table = new Hashtable();
+			table = new Hashtable<Object, List<FacetText>>();
 			// Util.print("new getFacetTextTable");
-			facetTexts = new SoftReference(table);
+			facetTexts = new SoftReference<Hashtable<Object, List<FacetText>>>(table);
 		}
 		return table;
 	}
 
-	List lookupFacetText(Object treeObject) {
-		Hashtable table = getFacetTextTable();
-		return (List) table.get(treeObject);
+	List<FacetText> lookupFacetText(Object treeObject) {
+		Hashtable<Object, List<FacetText>> table = getFacetTextTable();
+		return table.get(treeObject);
 	}
 
-	void putFacetText(Object treeObject, List texts) {
-		Hashtable table = getFacetTextTable();
+	void putFacetText(Object treeObject, List<FacetText> texts) {
+		Hashtable<Object, List<FacetText>> table = getFacetTextTable();
 		table.put(treeObject, texts);
 	}
 
@@ -3176,7 +3203,7 @@ final class Bungee extends PFrame {
 			case TOGGLE_CLUSTER:
 				Util.print("  Toggle Cluster " + args[2]);
 				String[] facet_ids = args[2].split("/");
-				Set facets = new HashSet();
+				Set<Perspective> facets = new HashSet<Perspective>();
 				for (int i = 0; i < facet_ids.length; i++) {
 					facets.add(query.findPerspective(Integer
 							.parseInt(facet_ids[i])));
@@ -3229,7 +3256,7 @@ final class Bungee extends PFrame {
 	 */
 	final class Replayer extends UpdateNoArgsThread {
 
-		private List sessions;
+		private List<String> sessions;
 
 		private String[] ops;
 
@@ -3241,7 +3268,7 @@ final class Bungee extends PFrame {
 
 		Replayer(Bungee _art, String sessionsArg) {
 			super("Replayer", 0);
-			sessions = new ArrayList(Arrays.asList(sessionsArg.split(",")));
+			sessions = new ArrayList<String>(Arrays.asList(sessionsArg.split(",")));
 			sessions.remove("");
 			art = _art;
 			opTimer.setRepeats(false);
@@ -3254,6 +3281,7 @@ final class Bungee extends PFrame {
 			}
 		});
 
+		@Override
 		public void process() {
 			opTimer.setInitialDelay(2000);
 			// There's a race condition I can't figure out setting the size of
@@ -3281,7 +3309,7 @@ final class Bungee extends PFrame {
 							return;
 						} else if (query.isRestricted())
 							clearQuery();
-						String session = (String) sessions.remove(0);
+						String session = sessions.remove(0);
 						Util.print("Replaying session: " + session);
 						ops = query.opsSpec(session);
 						opNum = 0;
@@ -3373,6 +3401,7 @@ final class Bungee extends PFrame {
 
 		// Handle both Items and Strings in one class to minimize the number of
 		// Threads. For items, look up the URL and recurse.
+		@Override
 		public void process(final Object objectToShow) {
 			if (objectToShow instanceof Item) {
 				Item item = (Item) objectToShow;
@@ -3405,6 +3434,7 @@ final class Bungee extends PFrame {
 				try {
 					url = new URL(new URL(codeBase()), URLs);
 				} catch (MalformedURLException e1) {
+					Util.err(codeBase() + " " + URLs);
 					e1.printStackTrace();
 				}
 				if (basicJNLPservice != null) {
@@ -3434,6 +3464,7 @@ final class Bungee extends PFrame {
 			super("FacetSelecter", 0);
 		}
 
+		@Override
 		public void process() {
 			waitForValidQuery();
 			javax.swing.SwingUtilities.invokeLater(getDoSelectFacet());
@@ -3450,6 +3481,7 @@ final class Bungee extends PFrame {
 			// MySQL's priority we want to lower
 		}
 
+		@Override
 		public void init() {
 			query = new Query(server, dbName);
 
@@ -3458,9 +3490,11 @@ final class Bungee extends PFrame {
 				public void run() {
 					initializeFrames();
 					if (false)
+						NonAlchemyModel.testKL(query, 100);
+					if (false)
 						NonAlchemyModel.test(query, 100, false);
 					if (false)
-						NonAlchemyModel.testPairList(query, false);
+						NonAlchemyModel.testPairList(query, true);
 				}
 			};
 
@@ -3468,6 +3502,7 @@ final class Bungee extends PFrame {
 			super.init();
 		}
 
+		@Override
 		public void process() {
 			// Util.print("DataUpdater.process");
 			boolean mustGetCounts = updateOnItems();
@@ -3479,7 +3514,7 @@ final class Bungee extends PFrame {
 						if (updateIndex == query.updateIndex) {
 							// Util.print("Art.onItemsUpdated " +
 							// query.getOnCount());
-							grid.dataUpdated();
+							grid.onItemsUpdated();
 
 							// if (showImages) {
 							// updateOnItems(onCount);

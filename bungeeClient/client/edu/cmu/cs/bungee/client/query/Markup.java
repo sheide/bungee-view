@@ -20,7 +20,7 @@ import edu.cmu.cs.bungee.javaExtensions.Util;
  * @author mad A little language for tagged sequences of query components, for
  *         generating natural language descriptions
  */
-public interface Markup extends List {
+public interface Markup extends List<Object> {
 
 	/**
 	 * Add an 's' to the next token
@@ -153,7 +153,7 @@ public interface Markup extends List {
 	public Markup uncolor();
 }
 
-final class MarkupImplementation extends ArrayList implements Markup {
+final class MarkupImplementation extends ArrayList<Object> implements Markup {
 
 	/**
 	 * 
@@ -163,7 +163,7 @@ final class MarkupImplementation extends ArrayList implements Markup {
 	public Markup compile(String genericObjectLabel) {
 		Markup v = new MarkupImplementation();
 		Object prev = null;
-		for (Iterator it = iterator(); it.hasNext();) {
+		for (Iterator<Object> it = iterator(); it.hasNext();) {
 			Object o = it.next();
 			if (o == GENERIC_OBJECT_LABEL)
 				o = genericObjectLabel;
@@ -186,7 +186,7 @@ final class MarkupImplementation extends ArrayList implements Markup {
 		return v;
 	}
 
-	static Markup tagDescription(List[] restrictions, boolean doTag,
+	static Markup tagDescription(Markup[] restrictions, boolean doTag,
 			String[] patterns, String tag) {
 		// Util.print("tagDescription " + restrictions + " " +
 		// Util.valueOfDeep(patterns));
@@ -194,7 +194,7 @@ final class MarkupImplementation extends ArrayList implements Markup {
 		Markup result = new MarkupImplementation();
 		for (int polarity = 0; polarity < restrictions.length; polarity++) {
 			if (restrictions[polarity] != null) {
-				List polarityDesc = new LinkedList(restrictions[polarity]);
+				List<Object> polarityDesc = new LinkedList<Object>(restrictions[polarity]);
 				if (polarityDesc.size() > 0) {
 					nPolaritiesUsed++;
 					String pattern = patterns[polarity];
@@ -276,10 +276,10 @@ final class MarkupImplementation extends ArrayList implements Markup {
 	// return summary;
 	// }
 
-	static void descriptionNounPhrase(List phrases, Markup result) {
+	static void descriptionNounPhrase(List<Markup> phrases, Markup result) {
 		// Util.print("descriptionNounPhrase '" + phrases + "' '" + result+"'");
-		for (Iterator it = phrases.iterator(); it.hasNext();) {
-			Markup phrase = (Markup) it.next();
+		for (Iterator<Markup> it = phrases.iterator(); it.hasNext();) {
+			Markup phrase = it.next();
 			if (phrase.get(0).equals("object")) {
 				for (int j = 1; j < phrase.size(); j++) {
 					if (phrase.get(j) instanceof Perspective)
@@ -298,13 +298,13 @@ final class MarkupImplementation extends ArrayList implements Markup {
 		// Util.print(" descriptionNounPhrase: " + result);
 	}
 
-	static void descriptionClauses(List phrases, Markup result, Set searches,
-			Set clusters, Set itemLists) {
+	static void descriptionClauses(List<Markup> phrases, Markup result, Set<String> searches,
+			Set<Cluster> clusters, Set<ItemList> itemLists) {
 		// Util.print("\nq.descriptionClauses "
 		// + Util.valueOfDeep(phrases));
 		// Util.printDeep(result);
-		for (Iterator it = phrases.iterator(); it.hasNext();) {
-			Markup phrase = (Markup) it.next();
+		for (Iterator<Markup> it = phrases.iterator(); it.hasNext();) {
+			Markup phrase = it.next();
 			if (phrase.get(0).equals("meta")
 					&& !topLevelFacetClause(phrase, result)) {
 				// result.add(" ");
@@ -316,8 +316,8 @@ final class MarkupImplementation extends ArrayList implements Markup {
 			}
 		}
 		boolean first = true;
-		for (Iterator it = phrases.iterator(); it.hasNext();) {
-			Markup phrase = (Markup) it.next();
+		for (Iterator<Markup> it = phrases.iterator(); it.hasNext();) {
+			Markup phrase = it.next();
 			if (phrase.get(0).equals("content")
 					&& !topLevelFacetClause(phrase, result)) {
 				if (first) {
@@ -332,8 +332,8 @@ final class MarkupImplementation extends ArrayList implements Markup {
 				}
 			}
 		}
-		for (Iterator it = searches.iterator(); it.hasNext();) {
-			String search = (String) it.next();
+		for (Iterator<String> it = searches.iterator(); it.hasNext();) {
+			String search = it.next();
 			String s;
 			if (Util.nOccurrences(search, ' ') > 0)
 				s = "whose description mentions one of the words '";
@@ -350,8 +350,8 @@ final class MarkupImplementation extends ArrayList implements Markup {
 			result.add(Markup.DEFAULT_COLOR_TAG);
 			result.add("'");
 		}
-		for (Iterator it = clusters.iterator(); it.hasNext();) {
-			Cluster cluster = (Cluster) it.next();
+		for (Iterator<Cluster> it = clusters.iterator(); it.hasNext();) {
+			Cluster cluster = it.next();
 			String s;
 			switch (cluster.nRestrictions()) {
 			case 1:
@@ -376,8 +376,8 @@ final class MarkupImplementation extends ArrayList implements Markup {
 			// result.add(Markup.DEFAULT_COLOR_TAG);
 			result.add("}");
 		}
-		for (Iterator it = itemLists.iterator(); it.hasNext();) {
-			ItemList itemList = (ItemList) it.next();
+		for (Iterator<ItemList> it = itemLists.iterator(); it.hasNext();) {
+			ItemList itemList = it.next();
 			String s = "that match the Informedia query '" + itemList + "'";
 			if (first) {
 				result.add(" ");
@@ -389,12 +389,16 @@ final class MarkupImplementation extends ArrayList implements Markup {
 		// Util.print(phrases);
 	}
 
-	private static final Set emptySet = Collections
-			.unmodifiableSet(new HashSet());
+	private static final Set<String> emptyStringSet = Collections
+			.unmodifiableSet(new HashSet<String>());
+	private static final Set<Cluster> emptyClusterSet = Collections
+	.unmodifiableSet(new HashSet<Cluster>());
+	private static final Set<ItemList> emptyItemListSet = Collections
+	.unmodifiableSet(new HashSet<ItemList>());
 
 	static Markup facetDescription(Perspective facet) {
 		Markup[] descriptions = { new MarkupImplementation(), null };
-		List phrases = new LinkedList();
+		List<Markup> phrases = new LinkedList<Markup>();
 		if (facet != null) {
 			descriptions[0].add(facet);
 			phrases.add(facet.tagDescription(descriptions, true, null));
@@ -403,7 +407,7 @@ final class MarkupImplementation extends ArrayList implements Markup {
 		// summary.add(" "); // descriptionNounPhrase assumes there is exactly
 		// one canned prefix
 		descriptionNounPhrase(phrases, summary);
-		descriptionClauses(phrases, summary, emptySet, emptySet, emptySet);
+		descriptionClauses(phrases, summary, emptyStringSet, emptyClusterSet, emptyItemListSet);
 		return summary;
 	}
 
@@ -411,9 +415,9 @@ final class MarkupImplementation extends ArrayList implements Markup {
 	// return description(facet.allRestrictions());
 	// }
 
-	static Markup facetSetDescription(SortedSet facets) {
+	static Markup facetSetDescription(SortedSet<Perspective> facets) {
 		Markup content = Query.emptyMarkup();
-		Perspective aRestriction = (Perspective) facets.first();
+		Perspective aRestriction = facets.first();
 		// Perspective parent = aRestriction.getParent();
 		// String prefix = parent != null ? parent.namePrefix() : "";
 		// if (prefix.length() > 0)
@@ -425,9 +429,9 @@ final class MarkupImplementation extends ArrayList implements Markup {
 		for (int type = 0; type < 2; type++) {
 			boolean reqtType = reqtTypes[type];
 
-			SortedSet info = new TreeSet();
-			for (Iterator it = facets.iterator(); it.hasNext();) {
-				Perspective p = (Perspective) it.next();
+			SortedSet<Perspective> info = new TreeSet<Perspective>();
+			for (Iterator<Perspective> it = facets.iterator(); it.hasNext();) {
+				Perspective p = it.next();
 				info.addAll(p.getRestrictionFacetInfos(true, reqtType));
 			}
 
@@ -472,7 +476,7 @@ final class MarkupImplementation extends ArrayList implements Markup {
 	public String toText(PerspectiveObserver _redraw) {
 		boolean plural = false;
 		StringBuffer result = new StringBuffer();
-		for (Iterator iterator = iterator(); iterator.hasNext();) {
+		for (Iterator<Object> iterator = iterator(); iterator.hasNext();) {
 			Object o = iterator.next();
 			if (o == Markup.PLURAL_TAG) {
 				assert !plural;
@@ -505,14 +509,14 @@ final class MarkupImplementation extends ArrayList implements Markup {
 	 *            Set of Markup arguments
 	 * @return List of Markup arguments, including Perspective ranges
 	 */
-	static List coalescePerspectiveSequences(SortedSet info) {
+	static List<Object> coalescePerspectiveSequences(SortedSet<?> info) {
 		if (!isCoalescable(info))
 			// speed up common case
-			return new ArrayList(info);
+			return new ArrayList<Object>(info);
 		// Util.print("coalescePerspectiveSequences " + Util.valueOfDeep(info));
-		List result = new LinkedList();
+		List<Object> result = new LinkedList<Object>();
 		Object prev = null;
-		for (Iterator it = info.iterator(); it.hasNext();) {
+		for (Iterator<?> it = info.iterator(); it.hasNext();) {
 			Object o = it.next();
 			if (prev != null) {
 				Object oPrime = coalesce(prev, o);
@@ -596,9 +600,9 @@ final class MarkupImplementation extends ArrayList implements Markup {
 	// return result;
 	// }
 
-	static boolean isCoalescable(Collection info) {
+	static boolean isCoalescable(Collection<?> info) {
 		Perspective prev = null;
-		for (Iterator it = info.iterator(); it.hasNext();) {
+		for (Iterator<?> it = info.iterator(); it.hasNext();) {
 			Object o = it.next();
 			if (o instanceof Perspective) {
 				Perspective p = (Perspective) o;
@@ -611,14 +615,14 @@ final class MarkupImplementation extends ArrayList implements Markup {
 		return false;
 	}
 
-	static void toEnglish(SortedSet info, String connector, Markup descriptions) {
+	static void toEnglish(SortedSet<? extends Object> info, String connector, Markup descriptions) {
 		int len = info.size();
 		if (len > 0) {
-			List coalescedInfo = coalescePerspectiveSequences(info);
+			List<Object> coalescedInfo = coalescePerspectiveSequences(info);
 			// if (len > 1)
 			// Arrays.sort(info); // , Perspective.indexComparator);
 			boolean first = true;
-			for (Iterator it = coalescedInfo.iterator(); it.hasNext();) {
+			for (Iterator<Object> it = coalescedInfo.iterator(); it.hasNext();) {
 				Object o = it.next();
 				if (first) {
 					first = false;
@@ -686,7 +690,7 @@ final class MarkupImplementation extends ArrayList implements Markup {
 	}
 
 	public Markup uncolor() {
-		for (Iterator it = iterator(); it.hasNext();) {
+		for (Iterator<Object> it = iterator(); it.hasNext();) {
 			Object o = it.next();
 			if (o instanceof Color) {
 				it.remove();

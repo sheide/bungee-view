@@ -44,6 +44,7 @@ import java.io.FileInputStream;
 import java.io.InputStream;
 import java.lang.ref.SoftReference;
 import java.sql.ResultSet;
+import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.Map;
@@ -53,6 +54,7 @@ import java.util.regex.Pattern;
 
 import edu.cmu.cs.bungee.client.query.DisplayTree;
 import edu.cmu.cs.bungee.client.query.FacetTree;
+import edu.cmu.cs.bungee.client.query.ItemPredicate;
 import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.cmu.cs.bungee.client.query.Query;
 import edu.cmu.cs.bungee.client.query.Query.Item;
@@ -72,9 +74,6 @@ import edu.umd.cs.piccolo.nodes.PImage;
 
 final class SelectedItem extends LazyContainer implements MouseDoc {
 
-	/**
-	 * 
-	 */
 	private static final long serialVersionUID = 1L;
 
 	private static final boolean CAPTURING_FACES = false;
@@ -87,7 +86,7 @@ final class SelectedItem extends LazyContainer implements MouseDoc {
 
 	FieldedTextBox selectedItemSummaryTextBox = null;
 
-	transient SoftReference facetTrees;
+	transient SoftReference<Map<Item, DisplayTree>> facetTrees;
 
 	Bungee art;
 
@@ -165,9 +164,10 @@ final class SelectedItem extends LazyContainer implements MouseDoc {
 		}
 	}
 
+	@SuppressWarnings("unchecked")
 	void harvestPims() {
-		for (Iterator it = getChildrenIterator(); it.hasNext();) {
-			PNode child = (PNode) it.next();
+		for (Iterator<PNode> it = getChildrenIterator(); it.hasNext();) {
+			PNode child = it.next();
 			if (child.getTransparency() == 0)
 				removeChild(child);
 		}
@@ -228,6 +228,7 @@ final class SelectedItem extends LazyContainer implements MouseDoc {
 		return w - 2 * leftMargin;
 	}
 
+	@Override
 	public void updateBoundary(Boundary boundary1) {
 		assert boundary1 == boundary;
 		if (art.getShowBoundaries() && selectedItemSummaryTextBox != null) {
@@ -237,6 +238,7 @@ final class SelectedItem extends LazyContainer implements MouseDoc {
 		}
 	}
 
+	@Override
 	public void enterBoundary(Boundary boundary1) {
 		if (!art.getShowBoundaries()) {
 			boundary1.exit();
@@ -248,9 +250,10 @@ final class SelectedItem extends LazyContainer implements MouseDoc {
 		return label.getWidth() * label.getScale();
 	}
 
+	@Override
 	public double minWidth() {
 		// assert Util.ignore(boundary1);
-//		Util.print("SI.minWidth fontsize=" + getFontSize());
+		// Util.print("SI.minWidth fontsize=" + getFontSize());
 		return labelWidth();
 	}
 
@@ -258,6 +261,7 @@ final class SelectedItem extends LazyContainer implements MouseDoc {
 		return label.getFont().getSize();
 	}
 
+	@Override
 	public double minHeight() {
 		// assert boundary1 == boundary;
 		double minH = art.lineH * 3;
@@ -267,6 +271,7 @@ final class SelectedItem extends LazyContainer implements MouseDoc {
 		return minH;
 	}
 
+	@Override
 	public double maxHeight() {
 		// assert boundary1 == boundary;
 		return facetTreeViz.getYOffset() + facetTreeViz.getHeight() - art.lineH
@@ -325,7 +330,9 @@ final class SelectedItem extends LazyContainer implements MouseDoc {
 		return doRedraw;
 	}
 
-	private GridImage gridImage;
+	private GridElementWrapper gridImage;
+
+	private Set<String> prevSearches = new HashSet<String>();
 
 	// private IntHashtable foo;
 
@@ -358,15 +365,17 @@ final class SelectedItem extends LazyContainer implements MouseDoc {
 			if (ii == null) {
 				setter.set(item);
 			} else {
-				gridImage = new GridImage(ii);
+				gridImage = new GridElementWrapper(ii, false);
 				// Util.print("SI.maybeAddImage calling scale");
-				gridImage.scale(maxImageW(), maxImageH());
-				gridImage.mouseDoc = query().itemURLdoc;
-				gridImage.removeInputEventListener(GridImage.gridImageHandler);
-				gridImage.addInputEventListener(itemClickHandler);
+				gridImage.setSize(maxImageW(), maxImageH());
+				// gridImage.mouseDoc = query().itemURLdoc;
+				gridImage.pNode().removeInputEventListener(
+						GridElementWrapper.gridElementHandler);
+				gridImage.pNode().addInputEventListener(itemClickHandler);
 
 				if (CAPTURING_FACES)
-					gridImage.setScale(maxImageW() / gridImage.getWidth());
+					gridImage.pNode().setScale(
+							maxImageW() / gridImage.getWidth());
 
 				int x = (int) Math.round((w - gridImage.getWidth()
 						* gridImage.getScale()) / 2.0);
@@ -377,7 +386,7 @@ final class SelectedItem extends LazyContainer implements MouseDoc {
 				// Util.print("ImageH " + gridImage.getHeight() + " * "
 				// + gridImage.getScale() + " = "
 				// + (gridImage.getHeight() * gridImage.getScale()));
-				addChild(gridImage);
+				addChild(gridImage.pNode());
 			}
 		}
 		return y;
@@ -421,12 +430,12 @@ final class SelectedItem extends LazyContainer implements MouseDoc {
 		}
 	}
 
-	private Map getFacetTreeTable() {
-		return (Map) (facetTrees == null ? null : facetTrees.get());
+	private Map<Item, DisplayTree> getFacetTreeTable() {
+		return (facetTrees == null ? null : facetTrees.get());
 	}
 
 	FacetTree getFacetTree() {
-		Map table = getFacetTreeTable();
+		Map<Item, DisplayTree> table = getFacetTreeTable();
 		return (FacetTree) (table == null ? null : table.get(currentItem));
 	}
 
@@ -434,11 +443,11 @@ final class SelectedItem extends LazyContainer implements MouseDoc {
 	 * Called in thread itemSetter
 	 */
 	void addFacetTree(Item item, DisplayTree tree) {
-		Map table = getFacetTreeTable();
+		Map<Item, DisplayTree> table = getFacetTreeTable();
 		if (table == null) {
 			// Util.print("new facetTrees");
-			table = new Hashtable();
-			facetTrees = new SoftReference(table);
+			table = new Hashtable<Item, DisplayTree>();
+			facetTrees = new SoftReference<Map<Item, DisplayTree>>(table);
 			// foo = table;
 		}
 		table.put(item, tree);
@@ -446,7 +455,7 @@ final class SelectedItem extends LazyContainer implements MouseDoc {
 
 	void removeFacetTree(Item item) {
 		// Util.print("removeFacetTree " + item);
-		Map table = (Map) facetTrees.get();
+		Map<Item, DisplayTree> table = facetTrees.get();
 		if (table != null) {
 			table.remove(item);
 		}
@@ -516,13 +525,12 @@ final class SelectedItem extends LazyContainer implements MouseDoc {
 			} else {
 				setter.set(currentItem);
 			}
+			prevSearches = new HashSet<String>();
+			updateColors();
 		}
 	}
 
 	class FieldedTextBox extends TextBox {
-		/**
-		 * 
-		 */
 		private static final long serialVersionUID = 1L;
 		final String[] fields;
 		String rawText;
@@ -541,6 +549,7 @@ final class SelectedItem extends LazyContainer implements MouseDoc {
 		/*
 		 * return the displayable text
 		 */
+		@Override
 		public String getText() {
 			String displayText = null;
 			if (rawText != null) {
@@ -568,6 +577,7 @@ final class SelectedItem extends LazyContainer implements MouseDoc {
 			return displayText;
 		}
 
+		@Override
 		public void setText(String rawText) {
 			this.rawText = rawText;
 			super.setText(getText());
@@ -579,7 +589,12 @@ final class SelectedItem extends LazyContainer implements MouseDoc {
 
 	}
 
-	void highlightFacet(Set facets) {
+	boolean highlight(String substring) {
+		return selectedItemSummaryTextBox != null
+				&& selectedItemSummaryTextBox.highlight(substring);
+	}
+
+	<V extends ItemPredicate>void highlightFacet(Set<V> facets) {
 		if (facetTreeViz != null)
 			facetTreeViz.highlightFacet(facets);
 	}
@@ -587,6 +602,14 @@ final class SelectedItem extends LazyContainer implements MouseDoc {
 	void updateColors() {
 		if (facetTreeViz != null)
 			facetTreeViz.updateColors();
+		Set<String> searches = query().getSearches();
+		if (!searches.equals(prevSearches)) {
+			prevSearches = new HashSet<String>(searches);
+			highlight(null);
+			for (String s: searches) {
+				highlight(s);
+			}
+		}
 	}
 
 	// void clickText(Perspective facet, int modifiers) {
@@ -684,6 +707,7 @@ final class ItemSetter extends UpdateThread {
 		parent = _parent;
 	}
 
+	@Override
 	public void process(Object i) {
 		// Util.print("ItemSetter.run");
 		Bungee art = parent.art;
@@ -707,10 +731,10 @@ final class ItemSetter extends UpdateThread {
 			rs = query.getDescAndImage(item, imageW, imageH,
 					Bungee.IMAGE_QUALITY);
 			while (rs.next()) {
+				description = rs.getString(1);
 				InputStream blobStream = ((MyResultSet) rs).getInputStream(2);
 				art.ensureItemImage(item, rs.getInt(3), rs.getInt(4),
-						Bungee.IMAGE_QUALITY, blobStream);
-				description = rs.getString(1);
+						Bungee.IMAGE_QUALITY, blobStream, description);
 				if (art.getIsEditing()
 						&& (description == null || description.length() == 0))
 					description = "click to add a description";
@@ -732,38 +756,41 @@ final class ItemSetter extends UpdateThread {
 final class ItemClickHandler extends MyInputEventHandler {
 
 	ItemClickHandler() {
-		super(PImage.class);
+		super(SelectedItem.class);
 	}
 
-	SelectedItem getSelectedItem(PNode node) {
-		PNode maybeSelectedItem = node.getParent();
-		if (maybeSelectedItem instanceof GridImage)
-			maybeSelectedItem = maybeSelectedItem.getParent();
-		return (SelectedItem) maybeSelectedItem;
-	}
+	// SelectedItem getSelectedItem(PNode node) {
+	// PNode maybeSelectedItem = node.getParent();
+	// if (maybeSelectedItem instanceof GridImage)
+	// maybeSelectedItem = maybeSelectedItem.getParent();
+	// return (SelectedItem) maybeSelectedItem;
+	// }
 
-	GridImage getImage(PNode node) {
-		PNode maybeSelectedItem = node;
-		if (!(maybeSelectedItem instanceof GridImage))
-			maybeSelectedItem = maybeSelectedItem.getParent();
-		return (GridImage) maybeSelectedItem;
-	}
+	// GridImage getImage(PNode node) {
+	// PNode maybeSelectedItem = node;
+	// if (!(maybeSelectedItem instanceof GridImage))
+	// maybeSelectedItem = maybeSelectedItem.getParent();
+	// return (GridImage) maybeSelectedItem;
+	// }
 
+	@Override
 	public boolean enter(PNode node) {
-		SelectedItem parent = getSelectedItem(node);
-		parent.highlight(true);
+		// SelectedItem parent = getSelectedItem(node);
+		((SelectedItem) node).highlight(true);
 		return true;
 	}
 
+	@Override
 	public boolean exit(PNode node) {
-		SelectedItem parent = getSelectedItem(node);
-		if (parent != null)
-			parent.highlight(false);
+		// SelectedItem parent = getSelectedItem(node);
+		// if (parent != null)
+		((SelectedItem) node).highlight(false);
 		return true;
 	}
 
+	@Override
 	public boolean click(PNode node, PInputEvent e) {
-		SelectedItem parent = getSelectedItem(node);
+		SelectedItem parent = ((SelectedItem) node);
 		// Util.print("SI.click "+e+" "+e.isMiddleMouseButton());
 		if (e.isControlDown()) {
 			// getImage(node).handleFaceWarping(e);

@@ -27,18 +27,21 @@ class EulerDiagram extends LazyPPath {
 
 	Font font;
 	public Paint borderColor = Color.orange;
-	final List nonPrimary;
-	final List primary;
+	final List<ItemPredicate> nonPrimary;
+	final List<ItemPredicate> primary;
 	final Distribution distribution;
+	private String label;
 
-	EulerDiagram(Distribution observed, List primary, List usedFacets, Font font) {
+	EulerDiagram(Distribution observed, List<ItemPredicate> primary, List<ItemPredicate> usedFacets,
+			Font font, String label) {
 		if (!observed.getFacets().equals(usedFacets)) {
 			observed = observed.getMarginalDistribution(usedFacets);
 		}
-//		Util.print("EulerDiagram  " + primary + " " + observed);
+		// Util.print("EulerDiagram  " + primary + " " + observed);
+		this.label = label;
 		this.primary = primary;
 		this.distribution = observed;
-		nonPrimary = new ArrayList(observed.getFacets());
+		nonPrimary = new ArrayList<ItemPredicate>(observed.getFacets());
 		assert nonPrimary.containsAll(primary) : observed + " " + primary;
 		nonPrimary.removeAll(primary);
 		if (font == null)
@@ -54,18 +57,31 @@ class EulerDiagram extends LazyPPath {
 	}
 
 	public double setLabel() {
-		APText l1 = APText.oneLineLabel(font);
-		addChild(l1);
-		l1.setTextPaint(primaryColors[0]);
-		l1.setText(((ItemPredicate) primary.get(0)).getName());
-		l1.setOffset(MARGIN, MARGIN);
+		APText l0 = APText.oneLineLabel(font);
+		addChild(l0);
+		l0.setTextPaint(Color.white);
+		l0.setText(label);
+		l0.setOffset(MARGIN, MARGIN);
+		double bottom = l0.getIntMaxY();
 
-		APText l2 = APText.oneLineLabel(font);
-		addChild(l2);
-		l2.setTextPaint(primaryColors[1]);
-		l2.setText(((ItemPredicate) primary.get(1)).getName());
-		l2.setOffset(MARGIN, MARGIN + l1.getIntMaxY());
-		return MARGIN + l2.getIntMaxY();
+		if (primary.size() > 0) {
+			APText l1 = APText.oneLineLabel(font);
+			addChild(l1);
+			l1.setTextPaint(primaryColors[0]);
+			l1.setText(primary.get(0).getName());
+			l1.setOffset(MARGIN, MARGIN + l0.getIntMaxY());
+			bottom = l1.getIntMaxY();
+
+			if (primary.size() > 1) {
+				APText l2 = APText.oneLineLabel(font);
+				addChild(l2);
+				l2.setTextPaint(primaryColors[1]);
+				l2.setText(primary.get(1).getName());
+				l2.setOffset(MARGIN, MARGIN + l1.getIntMaxY());
+				bottom = l2.getIntMaxY();
+			}
+		}
+		return MARGIN + bottom;
 	}
 
 	private void draw() {
@@ -75,7 +91,7 @@ class EulerDiagram extends LazyPPath {
 		setStrokePaint(borderColor);
 		double y = setLabel();
 
-		EulerBlock block = new EulerBlock(new LinkedList());
+		EulerBlock block = new EulerBlock(new LinkedList<Boolean>());
 
 		addChild(block);
 		block.setYoffset(y);
@@ -86,6 +102,7 @@ class EulerDiagram extends LazyPPath {
 		// edu.cmu.cs.bungee.piccoloUtils.gui.Util.printDescendents(this);
 	}
 
+	@Override
 	public boolean setWidth(double w) {
 		double Y_MARGIN = 8;
 		double outlineW = MARGIN;
@@ -134,7 +151,7 @@ class EulerDiagram extends LazyPPath {
 
 	private class EulerBlock extends LazyPNode {
 
-		public EulerBlock getInstance(List nonPrimaryStates) {
+		public EulerBlock getInstance(List<Boolean> nonPrimaryStates) {
 			// Util.print("EB " + nonPrimary + " " + nonPrimaryStates + " "
 			// + primary);
 			EulerBlock atomic = new EulerBlock(nonPrimaryStates);
@@ -146,7 +163,7 @@ class EulerDiagram extends LazyPPath {
 			return result;
 		}
 
-		EulerBlock(List nonPrimaryStates) {
+		EulerBlock(List<Boolean> nonPrimaryStates) {
 			// Util.print("EB " + nonPrimary + " " + nonPrimaryStates + " "
 			// + primary);
 			if (nonPrimaryStates.size() < nonPrimary.size()) {
@@ -163,13 +180,14 @@ class EulerDiagram extends LazyPPath {
 			setBounds(0, 0, ATOMIC_BLOCK_SIZE, ATOMIC_BLOCK_SIZE);
 		}
 
-		private void primaryEulerBlock(List nonPrimaryStates) {
-			assert primary.size() >= 2 && primary.size() <= 3 : "Need to write more code";
-			List falseFacets = new LinkedList();
-			List trueFacets = new LinkedList();
+		private void primaryEulerBlock(List<Boolean> nonPrimaryStates) {
+			assert primary.size() >= 2 && primary.size() <= 3 : "Need to write more code for primary.size = "
+					+ primary.size() + ": " + primary;
+			List<ItemPredicate> falseFacets = new LinkedList<ItemPredicate>();
+			List<ItemPredicate> trueFacets = new LinkedList<ItemPredicate>();
 			for (int i = 0; i < nonPrimaryStates.size(); i++) {
-				ItemPredicate nonPrim = (ItemPredicate) nonPrimary.get(i);
-				Boolean state = (Boolean) nonPrimaryStates.get(i);
+				ItemPredicate nonPrim = nonPrimary.get(i);
+				Boolean state = nonPrimaryStates.get(i);
 				if (state != null) {
 					if (state.booleanValue())
 						trueFacets.add(nonPrim);
@@ -182,7 +200,7 @@ class EulerDiagram extends LazyPPath {
 			if (conditionalDistribution != null) {
 				setPaint(textColor);
 				setBounds(0, 0, 1, 1);
-				List firstTwo = primary.subList(0, 2);
+				List<ItemPredicate> firstTwo = primary.subList(0, 2);
 				Distribution marginal = new Distribution(firstTwo,
 						conditionalDistribution.getMarginalCounts(firstTwo));
 				int[] counts = marginal.getCounts();
@@ -281,7 +299,7 @@ class EulerDiagram extends LazyPPath {
 			return r3;
 		}
 
-		private void compositeEulerBlock(List nonPrimaryStates) {
+		private void compositeEulerBlock(List<Boolean> nonPrimaryStates) {
 			nonPrimaryStates.add(Boolean.FALSE);
 			EulerBlock left = new EulerBlock(nonPrimaryStates);
 			nonPrimaryStates.remove(nonPrimaryStates.size() - 1);
@@ -295,8 +313,8 @@ class EulerDiagram extends LazyPPath {
 			addChild(right);
 			addChild(either);
 
-			String name = ((ItemPredicate) nonPrimary.get(nonPrimaryStates
-					.size())).getName();
+			String name = nonPrimary.get(nonPrimaryStates
+					.size()).getName();
 
 			APText l1 = APText.oneLineLabel(font);
 			addChild(l1);

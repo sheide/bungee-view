@@ -40,11 +40,11 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
 import edu.cmu.cs.bungee.client.query.ItemPredicate;
+import edu.cmu.cs.bungee.client.query.OnCountLabeled;
 import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.cmu.cs.bungee.client.query.Query;
 import edu.cmu.cs.bungee.client.query.Query.Item;
@@ -54,6 +54,7 @@ import edu.cmu.cs.bungee.javaExtensions.threads.UpdateNoArgsThread;
 import edu.cmu.cs.bungee.piccoloUtils.gui.APText;
 import edu.cmu.cs.bungee.piccoloUtils.gui.AbstractMenuItem;
 import edu.cmu.cs.bungee.piccoloUtils.gui.Boundary;
+import edu.cmu.cs.bungee.piccoloUtils.gui.LabeledVScrollbar;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyContainer;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPNode;
 import edu.cmu.cs.bungee.piccoloUtils.gui.LazyPPath;
@@ -66,9 +67,6 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 
 	// int desiredCols = -1;
 
-	/**
-	 * 
-	 */
 	private static final long serialVersionUID = 1L;
 
 	/**
@@ -84,9 +82,9 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 	// Now hardcoded into margin_size()
 	// int margin_size = 40;
 	/**
-	 * Maps from item record_nums to a GridImage (a kind of PImage)
+	 * Maps from item record_nums to a GridElementWrapper
 	 */
-	transient SoftReference thumbs;
+	transient SoftReference<Map<Item, GridElementWrapper>> thumbs;
 
 	VScrollbar gridScrollBar;
 
@@ -136,6 +134,8 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 
 	private APText sortLabel;
 
+	private Perspective sortedBy;
+
 	// PInterpolatingActivity highlightAnimator;
 
 	private double minWidth;
@@ -176,33 +176,7 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 		outline.setStrokePaint(Bungee.selectedItemOutlineColor);
 		outline.setPathToRectangle(0, 0, 1, 1);
 
-		Runnable scroll = new Runnable() {
-
-			public void run() {
-				int rowOffset = (int) (gridScrollBar.getPos()
-						* (nRows - nVisibleRows) + 0.5);
-				// Util.print("RG.scroll rowOffset = " + rowOffset);
-				if (rowOffset != visRowOffset) {
-					int selectedRow = selectedItemOffset / nCols;
-					int selectedCol = selectedItemOffset % nCols;
-					int newSelectedRow = Util.constrain(selectedRow, rowOffset,
-							rowOffset + nVisibleRows - 1);
-					int newSelectedItemOffset = newSelectedRow * nCols
-							+ selectedCol;
-					// Util.print("newSelectedItemOffset " +
-					// newSelectedItemOffset);
-					computeSelectedItemFromSelectedOffset(
-							newSelectedItemOffset, rowOffset);
-					// art.printUserAction(Art.SCROLL, "grid", selectedItem);
-				}
-			}
-		};
-
-		// Use a placeholder for height, which is required to be greater than 3
-		// times the width
-		gridScrollBar = new VScrollbar(art.scrollBarWidth,
-				4 * art.scrollBarWidth, Bungee.gridScrollBG,
-				Bungee.gridScrollFG, scroll);
+		initScrollbar();
 
 		boundary = new Boundary(this, false);
 		addChild(boundary);
@@ -240,6 +214,48 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 		validate(w, h);
 	}
 
+	private void initScrollbar() {
+
+		Runnable scroll = new Runnable() {
+
+			public void run() {
+				int rowOffset = (int) (gridScrollBar.getPos()
+						* (nRows - nVisibleRows) + 0.5);
+				// Util.print("RG.scroll rowOffset = " + rowOffset);
+				if (rowOffset != visRowOffset) {
+					int selectedRow = selectedItemOffset / nCols;
+					int selectedCol = selectedItemOffset % nCols;
+					int newSelectedRow = Util.constrain(selectedRow, rowOffset,
+							rowOffset + nVisibleRows - 1);
+					int newSelectedItemOffset = newSelectedRow * nCols
+							+ selectedCol;
+					// Util.print("newSelectedItemOffset " +
+					// newSelectedItemOffset);
+					computeSelectedItemFromSelectedOffset(
+							newSelectedItemOffset, rowOffset);
+					// art.printUserAction(Art.SCROLL, "grid", selectedItem);
+				}
+			}
+		};
+		double scrollH = h;
+		if (gridScrollBar != null) {
+			removeChild(gridScrollBar);
+			scrollH = gridScrollBar.getHeight() + 2 * gridScrollBar.getWidth();
+		}
+		// Use a placeholder for height, which is required to be greater than 3
+		// times the width
+		if (sortedBy == null)
+			gridScrollBar = new VScrollbar(art.scrollBarWidth,
+					4 * art.scrollBarWidth, Bungee.gridScrollBG,
+					Bungee.gridScrollFG, scroll);
+		else {
+			gridScrollBar = new LabeledVScrollbar(art.scrollBarWidth, scrollH,
+					Bungee.gridScrollBG, Bungee.gridScrollFG, scroll,
+					new OnCountLabeled(sortedBy), art.font);
+			moveInFrontOf(art.selectedItem);
+		}
+	}
+
 	private class ReorderCommand extends AbstractMenuItem {
 
 		int facetType;
@@ -249,6 +265,7 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 			this.facetType = facetType;
 		}
 
+		@Override
 		public String doCommand() {
 			reorder(facetType);
 			return getLabel();
@@ -341,10 +358,11 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 			boundary.validate();
 
 			if (onCount > 0)
-				dataUpdated();
+				onItemsUpdated();
 		}
 	}
 
+	@Override
 	public void updateBoundary(Boundary boundary1) {
 		if (art.getShowBoundaries()) {
 			assert boundary1 == boundary;
@@ -353,6 +371,7 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 		}
 	}
 
+	@Override
 	public void enterBoundary(Boundary boundary1) {
 		// Util.print("grid enter boundary");
 		if (!art.getShowBoundaries()) {
@@ -367,6 +386,7 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 		// Util.print("Grid.computeMinWidth " + minWidth);
 	}
 
+	@Override
 	public double minWidth() {
 		// Util.print("minWidth " + minWidth);
 		// if (minWidth <= 0)
@@ -374,11 +394,12 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 		return minWidth;
 	}
 
+	@Override
 	public double maxWidth() {
 		return w + art.selectedItem.w - art.selectedItem.minWidth();
 	}
 
-	void dataUpdated() {
+	void onItemsUpdated() {
 		// Util.print("Grid.dataUpdated " + query().getOnCount());
 		onItemsInvalid = false;
 		onCount = query().getOnCount();
@@ -490,10 +511,15 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 	void reorder(int facetType) {
 		// art.handleCursor(true);
 		art.printUserAction(Bungee.REORDER, facetType, 0);
+		sortedBy = facetType > 0 ? query().findPerspective(facetType) : null;
+		initScrollbar();
+		addChild(gridScrollBar);
+		gridScrollBar.setOffset(w - margin_size() - art.scrollBarWidth,
+				getTopMargin());
 		query().reorderItems(facetType);
 		// offsetItemTableRangesIndex = 0;
 		// doEnsureRange();
-		dataUpdated();
+		onItemsUpdated();
 		// art.handleCursor(false);
 	}
 
@@ -616,7 +642,7 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 	void checkCached(int minOffset, int maxOffset) {
 		// Util.print("ensureCached " + edge + " " + onCount + " " + minOffset +
 		// " " + maxOffset);
-		SortedSet toLoad = new TreeSet();
+		SortedSet<Item> toLoad = new TreeSet<Item>();
 		if (offsetItemTable != null && !onItemsInvalid) {
 			assert maxOffset <= offsetItemTable.length && maxOffset <= onCount : onCount
 					+ " "
@@ -648,7 +674,7 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 							// After unrestrict, thumbs gets wiped but
 							// itemImages
 							// doesn't
-							addThumb(item, new GridImage(ii));
+							addThumb(item, new GridElementWrapper(ii, true));
 						}
 					} else {
 						assert false : i + " " + minOffset + "-" + maxOffset
@@ -701,7 +727,7 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 	/**
 	 * Called in thread rangeEnsurer
 	 */
-	void loadThumbs(SortedSet items) {
+	void loadThumbs(SortedSet<Item> items) {
 		if (items != null) {
 			// Util.print("loadThumbs " + edgeW + "x" + edgeH + " " + items);
 			ResultSet[] rss = null;
@@ -722,18 +748,19 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 		// Util.print("loadThumbs return");
 	}
 
-	void loadThumbsInternal1(ResultSet rs, SortedSet items) throws SQLException {
+	void loadThumbsInternal1(ResultSet rs, SortedSet<Item> items) throws SQLException {
 		boolean hasNext = rs.next();
 		Item blobItem = hasNext ? Item.ensureItem(rs.getInt(1)) : null;
-		for (Iterator it = items.iterator(); it.hasNext();) {
-			Item item = (Item) it.next();
+		for (Item item: items) {
 			int rawW = 0;
 			int rawH = 0;
+			String description = null;
 			InputStream blobStream = null;
 			if (hasNext && item == blobItem) {
-				blobStream = ((MyResultSet) rs).getInputStream(2);
-				rawW = rs.getInt(3);
-				rawH = rs.getInt(4);
+				description = rs.getString(2);
+				blobStream = ((MyResultSet) rs).getInputStream(3);
+				rawW = rs.getInt(4);
+				rawH = rs.getInt(5);
 				// bi = ImageIO.read(blobStream);
 				// if (image.getColorModel().getNumColorComponents() <
 				// 3)
@@ -745,15 +772,25 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 					blobItem = Item.ensureItem(rs.getInt(1));
 			}
 			ItemImage ii = art.ensureItemImage(item, rawW, rawH,
-					Bungee.THUMB_QUALITY, blobStream);
+					Bungee.THUMB_QUALITY, blobStream, description);
 			// Util.print("addThumb " + edgeW + "*" + edgeH + " " + item
 			// + " " + rawW + "*" + rawH);
-			addThumb(item, new GridImage(ii)); // art, item,
+			addThumb(item, new GridElementWrapper(ii, true)); // art, item,
 			// image));
 		}
 	}
+	
+	private static class PendingItemFacet{
+		final Item item;
+		final Integer facet;
+		PendingItemFacet(Item item, Integer facet) {
+			super();
+			this.item = item;
+			this.facet = facet;
+		}
+	}
 
-	List pendingItemFacets = new LinkedList();
+	List<PendingItemFacet> pendingItemFacets = new LinkedList<PendingItemFacet>();
 
 	void loadThumbsInternal2(ResultSet rs) throws SQLException {
 		Query q = query();
@@ -766,8 +803,8 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 				ii.facets.add(facet);
 				// Util.print("adding " + ii.item + " " + facet);
 			} else {
-				Object[] pair = { item, new Integer(facetID) };
-				pendingItemFacets.add(pair);
+//				Object[] pair = { item, new Integer(facetID) };
+				pendingItemFacets.add(new PendingItemFacet(item, new Integer(facetID)));
 			}
 		}
 	}
@@ -776,15 +813,15 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 		// Util.print("reprocessPendingItemFacets");
 		Query q = query();
 		assert q != null;
-		for (Iterator it = pendingItemFacets.iterator(); it.hasNext();) {
-			Object[] pair = (Object[]) it.next();
+		for (Iterator<PendingItemFacet> it = pendingItemFacets.iterator(); it.hasNext();) {
+			PendingItemFacet pair =  it.next();
 			assert pair != null;
-			assert pair[0] != null;
-			assert pair[1] != null;
-			int facetID = ((Integer) pair[1]).intValue();
+			assert pair.item != null;
+			assert pair.facet != null;
+			int facetID = pair.facet.intValue();
 			Perspective facet = q.findPerspectiveIfPossible(facetID);
 			if (facet != null) {
-				ItemImage ii = art.lookupItemImage((Item) pair[0]);
+				ItemImage ii = art.lookupItemImage(pair.item);
 				if (ii != null)
 					// may have been decached
 					ii.facets.add(facet);
@@ -797,15 +834,15 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 	}
 
 	// Reduced distraction from animation seems negligible or worse.
-	void highlightFacet(Set facets) {
-		assert Util.ignore(facets);
+	@SuppressWarnings("unchecked")
+	void highlightFacet() {
 		if (thumbnails != null) {
 			reprocessPendingItemFacets();
 			// Util.print("Grid.highlightFacet " + facet);
-			for (Iterator it = thumbnails.getChildrenIterator(); it.hasNext();) {
-				PNode child = (PNode) it.next();
-				if (child instanceof GridImage) {
-					GridImage gi = (GridImage) child;
+			for (Iterator<PNode> it = thumbnails.getChildrenIterator(); it.hasNext();) {
+				PNode child = it.next();
+				if (child instanceof GridElement) {
+					GridElementWrapper gi = ((GridElement) child).getWrapper();
 					if (gi.select())
 						gi.animateSelection(1f);
 				}
@@ -906,14 +943,14 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 							// Check item in case data changes out from
 							// under
 							// us.
-							GridImage image = lookupThumb(item);
+							GridElementWrapper image = lookupThumb(item);
 							// Util.print("drawGrid " + item);
 							if (image != null) {
 								image.offset = offset;
-								image.scale(edgeW, edgeH);
+								image.setSize(edgeW, edgeH);
 								// image.setArea(imageArea);
-								double iw = image.getImage().getWidth(null);
-								double ih = image.getImage().getHeight(null);
+								double iw = image.getWidth();
+								double ih = image.getHeight();
 								assert iw <= edgeW : iw + " " + edgeW;
 								assert ih <= edgeH;
 								// if (x + iw > usableW) {
@@ -939,7 +976,7 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 								double y = row * gridH
 										+ (int) ((gridH - ih) / 2);
 								image.setOffset(x, y);
-								thumbnails.addChild(image);
+								thumbnails.addChild(image.pNode());
 
 								// Now that we know the location, art can
 								// animate outline.
@@ -1070,6 +1107,7 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 			// + " rowOffset=" + rowOffset + " selectedItemOffset="
 			// + selectedItemOffset + " oldSelectedItem="
 			// + oldSelectedItem + " selectedItem=" + selectedItem);
+
 			if (rowOffset != visRowOffset) {
 				visRowOffset = rowOffset;
 				updateScrollPos();
@@ -1082,7 +1120,8 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 			} else if (selectedItem != null) {
 				// if selectedItem is null, it means we're waiting for
 				// ensureRange, which will call drawGrid when it's ready.
-				GridImage thumb = thumbnails.findThumb(selectedItemOffset);
+				GridElementWrapper thumb = thumbnails
+						.findThumb(selectedItemOffset);
 				// If thumbs cache has been GC'd lookupThumb will fail even if
 				// we're displaying that thumb
 				// We only want displayed thumbs anyway
@@ -1090,7 +1129,8 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 					updateSelectionOutline(thumb.getXOffset(), thumb
 							.getYOffset(), thumb.getWidth(), thumb.getHeight());
 					if (oldSelectedItem != selectedItem)
-						art.setSelectedItem(selectedItem, thumb, isExplicitly);
+						art.setSelectedItem(selectedItem, thumb.pNode(),
+								isExplicitly);
 				}
 			}
 			// for (int gridOffset=0; gridOffset<nRows*nCols; gridOffset++) {
@@ -1154,30 +1194,30 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 		art.mayHideTransients();
 	}
 
-	private Map getThumbTable() {
-		return (Map) (thumbs == null ? null : thumbs.get());
+	private Map<Item, GridElementWrapper> getThumbTable() {
+		return thumbs == null ? null : thumbs.get();
 	}
 
-	private GridImage lookupThumb(Item item) {
-		Map table = getThumbTable();
-		return (GridImage) (table == null ? null : table.get(item));
+	private GridElementWrapper lookupThumb(Item item) {
+		Map<Item, GridElementWrapper> table = getThumbTable();
+		return (table == null ? null : table.get(item));
 	}
 
-	private void addThumb(Item item, GridImage image) {
+	private void addThumb(Item item, GridElementWrapper gridElementWrapper) {
 		// Util.print("addImage " + image.getWidth() + "*" + image.getHeight());
-		Map table = getThumbTable();
+		Map<Item, GridElementWrapper> table = getThumbTable();
 		if (table == null) {
 			// Util.print("new thumb table");
-			table = new Hashtable();
-			thumbs = new SoftReference(table);
+			table = new Hashtable<Item, GridElementWrapper>();
+			thumbs = new SoftReference<Map<Item, GridElementWrapper>>(table);
 		}
-		table.put(item, image);
+		table.put(item, gridElementWrapper);
 		// Util.print("# cached thumbs: " + table.size());
 	}
 
 	// only called by replayOps and Informedia
 	void clickThumb(Item item, int retries) {
-		GridImage thumb = lookupThumb(item);
+		GridElementWrapper thumb = lookupThumb(item);
 		// Util.print("clickThumb " + item + " " + query().itemIndex(item, 0)
 		// + " " + thumb);
 		if (thumb == null || thumb.getParent() == null) {
@@ -1189,7 +1229,7 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 				drawGrid();
 				thumb = lookupThumb(selectedItem);
 				if (thumb != null) {
-					art.setSelectedItem(selectedItem, thumb, true);
+					art.setSelectedItem(selectedItem, thumb.pNode(), true);
 				} else {
 					Util.err("Thumbnail not found for " + selectedItem
 							+ ". Probably low on memory and table decached.");
@@ -1206,8 +1246,10 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 		}
 		if (onItemsInvalid)
 			retryClickThumb(item, retries);
-		else
-			thumb.pick(false, false);
+		else {
+			computeSelectedItemFromSelectedOffset(thumb.offset, -1);
+			// thumb.pick(false, false);
+		}
 	}
 
 	void retryClickThumb(final Item item, final int retries) {
@@ -1235,6 +1277,11 @@ final class ResultsGrid extends LazyContainer implements MouseDoc {
 
 	void clearTextCaches() {
 		minWidth = 0;
+	}
+
+	public void updateData() {
+		if (gridScrollBar instanceof LabeledVScrollbar)
+			((LabeledVScrollbar) gridScrollBar).updateCounts();		
 	}
 }
 
@@ -1291,21 +1338,25 @@ final class Thumbnails extends LazyPNode implements MouseDoc {
 		return boundaries;
 	}
 
+	@Override
 	public double minWidth(Boundary boundary) {
 		int col = Util.member(vBoundaries, boundary);
 		return MIN_COLUMN_WIDTH * col;
 	}
 
+	@Override
 	public double maxWidth(Boundary boundary) {
 		int col = Util.member(vBoundaries, boundary);
 		return getWidth() * col;
 	}
 
+	@Override
 	public double minHeight(Boundary boundary) {
 		int row = Util.member(hBoundaries, boundary);
 		return MIN_COLUMN_WIDTH * row;
 	}
 
+	@Override
 	public double maxHeight(Boundary boundary) {
 		int row = Util.member(hBoundaries, boundary);
 		return getHeight() * row;
@@ -1326,6 +1377,7 @@ final class Thumbnails extends LazyPNode implements MouseDoc {
 		}
 	}
 
+	@Override
 	public void updateBoundary(Boundary boundary) {
 		if (grid().art.getShowBoundaries()) {
 			int col = Util.member(vBoundaries, boundary);
@@ -1344,11 +1396,11 @@ final class Thumbnails extends LazyPNode implements MouseDoc {
 		}
 	}
 
-	GridImage findThumb(int offset) {
+	GridElementWrapper findThumb(int offset) {
 		for (int i = 0; i < getChildrenCount(); i++) {
 			PNode child = getChild(i);
-			if (child instanceof GridImage) {
-				GridImage result = (GridImage) child;
+			if (child instanceof GridElement) {
+				GridElementWrapper result = ((GridElement) child).getWrapper();
 				if (result.offset == offset)
 					return result;
 			}
@@ -1356,6 +1408,7 @@ final class Thumbnails extends LazyPNode implements MouseDoc {
 		return null;
 	}
 
+	@Override
 	public void enterBoundary(Boundary boundary) {
 		if (grid().art.getShowBoundaries()) {
 			setBoundariesVisible(true);
@@ -1364,6 +1417,7 @@ final class Thumbnails extends LazyPNode implements MouseDoc {
 		}
 	}
 
+	@Override
 	public void exitBoundary(Boundary boundary) {
 		setBoundariesVisible(false);
 	}
@@ -1400,6 +1454,7 @@ final class RangeEnsurer extends UpdateNoArgsThread {
 		results = _results;
 	}
 
+	@Override
 	public void process() {
 		// results.art.waitForValidQuery();
 		// results.revUpLoadThumbs();

@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Set;
 
 import edu.cmu.cs.bungee.client.query.DisplayTree;
+import edu.cmu.cs.bungee.client.query.ItemPredicate;
 import edu.cmu.cs.bungee.client.query.Markup;
 import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.cmu.cs.bungee.client.query.Query.Item;
@@ -48,7 +49,7 @@ final class FacetTreeViz extends LazyPNode implements MouseDoc {
 
 	VScrollbar selectionTreeScrollBar;
 
-	private List contracted = new LinkedList();
+	private List<Object> contracted = new LinkedList<Object>();
 
 	int nInvisibleLines;
 
@@ -278,9 +279,9 @@ final class FacetTreeViz extends LazyPNode implements MouseDoc {
 			}
 		}
 		if (showChildren) {
-			for (Iterator it = subtree.childIterator(); it.hasNext()
+			for (Iterator<DisplayTree> it = subtree.childIterator(); it.hasNext()
 					&& nLines < lastLine;) {
-				DisplayTree child = (DisplayTree) it.next();
+				DisplayTree child = it.next();
 				nLines += drawTreeInternal(child, x, treeW, offsetLines
 						- nLines, lastLine - nLines);
 				// if (separator != null) {
@@ -323,14 +324,14 @@ final class FacetTreeViz extends LazyPNode implements MouseDoc {
 		return contracted.contains(p);
 	}
 
-	private Hashtable facetTreeWidths = new Hashtable();
+	private Hashtable<DisplayTree, Double> facetTreeWidths = new Hashtable<DisplayTree, Double>();
 
 	private double drawWidth(DisplayTree subtree) {
-		Double w = (Double) facetTreeWidths.get(subtree);
+		Double w = facetTreeWidths.get(subtree);
 		if (w == null) {
 			double treeW = 0.0;
-			for (Iterator it = subtree.childIterator(); it.hasNext();) {
-				DisplayTree child = (DisplayTree) it.next();
+			for (Iterator<DisplayTree> it = subtree.childIterator(); it.hasNext();) {
+				DisplayTree child = it.next();
 				treeW = Math.max(treeW, drawWidth(child));
 			}
 			if (treeW > 0.0)
@@ -347,7 +348,7 @@ final class FacetTreeViz extends LazyPNode implements MouseDoc {
 
 	// private Perspective[] allRestrictions;
 
-	void highlightFacet(Set highlightFacets) {
+	<V extends ItemPredicate>void highlightFacet(Set<V> highlightFacets) {
 		// FacetText child = getFacetText(highlightFacet);
 		// if (child != null && child.getParent() != null) {
 		// child.highlightFacet();
@@ -370,12 +371,13 @@ final class FacetTreeViz extends LazyPNode implements MouseDoc {
 		// }
 	}
 
+	@SuppressWarnings("unchecked")
 	void updateColors() {
 		// Util.print("FacetTreeViz.synchronizeWithQuery");
 		// leafRestrictions = q.dontUnderline();
 		// allRestrictions = q.restrictions();
-		for (Iterator it = getChildrenIterator(); it.hasNext();) {
-			PNode x = (PNode) it.next();
+		for (Iterator<PNode> it = getChildrenIterator(); it.hasNext();) {
+			PNode x = it.next();
 			if (x instanceof FacetText) {
 				FacetText child = (FacetText) x;
 				child.selectFacet();
@@ -442,6 +444,7 @@ final class FacetTreeViz extends LazyPNode implements MouseDoc {
 					: "Hide indented lines";
 		}
 
+		@Override
 		public void doPick() {
 			assert contractLabel.equals(getText())
 					|| expandLabel.equals(getText()) : getText();

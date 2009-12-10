@@ -3,17 +3,18 @@ package edu.cmu.cs.bungee.client.query.tetrad;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 import java.util.SortedSet;
-import java.util.TreeSet;
 
 import edu.cmu.cs.bungee.client.query.ItemPredicate;
-import edu.cmu.cs.bungee.client.query.MexPerspectives;
 import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.cmu.cs.bungee.client.query.Query;
+import edu.cmu.cs.bungee.client.query.QuerySQL;
+import edu.cmu.cs.bungee.client.query.tetrad.GraphicalModel.SimpleEdge;
 import edu.cmu.cs.bungee.javaExtensions.PerspectiveObserver;
 import edu.cmu.cs.bungee.javaExtensions.StringAlign;
 import edu.cmu.cs.bungee.javaExtensions.Util;
@@ -34,15 +35,32 @@ public abstract class Explanation implements PerspectiveObserver {
 	private static final int MAX_CANDIDATES = 20;
 
 	/**
-	 * 0 Print candidate facets, duration, & number of edges
-	 * 
-	 * 1 Print improvement for each guess
-	 * 
-	 * 2 Print graph of each guess
-	 * 
-	 * 3 Prints weights & KL for each guess
+	 * Print nothing
 	 */
-	static final int PRINT_LEVEL = 0;
+	static final int NOTHING = 0;
+
+	/**
+	 * Print candidate facets, duration, number of edges. and scores
+	 */
+	static final int STATISTICS = 1;
+
+	/**
+	 * Print improvement for each guess
+	 */
+	static final int IMPROVEMENT = 2;
+
+	/**
+	 * Print graph of each guess
+	 */
+	static final int GRAPH = 3;
+
+	/**
+	 * Prints weights & KL for each guess
+	 */
+	static final int WEIGHTS = 4;
+
+	static final int PRINT_LEVEL = NOTHING;
+
 	private static boolean PRINT_RSQUARED = false;
 	static boolean PRINT_CANDIDATES_TO_FILE = false;
 
@@ -58,15 +76,17 @@ public abstract class Explanation implements PerspectiveObserver {
 	/**
 	 * @return an explanation with different facets
 	 */
-	abstract Explanation getAlternateExplanation(List facets);
+	abstract Explanation getAlternateExplanation(
+			List<ItemPredicate> allFacetList);
 
 	/**
 	 * @param edges
 	 * @return an explanation with different edges
 	 */
-	abstract Explanation getAlternateExplanation(Set edges);
+	abstract Explanation getAlternateExplanation(Set<SimpleEdge> edges);
 
-	protected Explanation(List facets, Set edges, List likelyCandidates) {
+	protected Explanation(List<ItemPredicate> facets, Set<SimpleEdge> edges,
+			List<ItemPredicate> likelyCandidates) {
 		observed = Distribution.cacheCandidateDistributions(facets,
 				likelyCandidates);
 		predicted = new GraphicalModel(facets, edges, true, observed.totalCount);
@@ -79,12 +99,13 @@ public abstract class Explanation implements PerspectiveObserver {
 	/**
 	 * add facets to explain this null model
 	 */
-	public Explanation getExplanation(List candidates) {
+	public Explanation getExplanation(List<ItemPredicate> candidates) {
 		// Util.print("selectFacets " + maxModel.facets + "\n");
 		Explanation result = FacetSelection.selectFacets(this, candidates,
 				edgeCost);
 		// Util.print("fs "+result);
 		result = EdgeSelection.selectEdges(result, edgeCost, this);
+
 		// Util.print("es "+result);
 		// double prev = NonAlchemyModel.WEIGHT_STABILITY_IMPORTANCE;
 		// if (prev != 0) {
@@ -119,13 +140,10 @@ public abstract class Explanation implements PerspectiveObserver {
 
 	/**
 	 * optimize weights of predicted model to match observed and nullModel
-	 * 
-	 * @param base
-	 *            initialize weights based on this model
 	 */
-	abstract void learnWeights(Explanation base);
+	abstract void learnWeights();
 
-	public List facets() {
+	public List<ItemPredicate> facets() {
 		assert predicted.facets.equals(observed.facets) : predicted.facets
 				+ " " + observed.facets;
 		return predicted.facets;
@@ -146,7 +164,7 @@ public abstract class Explanation implements PerspectiveObserver {
 	}
 
 	abstract double improvement(Explanation previous, double threshold1,
-			List primaryFacets);
+			List<ItemPredicate> primaryFacets);
 
 	protected double getRNormalizedWeightOrZero(ItemPredicate cause,
 			ItemPredicate caused) {
@@ -162,8 +180,9 @@ public abstract class Explanation implements PerspectiveObserver {
 				nullModel, true), Util.convertForFilename(toString()));
 	}
 
-	public static List relevantFacets(Perspective popupFacet) {
-		SortedSet primaryFacets1 = popupFacet.query().allRestrictions();
+	public static List<ItemPredicate> relevantFacets(Perspective popupFacet) {
+		SortedSet<Perspective> primaryFacets1 = popupFacet.query()
+				.allRestrictions();
 		primaryFacets1.add(popupFacet);
 		// TopTags topTags = popupFacet.query().topTags(2 * MAX_FACETS);
 		// for (Iterator it = topTags.topIterator(); it.hasNext()
@@ -174,90 +193,54 @@ public abstract class Explanation implements PerspectiveObserver {
 		removeAncestorFacets(primaryFacets1, popupFacet);
 		// }
 
-		SortedSet combos = new TreeSet();
-		Perspective end = (Perspective) primaryFacets1.first();
-		Perspective start = null;
-		for (Iterator it = primaryFacets1.iterator(); it.hasNext();) {
-			Perspective p = (Perspective) it.next();
-			int id = p.getID();
-			if (id == end.getID() + 1 && p.getParent() == end.getParent()
-					&& p.getParent().isOrdered()) {
-				end = p;
-			} else {
-				if (start != null)
-					combos.add(relevantFacetsInternal(start, end));
-				start = p;
-				end = p;
-			}
-		}
-		combos.add(relevantFacetsInternal(start, end));
+		SortedSet<ItemPredicate> combos = Perspective.coalesce(primaryFacets1,
+				true);
 		// Util.print("rf " + combos);
-		return new ArrayList(combos);
+		return new ArrayList<ItemPredicate>(combos);
 	}
 
-	private static ItemPredicate relevantFacetsInternal(Perspective start,
-			Perspective end) {
-		// Util.print("rfi " + start + " " + end);
-		if (start == end) {
-			return end;
-		} else {
-			return new MexPerspectives(start, end);
-		}
-	}
-
-	private static void removeAncestorFacets(Collection primary,
+	private static void removeAncestorFacets(Collection<Perspective> primary,
 			Perspective popupFacet) {
-		for (Iterator it = new ArrayList(primary).iterator(); it.hasNext();) {
-			Perspective facet = (Perspective) it.next();
-			Collection ancestors = facet.ancestors();
+		for (Iterator<Perspective> it = new ArrayList<Perspective>(primary)
+				.iterator(); it.hasNext();) {
+			Perspective facet = it.next();
+			Collection<Perspective> ancestors = facet.ancestors();
 			// Never remove popupFacet
 			ancestors.remove(popupFacet);
 			primary.removeAll(ancestors);
 		}
 	}
 
-	static List candidateFacets(List primaryFacets, boolean excludePrimary) {
+	static <F extends ItemPredicate> List<ItemPredicate> candidateFacets(
+			List<F> primaryFacets, boolean excludePrimary) {
 		Query query = ((ItemPredicate) Util.some(primaryFacets)).query();
-		// List topTags = query.topMutInf(primaryFacets, MAX_CANDIDATES);
-		List candidates = query.topMutInf(primaryFacets, MAX_CANDIDATES);
-		// for (Iterator it = topTags.iterator(); it.hasNext();) {
-		// Perspective tr = (Perspective) it.next();
-		// if (!primaryFacets.contains(tr)) {
-		// candidates.add(tr);
-		//
-		// // List facets = new LinkedList(primaryFacets);
-		// // facets.add(tr);
-		// // Collections.sort(facets);
-		// // List facet = new ArrayList(1);
-		// // facet.add(tr);
-		// // Distribution dist = Distribution.getObservedDistribution(
-		// // facets, null);
-		// // Util.print(tr + " "
-		// // + dist.mutualInformation(primaryFacets, facet) + " "
-		// // + dist.sumCorrelation(tr));
-		// }
-		// }
-		// result.add(query.findPerspective(402));
+		List<Perspective> topMut = query.topMutInf(QuerySQL.itemPredsSQLexpr(
+				null, primaryFacets, true, "?").toString()
+		// Query.getItemPredicateIDs(primaryFacets)
+				, MAX_CANDIDATES);
+		List<ItemPredicate> result = new LinkedList<ItemPredicate>();
+		for (Perspective p : topMut) {
+			result.add(p);
+		}
 		if (excludePrimary)
-			candidates.removeAll(primaryFacets);
+			result.removeAll(primaryFacets);
 		else
-			candidates.addAll(primaryFacets);
+			result.addAll(primaryFacets);
 
 		int queryCount = query.getTotalCount();
-		for (Iterator it = candidates.iterator(); it.hasNext();) {
-			Perspective candidate = (Perspective) it.next();
+		for (Iterator<ItemPredicate> it = result.iterator(); it.hasNext();) {
+			ItemPredicate candidate = it.next();
 			int totalCount = candidate.getTotalCount();
 			if (totalCount == queryCount)
 				it.remove();
 			else if (candidate.getNameIfPossible() == null)
-				query.importFacet(candidate.getID());
+				query.importFacet(((Perspective) candidate).getID());
 		}
 
-//		List x = new ArrayList(candidates);
-		// Collections.sort(x);
-		Util.print("candidateFacets " + primaryFacets + " => " + candidates);
-
-		return candidates;
+		if (PRINT_LEVEL >= Explanation.STATISTICS) {
+			Util.print("candidateFacets " + primaryFacets + " => " + result);
+		}
+		return result;
 	}
 
 	// List primaryFacets() {
@@ -280,10 +263,11 @@ public abstract class Explanation implements PerspectiveObserver {
 		if (Rs == null) {
 			Rs = new double[nFacets()];
 			for (int cause = 0; cause < nFacets(); cause++) {
-				ItemPredicate causeP = (ItemPredicate) facets().get(cause);
+				ItemPredicate causeP = facets().get(cause);
 				double r2 = pseudoRsquared(causeP);
 				Rs[cause] = Math.sqrt(Math.abs(r2)) * Util.sgn(r2);
 			}
+			// Util.print("getRs " + Util.valueOfDeep(Rs) + " " + this);
 		}
 		return Rs;
 	}
@@ -301,15 +285,15 @@ public abstract class Explanation implements PerspectiveObserver {
 		double residuals = 0;
 		double baseResiduals = 0;
 		int causedIndex = facetIndex(p2);
-		List causeds = new ArrayList(1);
+		List<ItemPredicate> causeds = new ArrayList<ItemPredicate>(1);
 		causeds.add(p2);
 		double[] marginal = observed.getMarginal(causeds);
 		if (marginal[1] == 0 || marginal[0] == 0)
-			return 1;
+			return 0;
 		double unconditional = marginal[1] / (marginal[0] + marginal[1]);
 		if (PRINT_RSQUARED) {
-			for (Iterator it = facets().iterator(); it.hasNext();) {
-				ItemPredicate p = (ItemPredicate) it.next();
+			for (Iterator<ItemPredicate> it = facets().iterator(); it.hasNext();) {
+				ItemPredicate p = it.next();
 				if (p != p2) {
 					String name = p.getNameIfPossible() + "";
 					System.out.print(name.substring(0, Math.min(name.length(),
@@ -471,12 +455,11 @@ public abstract class Explanation implements PerspectiveObserver {
 				causedRs[i] = new double[nFacets()];
 			}
 			for (int caused = 0; caused < nFacets(); caused++) {
-				ItemPredicate causedP = (ItemPredicate) facets().get(caused);
+				ItemPredicate causedP = facets().get(caused);
 				double sum = 0;
 				for (int cause = 0; cause < nFacets(); cause++) {
 					if (caused != cause && predicted.hasEdge(cause, caused)) {
-						ItemPredicate causeP = (ItemPredicate) facets().get(
-								cause);
+						ItemPredicate causeP = facets().get(cause);
 
 						double w = computeRNormalizedWeight(causeP, causedP);
 						// double w = predicted.getWeight(causeP, causedP);
@@ -523,7 +506,7 @@ public abstract class Explanation implements PerspectiveObserver {
 	 */
 	private double marginalDeltaR(ItemPredicate cause, ItemPredicate caused) {
 		double with = R(caused);
-		Set edges = predicted.getEdges(false);
+		Set<SimpleEdge> edges = predicted.getEdges(false);
 		edges.remove(GraphicalModel.getEdge(cause, caused));
 		Explanation withoutModel = getAlternateExplanation(edges);
 		double without = withoutModel.R(caused);
@@ -553,13 +536,14 @@ public abstract class Explanation implements PerspectiveObserver {
 	private double meanDeltaR(ItemPredicate cause, ItemPredicate caused) {
 		int nPerm = 0;
 		double sumR2 = 0;
-		Collection otherCauses = new LinkedList(predicted.getCauses(caused));
+		Collection<ItemPredicate> otherCauses = new LinkedList<ItemPredicate>(
+				predicted.getCauses(caused));
 		otherCauses.remove(cause);
-		for (Iterator combIt = new Util.CombinationIterator(otherCauses); combIt
-				.hasNext();) {
-			Collection x = (Collection) combIt.next();
+		for (Iterator<List<ItemPredicate>> combIt = new Util.CombinationIterator<ItemPredicate>(
+				otherCauses); combIt.hasNext();) {
+			Collection<ItemPredicate> x = combIt.next();
 
-			Set edges = predicted.getEdges(false);
+			Set<SimpleEdge> edges = predicted.getEdges(false);
 			edges.removeAll(GraphicalModel.getEdgesTo(x, caused));
 			Explanation withModel = x.isEmpty() ? this
 					: getAlternateExplanation(edges);
@@ -590,25 +574,39 @@ public abstract class Explanation implements PerspectiveObserver {
 
 	void initializeWeights(Explanation base) {
 		GraphicalModel baseModel = base.predicted;
-		for (Iterator it = predicted.getEdgeIterator(); it.hasNext();) {
-			int[] edge = (int[]) it.next();
+		for (Iterator<int[]> it = predicted.getEdgeIterator(); it.hasNext();) {
+			int[] edge = it.next();
 			int causeNode = edge[0];
 			int causedNode = edge[1];
-			ItemPredicate cause = (ItemPredicate) facets().get(causeNode);
-			ItemPredicate caused = (ItemPredicate) facets().get(causedNode);
+			ItemPredicate cause = facets().get(causeNode);
+			ItemPredicate caused = facets().get(causedNode);
 			if (baseModel.hasEdge(cause, caused)) {
 				predicted.setWeight(causeNode, causedNode, baseModel.getWeight(
 						cause, caused));
 			}
 		}
-		for (Iterator it = facets().iterator(); it.hasNext();) {
-			ItemPredicate p = (ItemPredicate) it.next();
+		for (Iterator<ItemPredicate> it = facets().iterator(); it.hasNext();) {
+			ItemPredicate p = it.next();
 			if (baseModel.hasEdge(p, p)) {
 				predicted.setWeight(p, p, baseModel.getWeight(p, p));
 			}
 		}
 		predicted.resetWeights();
 	}
+
+	// void randomizeWeights() {
+	// for (Iterator it = predicted.getEdgeIterator(); it.hasNext();) {
+	// int[] edge = (int[]) it.next();
+	// int causeNode = edge[0];
+	// int causedNode = edge[1];
+	// predicted.setWeight(causeNode, causedNode, Math.random()-0.5);
+	// }
+	// for (Iterator it = facets().iterator(); it.hasNext();) {
+	// ItemPredicate p = (ItemPredicate) it.next();
+	// predicted.setWeight(p, p, Math.random()-0.5);
+	// }
+	// predicted.resetWeights();
+	// }
 
 	/**
 	 * dKL/dw = 0 implies observedOn/observedOff = expEOn/expEOff.
@@ -674,6 +672,176 @@ public abstract class Explanation implements PerspectiveObserver {
 		PRINT_RSQUARED = prev;
 	}
 
+	boolean printStats(Explanation nullModel) {
+		boolean result = nFacets() > nullModel.nFacets();
+		// Util.print(result+" "+this+" "+nullModel);
+		if (result) {
+			List<ItemPredicate> primaryFacets = nullModel.facets();
+			// Query query = ((ItemPredicate) Util.some(primaryFacets)).query();
+			// Perspective facet1 = (Perspective) primaryFacets.get(0);
+			// Perspective facet2 = (Perspective) primaryFacets.get(1);
+			//
+			List<ItemPredicate> x = new LinkedList<ItemPredicate>(facets());
+			x.removeAll(primaryFacets);
+			Perspective p = (Perspective) x.get(0);
+			//
+			// query.clear();
+			// if (facet1.getParent() != null)
+			// query.toggleFacet(facet1, 0);
+			// if (facet2.getParent() != null)
+			// query.toggleFacet(facet2, 0);
+			// Perspective parent = p.getParent();
+			// result = parent != null;
+			// if (result) {
+			// parent.displayAncestors();
+			// query.updateOnItems(null, 0);
+			// query.updateData(false);
+
+			// Try I(X;Y) - I(X;Y|Z)
+
+			// = H(X) + H(Y) - H(X,Y) - H(X,Z) - H(Y,Z) + H(X,Y,Z) + H(Z)
+
+			// Distribution dXZ = distForFacets(facet1, p, null);
+			// Distribution dYZ = distForFacets(facet2, p, null);
+			// Distribution dXY = distForFacets(facet1, facet2, null);
+			// Distribution dX = distForFacets(facet1, null, null);
+			// Distribution dY = distForFacets(facet2, null, null);
+			// Distribution dZ = distForFacets(p, null, null);
+			// Distribution dXYZ = distForFacets(facet1, facet2, p);
+			// double deltaMutInf = dX.entropy() + dY.entropy() + dZ.entropy()
+			// - dXY.entropy() - dXZ.entropy() - dYZ.entropy()
+			// + dXYZ.entropy();
+
+			Util.print(// relevance(p, parent) + "\t"+
+					// relevance(p, query) + "\t" +
+					observed.correlationHacked(nullModel) + "\t"
+							+ (-interactionInformationHacked(nullModel)) + "\t"
+							+ improvement(nullModel, 0, primaryFacets) + "\t"
+							+ p + "\t" + primaryFacets);
+			// Util.print(observed);
+			// }
+			// query.clear();
+		}
+		return result;
+	}
+
+	// see http://en.wikipedia.org/wiki/Interaction_information
+	double interactionInformation() {
+		double result = 0;
+		int n = facets().size();
+		for (Iterator<List<ItemPredicate>> it = new Util.CombinationIterator<ItemPredicate>(
+				facets()); it.hasNext();) {
+			List<ItemPredicate> subfacets = it.next();
+			int m = subfacets.size();
+			if (m > 0) {
+				double h = Distribution.ensureDist(subfacets).entropy();
+				if ((n - m) % 2 == 0)
+					result -= h;
+				else
+					result += h;
+			}
+		}
+		return result;
+	}
+
+	double interactionInformation(Explanation nullModel) {
+		List<ItemPredicate> prim = nullModel.facets();
+		if (prim.size() != 2)
+			return Double.NaN;
+		List<ItemPredicate> nonPrim = new LinkedList<ItemPredicate>(facets());
+		nonPrim.removeAll(prim);
+
+		double result = -observed.entropy()
+				- Distribution.ensureDist(nonPrim).entropy()
+				+ Distribution.ensureDist(prim).entropy();
+		List<ItemPredicate> prim1 = new ArrayList<ItemPredicate>(1);
+		prim1.add(prim.get(0));
+		List<ItemPredicate> prim2 = new ArrayList<ItemPredicate>(1);
+		prim2.add(prim.get(1));
+		result -= Distribution.ensureDist(prim1).entropy()
+				+ Distribution.ensureDist(prim2).entropy();
+		nonPrim.add(prim.get(0));
+		Collections.sort(nonPrim);
+		result += Distribution.ensureDist(nonPrim).entropy();
+		nonPrim.remove(prim.get(0));
+		nonPrim.add(prim.get(1));
+		Collections.sort(nonPrim);
+
+		result += Distribution.ensureDist(nonPrim).entropy();
+		return result;
+	}
+
+	double interactionInformationHacked(Explanation nullModel) {
+		List<ItemPredicate> prim = nullModel.facets();
+		if (prim.size() != 2)
+			return Double.NaN;
+		List<ItemPredicate> nonPrim = new LinkedList<ItemPredicate>(facets());
+		nonPrim.removeAll(prim);
+
+		// Util.print("ii " + observed.entropy() + " " + observed + " "
+		// + Distribution.ensureDist(nonPrim).entropy() + " "
+		// + Distribution.ensureDist(nonPrim));
+		double result = -observed.entropy()
+				- Distribution.ensureDist(nonPrim).entropy();
+		nonPrim.add(prim.get(0));
+		Collections.sort(nonPrim);
+		result += Distribution.ensureDist(nonPrim).entropy();
+		// Util.print("ii2 " + Distribution.ensureDist(nonPrim).entropy() + " "
+		// + Distribution.ensureDist(nonPrim));
+		nonPrim.remove(prim.get(0));
+		nonPrim.add(prim.get(1));
+		Collections.sort(nonPrim);
+
+		result += Distribution.ensureDist(nonPrim).entropy();
+		// Util.print("ii3 " + Distribution.ensureDist(nonPrim).entropy() + " "
+		// + Distribution.ensureDist(nonPrim));
+		return result;
+	}
+
+	// private static Distribution distForFacets(Perspective X, Perspective Y,
+	// Perspective Z) {
+	// List l = new LinkedList();
+	// if (X != null)
+	// l.add(X);
+	// if (Y != null)
+	// l.add(Y);
+	// if (Z != null)
+	// l.add(Z);
+	// Collections.sort(l);
+	// return Distribution.ensureDist(l);
+	// }
+
+	protected double getRNormalizedWeightsTest(Perspective causeP,
+			Perspective causedP) {
+		double sum = 0;
+		for (int cause = 0; cause < nFacets(); cause++) {
+			ItemPredicate causeP1 = facets().get(cause);
+			if (causedP != causeP1 && predicted.hasEdge(causeP1, causedP)) {
+
+				double w = predicted.getWeight(causeP1, causedP);
+				sum += Math.abs(w);
+			}
+		}
+		return Math.abs(predicted.getWeight(causeP, causedP)) / sum;
+	}
+
+	// private static double relevance(Perspective p, ItemPredicate universe) {
+	// ChiSq2x2 c = ChiSq2x2.getInstance(p, universe.getTotalCount(), universe
+	// .getOnCount(), p.getTotalCount(), p.getOnCount(), universe);
+	//
+	// // ChiSq2x2 expected = c.expected();
+	// // double chiSq = c.chiSq();// + "\n" + chiSq + "\t" + chiSq /
+	// // c.total()
+	// // + " " + c.correlation() + "\n" + expected.printTable() + "\n");
+	//
+	// double myChi = c.myCramersPhi() / Math.sqrt(universe.getTotalCount());
+	// // Util.print(p + c.printTable() + "\n" + myChi);
+	// Perspective.TopTags.TagRelevance tagRelevance = new
+	// Perspective.TopTags.TagRelevance(
+	// c, myChi);
+	// return tagRelevance.relevanceScore();
+	// }
+
 	// protected void printGraphAndNull() {
 	// Explanation nullModel = nullModel();
 	// if (nullModel != this) {
@@ -687,6 +855,7 @@ public abstract class Explanation implements PerspectiveObserver {
 	// }
 	// }
 
+	@Override
 	public String toString() {
 		StringBuffer buf = new StringBuffer();
 		buf.append("<").append(Util.shortClassName(this)).append(" ");
@@ -696,14 +865,14 @@ public abstract class Explanation implements PerspectiveObserver {
 		buf.append(facets());
 
 		if (false) {
-			for (Iterator it = predicted.getEdgeIterator(); it.hasNext();) {
-				int[] edge = (int[]) it.next();
+			for (Iterator<int[]> it = predicted.getEdgeIterator(); it.hasNext();) {
+				int[] edge = it.next();
 				int causeNode = edge[0];
 				int causedNode = edge[1];
 				if (predicted.hasEdge(causeNode, causedNode)) {
 					double weight = predicted.getWeight(causeNode, causedNode);
-					ItemPredicate p1 = (ItemPredicate) facets().get(causeNode);
-					ItemPredicate p2 = (ItemPredicate) facets().get(causedNode);
+					ItemPredicate p1 = facets().get(causeNode);
+					ItemPredicate p2 = facets().get(causedNode);
 					buf.append("\n").append(weight).append(" (").append(
 							predicted.getStdDevNormalizedWeight(p1, p2))
 							.append(") ").append(p1).append(" ---- ")
@@ -726,7 +895,8 @@ public abstract class Explanation implements PerspectiveObserver {
 	// return predicted.buildGraph(observed, parentModel, redrawer);
 	// }
 
-	public Graph buildGraph(PerspectiveObserver redrawer, Explanation nullModel, boolean debug) {
+	public Graph<ItemPredicate> buildGraph(PerspectiveObserver redrawer,
+			Explanation nullModel, boolean debug) {
 		return predicted.buildGraph(getRs(), getRNormalizedWeights(),
 				klDivergence(), nullModel, redrawer, debug);
 	}
@@ -749,7 +919,7 @@ public abstract class Explanation implements PerspectiveObserver {
 		// printToFile();
 	}
 
-	public abstract Graph buildGraph(PerspectiveObserver redrawer,
+	public abstract Graph<ItemPredicate> buildGraph(PerspectiveObserver redrawer,
 			Perspective popupFacet, boolean debug);
 
 	// public void writeVennMasterFile(Collection primaryFacets) {
@@ -809,7 +979,7 @@ public abstract class Explanation implements PerspectiveObserver {
 		return predicted.nUsedFacets();
 	}
 
-	public List unusedFacets() {
+	public List<ItemPredicate> unusedFacets() {
 		return predicted.unusedFacets();
 	}
 }

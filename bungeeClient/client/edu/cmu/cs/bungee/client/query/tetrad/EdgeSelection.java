@@ -1,6 +1,5 @@
 package edu.cmu.cs.bungee.client.query.tetrad;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -10,27 +9,30 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import edu.cmu.cs.bungee.client.query.ItemPredicate;
 import edu.cmu.cs.bungee.client.query.tetrad.GraphicalModel.SimpleEdge;
 
-public class EdgeSelection extends GreedySubset {
+public class EdgeSelection extends GreedySubset<SimpleEdge> {
 
-	private final Map explanations = new HashMap();
-	private final Set committedEdges;
+	private final Map<Set<SimpleEdge>, Explanation> explanations = new HashMap<Set<SimpleEdge>, Explanation>();
+	private final Set<SimpleEdge> committedEdges;
 	private final Explanation maxModel;
 	private final Explanation nullModel;
 
 	protected static Explanation selectEdges(Explanation explanation,
 			double threshold, Explanation nullModel) {
+		if (explanation.predicted.nEdges() == 0)
+			return explanation;
 		/**
 		 * @param isCoreEdges
 		 *            Once core edges are removed, removing others will have no
 		 *            effect. So first remove any non-core edges you can, and
 		 *            then remove only core edges.
 		 */
-		Set startCoreEdges = candidateEdges(explanation, true, nullModel);
-		Set startNonCoreEdges = candidateEdges(explanation, false, nullModel);
+		Set<SimpleEdge> startCoreEdges = candidateEdges(explanation, true, nullModel);
+		Set<SimpleEdge> startNonCoreEdges = candidateEdges(explanation, false, nullModel);
 
-		Set nonCoreEdges = startNonCoreEdges;
+		Set<SimpleEdge> nonCoreEdges = startNonCoreEdges;
 		Explanation intermediateExplanation = explanation;
 		if (startNonCoreEdges.size() > 0) {
 			EdgeSelection nonCoreSearch = new EdgeSelection(threshold,
@@ -46,15 +48,15 @@ public class EdgeSelection extends GreedySubset {
 
 		EdgeSelection coreSearch = new EdgeSelection(threshold, startCoreEdges,
 				nonCoreEdges, intermediateExplanation, nullModel);
-		Set coreEdges = coreSearch.selectVariables();
+		Set<SimpleEdge> coreEdges = coreSearch.selectVariables();
 		// if (Explanation.PRINT_LEVEL > 0)
 		// Util.print("core EdgeSelection => " + coreEdges.size() + " "
 		// + coreEdges);
 		return coreSearch.lookupExplanation(coreEdges, intermediateExplanation);
 	}
 
-	private EdgeSelection(double threshold, Set candidateEdges,
-			Set committedEdges, Explanation base, Explanation nullModel) {
+	private EdgeSelection(double threshold, Set<SimpleEdge> candidateEdges,
+			Set<SimpleEdge> committedEdges, Explanation base, Explanation nullModel) {
 		super(threshold, candidateEdges, GreedySubset.REMOVE);
 		addAllVariables();
 		this.committedEdges = Collections.unmodifiableSet(committedEdges);
@@ -67,12 +69,12 @@ public class EdgeSelection extends GreedySubset {
 		// base.printGraph();
 	}
 
-	private static Set candidateEdges(Explanation explanation,
+	private static Set<SimpleEdge> candidateEdges(Explanation explanation,
 			boolean isCoreEdges, Explanation nullModel) {
-		List primaryFacets = nullModel.facets();
-		Set result = explanation.predicted.getEdges(false);
-		for (Iterator it = result.iterator(); it.hasNext();) {
-			SimpleEdge candidateEdge = (SimpleEdge) it.next();
+		List<ItemPredicate> primaryFacets = nullModel.facets();
+		Set<SimpleEdge> result = explanation.predicted.getEdges(false);
+		for (Iterator<SimpleEdge> it = result.iterator(); it.hasNext();) {
+			SimpleEdge candidateEdge = it.next();
 			if (isCoreEdges != (primaryFacets.contains(candidateEdge.p1) && primaryFacets
 					.contains(candidateEdge.p2))) {
 				it.remove();
@@ -81,7 +83,8 @@ public class EdgeSelection extends GreedySubset {
 		return result;
 	}
 
-	protected double improvement(Object toggledEdge, double threshold1) {
+	@Override
+	protected double improvement(SimpleEdge toggledEdge, double threshold1) {
 		Explanation previous = lookupExplanation(previousGuess(toggledEdge),
 				null);
 		Explanation current = lookupExplanation(currentGuess, previous);
@@ -94,14 +97,14 @@ public class EdgeSelection extends GreedySubset {
 		return result;
 	}
 
-	private Set allEdges(Collection addedEdges) {
-		Set result = new HashSet(committedEdges);
+	private Set<SimpleEdge> allEdges(Collection<SimpleEdge> addedEdges) {
+		Set<SimpleEdge> result = new HashSet<SimpleEdge>(committedEdges);
 		result.addAll(addedEdges);
 		return result;
 	}
 
-	private Explanation lookupExplanation(Set addedEdges, Explanation base) {
-		Set allEdges = Collections.unmodifiableSet(allEdges(addedEdges));
+	private Explanation lookupExplanation(Set<SimpleEdge> addedEdges, Explanation base) {
+		Set<SimpleEdge> allEdges = Collections.unmodifiableSet(allEdges(addedEdges));
 		Explanation result = edges2Explanation(allEdges);
 		if (result == null) {
 			if (base == null)
@@ -113,31 +116,33 @@ public class EdgeSelection extends GreedySubset {
 		return result;
 	}
 
-	private void cacheExplanation(Set edges, Explanation expl) {
+	private void cacheExplanation(Set<SimpleEdge> edges, Explanation expl) {
 		assert edges.size() == expl.predicted.nEdges();
 		// expl.predicted.edgesFixed = true;
-		List args = new ArrayList(3);
-		args.add(expl);
-		args.add(expl.toString());
-		args.add(edges.size() + "");
-		explanations.put(Collections.unmodifiableSet(edges), args);
+//		List<Object> args = new ArrayList<Object>(3);
+//		args.add(expl);
+//		args.add(expl.toString());
+//		args.add(edges.size() + "");
+		explanations.put(Collections.unmodifiableSet(edges), expl);
 
 	}
 
-	private Explanation edges2Explanation(Set edges) {
-		List args = (List) explanations.get(edges);
-		Explanation result = args == null ? null : (Explanation) args.get(0);
-		assert result == null || edges.size() == result.predicted.nEdges() : args
+	private Explanation edges2Explanation(Set<SimpleEdge> edges) {
+		Explanation result = explanations.get(edges);
+//		Explanation result = args == null ? null : (Explanation) args.get(0);
+		assert result == null || edges.size() == result.predicted.nEdges() : result
 				+ " " + edges.size();
 		return result;
 	}
 
-	protected void newBest(Object candidate) {
+	@Override
+	protected void newBest(SimpleEdge candidate) {
 		super.newBest(candidate);
-		if (Explanation.PRINT_LEVEL > 1) {
-			Explanation best = lookupExplanation(currentGuess, null);
-			best.printGraph();
+		Explanation best = lookupExplanation(currentGuess, null);
+		if (Explanation.PRINT_CANDIDATES_TO_FILE)
 			best.printToFile(nullModel);
+		if (Explanation.PRINT_LEVEL >= Explanation.GRAPH) {
+			best.printGraph();
 		}
 	}
 }

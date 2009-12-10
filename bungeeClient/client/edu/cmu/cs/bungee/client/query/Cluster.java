@@ -15,7 +15,7 @@ import edu.cmu.cs.bungee.javaExtensions.PerspectiveObserver;
  */
 public final class Cluster implements ItemPredicate {
 
-	private final SortedSet facets;
+	private final SortedSet<Perspective> facets;
 
 	private final String query;
 
@@ -50,7 +50,7 @@ public final class Cluster implements ItemPredicate {
 	 *            the query whose facets comprise this cluster
 	 */
 	public Cluster(final ResultSet rs, final Query q) {
-		SortedSet _facets = new TreeSet();
+		SortedSet<Perspective> _facets = new TreeSet<Perspective>();
 		query = q.bookmark();
 		int _nOnItems = -1;
 		int _nItems = -1;
@@ -89,6 +89,10 @@ public final class Cluster implements ItemPredicate {
 		// Perspective.class);
 	}
 
+	public SortedSet<Perspective> getFacets() {
+		return facets;
+	}
+
 	public double pValue() {
 		// If cluster is created by replayOps, pValue = -1;
 		// assert 0 <= pValue && pValue <= 1;
@@ -103,11 +107,11 @@ public final class Cluster implements ItemPredicate {
 	 * @param _facets
 	 *            this cluster's facets
 	 */
-	public Cluster(Set _facets) {
+	public Cluster(Set<Perspective> _facets) {
 		nOnItems = -1;
 		nItems = -1;
 		pValue = -1;
-		facets = new TreeSet(_facets);
+		facets = new TreeSet<Perspective>(_facets);
 		query = query().bookmark();
 	}
 
@@ -124,8 +128,8 @@ public final class Cluster implements ItemPredicate {
 		if (buf == null)
 			buf = new StringBuffer();
 		boolean first = true;
-		for (Iterator it = facets.iterator(); it.hasNext();) {
-			Perspective p = (Perspective) it.next();
+		for (Iterator<Perspective> it = facets.iterator(); it.hasNext();) {
+			Perspective p = it.next();
 			if (first)
 				first = false;
 			else
@@ -136,6 +140,7 @@ public final class Cluster implements ItemPredicate {
 		return buf;
 	}
 
+	@Override
 	public String toString() {
 		// return super.toString();
 		return getName(null);
@@ -151,6 +156,7 @@ public final class Cluster implements ItemPredicate {
 		return buf.toString();
 	}
 
+	@Override
 	public boolean equals(Object aThat) {
 		if (this == aThat)
 			return true;
@@ -160,6 +166,7 @@ public final class Cluster implements ItemPredicate {
 		return this.facets.equals(that.facets) && this.query.equals(that.query);
 	}
 
+	@Override
 	public int hashCode() {
 		return 37 * facets.hashCode() + query.hashCode();
 	}
@@ -203,14 +210,14 @@ public final class Cluster implements ItemPredicate {
 	}
 
 	public Query query() {
-		return ((Perspective) facets.first()).query();
+		return facets.first().query();
 	}
 
 	public int nRestrictions() {
 		return facets.size();
 	}
 
-	public SortedSet allRestrictions() {
+	public SortedSet<Perspective> allRestrictions() {
 		return facets;
 	}
 
@@ -260,7 +267,7 @@ public final class Cluster implements ItemPredicate {
 		return getOnCount();
 	}
 
-	public int compareTo(Object caused) {
+	public int compareTo(ItemPredicate caused) {
 		assert false : caused;
 		return 0;
 	}

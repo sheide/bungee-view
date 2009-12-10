@@ -21,6 +21,7 @@ class BungeeTextButton extends TextButton {
 		art = _art;
 	}
 
+	@Override
 	public double minWidth() {
 		// return Math.ceil(publicScale * (art.getStringWidth(getText()) + 2));
 		return outerW();
@@ -30,6 +31,7 @@ class BungeeTextButton extends TextButton {
 	// art.setMouseDoc(mouseDoc);
 	// }
 
+	@Override
 	public void mayHideTransients(PNode node) {
 		art.mayHideTransients();
 	}

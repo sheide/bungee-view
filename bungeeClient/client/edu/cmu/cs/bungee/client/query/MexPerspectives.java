@@ -9,6 +9,7 @@ import edu.cmu.cs.bungee.javaExtensions.PerspectiveObserver;
 
 public class MexPerspectives implements ItemPredicate {
 
+	@Override
 	public int hashCode() {
 		final int prime = 31;
 		int result = 1;
@@ -16,6 +17,7 @@ public class MexPerspectives implements ItemPredicate {
 		return result;
 	}
 
+	@Override
 	public boolean equals(Object obj) {
 		if (this == obj)
 			return true;
@@ -32,46 +34,46 @@ public class MexPerspectives implements ItemPredicate {
 		return true;
 	}
 
-	final SortedSet facets;
+	final SortedSet<Perspective> facets;
 
-	public MexPerspectives(Collection facets) {
+	public MexPerspectives(Collection<Perspective> facets) {
 		super();
 		// Util.print("mexp "+facets);
-		this.facets = new TreeSet(facets);
+		this.facets = new TreeSet<Perspective>(facets);
 	}
 
 	public MexPerspectives(Perspective start, Perspective end) {
 		super();
 		// Util.print("mexp "+start+" "+end);
-		this.facets = new TreeSet();
-		for (Iterator it = start.getParent().getChildIterator(start, end); it
+		this.facets = new TreeSet<Perspective>();
+		for (Iterator<Perspective> it = start.getParent().getChildIterator(start, end); it
 				.hasNext();) {
-			Perspective p = (Perspective) it.next();
+			Perspective p = it.next();
 			facets.add(p);
 		}
 	}
 
-	public SortedSet allRestrictions() {
+	public SortedSet<Perspective> allRestrictions() {
 		return facets;
 	}
 
 	public int chiColorFamily(double significanceThreshold) {
 		int result = 0;
-		for (Iterator it = facets.iterator(); it.hasNext();) {
-			Perspective type = (Perspective) it.next();
+		for (Iterator<Perspective> it = facets.iterator(); it.hasNext();) {
+			Perspective type = it.next();
 			result = Math.max(result, type
 					.chiColorFamily(significanceThreshold));
 		}
 		return result;
 	}
 
-	public int compareTo(Object caused) {
+	public int compareTo(ItemPredicate caused) {
 		int result = -1;
 		if (caused instanceof MexPerspectives) {
-			result = ((Perspective) facets.first())
+			result = facets.first()
 					.compareTo(((MexPerspectives) caused).facets.first());
 			if (result == 0)
-				result = ((Perspective) facets.last())
+				result = facets.last()
 				.compareTo(((MexPerspectives) caused).facets.last());
 		}
 		return result;
@@ -92,19 +94,19 @@ public class MexPerspectives implements ItemPredicate {
 	}
 
 	public String getName(PerspectiveObserver _redraw) {
-		return ((Perspective) facets.first()).getName() + " - "
-				+ ((Perspective) facets.last()).getName();
+		return facets.first().getName() + " - "
+				+ facets.last().getName();
 	}
 
 	public String getNameIfPossible() {
-		return ((Perspective) facets.first()).getNameIfPossible() + " - "
-				+ ((Perspective) facets.last()).getNameIfPossible();
+		return facets.first().getNameIfPossible() + " - "
+				+ facets.last().getNameIfPossible();
 	}
 
 	public int getOnCount() {
 		int result = 0;
-		for (Iterator it = facets.iterator(); it.hasNext();) {
-			Perspective type = (Perspective) it.next();
+		for (Iterator<Perspective> it = facets.iterator(); it.hasNext();) {
+			Perspective type = it.next();
 			result += type.getOnCount();
 		}
 		return result;
@@ -112,8 +114,8 @@ public class MexPerspectives implements ItemPredicate {
 
 	public int getTotalCount() {
 		int result = 0;
-		for (Iterator it = facets.iterator(); it.hasNext();) {
-			Perspective type = (Perspective) it.next();
+		for (Iterator<Perspective> it = facets.iterator(); it.hasNext();) {
+			Perspective type = it.next();
 			result += type.getTotalCount();
 		}
 		return result;
@@ -121,8 +123,8 @@ public class MexPerspectives implements ItemPredicate {
 
 	public int guessOnCount() {
 		int result = 0;
-		for (Iterator it = facets.iterator(); it.hasNext();) {
-			Perspective type = (Perspective) it.next();
+		for (Iterator<Perspective> it = facets.iterator(); it.hasNext();) {
+			Perspective type = it.next();
 			result += type.guessOnCount();
 		}
 		return result;
@@ -130,8 +132,8 @@ public class MexPerspectives implements ItemPredicate {
 
 	public boolean isEffectiveChildren() {
 		boolean result = false;
-		for (Iterator it = facets.iterator(); it.hasNext();) {
-			Perspective type = (Perspective) it.next();
+		for (Iterator<Perspective> it = facets.iterator(); it.hasNext();) {
+			Perspective type = it.next();
 			result |= type.isEffectiveChildren();
 		}
 		return result;
@@ -139,8 +141,8 @@ public class MexPerspectives implements ItemPredicate {
 
 	public boolean isRestricted() {
 		boolean result = false;
-		for (Iterator it = facets.iterator(); it.hasNext();) {
-			Perspective type = (Perspective) it.next();
+		for (Iterator<Perspective> it = facets.iterator(); it.hasNext();) {
+			Perspective type = it.next();
 			result |= type.isRestricted();
 		}
 		return result;
@@ -148,8 +150,8 @@ public class MexPerspectives implements ItemPredicate {
 
 	public boolean isRestriction(ItemPredicate facet, boolean required) {
 		boolean result = false;
-		for (Iterator it = facets.iterator(); it.hasNext();) {
-			Perspective type = (Perspective) it.next();
+		for (Iterator<Perspective> it = facets.iterator(); it.hasNext();) {
+			Perspective type = it.next();
 			result |= type.isRestriction(facet, required);
 		}
 		return result;
@@ -157,8 +159,8 @@ public class MexPerspectives implements ItemPredicate {
 
 	public boolean isRestriction() {
 		boolean result = false;
-		for (Iterator it = facets.iterator(); it.hasNext();) {
-			Perspective type = (Perspective) it.next();
+		for (Iterator<Perspective> it = facets.iterator(); it.hasNext();) {
+			Perspective type = it.next();
 			result |= type.isRestriction();
 		}
 		return result;
@@ -166,8 +168,8 @@ public class MexPerspectives implements ItemPredicate {
 
 	public int nRestrictions() {
 		int result = 0;
-		for (Iterator it = facets.iterator(); it.hasNext();) {
-			Perspective type = (Perspective) it.next();
+		for (Iterator<Perspective> it = facets.iterator(); it.hasNext();) {
+			Perspective type = it.next();
 			result += type.nRestrictions();
 		}
 		return result;
@@ -180,8 +182,8 @@ public class MexPerspectives implements ItemPredicate {
 
 	public int parentOnCount() {
 		int result = 0;
-		for (Iterator it = facets.iterator(); it.hasNext();) {
-			Perspective type = (Perspective) it.next();
+		for (Iterator<Perspective> it = facets.iterator(); it.hasNext();) {
+			Perspective type = it.next();
 			result += type.parentOnCount();
 		}
 		return result;
@@ -189,8 +191,8 @@ public class MexPerspectives implements ItemPredicate {
 
 	public int parentTotalCount() {
 		int result = 0;
-		for (Iterator it = facets.iterator(); it.hasNext();) {
-			Perspective type = (Perspective) it.next();
+		for (Iterator<Perspective> it = facets.iterator(); it.hasNext();) {
+			Perspective type = it.next();
 			result += type.parentTotalCount();
 		}
 		return result;
@@ -207,7 +209,7 @@ public class MexPerspectives implements ItemPredicate {
 	}
 
 	public Query query() {
-		return ((Perspective) facets.first()).query();
+		return facets.first().query();
 	}
 
 	public boolean restrictData() {
@@ -220,6 +222,7 @@ public class MexPerspectives implements ItemPredicate {
 		 return Query.getItemPredicateIDs(facets).replace(',', '-') ;
 	}
 
+	@Override
 	public String toString() {
 		return toString(null);
 	}
