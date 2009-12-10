@@ -26,7 +26,7 @@ enum Command {
 
 public class Servlet extends HttpServlet {
 
-	private static boolean DEBUG = false;
+	private static boolean DEBUG = true;
 
 	private Map<Integer, Database> sessions = new HashMap<Integer, Database>();
 
@@ -319,7 +319,8 @@ public class Servlet extends HttpServlet {
 			break;
 		case getFacetInfo:
 			int facet = getIntParameter(request, "arg1");
-			db.getFacetInfo(facet, out);
+			boolean isRestrictedData = getBooleanParameter(request, "arg2");
+			db.getFacetInfo(facet, isRestrictedData, out);
 			break;
 		case updateOnItems:
 			String subQuery = request.getParameter("arg1");
@@ -365,9 +366,10 @@ public class Servlet extends HttpServlet {
 		case onCountMatrix:
 			String facets = request.getParameter("arg1");
 			String candidates = request.getParameter("arg2");
-			table = getIntParameter(request, "arg3");
-			boolean needBaseCounts = getIntParameter(request, "arg4") > 0;
-			db.onCountMatrix(facets, candidates, table, needBaseCounts, out);
+			isRestrictedData = getBooleanParameter(request, "arg3");
+			boolean needBaseCounts = getBooleanParameter(request, "arg4");
+			db.onCountMatrix(facets, candidates, isRestrictedData,
+					needBaseCounts, out);
 			break;
 		case topCandidates:
 			facets = request.getParameter("arg1");
@@ -485,11 +487,10 @@ public class Servlet extends HttpServlet {
 		return Double.parseDouble(arg);
 	}
 
-	// private static boolean getBooleanParameter(HttpServletRequest request,
-	// String argSpec) {
-	// String arg = request.getParameter(argSpec);
-	// return Boolean.valueOf(arg).booleanValue();
-	// }
+	private static boolean getBooleanParameter(HttpServletRequest request,
+			String argSpec) {
+		return getIntParameter(request, argSpec) > 0;
+	}
 
 	private boolean isMemberIgnoringCase(String[] dbNames, String dbName) {
 		for (int i = 0; i < dbNames.length; i++) {

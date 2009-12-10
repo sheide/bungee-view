@@ -1,7 +1,8 @@
 -injars 'C:\Documents and Settings\mad\workspace\bungeeServlet\bungeeServlet.jar'
 -outjars 'C:\Program Files\Apache Software Foundation\Tomcat 6.0\webapps\bungee\WEB-INF\lib\bungeeServlet.jar'
 
--libraryjars 'C:\Program Files\Java\jre6\lib\rt.jar'
+-libraryjars 'C:\Program Files\Java\jre1.5.0_06\lib\rt.jar'
+#-libraryjars 'C:\Program Files\Java\jre6\lib\rt.jar'
 -libraryjars 'C:\Program Files\MySQL\MySQL Tools for 5.0\java\lib\mysql-connector-java-5.1.7-bin.jar'
 -libraryjars 'C:\Program Files\Apache Software Foundation\Tomcat 6.0\lib\servlet-api.jar'
 
