@@ -28,7 +28,7 @@ public class ConvertFromRaw {
 	static StringToken sm_server = new StringToken("server", "MySQL server",
 			"", Token.optSwitch, "jdbc:mysql://localhost/");
 	static StringToken sm_user = new StringToken("user", "MySQL user", "",
-			Token.optSwitch, "p5");
+			Token.optSwitch, "bungee");
 	static StringToken sm_pass = new StringToken("pass", "MySQL user password",
 			"", Token.optSwitch, "p5pass");
 	static ApplicationSettings sm_main = new ApplicationSettings();
@@ -399,11 +399,11 @@ public class ConvertFromRaw {
 						+ " FROM raw_item_facet INNER JOIN temp ON raw_item_facet.facet_id = temp.facet_id"
 						+ " WHERE canonical_facet_id > 0");
 
-		jdbc.print("  creating heap version...");
-		jdbc.SQLupdate("DROP TABLE IF EXISTS item_facet_heap");
+		jdbc.print("  creating heap versions...");
+		jdbc.SQLupdate("DROP TABLE IF EXISTS item_facetntype_heap");
 
 		jdbc
-				.SQLupdate("CREATE TABLE item_facet_heap ("
+				.SQLupdate("CREATE TABLE item_facetntype_heap ("
 						+ " record_num  "
 						+ item_idType
 						+ " NOT NULL,"
@@ -414,6 +414,14 @@ public class ConvertFromRaw {
 						+ " KEY item (record_num),"
 						+ " KEY facet (facet_id)"
 						+ ") ENGINE=HEAP DEFAULT CHARSET=ascii PACK_KEYS=1 ROW_FORMAT=FIXED");
+		int nFacetTypes = jdbc
+				.SQLqueryInt("SELECT COUNT(*) FROM temp WHERE parent_facet_id = 0");
+		jdbc.SQLupdate("CREATE OR REPLACE VIEW item_facet_heap AS"
+				+ " SELECT * FROM item_facetntype_heap WHERE facet_id > "
+				+ nFacetTypes);
+		jdbc.SQLupdate("CREATE OR REPLACE VIEW item_facet_type_heap AS"
+				+ " SELECT * FROM item_facetntype_heap WHERE facet_id <= "
+				+ nFacetTypes);
 
 		// jdbc
 		// .SQLupdate("INSERT INTO item_facet_heap SELECT record_num, facet_id FROM item_facet");
@@ -481,11 +489,13 @@ public class ConvertFromRaw {
 	}
 
 	private void createItemFacetType() throws SQLException {
-		jdbc.SQLupdate("DROP TABLE IF EXISTS item_facet_type_heap");
+		// jdbc.SQLupdate("DROP TABLE IF EXISTS item_facet_type_heap");
+		// jdbc
+		// .SQLupdate("CREATE TABLE item_facet_type_heap LIKE item_facet_heap");
 		jdbc
-				.SQLupdate("CREATE TABLE item_facet_type_heap LIKE item_facet_heap");
+				.SQLupdate("INSERT INTO item_facetntype_heap SELECT * FROM item_facet ");
 		jdbc
-				.SQLupdate("INSERT INTO item_facet_type_heap SELECT distinct i.record_num, p.facet_id "
+				.SQLupdate("INSERT INTO item_facetntype_heap SELECT distinct i.record_num, p.facet_id "
 						+ "FROM facet f INNER JOIN facet p ON f.parent_facet_id = p.facet_id "
 						+ "INNER JOIN item_facet i ON i.facet_id = f.facet_id "
 						+ "WHERE p.parent_facet_id = 0");
@@ -842,6 +852,8 @@ public class ConvertFromRaw {
 		int nErrors = printErrors("SELECT * FROM unusedItems",
 				"\nERROR: Item is not associated with any facets",
 				"record_num, " + descField, maxPrint);
+		assert nErrors == 0 : i_f + " "
+				+ jdbc.SQLqueryInt("Select count(*) from unusedItems");
 
 		if (nErrors > 0) {
 			jdbc.print("Deleting " + nErrors + " bogus items with no facets");
@@ -1053,20 +1065,21 @@ public class ConvertFromRaw {
 	public static void ensureDBinitted(JDBCSample jdbc) throws SQLException {
 
 		// TEMPORARY until DBs updated
-//		try {
-//			jdbc
-//					.SQLupdate("create table if not exists item_facetNtype_heap like item_facet_heap;");
-//			jdbc.SQLupdate("DROP TABLE IF EXISTS item_facet_heap");
-//			jdbc.SQLupdate("DROP TABLE IF EXISTS item_facet_type_heap");
-//		} catch (Exception e) {
-//			// Skip if DB already updated
-//		}
+		// try {
+		// jdbc
+		// .SQLupdate("create table if not exists item_facetNtype_heap like item_facet_heap;");
+		// jdbc.SQLupdate("DROP TABLE IF EXISTS item_facet_heap");
+		// jdbc.SQLupdate("DROP TABLE IF EXISTS item_facet_type_heap");
+		// } catch (Exception e) {
+		// // Skip if DB already updated
+		// }
 
-		if (jdbc.SQLqueryInt("SELECT COUNT(*) FROM item_facetNtype_heap") == 0) {
+		if (jdbc.SQLqueryInt("SELECT COUNT(*) FROM item_order_heap") == 0) {
 			// long st=new Date().getTime();
 			// jdbc.SQLquery("select count(*) from (SELECT * FROM item_facet) foo");
 			// jdbc.print("q "+(new Date().getTime()-st));
 			// jdbc.SQLupdate("ALTER TABLE item_facet_heap DISABLE KEYS");
+			jdbc.SQLupdate("TRUNCATE TABLE item_facetNtype_heap");
 			// jdbc.print("disable "+(new Date().getTime()-st));
 			jdbc
 					.SQLupdate("INSERT INTO item_facetNtype_heap SELECT * FROM item_facet;");
@@ -1100,13 +1113,13 @@ public class ConvertFromRaw {
 			throws SQLException {
 
 		// Temporary until DBs updated. user must be root.
-//		try {
-//			jdbc1.SQLqueryInt("SELECT COUNT(*) FROM correlations");
-//		} catch (SQLException e) {
-//			createCorrelationsTable(jdbc1, jdbc1.unsignedTypeForMaxValue(Math
-//					.max(MIN_FACETS, jdbc1
-//							.SQLqueryInt("SELECT MAX(facet_id) FROM facet"))));
-//		}
+		// try {
+		// jdbc1.SQLqueryInt("SELECT COUNT(*) FROM correlations");
+		// } catch (SQLException e) {
+		// createCorrelationsTable(jdbc1, jdbc1.unsignedTypeForMaxValue(Math
+		// .max(MIN_FACETS, jdbc1
+		// .SQLqueryInt("SELECT MAX(facet_id) FROM facet"))));
+		// }
 
 		if (jdbc1.SQLqueryInt("SELECT COUNT(*) FROM correlations") == 0) {
 			jdbc1.print("Finding pair correlations...");
