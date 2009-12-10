@@ -38,6 +38,7 @@ import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
+import java.awt.font.TextAttribute;
 
 import javax.swing.AbstractAction;
 import javax.swing.InputMap;
@@ -47,7 +48,6 @@ import javax.swing.text.BadLocationException;
 import javax.swing.text.Document;
 import javax.swing.text.JTextComponent;
 
-import edu.cmu.cs.bungee.javaExtensions.Util;
 import edu.umd.cs.piccolo.PCanvas;
 import edu.umd.cs.piccolo.PNode;
 import edu.umd.cs.piccolox.event.PStyledTextEventHandler;
@@ -55,9 +55,6 @@ import edu.umd.cs.piccolox.nodes.PStyledText;
 
 public class TextBox extends PNode implements MouseDoc {
 
-	/**
-	 * 
-	 */
 	private static final long serialVersionUID = 1L;
 
 	private static final int scrollW = 12;
@@ -94,10 +91,9 @@ public class TextBox extends PNode implements MouseDoc {
 
 	/**
 	 * Initially, we rely on Piccolo to flow text into lines. But to scroll we
-	 * have to figure out the lines ourselves. lines is the same string passed
-	 * to the constructor, except with added newlines.
+	 * have to figure out the lines ourselves. 
 	 */
-	private String lines;
+	private String[] lines;
 
 	private double lineH;
 
@@ -185,12 +181,25 @@ public class TextBox extends PNode implements MouseDoc {
 		// System.out.println(lineOffset);
 		if (lineOffset != prevLineOffset) {
 			if (lines == null)
-				lines = text.getBrokenText();
-			String visString = Util.subLines(lines, lineOffset, nVisibleLines);
-			text.setText(visString);
+				lines = text.lines();
+			String visString = subLines(lines, lineOffset, nVisibleLines);
+			int offset=0;
+			for (int line = 0; line < lineOffset; line++) {
+				offset+=lines[line].length();
+			}
+			// Util.print("draw " + lineOffset + prefix);
+			text.setText(visString, offset);
 			prevLineOffset = lineOffset;
 		}
 		// System.out.println("Text " + text.getHeight());
+	}
+
+	private String subLines(String[] lines2, int lineOffset, int visibleLines) {
+		StringBuffer buf = new StringBuffer();
+		for (int line = 0; line < visibleLines; line++) {
+			buf.append(lines2[lineOffset+line]);
+		}
+		return buf.toString();
 	}
 
 	public boolean isEditing() {
@@ -238,11 +247,23 @@ public class TextBox extends PNode implements MouseDoc {
 		}
 	}
 
+	public boolean highlight(String substring) {
+		// Util.print("TextBox.highlight " + substring + " " + getText());
+		if (substring == null || substring.length() == 0)
+			return text.clearAttributes();
+		boolean result = false;
+		int index = -1;
+		while ((index = getText().toLowerCase().indexOf(
+				substring.toLowerCase(), index + 1)) >= 0) {
+			result = true;
+			text.addAttribute(TextAttribute.BACKGROUND, color.brighter(),
+					index, index + substring.length());
+		}
+		return result;
+	}
+
 	static class EnterAction extends AbstractAction {
 
-		/**
-		 * 
-		 */
 		private static final long serialVersionUID = 1L;
 		TextBox qv;
 

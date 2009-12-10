@@ -8,9 +8,6 @@ import edu.umd.cs.piccolo.util.PPaintContext;
 
 public class SolidBorder extends BevelBorder {
 
-	/**
-	 * 
-	 */
 	private static final long serialVersionUID = 1L;
 
 	public SolidBorder(Color color) {

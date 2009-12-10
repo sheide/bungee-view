@@ -32,9 +32,8 @@ public class APText extends PText {
 
 	// public static int paintCount = 0;
 
-	/**
-	 * 
-	 */
+	private int attrSpecOffset = 0;
+
 	private static final long serialVersionUID = 1L;
 
 	private boolean wrapOnWordBoundaries = true;
@@ -170,14 +169,20 @@ public class APText extends PText {
 			super.setTextPaint(aPaint);
 	}
 
-	public void setText(String _text) {
+	public void setText(String _text, int offset) {
+		attrSpecOffset = offset;
 		if (!Util.equalsNullOK(_text, getText())) {
 			decacheCharIter();
 			if (_text != null && _text.indexOf("\n\n") >= 0)
 				_text = _text.replaceAll("\n\n", "\n \n");
 			// recomputeLayout doesn't deal well with empty lines
 			super.setText(_text);
+			rerender();
 		}
+	}
+
+	public void setText(String _text) {
+		setText(_text, 0);
 	}
 
 	public void setFont(Font aFont) {
@@ -294,12 +299,14 @@ public class APText extends PText {
 		}
 	}
 
-	public void clearAttributes() {
-		if (txtAttributes.size() > 0) {
+	public boolean clearAttributes() {
+		boolean result = txtAttributes.size() > 0;
+		if (result) {
 			decacheCharIter();
 			txtAttributes.clear();
 			rerender();
 		}
+		return result;
 	}
 
 	public void addAttribute(AttributedCharacterIterator.Attribute attribute,
@@ -371,6 +378,7 @@ public class APText extends PText {
 	private transient TextMeasurer tMeasurer;
 
 	private AttributedCharacterIterator getCharIter() {
+		// Util.print("getCharIter " + getText());
 		String _text = getText();
 		if (charIter == null && _text != null && _text.length() > 0) {
 			AttributedString atString = new AttributedString(_text);
@@ -378,18 +386,25 @@ public class APText extends PText {
 			if (txtAttributes != null) {
 				for (Iterator it = txtAttributes.iterator(); it.hasNext();) {
 					Object[] spec = (Object[]) it.next();
+//					Util.print(attrSpecOffset + " " + Util.valueOfDeep(spec));
 					if (spec[2] == null)
 						atString
 								.addAttribute(
 										(AttributedCharacterIterator.Attribute) spec[0],
 										spec[1]);
-					else
-						atString
-								.addAttribute(
-										(AttributedCharacterIterator.Attribute) spec[0],
-										spec[1],
-										((Integer) spec[2]).intValue(),
-										((Integer) spec[3]).intValue());
+					else {
+						int start = ((Integer) spec[2]).intValue()
+								- attrSpecOffset;
+						int end = ((Integer) spec[3]).intValue()
+								- attrSpecOffset;
+						if (start < _text.length() && end > 0) {
+							atString
+									.addAttribute(
+											(AttributedCharacterIterator.Attribute) spec[0],
+											spec[1], Math.max(0, start), Math
+													.min(_text.length(), end));
+						}
+					}
 				}
 				// for (int i = 0; i < txtAttributes.size(); i += 2) {
 				// atString.addAttribute(
@@ -562,6 +577,21 @@ public class APText extends PText {
 				&& edu.cmu.cs.bungee.javaExtensions.Util.ignore(ignore4);
 		if (!insideRL)
 			recomputeLayout();
+	}
+
+	public String[] lines() {
+		String[] result = new String[_lines.length];
+		String _text = getText();
+		int pos = 0;
+		for (int i = 0; i < _lines.length; i++) {
+			int start=pos;
+			if (_text.charAt(pos) == '\n')
+				pos++;
+			result[i] = _text.substring(start, pos += _lines[i]
+					.getCharacterCount());
+		}
+//		Util.print(Util.valueOfDeep(result));
+		return result;
 	}
 
 	/**
