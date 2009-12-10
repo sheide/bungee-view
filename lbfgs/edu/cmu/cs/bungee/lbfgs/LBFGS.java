@@ -96,6 +96,7 @@ public class LBFGS {
 			iflag = i;
 		}
 
+		@Override
 		public String toString() {
 			return getMessage() + " (iflag == " + iflag + ")";
 		}
