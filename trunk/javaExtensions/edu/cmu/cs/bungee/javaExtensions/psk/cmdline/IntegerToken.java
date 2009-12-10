@@ -14,7 +14,8 @@ public class IntegerToken extends Token
 		setDefaultValue(new Integer(a_def_value));
 	}
 
-    public String type() {
+    @Override
+	public String type() {
 		return "<Integer>";
 	}
 
@@ -27,6 +28,7 @@ public class IntegerToken extends Token
 		return in.intValue();
 	}
 
+	@Override
 	public Object toObject(String lexeme) {
 		return new Integer(lexeme);
 	}

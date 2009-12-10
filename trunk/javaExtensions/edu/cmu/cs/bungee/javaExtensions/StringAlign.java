@@ -129,6 +129,7 @@ public class StringAlign extends Format {
 	 *            - a FieldPosition (may be null, not used but specified by the
 	 *            general contract of Format).
 	 */
+	@Override
 	public StringBuffer format(Object obj, StringBuffer where,
 			FieldPosition ignore) {
 		return format(obj, where, maxChars, just);
@@ -167,6 +168,7 @@ public class StringAlign extends Format {
 	}
 
 	/** ParseObject is required, but not useful here. */
+	@Override
 	public Object parseObject(String source, ParsePosition pos) {
 		return source;
 	}

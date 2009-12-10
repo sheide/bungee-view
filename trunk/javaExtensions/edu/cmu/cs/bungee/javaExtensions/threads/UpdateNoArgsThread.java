@@ -26,6 +26,7 @@ public class UpdateNoArgsThread extends UpdateThread {
 		return add(this);
 	}
 
+	@Override
 	final public void process(Object ignore) {
 		assert Util.ignore(ignore);
 		process();

@@ -54,7 +54,7 @@ import java.util.Iterator;
  * @author Assaf
  * @since May 20, 2005
  */
-public class IntegerPermutationIter implements Iterator{
+public class IntegerPermutationIter implements Iterator<int[]>{
         // ~ Instance fields
         // --------------------------------------------------------
 
@@ -208,7 +208,7 @@ public class IntegerPermutationIter implements Iterator{
                 return result;
         }
 
-        public Object next() {
+        public int[] next() {
                 return getNext();
         }
 
@@ -284,7 +284,7 @@ public class IntegerPermutationIter implements Iterator{
          * @see ArrayPermutationsIter#nextPermutation()
          */
         public int[] nextPermutation() {
-                return (int[]) next();
+                return next();
         }
 
         /*

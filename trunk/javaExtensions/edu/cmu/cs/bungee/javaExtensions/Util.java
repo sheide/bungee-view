@@ -422,16 +422,24 @@ public final class Util {
 	}
 
 	public static String subLines(String s, int firstLine, int nLines) {
-		int firstChar = nthOccurrenceIndex(s, '\n', firstLine) + 1;
-		if (firstChar <= 0 && firstLine > 0)
-			return "";
-		int lastChar = nthOccurrenceIndex(s, '\n', firstLine + nLines);
-		if (lastChar >= firstChar)
-			return s.substring(firstChar, lastChar);
-		else if (firstChar > 0)
-			return s.substring(firstChar);
-		else
-			return s;
+		String result = "";
+		if (nLines > 0) {
+			int firstChar = nthOccurrenceIndex(s, '\n', firstLine) + 1;
+			// if (firstChar > 0 || firstLine == 0) {
+			int lastChar = nthOccurrenceIndex(s, '\n', firstLine + nLines);
+			if (lastChar < 0)
+				lastChar = s.length();
+			if (lastChar >= firstChar)
+				result = s.substring(firstChar, lastChar);
+			// else if (firstChar > 0)
+			// return s.substring(firstChar);
+			// else
+			// return s;
+			// }
+		}
+		// Util.print("subLines " + firstLine + " " + nLines + " " + firstChar
+		// + "-" + lastChar + " " + result);
+		return result;
 	}
 
 	/**
@@ -646,7 +654,7 @@ public final class Util {
 	// }
 	// }
 
-	public static Object[] append(Object[] a1, Object[] a2, Class type) {
+	public static Object[] append(Object[] a1, Object[] a2, Class<?> type) {
 		if (a1 == null || a1.length == 0)
 			return a2;
 		else if (a2 == null || a2.length == 0)
@@ -699,7 +707,7 @@ public final class Util {
 		}
 	}
 
-	public static Object[] copy(Object[] a, Class type) {
+	public static Object[] copy(Object[] a, Class<?> type) {
 		if (a == null)
 			return a;
 		Object[] a2 = (Object[]) Array.newInstance(type, a.length);
@@ -715,8 +723,8 @@ public final class Util {
 		return a2;
 	}
 
-	public static boolean hasDuplicates(Collection a) {
-		return a.size() > new HashSet(a).size();
+	public static boolean hasDuplicates(Collection<?> a) {
+		return a.size() > new HashSet<Object>(a).size();
 	}
 
 	public static boolean hasDuplicates(int[] a) {
@@ -737,7 +745,7 @@ public final class Util {
 						return true;
 				}
 			} else {
-				Hashtable t = new Hashtable();
+				Hashtable<Object, Object[]> t = new Hashtable<Object, Object[]>();
 				for (int i = 0; i < n; i++) {
 					if (t.get(a[i]) != null)
 						return true;
@@ -749,10 +757,10 @@ public final class Util {
 		return false;
 	}
 
-	public static Collection inverseGet(Map map, Object value) {
-		Collection result = new LinkedList();
-		for (Iterator it = map.entrySet().iterator(); it.hasNext();) {
-			Entry name = (Entry) it.next();
+	public static <K, V> Collection<K> inverseGet(Map<K, V> map, Object value) {
+		Collection<K> result = new LinkedList<K>();
+		for (Iterator<Entry<K, V>> it = map.entrySet().iterator(); it.hasNext();) {
+			Entry<K, V> name = it.next();
 			if (equalsNullOK(value, name.getValue())) {
 				result.add(name.getKey());
 			}
@@ -825,8 +833,8 @@ public final class Util {
 	 * @param s2
 	 * @return whether s1 and s2 have an item in common
 	 */
-	public static boolean intersects(Collection s1, Collection s2) {
-		for (Iterator it = s2.iterator(); it.hasNext();) {
+	public static boolean intersects(Collection<?> s1, Collection<?> s2) {
+		for (Iterator<?> it = s2.iterator(); it.hasNext();) {
 			if (s1.contains(it.next()))
 				return true;
 		}
@@ -838,10 +846,10 @@ public final class Util {
 	 * @param s2
 	 * @return elements in s1 or s2 but not both.
 	 */
-	public static Set symmetricDifference(Collection s1, Collection s2) {
-		Set s = new HashSet(s1);
-		for (Iterator it = s2.iterator(); it.hasNext();) {
-			Object elt = it.next();
+	public static <V>Set<V> symmetricDifference(Collection<V> s1, Collection<V> s2) {
+		Set<V> s = new HashSet<V>(s1);
+		for (Iterator<V> it = s2.iterator(); it.hasNext();) {
+			V elt = it.next();
 			if (s1.contains(elt)) {
 				s.remove(elt);
 			} else {
@@ -889,7 +897,7 @@ public final class Util {
 	// return a;
 	// }
 
-	public static Object[] setDifference(Object[] a1, Object[] a2, Class type) {
+	public static Object[] setDifference(Object[] a1, Object[] a2, Class<?> type) {
 		if (a1 == null || a2 == null)
 			return a1;
 		int n = intersectionCardinalilty(a1, a2);
@@ -981,7 +989,7 @@ public final class Util {
 	// return a;
 	// }
 
-	public static Object delete(Object[] a1, Object p, Class type) {
+	public static Object delete(Object[] a1, Object p, Class<?> type) {
 		if (a1 == null)
 			return a1;
 		int n = nOccurrences(a1, p);
@@ -995,7 +1003,7 @@ public final class Util {
 		return a;
 	}
 
-	public static Object deleteIndex(Object[] a1, int index, Class type) {
+	public static Object deleteIndex(Object[] a1, int index, Class<?> type) {
 		int oldN = a1.length;
 		assert index >= 0;
 		assert index < oldN;
@@ -1035,7 +1043,7 @@ public final class Util {
 	 * @param type
 	 * @return a1 with p added at the front
 	 */
-	public static Object push(Object[] a1, Object p, Class type) {
+	public static Object push(Object[] a1, Object p, Class<?> type) {
 		int a1_length = a1 == null ? 0 : a1.length;
 		Object a = java.lang.reflect.Array.newInstance(type, a1_length + 1);
 		Array.set(a, 0, p);
@@ -1050,7 +1058,7 @@ public final class Util {
 	 * @param type
 	 * @return a1 with p added at the end
 	 */
-	public static Object endPush(Object[] a1, Object p, Class type) {
+	public static Object endPush(Object[] a1, Object p, Class<?> type) {
 		int a1_length = a1 == null ? 0 : a1.length;
 		Object a = java.lang.reflect.Array.newInstance(type, a1_length + 1);
 		Array.set(a, a1_length, p);
@@ -1128,7 +1136,7 @@ public final class Util {
 	// return result;
 	// }
 
-	public static Object[] subArray(Object[] a, int start, Class type) {
+	public static Object[] subArray(Object[] a, int start, Class<?> type) {
 		return subArray(a, start, a.length - 1, type);
 	}
 
@@ -1136,7 +1144,7 @@ public final class Util {
 	 * subArray includes the end'th element, so end should be less than a.length
 	 * 
 	 */
-	public static Object[] subArray(Object[] a, int start, int end, Class type) {
+	public static Object[] subArray(Object[] a, int start, int end, Class<?> type) {
 		assert start <= end + 1 : start + " " + end;
 		assert end < a.length : end + " " + a.length;
 		if (start == 0 && end == a.length - 1)
@@ -1259,9 +1267,9 @@ public final class Util {
 	 *         stringList
 	 */
 
-	public static String join(Collection stringList, String delimiter) {
+	public static String join(Collection<?> stringList, String delimiter) {
 		StringBuffer buf = new StringBuffer();
-		for (Iterator it = stringList.iterator(); it.hasNext();) {
+		for (Iterator<?> it = stringList.iterator(); it.hasNext();) {
 			Object object = it.next();
 			if (buf.length() > 0)
 				buf.append(delimiter);
@@ -1472,7 +1480,7 @@ public final class Util {
 			buf.append("]");
 		} else if (a instanceof Collection) {
 			buf.append("<");
-			for (Iterator iterator = ((Collection) a).iterator(); iterator
+			for (Iterator<?> iterator = ((Collection<?>) a).iterator(); iterator
 					.hasNext();) {
 				valueOfDeepInternal(iterator.next(), buf, separator);
 				if (iterator.hasNext())
@@ -1485,7 +1493,7 @@ public final class Util {
 	}
 
 	private static boolean isArray(Object target) {
-		Class targetClass = target.getClass();
+		Class<? extends Object> targetClass = target.getClass();
 		return targetClass.isArray();
 	}
 
@@ -1876,35 +1884,36 @@ public final class Util {
 			// http://www.rhinocerus.net/forum/lang-java-gui/573638-bug-imageio-png-support-2.html
 			// the imageioimpl readers may be buggy in some java installations
 			ImageReader reader = null;
-			for (Iterator it = ImageIO.getImageReaders(iis); reader == null
+			for (Iterator<ImageReader> it = ImageIO.getImageReaders(iis); reader == null
 					&& it.hasNext();) {
-				ImageReader r = (ImageReader) it.next();
+				ImageReader r = it.next();
 				if (!r.getClass().getName().startsWith(
 						"com.sun.media.imageioimpl.plugins."))
 					reader = r;
 			}
 			if (reader == null)
-				reader = (ImageReader) ImageIO.getImageReaders(iis).next();
+				reader = ImageIO.getImageReaders(iis).next();
 
 			reader.setInput(iis);
 			int w = reader.getWidth(0);
 			int h = reader.getHeight(0);
-			
-			//This produces corrupt images on cityscape
-//			ImageTypeSpecifier type = reader.getRawImageType(0);
-//			if (type == null || type.getNumBands() == 3) {
-//				ImageReadParam param = reader.getDefaultReadParam();
-//				result = createCompatibleImage(w, h);
-//				param.setDestination(result);
-//				result = reader.read(0, param);
-//			} else
-			
-				result = resize(reader.read(0), w, h, true);
+
+			// This produces corrupt images on cityscape
+			// ImageTypeSpecifier type = reader.getRawImageType(0);
+			// if (type == null || type.getNumBands() == 3) {
+			// ImageReadParam param = reader.getDefaultReadParam();
+			// result = createCompatibleImage(w, h);
+			// param.setDestination(result);
+			// result = reader.read(0, param);
+			// } else
+
+			result = resize(reader.read(0), w, h, true);
 			iis.close();
 			blobStream.close();
-//			print(describeImage(result));
-//			print(reader + " " + reader.getFormatName() + " " + type + " " + w
-//					+ "x" + h);
+			// print(describeImage(result));
+			// print(reader + " " + reader.getFormatName() + " " + type + " " +
+			// w
+			// + "x" + h);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -2164,7 +2173,8 @@ public final class Util {
 		return b;
 	}
 
-	public static Object max(Object[] a, Comparator descendentOnCountComparator) {
+	public static Object max(Object[] a,
+			Comparator<Object> descendentOnCountComparator) {
 		if (a == null || a.length == 0)
 			return null;
 		Object result = a[0];
@@ -2193,24 +2203,24 @@ public final class Util {
 	/**
 	 * Ignore mouse button modifiers, or any others we don't understand
 	 */
-	static final int modifierMask = InputEvent.ALT_DOWN_MASK
+	public static final int modifierMask = InputEvent.ALT_DOWN_MASK
 			| InputEvent.ALT_MASK | InputEvent.CTRL_DOWN_MASK
 			| InputEvent.CTRL_MASK | InputEvent.META_DOWN_MASK
 			| InputEvent.META_MASK | InputEvent.SHIFT_DOWN_MASK
 			| InputEvent.SHIFT_MASK;
 
-	public static Iterator arrayIterator(Object[] array, int start,
+	public static <V> Iterator<V> arrayIterator(V[] array, int start,
 			int nElements) {
-		return new ArrayIterator(array, start, nElements);
+		return new ArrayIterator<V>(array, start, nElements);
 	}
 
-	private static class ArrayIterator implements Iterator {
+	private static class ArrayIterator<V> implements Iterator<V> {
 
-		private final Object[] array;
+		private final V[] array;
 		private int index;
 		private final int lastIndexPlusOne;
 
-		ArrayIterator(Object[] _array, int start, int nElements) {
+		ArrayIterator(V[] _array, int start, int nElements) {
 			array = _array;
 			index = start;
 			lastIndexPlusOne = start + nElements;
@@ -2220,7 +2230,7 @@ public final class Util {
 			return index < lastIndexPlusOne;
 		}
 
-		public Object next() {
+		public V next() {
 			return array[index++];
 		}
 
@@ -2261,14 +2271,15 @@ public final class Util {
 		return i;
 	}
 
-	public static class CombinationIterator implements Iterator {
+	public static class CombinationIterator<V> implements Iterator<List<V>> {
 
-		private final Object[] objects;
+		private final V[] objects;
 		private int index = 0;
 		private int lastIndexPlusOne;
 
-		public CombinationIterator(Collection collection) {
-			objects = collection.toArray();
+		@SuppressWarnings("unchecked")
+		public CombinationIterator(Collection<V> collection) {
+			objects = (V[]) collection.toArray();
 			lastIndexPlusOne = 1 << objects.length;
 		}
 
@@ -2279,10 +2290,10 @@ public final class Util {
 		/*
 		 * Value is a List ordered the same way as constuctor argument
 		 */
-		public Object next() {
+		public List<V> next() {
 			if (index >= lastIndexPlusOne)
 				throw new NoSuchElementException();
-			List result = new ArrayList(objects.length);
+			List<V> result = new ArrayList<V>(objects.length);
 			for (int i = 0; i < objects.length; i++) {
 				if (isBit(index, i))
 					result.add(objects[i]);
@@ -2317,9 +2328,9 @@ public final class Util {
 		return buf;
 	}
 
-	public static Object some(Collection primaryFacets) {
+	public static Object some(Collection<?> collection) {
 		Object result = null;
-		for (Iterator it = primaryFacets.iterator(); it.hasNext();) {
+		for (Iterator<?> it = collection.iterator(); it.hasNext();) {
 			result = it.next();
 			break;
 		}
@@ -2388,6 +2399,8 @@ public final class Util {
 	}
 
 	public static boolean approxEquals(double a, double b) {
+		if (a == b)
+			return true;// for INFINITY
 		double threshold = 1e-8;
 		double diff = Math.abs(a - b);
 		return diff < threshold

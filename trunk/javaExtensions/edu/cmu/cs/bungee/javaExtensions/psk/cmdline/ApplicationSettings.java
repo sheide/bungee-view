@@ -19,13 +19,13 @@ public class ApplicationSettings {
 	}
 
 	public ApplicationSettings(int aApplicationSettingsOptions) {
-		m_argDescriptions = new java.util.Vector();
+		m_argDescriptions = new java.util.Vector<Token>();
 		m_flags = aApplicationSettingsOptions;
 	}
 
 	public void addToken(Token argum) {
   for (int i = 0; i < m_argDescriptions.size(); i++) {
-   Token argDesc = ((Token)m_argDescriptions.elementAt(i));
+   Token argDesc = m_argDescriptions.elementAt(i);
  
    // Make sure we have no argument clash
    if (argDesc.name().compareTo(argum.name()) == 0) {
@@ -69,14 +69,14 @@ public class ApplicationSettings {
 		System.err.print("Usage: ");
 		System.err.print(m_programName + " ");
 		for (int i = 0; i < m_argDescriptions.size(); i++) {
-			Token arg = (Token) m_argDescriptions.elementAt(i);
+			Token arg = m_argDescriptions.elementAt(i);
 			arg.printUsage(System.err);
 		}
 		System.err.println("\n");
 
 		// Print the explanations
 		for (int i = 0; i < m_argDescriptions.size(); i++) {
-			Token arg = (Token) m_argDescriptions.elementAt(i);
+			Token arg = m_argDescriptions.elementAt(i);
 			arg.printUsageExtended(System.err);
 		}
 		throw new Exception(reason);
@@ -87,7 +87,7 @@ public class ApplicationSettings {
 	// This functions should be called only once
 	protected void parseNonSwitch() throws Exception {
 		for (int i = 0; i < m_argDescriptions.size(); i++) {
-			Token argDesc = ((Token) m_argDescriptions.elementAt(i));
+			Token argDesc = m_argDescriptions.elementAt(i);
 
 			if (!argDesc.parseArgument(m_cmdLineArgs))
 				continue;
@@ -131,7 +131,7 @@ public class ApplicationSettings {
 		}
 
 		for (int i = 0; i < m_argDescriptions.size(); i++) {
-			Token argDesc = ((Token) m_argDescriptions.elementAt(i));
+			Token argDesc = m_argDescriptions.elementAt(i);
 			if (!argDesc.isUsed() && argDesc.isRequired()) {
 				String str;
 				str = "missing required argument. Name: ";
@@ -144,7 +144,7 @@ public class ApplicationSettings {
 	protected void parseSwitch() throws Exception {
 		int i = 0;
 		for (i = 0; i < m_argDescriptions.size(); i++) {
-			Token argDesc = ((Token) m_argDescriptions.elementAt(i));
+			Token argDesc = m_argDescriptions.elementAt(i);
 			if (argDesc.ParseSwitch(m_cmdLineArgs))
 				return;
 		}
@@ -178,7 +178,7 @@ public class ApplicationSettings {
 	// Data members
 	protected StringArrayIterator m_cmdLineArgs;
 	protected String m_programName;
-	protected java.util.Vector m_argDescriptions;
+	protected java.util.Vector<Token> m_argDescriptions;
 	// Vector of Argv objects
 	protected int m_flags;
 }

@@ -99,7 +99,7 @@ public class IntegerPermutationGenerator {
         // its expected maximum (i + diff) and perform the fill() operation
         // at that index.
         while (--i > -1) {
-            LinkedList h = new LinkedList();
+            LinkedList<Integer> h = new LinkedList<Integer>();
 
             for (int j = i; j < choiceLocal.length; j++) {
                 h.add(new Integer(choiceLocal[j]));
@@ -107,7 +107,7 @@ public class IntegerPermutationGenerator {
 
             Collections.sort(h);
 
-            if (this.choiceLocal[i] < ((Integer) h.getLast()).intValue()) {
+            if (this.choiceLocal[i] < h.getLast().intValue()) {
                 fill(i, h);
                 begun = true;
                 System.arraycopy(choiceLocal, 0, choiceReturned, 0, numObjects);
@@ -168,15 +168,15 @@ public class IntegerPermutationGenerator {
      * @param index the index to begin this incrementing operation.
      * @param h the list of integers at index or later.
      */
-    private void fill(int index, LinkedList h) {
-        h = new LinkedList(h);
+    private void fill(int index, LinkedList<Integer> h) {
+        h = new LinkedList<Integer>(h);
         int t = h.indexOf(new Integer(this.choiceLocal[index]));
-        Integer newVal = (Integer) h.get(t + 1);
+        Integer newVal = h.get(t + 1);
         this.choiceLocal[index] = newVal.intValue();
         h.remove(newVal);
 
         for (int i = index + 1; i < getNumObjects(); i++) {
-            this.choiceLocal[i] = ((Integer) h.get(i - index - 1)).intValue();
+            this.choiceLocal[i] = h.get(i - index - 1).intValue();
         }
     }
 }

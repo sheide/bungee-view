@@ -8,17 +8,14 @@ import java.sql.Array;
 import java.sql.Blob;
 import java.sql.Clob;
 import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.NClob;
+import java.sql.DriverManager; //import java.sql.NClob;
 import java.sql.ParameterMetaData;
 import java.sql.PreparedStatement;
 import java.sql.Ref;
 import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
-import java.sql.RowId;
+import java.sql.ResultSetMetaData; //import java.sql.RowId;
 import java.sql.SQLException;
-import java.sql.SQLWarning;
-import java.sql.SQLXML;
+import java.sql.SQLWarning; //import java.sql.SQLXML;
 import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
@@ -26,7 +23,6 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Hashtable;
-import java.util.Iterator;
 import java.util.Map;
 
 import javax.servlet.GenericServlet;
@@ -34,7 +30,7 @@ import javax.swing.SwingUtilities;
 
 public class JDBCSample {
 
-	static Map statements = new HashMap();
+	static Map<Statement, String> statements = new HashMap<Statement, String>();
 
 	/**
 	 * Print queries that take longer than this. Print all queries and extra
@@ -86,7 +82,7 @@ public class JDBCSample {
 		connectString += compression + "&useUnicode=true"
 				+ "&characterEncoding=UTF-8" + "&characterSetResults=UTF-8"
 				+ "&connectionCollation=utf8_general_ci";
-//				+"&useUsageAdvisor=true";
+		// +"&useUsageAdvisor=true";
 		if (driver == null)
 			driver = Class.forName("com.mysql.jdbc.Driver").newInstance();
 		print("Connect string " + connectString);
@@ -97,8 +93,7 @@ public class JDBCSample {
 		if (slowQueryTime >= 0) {
 			print(statements.size() + " SQL statements were not closed:");
 			// if (statements.size() > 0) {
-			for (Iterator it = statements.values().iterator(); it.hasNext();) {
-				String SQL = (String) it.next();
+			for (String SQL : statements.values()) {
 				print(SQL);
 			}
 			statements.clear();
@@ -510,10 +505,10 @@ public class JDBCSample {
 		return result;
 	}
 
-	private Map myPreparedStatements = new Hashtable();
+	private Map<String, MyPreparedStatement> myPreparedStatements = new Hashtable<String, MyPreparedStatement>();
 
 	public PreparedStatement lookupPS(String SQL) throws SQLException {
-		MyPreparedStatement ps = (MyPreparedStatement) myPreparedStatements
+		MyPreparedStatement ps = myPreparedStatements
 				.get(SQL);
 		if (ps == null) {
 			ps = new MyPreparedStatement(SQL);
@@ -545,6 +540,7 @@ public class JDBCSample {
 			}
 		}
 
+		@Override
 		public String toString() {
 			StringBuffer buf = new StringBuffer();
 			buf.append("<MyPreparedStatement ").append(SQL).append("[");
@@ -904,128 +900,128 @@ public class JDBCSample {
 			ps.setQueryTimeout(arg0);
 		}
 
+		@SuppressWarnings("unused")
 		public void setAsciiStream(int arg0, InputStream arg1)
 				throws SQLException {
 			// TODO Auto-generated method stub
-
 		}
 
+		@SuppressWarnings("unused")
 		public void setAsciiStream(int arg0, InputStream arg1, long arg2)
 				throws SQLException {
 			// TODO Auto-generated method stub
-
 		}
 
+		@SuppressWarnings("unused")
 		public void setBinaryStream(int arg0, InputStream arg1)
 				throws SQLException {
 			// TODO Auto-generated method stub
-
 		}
 
+		@SuppressWarnings("unused")
 		public void setBinaryStream(int arg0, InputStream arg1, long arg2)
 				throws SQLException {
 			// TODO Auto-generated method stub
-
 		}
 
+		@SuppressWarnings("unused")
 		public void setBlob(int arg0, InputStream arg1) throws SQLException {
 			// TODO Auto-generated method stub
-
 		}
 
+		@SuppressWarnings("unused")
 		public void setBlob(int arg0, InputStream arg1, long arg2)
 				throws SQLException {
 			// TODO Auto-generated method stub
-
 		}
 
+		@SuppressWarnings("unused")
 		public void setCharacterStream(int arg0, Reader arg1)
 				throws SQLException {
 			// TODO Auto-generated method stub
-
 		}
 
+		@SuppressWarnings("unused")
 		public void setCharacterStream(int arg0, Reader arg1, long arg2)
 				throws SQLException {
 			// TODO Auto-generated method stub
-
 		}
 
+		@SuppressWarnings("unused")
 		public void setClob(int arg0, Reader arg1) throws SQLException {
 			// TODO Auto-generated method stub
-
 		}
 
+		@SuppressWarnings("unused")
 		public void setClob(int arg0, Reader arg1, long arg2)
 				throws SQLException {
 			// TODO Auto-generated method stub
-
 		}
 
+		@SuppressWarnings("unused")
 		public void setNCharacterStream(int arg0, Reader arg1)
 				throws SQLException {
 			// TODO Auto-generated method stub
-
 		}
 
+		@SuppressWarnings("unused")
 		public void setNCharacterStream(int arg0, Reader arg1, long arg2)
 				throws SQLException {
 			// TODO Auto-generated method stub
-
 		}
 
-		public void setNClob(int arg0, NClob arg1) throws SQLException {
-			// TODO Auto-generated method stub
+		// public void setNClob(int arg0, NClob arg1) throws SQLException {
+		// // TODO Auto-generated method stub
+		// }
+		//
+		// public void setNClob(int arg0, Reader arg1) throws SQLException {
+		// // TODO Auto-generated method stub
+		// }
+		//
+		// public void setNClob(int arg0, Reader arg1, long arg2)
+		// throws SQLException {
+		// // TODO Auto-generated method stub
+		// }
 
-		}
-
-		public void setNClob(int arg0, Reader arg1) throws SQLException {
-			// TODO Auto-generated method stub
-
-		}
-
-		public void setNClob(int arg0, Reader arg1, long arg2)
-				throws SQLException {
-			// TODO Auto-generated method stub
-
-		}
-
+		@SuppressWarnings("unused")
 		public void setNString(int arg0, String arg1) throws SQLException {
 			// TODO Auto-generated method stub
-
 		}
 
-		public void setRowId(int arg0, RowId arg1) throws SQLException {
-			// TODO Auto-generated method stub
+		// public void setRowId(int arg0, RowId arg1) throws SQLException {
+		// // TODO Auto-generated method stub
+		// }
+		//
+		// public void setSQLXML(int arg0, SQLXML arg1) throws SQLException {
+		// // TODO Auto-generated method stub
+		// }
 
-		}
-
-		public void setSQLXML(int arg0, SQLXML arg1) throws SQLException {
-			// TODO Auto-generated method stub
-
-		}
-
+		@SuppressWarnings("unused")
 		public boolean isClosed() throws SQLException {
 			// TODO Auto-generated method stub
 			return false;
 		}
 
+		@SuppressWarnings("unused")
 		public boolean isPoolable() throws SQLException {
 			// TODO Auto-generated method stub
 			return false;
 		}
 
+		@SuppressWarnings("unused")
 		public void setPoolable(boolean arg0) throws SQLException {
 			// TODO Auto-generated method stub
 
 		}
 
-		public boolean isWrapperFor(Class arg0) throws SQLException {
+		@SuppressWarnings("unused")
+		public boolean isWrapperFor(Class<?> arg0) throws SQLException {
 			// TODO Auto-generated method stub
 			return false;
 		}
 
-		public Object unwrap(Class arg0) throws SQLException {
+		@SuppressWarnings("unused")
+		public Object unwrap(Class<?> arg0) throws SQLException {
 			// TODO Auto-generated method stub
 			return null;
 		}
@@ -1112,6 +1108,7 @@ public class JDBCSample {
 				+ table + "' AND column_name = '" + column + "'") > 0;
 	}
 
+	@Override
 	public String toString() {
 		return "<JDBCsample " + connectString + ">";
 	}

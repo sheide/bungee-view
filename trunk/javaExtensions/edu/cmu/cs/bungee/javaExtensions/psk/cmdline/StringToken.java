@@ -16,6 +16,7 @@ public class StringToken extends Token {
 		setDefaultValue(a_def_value);
 	}
 
+	@Override
 	public String type() {
 		return "<String>";
 	}
@@ -28,6 +29,7 @@ public class StringToken extends Token {
 		return (String) m_values.elementAt(i);
 	}
 
+	@Override
 	public Object toObject(String lexeme) {
 		return lexeme;
 	}

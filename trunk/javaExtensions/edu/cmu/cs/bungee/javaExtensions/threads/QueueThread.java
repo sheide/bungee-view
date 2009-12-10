@@ -16,7 +16,7 @@ public class QueueThread extends Thread {
 
 	// private Object object;
 
-	protected List queue;
+	protected List<Object> queue;
 
 	private final boolean unique;
 
@@ -42,7 +42,7 @@ public class QueueThread extends Thread {
 		setName(name);
 		if (init_queue == null)
 			init_queue = new Object[0];
-		queue = new LinkedList(Arrays.asList(init_queue));
+		queue = new LinkedList<Object>(Arrays.asList(init_queue));
 		if (deltaPriority != 0)
 			setPriority(getPriority() + deltaPriority);
 		// object = o;
@@ -139,6 +139,7 @@ public class QueueThread extends Thread {
 //		}		
 //	}
 
+	@Override
 	final public void run() {
 		init();
 		Object o;

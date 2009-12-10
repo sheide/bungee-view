@@ -4,14 +4,14 @@ import java.awt.Font;
 import java.awt.font.FontRenderContext;
 import java.awt.geom.Rectangle2D;
 
-public class Node implements Comparable {
+public class Node<ObjectType extends Comparable<ObjectType>> implements Comparable<Node<ObjectType>> {
 	private String label;
 
 	private int centerX;
 	private int centerY;
-	public final Object object;
+	public final ObjectType object;
 
-	public Node(Object object, String label) {
+	public Node(ObjectType object, String label) {
 		this.label = label;
 		this.object = object;
 	}
@@ -47,18 +47,19 @@ public class Node implements Comparable {
 		return new Rectangle2D.Double(centerX - w / 2, centerY - h / 2, w, h);
 	}
 
+	@Override
 	public String toString() {
 		return "<Node " + label + ">";
 	}
 
-	public int compareTo(Object arg0) {
+	public int compareTo(Node<ObjectType> arg0) {
 		if (arg0 == this)
 			return 0;
-		Node node = (Node) arg0;
-		Object argObj = node.object;
+		Node<ObjectType> node = arg0;
+		ObjectType argObj = node.object;
 		int result = 0;
-		if (object instanceof Comparable && argObj instanceof Comparable)
-			result = ((Comparable) object).compareTo(argObj);
+//		if (object instanceof Comparable && argObj instanceof Comparable)
+			result = object.compareTo(argObj);
 		if (result == 0)
 			result = label.compareTo(node.label);
 		assert result != 0 : "What now?";

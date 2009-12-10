@@ -54,7 +54,7 @@ public abstract class Token {
 		m_env_variable = a_environment_variable;
 		m_flags = aTokenOptions;
 		m_firstTime = true;
-		m_values = new Vector(1);
+		m_values = new Vector<Object>(1);
 	}
 
 	// -----------------------------------------------
@@ -228,7 +228,7 @@ public abstract class Token {
 	protected String m_message;
 	protected int m_flags;
 	protected String m_env_variable;
-	protected Vector m_values;
+	protected Vector<Object> m_values;
 	protected Object m_defaultValue;
 	protected boolean m_firstTime;
 
