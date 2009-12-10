@@ -77,7 +77,7 @@ import edu.cmu.cs.bungee.javaExtensions.MyResultSet.Column;
 // Permissions to add (ALTER ROUTINE is for finding clusters; EXECUTE is for tetrad; DROP is for truncate table):
 // GRANT SELECT, INSERT, UPDATE, CREATE, DELETE, ALTER ROUTINE, EXECUTE, CREATE VIEW,
 // CREATE TEMPORARY TABLES, DROP ON
-// chartresvezelay.* TO p5@localhost
+// chartresvezelay.* TO bungee@localhost
 
 // In order to edit, you also need these:
 //
@@ -97,6 +97,8 @@ public class Database {
 	private String dbName;
 
 	private JDBCSample jdbc;
+
+	private String descriptionGetter;
 
 	public Database(String _server, String _db, String _user, String _pass,
 			GenericServlet _servlet) throws SQLException,
@@ -255,8 +257,18 @@ public class Database {
 		getFacetInfoQuery = jdbc.prepareStatement(
 				"SELECT parent_facet_id, facet_id, name, "
 						+ "n_child_facets, first_child_offset, n_items"
-						+ " FROM facet " + " WHERE facet_id = ?",
+						+ " FROM facet WHERE facet_id = ?",
 				ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
+
+		getFacetInfoQueryRestricted = jdbc
+				.prepareStatement(
+						"SELECT parent_facet_id, facet_id, name, "
+								+ "n_child_facets, first_child_offset, COUNT(restricted.record_num)"
+								+ " FROM facet LEFT JOIN (item_facet_heap"
+								+ " INNER JOIN restricted USING (record_num)) USING (facet_id)"
+								+ " WHERE facet_id = ? GROUP BY facet_id",
+						ResultSet.TYPE_SCROLL_INSENSITIVE,
+						ResultSet.CONCUR_READ_ONLY);
 
 		printUserActionStmt = jdbc
 				.lookupPS("INSERT INTO user_actions VALUES(NOW(), ?, ?, ?, ?, ?, ?)");
@@ -304,20 +316,24 @@ public class Database {
 			String itemDescriptionFields = rs.getString(1);
 
 			String[] fields = itemDescriptionFields.split(",");
-			String[] nonNullFields = new String[fields.length];
+			String[] nonNullFields2 = new String[fields.length];
 			for (int i = 0; i < fields.length; i++) {
-				nonNullFields[i] = "IF(" + fields[i]
+				nonNullFields2[i] = "IF(" + fields[i]
 						+ " IS NULL,'', CONCAT('\n" + i + "\n', " + fields[i]
 						+ "))";
+				// nonNullFields1[i] = "IFNULL(" + fields[i]
+				// + ", '')";
 				// nonNullFields[i] = "'\n" + i + "\n', IFNULL(" + fields[i]
 				// + ", '')";
 			}
-			String desc = "CONCAT(" + Util.join(nonNullFields) + ")";
+//			descriptionGetter = "CONCAT_WS(' ', " + itemDescriptionFields + ")";
+			descriptionGetter = "CONCAT(" +Util.join(nonNullFields2)+")";
+			
 			// Work around MySQL Connector bug: once the PreparedStatement
 			// encounters a null image, it returns null from then on.
 			imageQuery = // jdbc.prepareStatement(
-			"SELECT " + desc
-					+ " descript, image, w, h FROM item LEFT JOIN images "
+			"SELECT CONCAT(" + Util.join(nonNullFields2)
+					+ ") descript, image, w, h FROM item LEFT JOIN images "
 					+ "ON item.record_num = images.record_num "
 					+ "WHERE item.record_num = ";
 			// log(imageQuery);
@@ -481,7 +497,6 @@ public class Database {
 		return result;
 	}
 
-	@SuppressWarnings("unchecked")
 	void getCountsIgnoringFacet(String subQuery, String facet_id,
 			DataOutputStream out) throws SQLException, ServletException,
 			IOException {
@@ -512,7 +527,6 @@ public class Database {
 
 	private PreparedStatement filteredCountTypeQuery;
 
-	@SuppressWarnings("unchecked")
 	void getFilteredCounts(String perspectivesToAdd,
 			String perspectivesToRemove, DataOutputStream out)
 			throws SQLException, ServletException, IOException {
@@ -523,7 +537,6 @@ public class Database {
 		}
 	}
 
-	@SuppressWarnings("unchecked")
 	void getFilteredCountTypes(DataOutputStream out) throws SQLException,
 			ServletException, IOException {
 		synchronized (filteredCountTypeQuery) {
@@ -577,7 +590,6 @@ public class Database {
 		return buf.toString();
 	}
 
-	@SuppressWarnings("unchecked")
 	void initPerspectives(DataOutputStream out) throws SQLException,
 			ServletException, IOException {
 		ResultSet rs = jdbc
@@ -591,7 +603,6 @@ public class Database {
 		sendResultSet(rs, MyResultSet.STRING_STRING_STRING_INT_INT_INT_INT, out);
 	}
 
-	@SuppressWarnings("unchecked")
 	void init(DataOutputStream out) throws SQLException, ServletException,
 			IOException {
 		ResultSet rs = jdbc
@@ -622,7 +633,6 @@ public class Database {
 
 	// The client uses java 1.4, so the compiler can't check the MyResultSet
 	// constants
-	@SuppressWarnings("unchecked")
 	void prefetch(int facet_id, int args, DataOutputStream out)
 			throws SQLException, ServletException, IOException {
 		// log("prefetch " + facet_id + " " + args);
@@ -684,7 +694,6 @@ public class Database {
 
 	private PreparedStatement getLetterOffsetsQuery;
 
-	@SuppressWarnings("unchecked")
 	void getLetterOffsets(int parentFacetID, String prefix, DataOutputStream out)
 			throws SQLException, IOException {
 		synchronized (getLetterOffsetsQuery) {
@@ -708,7 +717,6 @@ public class Database {
 		}
 	}
 
-	@SuppressWarnings("unchecked")
 	void getNames(String facets, DataOutputStream out) throws SQLException,
 			ServletException, IOException {
 		ResultSet rs = jdbc
@@ -722,7 +730,6 @@ public class Database {
 	 */
 	private PreparedStatement[] offsetItemsQuery;
 
-	@SuppressWarnings("unchecked")
 	void offsetItems(int minOffset, int maxOffset, int table,
 			DataOutputStream out) throws SQLException, ServletException,
 			IOException {
@@ -744,21 +751,24 @@ public class Database {
 				// }
 
 				myAssert(onCount < maxOffset, minOffset + "-" + nRows + " "
-						+ MyResultSet.nRows(rs) + " " + onCount + "\n" + s);
+						+ MyResultSet.nRows(rs) + " " + onCount + " in "
+						+ sortedResultTable(table) + "\n" + s);
 			}
 			sendResultSet(rs, MyResultSet.INT, out);
 		}
 	}
 
-	@SuppressWarnings("unchecked")
 	void getThumbs(String items, int imageW, int imageH, int quality,
 			DataOutputStream out) throws SQLException, ServletException,
 			IOException {
 		ResultSet rs = jdbc
-				.SQLquery("SELECT record_num, image, w, h FROM images WHERE record_num IN("
-						+ items + ") ORDER BY record_num");
-		sendResultSet(rs, MyResultSet.SINT_IMAGE_INT_INT, imageW, imageH,
-				quality, out);
+				.SQLquery("SELECT item.record_num, "
+						+ descriptionGetter
+						+ " description, image, w, h FROM item LEFT JOIN images USING (record_num)"
+						+ " WHERE item.record_num IN (" + items
+						+ ") ORDER BY item.record_num");
+		sendResultSet(rs, MyResultSet.SINT_STRING_IMAGE_INT_INT, imageW,
+				imageH, quality, out);
 		rs = jdbc
 				.SQLquery("SELECT * FROM item_facetNtype_heap WHERE record_num IN("
 						+ items + ") ORDER BY record_num");
@@ -780,7 +790,6 @@ public class Database {
 	 * @throws ServletException
 	 * @throws IOException
 	 */
-	@SuppressWarnings("unchecked")
 	void getDescAndImage(int item, int desiredImageW, int desiredImageH,
 			int quality, DataOutputStream out) throws SQLException,
 			ServletException, IOException {
@@ -799,14 +808,16 @@ public class Database {
 	}
 
 	private PreparedStatement getFacetInfoQuery;
+	private PreparedStatement getFacetInfoQueryRestricted;
 
-	@SuppressWarnings("unchecked")
-	void getFacetInfo(int facet, DataOutputStream out) throws SQLException,
-			ServletException, IOException {
+	void getFacetInfo(int facet, boolean isRestrictedData, DataOutputStream out)
+			throws SQLException, ServletException, IOException {
+		PreparedStatement ps = isRestrictedData ? getFacetInfoQueryRestricted
+				: getFacetInfoQuery;
 
-		synchronized (getFacetInfoQuery) {
-			getFacetInfoQuery.setInt(1, facet);
-			ResultSet rs = jdbc.SQLquery(getFacetInfoQuery);
+		synchronized (ps) {
+			ps.setInt(1, facet);
+			ResultSet rs = jdbc.SQLquery(ps);
 			sendResultSet(rs, MyResultSet.PINT_SINT_STRING_INT_INT_INT, out);
 		}
 	}
@@ -859,23 +870,22 @@ public class Database {
 	 * that you can reconstruct the 2^4 states from the 2^3 base states and the
 	 * candidate's totalCount.
 	 * 
-	 * @param facetIDs
-	 *            list of facets to find co-occurence counts among
-	 * @param table
-	 *            either "restricted" or "item_order_heap". Currently ignored.
+	 * @param facetSpecs
+	 *            list of facets, or facet ranges, to find co-occurence counts
+	 *            among: [f1, f2, f3-f4, f5, ...]
+	 * @param isRestrictedData
 	 * @param out
 	 * @throws SQLException
 	 * @throws ServletException
 	 * @throws IOException
 	 */
-	@SuppressWarnings("unchecked")
-	void onCountMatrix(String facetIDs, String candidates, int table,
-			boolean needBaseCounts, DataOutputStream out) throws SQLException,
-			ServletException, IOException {
-		String[] IDs = Util.splitComma(facetIDs);
+	void onCountMatrix(String facetSpecs, String candidates,
+			boolean isRestrictedData, boolean needBaseCounts,
+			DataOutputStream out) throws SQLException, ServletException,
+			IOException {
+		String[] IDs = Util.splitComma(facetSpecs);
 		myAssert(IDs.length < SQL_INT_BITS, "Too many facets (" + IDs.length
-				+ "): " + facetIDs);
-		String itemTable = table == 1 ? "restricted" : "item_order_heap";
+				+ "): " + facetSpecs);
 		if (!pairCountTablesCreated) {
 			pairCountTablesCreated = true;
 			jdbc.SQLupdate("DROP TABLE IF EXISTS tetrad_facets");
@@ -915,16 +925,10 @@ public class Database {
 
 		jdbc
 				.SQLupdate("INSERT INTO tetrad_items "
-						+ "SELECT record_num rn, SUM(bit) "
-						// +
-						// "SELECT ifnull(ifh.record_num, ifth.record_num) rn, SUM(bit) "
-						+ "FROM tetrad_facets f "
-						+ (itemTable.equals("restricted") ? "INNER JOIN restricted USING (record_num) "
-								: "")
-						+ "inner join item_facetNtype_heap ifh USING (facet_id) "
-						// +
-						// "left join item_facet_type_heap ifth on ifth.facet_id = f.facet_id "
-						+ "GROUP BY rn ORDER BY null");
+						+ "SELECT record_num rn, SUM(bit) FROM tetrad_facets f "
+						+ "INNER JOIN item_facetNtype_heap ifh USING (facet_id) "
+						+ (isRestrictedData ? "INNER JOIN restricted USING (record_num) "
+								: "") + "GROUP BY rn ORDER BY NULL");
 
 		if (needBaseCounts) {
 			ResultSet baseCounts = jdbc
@@ -944,8 +948,7 @@ public class Database {
 		}
 	}
 
-	@SuppressWarnings("unchecked")
-	void topCandidates(String perspectiveIDs, int n, int table,
+	void topCandidates(String perspectiveIDexpr, int n, int table,
 			DataOutputStream out) throws SQLException, ServletException,
 			IOException {
 		myAssert(table != 1,
@@ -971,25 +974,174 @@ public class Database {
 
 		// This version is faster, but ignores candidates whose joint prob is
 		// zero
-		String sql = "select candidateID from ("
+		String sql = "SELECT candidateID FROM ("
 				// Need to UNION ALL so that union won't collapse primes
 				// that have the same correlation.
 				+ "SELECT facet1 candidateID, abs(correlation) corr "
-				+ "FROM correlations where facet2 IN (" + perspectiveIDs
-				+ ") UNION ALL "
+				+ "FROM correlations WHERE "
+				+ perspectiveIDexpr.replace("?", "facet2")
+				+ " UNION ALL "
 				+ "SELECT facet2 candidateID, abs(correlation) corr "
-				+ "FROM correlations where facet1 IN (" + perspectiveIDs
-				+ ")) foo group by candidateID "
-				+ "having candidateID NOT IN (" + perspectiveIDs + ") "
+				+ "FROM correlations WHERE "
+				+ perspectiveIDexpr.replace("?", "facet1")
+				+ ") foo GROUP BY candidateID "
+				+ "HAVING NOT ("
+				+ perspectiveIDexpr.replace("?", "candidateID")
 				// + (perspectiveIDs.split(",").length > 1 ? "and count(*) > 1 "
 				// : "")
 
 				// Could this be simplified to ABS(PROD(corr)) ?
-				+ "order by POW(SUM(corr),2) - SUM(corr*corr) desc limit " + n;
-		// log(sql);
+				+ ") ORDER BY POW(SUM(corr),2) - SUM(corr*corr) DESC LIMIT "
+				+ n;
 		ResultSet rs = jdbc.SQLquery(sql);
 		sendResultSet(rs, MyResultSet.INT, out);
 	}
+
+	// @SuppressWarnings("unchecked")
+	// // This correlated well with weight change over multiple sets of primary
+	// facets,
+	// // but not so well among candidates for a given set of primaries.
+	// void topCandidatesMutInf(String facetSpecs, int n, int table,
+	// DataOutputStream out)
+	// throws SQLException, ServletException, IOException {
+	// myAssert(table != 1,
+	// "topCandidates needs a second case for restricted queries.");
+	// boolean isRestrictedData = false;
+	//
+	// String[] IDs = Util.splitComma(facetSpecs);
+	// myAssert(IDs.length < SQL_INT_BITS, "Too many facets (" + IDs.length
+	// + "): " + facetSpecs);
+	// if (!pairCountTablesCreated) {
+	// pairCountTablesCreated = true;
+	// jdbc.SQLupdate("DROP TABLE IF EXISTS tetrad_facets");
+	// // jdbc.SQLupdate("DROP TABLE IF EXISTS tetrad_items");
+	// jdbc.SQLupdate("CREATE TEMPORARY TABLE tetrad_facets("
+	// + "facet_id MEDIUMINT(8) UNSIGNED NOT NULL, "
+	// + "bit INT(8) UNSIGNED NOT NULL, "
+	// + "PRIMARY KEY (facet_id)) ENGINE=MEMORY");
+	// jdbc.SQLupdate("DROP TABLE IF EXISTS tetrad_items");
+	// jdbc.SQLupdate("CREATE  TABLE tetrad_items("
+	// + "record_num MEDIUMINT(8) UNSIGNED NOT NULL, "
+	// + "state INT(8) UNSIGNED NOT NULL, "
+	// + "PRIMARY KEY (record_num)) ENGINE=MEMORY");
+	// // Use duplicate table to avoid "Can't reopen table" error
+	// jdbc.SQLupdate("DROP TABLE IF EXISTS tetrad_base_counts");
+	// jdbc.SQLupdate("DROP TABLE IF EXISTS tetrad_facet_counts");
+	// jdbc.SQLupdate("CREATE  TABLE tetrad_base_counts("
+	// + "state INT(8) UNSIGNED NOT NULL, "
+	// + "baseCnt MEDIUMINT(8) UNSIGNED NOT NULL, "
+	// + "total MEDIUMINT(8) UNSIGNED NOT NULL, "
+	// + "sign TINYINT(8) NOT NULL, "
+	// + "PRIMARY KEY (state)) ENGINE=MEMORY");
+	// jdbc.SQLupdate("CREATE  TABLE tetrad_facet_counts("
+	// + "facet_id MEDIUMINT(8) UNSIGNED NOT NULL, "
+	// + "state INT(8) UNSIGNED NOT NULL, "
+	// + "count MEDIUMINT(8) UNSIGNED NOT NULL, "
+	// + "PRIMARY KEY (facet_id, state)) ENGINE=MEMORY");
+	// } // else {
+	// jdbc.SQLupdate("TRUNCATE TABLE tetrad_facets");
+	// jdbc.SQLupdate("TRUNCATE TABLE tetrad_items");
+	// jdbc.SQLupdate("TRUNCATE TABLE tetrad_base_counts");
+	// jdbc.SQLupdate("TRUNCATE TABLE tetrad_facet_counts");
+	// // }
+	//
+	// StringBuffer buf = new StringBuffer();
+	// buf.append("INSERT INTO tetrad_facets VALUES");
+	// for (int i = 0; i < IDs.length; i++) {
+	// String[] mexFacets = IDs[i].split("-");
+	// for (int j = 0; j < mexFacets.length; j++) {
+	// // jdbc.SQLupdate("INSERT INTO tetrad_facets VALUES("
+	// // + mexFacets[j] + ", " + (1 << i) + ")");
+	// if (i + j > 0)
+	// buf.append(",");
+	// buf.append("(").append(mexFacets[j]).append(", ").append(
+	// (1 << i)).append(")");
+	// }
+	// }
+	// jdbc.SQLupdate(buf.toString());
+	//
+	// // jdbc.SQLupdate("SET @index = 1");
+	// // jdbc.SQLupdate("INSERT INTO tetrad_facets "
+	// // + "SELECT facet_id,(@index :=@index*2)/2 "
+	// // + "FROM facet WHERE facet_id IN (" + facetIDs + ")");
+	//
+	// jdbc
+	// .SQLupdate("INSERT INTO tetrad_items "
+	// + "SELECT record_num rn, IFNULL(SUM(bit), 0) FROM tetrad_facets f "
+	// + "RIGHT JOIN item_facetNtype_heap ifh USING (facet_id) "
+	// + (isRestrictedData ? "INNER JOIN restricted USING (record_num) "
+	// : "") + "GROUP BY rn ORDER BY NULL");
+	// jdbc.SQLupdate("INSERT INTO tetrad_base_counts "
+	// + "SELECT SQL_SMALL_RESULT state, COUNT(*) baseCnt,"
+	// + " (SELECT COUNT(*) FROM item) total, 1"
+	// + " FROM tetrad_items GROUP BY state ORDER BY NULL");
+	//
+	// int nStates = 1 << IDs.length;
+	// for (int i = 1; i < nStates; i++) {
+	// jdbc.SQLupdate("INSERT INTO tetrad_base_counts " + "SELECT "
+	// + (i * nStates) + " + state & ~" + i
+	// + ", sum(baseCnt),total,"
+	// + (Util.weight(i) % 2 == 0 ? 1 : -1)
+	// + " FROM tetrad_base_counts" + " WHERE state < " + nStates
+	// + " group by state & ~" + i);
+	// }
+	//
+	// jdbc
+	// .SQLupdate("INSERT INTO tetrad_facet_counts "
+	// + "SELECT SQL_SMALL_RESULT facet_id, tetrad_items.state s, COUNT(*) cnt"
+	// + " FROM item_facetNtype_heap INNER JOIN tetrad_items USING (record_num)"
+	// + " GROUP BY facet_id, s");
+	// jdbc.SQLupdate("INSERT INTO tetrad_facet_counts "
+	// + "select f.facet_id, tbc.state, 0 "
+	// + "from facet f, tetrad_base_counts tbc " + "where state < "
+	// + nStates
+	// + " and not exists (select * from tetrad_facet_counts tfc "
+	// + "where tfc.facet_id = f.facet_id and tfc.state = tbc.state)"
+	// + "order by f.facet_id");
+	// for (int i = 1; i < nStates; i++) {
+	// jdbc.SQLupdate("INSERT INTO tetrad_facet_counts "
+	// + "SELECT facet_id, " + (i * nStates) + " + state & ~" + i
+	// + ", sum(count) FROM tetrad_facet_counts"
+	// + " WHERE state < " + nStates
+	// + " group by facet_id, state & ~" + i);
+	// }
+	//
+	// String sql1 =
+	// "SELECT facet_id, SUM((if(count=0,0,count/total*log(count/total))"
+	// +
+	// "+ if(baseCnt=count,0,(baseCnt-count)/total*log((baseCnt-count)/total)))*sign) FROM"
+	// + " tetrad_facet_counts INNER JOIN tetrad_base_counts USING (state)"
+	// + " GROUP BY facet_id "
+	// + "ORDER BY SUM((if(count=0,0,count*log(count/total))"
+	// +
+	// "+ if(baseCnt=count,0,(baseCnt-count)*log((baseCnt-count)/total)))*sign) DESC "
+	// + "LIMIT " + 20;
+	// // + " where facet_id = 297";
+	// // log(sql);
+	// ResultSet rs1 = jdbc.SQLquery(sql1);
+	// jdbc.print("topCandidates " + facetSpecs);
+	// jdbc.print(MyResultSet.valueOfDeep(rs1,
+	// MyResultSet.INT_DOUBLE, 200));
+	//
+	// // rs1 = jdbc
+	// //
+	// .SQLquery("select * from tetrad_facet_counts inner join tetrad_base_counts using (state)"
+	// // + " where facet_id = " + 297);
+	// // jdbc
+	// // .print(MyResultSet.valueOfDeep(rs1,
+	// // MyResultSet.INT_INT_INT_INT, n));
+	//
+	// String sql = "SELECT facet_id FROM"
+	// + " tetrad_facet_counts INNER JOIN tetrad_base_counts USING (state)"
+	// + " GROUP BY facet_id "
+	// + "ORDER BY SUM((if(count=0,0,count*log(count/total))"
+	// +
+	// "+ if(baseCnt=count,0,(baseCnt-count)*log((baseCnt-count)/total)))*sign) DESC "
+	// + "LIMIT " + n;
+	// // log(sql);
+	// ResultSet rs = jdbc.SQLquery(sql);
+	// sendResultSet(rs, MyResultSet.INT, out);
+	// }
 
 	private PreparedStatement printUserActionStmt;
 
@@ -1429,7 +1581,6 @@ public class Database {
 	 * @throws ServletException
 	 * @throws IOException
 	 */
-	@SuppressWarnings("unchecked")
 	private void updateFacetCounts(Set<Integer> leafFacets, DataOutputStream out)
 			throws SQLException, ServletException, IOException {
 		int[] ancestors = null;
@@ -1604,7 +1755,7 @@ public class Database {
 			}
 
 			// This requires SUPER permission, which we don't really want to
-			// give to p5
+			// give to bungee
 			// ResultSet rs = jdbc.SQLquery("SHOW BINARY LOGS");
 			// while (rs.next()) {
 			// String logfile = rs.getString("Log_name");
@@ -1872,7 +2023,6 @@ public class Database {
 		return pValue;
 	}
 
-	@SuppressWarnings("unchecked")
 	void extractClustersFromTables(int maxClusters, String[] clusterTables,
 			DataOutputStream out) throws SQLException, ServletException,
 			IOException {
@@ -2033,7 +2183,6 @@ public class Database {
 		return cfExpr;
 	}
 
-	@SuppressWarnings("unchecked")
 	void caremediaPlayArgs(String items, DataOutputStream out)
 			throws SQLException, ServletException, IOException {
 		log("caremediaPlayArgs " + items);
@@ -2055,7 +2204,6 @@ public class Database {
 		sendResultSet(rs, MyResultSet.SNMINT_INT_INT, out);
 	}
 
-	@SuppressWarnings("unchecked")
 	void caremediaGetItems(String segments, DataOutputStream out)
 			throws SQLException, ServletException, IOException {
 		// Seems messed up - client sends items, not segments
@@ -2162,7 +2310,6 @@ public class Database {
 		// Util.print("getRawText '"+displayText+"'\n'"+buf+"'");
 	}
 
-	@SuppressWarnings("unchecked")
 	void opsSpec(int session, DataOutputStream out) throws SQLException,
 			ServletException, IOException {
 		// order by timestamp for sessions before we recorded action_numbers

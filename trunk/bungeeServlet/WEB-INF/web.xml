@@ -13,7 +13,7 @@
             </init-param>
             <init-param>
                 <param-name> user </param-name>
-                <param-value> p5 </param-value>
+                <param-value> bungee </param-value>
             </init-param>
             <init-param>
                 <param-name> pwd </param-name>
