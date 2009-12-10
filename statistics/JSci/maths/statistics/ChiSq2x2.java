@@ -124,6 +124,11 @@ public class ChiSq2x2 {
 		table00 = table002;
 	}
 
+	public ChiSq2x2 expected() {
+		return new ChiSq2x2(object, total, row0, col0, (int) Math.round(row0
+				/ (double) total * col0));
+	}
+
 	static boolean checkTable(int total, int row0, int col0, int table00,
 			Object msg) {
 		assert table00 >= 0 : checkTableMsg(total, row0, col0, table00, msg);
@@ -249,27 +254,28 @@ public class ChiSq2x2 {
 		return corr1;
 	}
 
-//	/**
-//	 * @return correlation divided by the maximum possible correlation with the
-//	 *         same sign for the row, column, and table totals. I.e. the
-//	 *         correlation when table00 = min(row0, col0) or zero.
-//	 */
-//	public double correlationPercent() {
-//		double dTotal = total();
-//		double p00 = table00 / dTotal;
-//		double prow0 = row0() / dTotal;
-//		double pcol0 = col0() / dTotal;
-//		double prowcol = prow0 * pcol0;
-//		double numerator = p00 - prowcol;
-//		double p00Max = numerator >= 0 ? Math.min(row0(), col0()) / dTotal : 0;
-//		double result = numerator / (p00Max - prowcol);
-//		// double corr2 = sampleCovariance() / Math.sqrt(sampleVariance(ROW) *
-//		// sampleVariance(COL));
-//		// assert corr1==corr2:corr1+" "+corr2;
-//		assert result >= 0 && result <= 1 : result + " " + numerator + " "
-//				+ printTable();
-//		return result;
-//	}
+	// /**
+	// * @return correlation divided by the maximum possible correlation with
+	// the
+	// * same sign for the row, column, and table totals. I.e. the
+	// * correlation when table00 = min(row0, col0) or zero.
+	// */
+	// public double correlationPercent() {
+	// double dTotal = total();
+	// double p00 = table00 / dTotal;
+	// double prow0 = row0() / dTotal;
+	// double pcol0 = col0() / dTotal;
+	// double prowcol = prow0 * pcol0;
+	// double numerator = p00 - prowcol;
+	// double p00Max = numerator >= 0 ? Math.min(row0(), col0()) / dTotal : 0;
+	// double result = numerator / (p00Max - prowcol);
+	// // double corr2 = sampleCovariance() / Math.sqrt(sampleVariance(ROW) *
+	// // sampleVariance(COL));
+	// // assert corr1==corr2:corr1+" "+corr2;
+	// assert result >= 0 && result <= 1 : result + " " + numerator + " "
+	// + printTable();
+	// return result;
+	// }
 
 	/**
 	 * @return Cov(X,Y) = E(X*Y) - E(X)*E(Y)
