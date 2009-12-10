@@ -39,9 +39,6 @@ import edu.umd.cs.piccolo.event.PInputEvent;
 
 public class VScrollbar extends PNode implements MouseDoc {
 
-	/**
-	 * 
-	 */
 	private static final long serialVersionUID = 1L;
 
 	/**
@@ -130,7 +127,7 @@ public class VScrollbar extends PNode implements MouseDoc {
 		spos = Util.constrain(spos, sposMin, sposMax);
 		setBounds(xpos, sposMin, swidth, sheight);
 		thumb.setBounds(xpos, spos, swidth, visibleThumbSize());
-		// System.out.println(getBounds());
+//		System.out.println("resize " + getBounds());
 	}
 
 	public void reset() {
@@ -422,9 +419,6 @@ class VScrollHandler extends MyInputEventHandler {
 
 class ScrollButton extends Button {
 
-	/**
-	 * 
-	 */
 	private static final long serialVersionUID = 1L;
 	int _direction; // +1 or -1
 
