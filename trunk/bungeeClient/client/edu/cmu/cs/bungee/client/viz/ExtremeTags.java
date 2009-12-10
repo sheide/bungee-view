@@ -87,21 +87,16 @@ public class ExtremeTags extends LazyContainer implements MouseDoc,
 		return Math.sqrt(facet.parentTotalCount());
 	}
 
-	private double updateDataInternal(double y, Iterator it) {
+	private double updateDataInternal(double y, Iterator<TagRelevance> it) {
 		double numW = art.numWidth(-100);
 		double nameW = getWidth() - numW - margin_size() - COLUMN_MARGIN;
 		// double maxRelevance = maxRelevance();
 		while (it.hasNext()) {
-			TagRelevance tag = (TagRelevance) it.next();
+			TagRelevance tag = it.next();
 			Perspective facet = (Perspective) tag.tag.object;
-			double relevance = tag.relevance;
+//			double relevance = tag.relevance;
 //			Util.print("udi "+y+"\t"+relevance); 
-			int score = (int) Math
-					.round(Util.sgn(relevance)
-							* 100
-							* Math
-									.pow(Math.abs(relevance
-											/* / maxRelevance(facet) */), 0.25));
+			int score = (int) Math.round(tag.relevanceScore());
 
 			FacetText text = FacetText.getFacetText(facet, art, numW, nameW,
 					false, false, score, this, isUnderline(facet));
@@ -142,15 +137,18 @@ public class ExtremeTags extends LazyContainer implements MouseDoc,
 		return art.getShowCheckboxes() ? 8 : 40;
 	}
 
+	@Override
 	public double minWidth() {
 		return label.getWidth() * label.getScale() + margin_size();
 		// return art.lineH * 5;
 	}
 
+	@Override
 	public double maxWidth() {
 		return w + art.grid.w - art.grid.minWidth();
 	}
 
+	@Override
 	public void updateBoundary(Boundary boundary1) {
 		assert boundary1 == boundary;
 		if (art.getShowBoundaries()) {
@@ -160,15 +158,17 @@ public class ExtremeTags extends LazyContainer implements MouseDoc,
 		}
 	}
 
+	@Override
 	public void enterBoundary(Boundary boundary1) {
 		if (!art.getShowBoundaries()) {
 			boundary1.exit();
 		}
 	}
 
-	public void highlightFacet(Set facets) {
-		for (Iterator it = getChildrenIterator(); it.hasNext();) {
-			PNode node = (PNode) it.next();
+	@SuppressWarnings("unchecked")
+	public void highlightFacet(Set<Perspective> facets) {
+		for (Iterator<PNode> it = getChildrenIterator(); it.hasNext();) {
+			PNode node = it.next();
 			if (node instanceof FacetText) {
 				FacetText child = (FacetText) node;
 				Perspective childFacet = child.getFacet();

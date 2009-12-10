@@ -27,7 +27,7 @@ class SummaryText extends TextNfacets implements PickFacetTextNotifier {
 		setWrapText(false);
 		setWrapOnWordBoundaries(false);
 		facetPermanentTextPaint = Bungee.headerFG;
-		// setPaint(Bungee.summaryBG);
+//		setPaint(Color.red);
 		addInputEventListener(new SummaryTextHover());
 		// ellipsis = new EllipsisButton();
 		// ellipsis.setVisible(false);
@@ -59,7 +59,7 @@ class SummaryText extends TextNfacets implements PickFacetTextNotifier {
 	private Markup hackSearches(Markup markup) {
 		query();
 		Markup result = Query.emptyMarkup();
-		for (Iterator it = markup.iterator(); it.hasNext();) {
+		for (Iterator<Object> it = markup.iterator(); it.hasNext();) {
 			Object object = it.next();
 			result.add(object);
 			if ("whose description mentions '".equals(object)) {
@@ -78,8 +78,9 @@ class SummaryText extends TextNfacets implements PickFacetTextNotifier {
 
 	boolean expandSummary() {
 		art.printUserAction(Bungee.BUTTON, "Ellipsis", 0);
+//		setPaint(Color.red);
 		if (getHeight() <= art.lineH && isIncomplete()) {
-			// Util.print("expandSummary");
+//			Util.print("expandSummary");
 			setWrapText(true);
 			setWrapOnWordBoundaries(true);
 			setTrim(-1, (int) (art.lineH / 2));
@@ -94,7 +95,7 @@ class SummaryText extends TextNfacets implements PickFacetTextNotifier {
 
 	boolean contractSummary() {
 		if (getHeight() > art.lineH) {
-			// Util.print("contractSummary");
+//			Util.print("contractSummary");
 			setTrim(-1, -1);
 			setWrapText(false);
 			setWrapOnWordBoundaries(false);
@@ -114,7 +115,8 @@ class SummaryText extends TextNfacets implements PickFacetTextNotifier {
 	 * @see
 	 * edu.cmu.cs.bungee.client.viz.TextNfacets#updateSelections(java.util.Set)
 	 */
-	void updateSelections(Set facets) {
+	@Override
+	<V extends ItemPredicate>void updateSelections(Set<V> facets) {
 		// Util.print("SummaryText.updateSelections " +
 		// facets+" "+art.highlightedFacets);
 		for (int i = 0; i < getChildrenCount(); i++) {
@@ -157,13 +159,16 @@ class SummaryText extends TextNfacets implements PickFacetTextNotifier {
 		// // ((Summary) parent).setMouseDoc(node, false);
 		// }
 
+		@Override
 		public boolean enter(PNode node) {
-			// Util.print("SummaryTextHover.enter " + node);
+//			Util.print("SummaryTextHover.enter " + node);
 			// setSummaryTextDoc(true);
 			return expandSummary();
 		}
 
+		@Override
 		public boolean exit(PNode node, PInputEvent e) {
+//			Util.print("SummaryTextHover.exit " + node);
 			Point2D point = e.getPositionRelativeTo(SummaryText.this);
 			return !getBounds().contains(point) && contractSummary();
 			// setSummaryTextDoc(false);
@@ -224,9 +229,11 @@ class SummaryText extends TextNfacets implements PickFacetTextNotifier {
 	 * 
 	 * @see edu.cmu.cs.bungee.client.viz.TextNfacets#trim()
 	 */
+	@SuppressWarnings("unchecked")
+	@Override
 	protected void trim() {
 		// Util.print("SummaryText.trim "+content);
-		for (Iterator it = getChildrenIterator(); it.hasNext();) {
+		for (Iterator<PNode> it = getChildrenIterator(); it.hasNext();) {
 			// Object o = it.next();
 			// if (o instanceof FacetText) {
 			FacetText text = (FacetText) it.next();
@@ -242,8 +249,11 @@ class SummaryText extends TextNfacets implements PickFacetTextNotifier {
 		// Util.print("SummaryText.highlight");
 		if (state)
 			expandSummary();
-		else
-			contractSummary();
+		else {
+			// This will make the summary text disappear, so it won't be
+			// immediately entered again as it should be.
+			// contractSummary();
+		}
 		if (node.facet != null) {
 			art.highlightFacet(state ? node.facet : null, modifiers);
 			art.setClickDesc(state ? node.facet.facetDoc(modifiers) : null);

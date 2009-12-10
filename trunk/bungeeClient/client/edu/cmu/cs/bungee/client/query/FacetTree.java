@@ -52,16 +52,16 @@ public final class FacetTree extends DisplayTree  {
  * @param desc description of this subtree
  */
 	// called by ClusterViz
-	public FacetTree(DisplayTree _parent, Set leafs, String desc) {
+	public FacetTree(DisplayTree _parent, Set<Perspective> leafs, String desc) {
 		super(_parent, desc, null);
 		// Util.print("FacetTree " + p);
 		createDescendentTree(Perspective.ancestors(leafs));
 	}
 
-	private void createDescendentTree(Set facets) {
+	private void createDescendentTree(Set<Perspective> facets) {
 		Object parentFacet = (treeObject() instanceof Perspective) ? treeObject() : null;
-		for (Iterator it = facets.iterator(); it.hasNext();) {
-			Perspective p = (Perspective) it.next();
+		for (Iterator<Perspective> it = facets.iterator(); it.hasNext();) {
+			Perspective p = it.next();
 			if (p.getParent() == parentFacet) {
 				FacetTree child = new FacetTree(this, p);
 				child.createDescendentTree(facets);

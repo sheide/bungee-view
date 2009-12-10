@@ -5,7 +5,6 @@ import java.awt.Graphics2D;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -51,7 +50,7 @@ final class Bar extends LazyPNode implements FacetNode {
 
 	private double currentY;
 
-	private static List barCache = new LinkedList();
+	private static List<Bar> barCache = new LinkedList<Bar>();
 
 	static Bar getBar(PerspectiveViz _pv, double x, double w, Perspective _facet) {
 		Bar result = null;
@@ -60,7 +59,7 @@ final class Bar extends LazyPNode implements FacetNode {
 			result.rect = new Rectangle2D.Double(x, 0.5 - MIN_BAR_HEIGHT / 2,
 					w, MIN_BAR_HEIGHT);
 		} else {
-			result = (Bar) barCache.remove(0);
+			result = barCache.remove(0);
 			assert result != null;
 		}
 
@@ -82,14 +81,13 @@ final class Bar extends LazyPNode implements FacetNode {
 		return result;
 	}
 
-	static void release(Collection toRelease) {
+	static void release(Collection<Bar> toRelease) {
 		assert noNulls(toRelease);
 		barCache.addAll(toRelease);
 	}
 
-	static boolean noNulls(Collection c) {
-		for (Iterator it = c.iterator(); it.hasNext();) {
-			Object o = it.next();
+	static boolean noNulls(Collection<?> c) {
+		for (Object o : c) {
 			assert o != null;
 		}
 		return true;
@@ -202,6 +200,7 @@ final class Bar extends LazyPNode implements FacetNode {
 	// return art().facetTextColor(facet, facet.guessOnCount());
 	// }
 
+	@Override
 	protected void paint(PPaintContext paintContext) {
 		// paintCount++;
 		// if ("Army".equals(facet.getNameIfPossible()))
@@ -271,6 +270,7 @@ final class Bar extends LazyPNode implements FacetNode {
 		return pv.summary.art;
 	}
 
+	@Override
 	public String toString() {
 		return "<Bar " + facet + ">";
 	}

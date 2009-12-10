@@ -36,24 +36,28 @@ class FacetClickHandler extends MyInputEventHandler {
 	}
 
 	// Treat it like enter
+	@Override
 	public boolean shiftKeysChanged(PNode node, PInputEvent e) {
 		// Util.print("FacetClickHandler.enter " + ((FacetNode) node).getFacet()
 		// + " " + e.getModifiersEx());
 		return ((FacetNode) node).highlight(true, getModifiers(node, e), e);
 	}
 
+	@Override
 	public boolean enter(PNode node, PInputEvent e) {
 		// Util.print("FacetClickHandler.enter " + ((FacetNode) node).getFacet()
 		// + " " + e.getModifiersEx());
 		return ((FacetNode) node).highlight(true, getModifiers(node, e), e);
 	}
 
+	@Override
 	public boolean exit(PNode node, PInputEvent e) {
 		// Util.print("FacetClickHandler.exit " + ((FacetNode)
 		// node).getFacet());
 		return ((FacetNode) node).highlight(false, getModifiers(node, e), e);
 	}
 
+	@Override
 	public boolean moved(PNode node, PInputEvent e) {
 		// Util.print("FacetClickHandler.exit " + ((FacetNode)
 		// node).getFacet());
@@ -68,6 +72,7 @@ class FacetClickHandler extends MyInputEventHandler {
 			return false;
 	}
 
+	@Override
 	public boolean click(PNode node, PInputEvent e) {
 		FacetNode f = (FacetNode) node;
 		// System.out.println("FacetClickHandler.click " + f);
@@ -79,10 +84,12 @@ class FacetClickHandler extends MyInputEventHandler {
 		return f.pick(getModifiers(node, e), e);
 	}
 
+	@Override
 	public void mayHideTransients(PNode node) {
 		((FacetNode) node).mayHideTransients(node);
 	}
 
+	@Override
 	public boolean press(PNode node, PInputEvent e) {
 		dragging = ((FacetNode) node).startDrag(node, e
 				.getPositionRelativeTo(node));
@@ -105,12 +112,14 @@ class FacetClickHandler extends MyInputEventHandler {
 		// return result;
 	}
 
+	@Override
 	public boolean release(PNode ignore) {
 		boolean result = dragging != null;
 		dragging = null;
 		return result;
 	}
 
+	@Override
 	public boolean drag(PNode ignore, PInputEvent e) {
 		boolean result = dragging != null;
 		if (result) {

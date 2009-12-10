@@ -26,7 +26,7 @@ import edu.cmu.cs.bungee.javaExtensions.Util;
 public class Distribution {
 
 	// private static final int MAX_CACHED_DIST_SIZE = 10;
-	protected final List facets;
+	protected final List<ItemPredicate> facets;
 
 	protected final double[] distribution;
 	protected int[] counts;
@@ -39,28 +39,88 @@ public class Distribution {
 	private double pLogP = Double.NaN;
 	protected final int nFacets;
 
-	protected static Map cachedDistributions = new HashMap();
-	protected static Map cacheDAG = new HashMap();
+	protected static Map<CacheDistArgs, Distribution> cachedDistributions = new HashMap<CacheDistArgs, Distribution>();
+	protected static Map<List<ItemPredicate>, Set<ItemPredicate>> cacheDAG = new HashMap<List<ItemPredicate>, Set<ItemPredicate>>();
 
-	protected static Distribution createAndCache(List facets, int[] counts) {
-		assert !cachedDistributions.containsKey(facets);
+	protected static Distribution createAndCache(List<ItemPredicate> facets,
+			int[] counts) {
+		assert !cachedDistributions.containsKey(facets) : facets + " "
+				+ cachedDistributions.get(facets) + "\n" + cachedDistributions;
 		Distribution result = new Distribution(facets, counts);
 		// Util.print("createAndCache " + cachedDistributions.size() + " "
 		// + facets.size() + " " + result);
-		cachedDistributions.put(result.facets, result);
+
+		// if (result.facets.size() == 2 && ((Perspective)
+		// result.facets.get(0)).getID() == 73
+		// && ((Perspective) result.facets.get(0)).getID() == 150) {
+		// Util.print(result.facets);
+		// Util.printStackTrace();
+		// }
+
+		cachedDistributions.put(new CacheDistArgs(result.facets), result);
 		addSubsets(result.facets);
 		return result;
 	}
 
-	private static void addSubsets(List facets) {
-		if (facets.size() > 2)
-			for (Iterator it = facets.iterator(); it.hasNext();) {
-				ItemPredicate p = (ItemPredicate) it.next();
-				List remaining = new ArrayList(facets);
+	static class CacheDistArgs {
+
+		final List<ItemPredicate> facets;
+		final Set<List<ItemPredicate>> edges;
+
+		CacheDistArgs(List<ItemPredicate> facets,
+				final Set<List<ItemPredicate>> edges) {
+			this.facets = Collections.unmodifiableList(facets);
+			this.edges = Collections.unmodifiableSet(edges);
+		}
+
+		CacheDistArgs(List<ItemPredicate> facets) {
+			this.facets = Collections.unmodifiableList(facets);
+			edges = null;
+		}
+
+		@Override
+		public int hashCode() {
+			final int prime = 31;
+			int result = 1;
+			result = prime * result + ((edges == null) ? 0 : edges.hashCode());
+			result = prime * result
+					+ ((facets == null) ? 0 : facets.hashCode());
+			return result;
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj)
+				return true;
+			if (obj == null)
+				return false;
+			if (getClass() != obj.getClass())
+				return false;
+			CacheDistArgs other = (CacheDistArgs) obj;
+			if (edges == null) {
+				if (other.edges != null)
+					return false;
+			} else if (!edges.equals(other.edges))
+				return false;
+			if (facets == null) {
+				if (other.facets != null)
+					return false;
+			} else if (!facets.equals(other.facets))
+				return false;
+			return true;
+		}
+	}
+
+	private static void addSubsets(List<ItemPredicate> facets) {
+		if (facets.size() > 1)
+			for (Iterator<ItemPredicate> it = facets.iterator(); it.hasNext();) {
+				ItemPredicate p = it.next();
+				List<ItemPredicate> remaining = new ArrayList<ItemPredicate>(
+						facets);
 				remaining.remove(p);
-				Set larger = (Set) cacheDAG.get(remaining);
+				Set<ItemPredicate> larger = cacheDAG.get(remaining);
 				if (larger == null) {
-					larger = new TreeSet();
+					larger = new TreeSet<ItemPredicate>();
 					cacheDAG.put(remaining, larger);
 				}
 				larger.add(p);
@@ -71,7 +131,7 @@ public class Distribution {
 	/**
 	 * This is only for immutable Distributions
 	 */
-	public Distribution(List facets, int[] counts) {
+	public Distribution(List<ItemPredicate> facets, int[] counts) {
 		this.facets = computeFacets(facets);
 		this.nFacets = facets.size();
 		totalCount = Util.sum(counts);
@@ -89,7 +149,7 @@ public class Distribution {
 	/**
 	 * This is only for GraphicalModels
 	 */
-	protected Distribution(List facets, int count) {
+	protected Distribution(List<ItemPredicate> facets, int count) {
 		this.facets = computeFacets(facets);
 		this.nFacets = facets.size();
 		this.distribution = new double[nStates()];
@@ -97,13 +157,23 @@ public class Distribution {
 		assert totalCount > 0;
 	}
 
-	static protected Distribution ensureDist(List facets, int[] counts) {
+	/**
+	 * The cache should be a member of Query, but for now we just keep one
+	 * global cache.
+	 */
+	public static void decacheDistributions() {
+		// Util.print("decacheDistributions");
+		cachedDistributions.clear();
+	}
+
+	static protected Distribution ensureDist(List<ItemPredicate> facets,
+			int[] counts) {
 		// List args = new ArrayList(facets.size() + counts.length);
 		// args.addAll(facets);
 		// for (int i = 0; i < counts.length; i++) {
 		// args.add(new Integer(counts[i]));
 		// }
-		Distribution result = (Distribution) cachedDistributions.get(facets);
+		Distribution result = cachedDistributions.get(facets);
 		if (result == null) {
 			result = createAndCache(facets, counts);
 			// xxresult = getDistFromDB(facets, null);
@@ -114,12 +184,14 @@ public class Distribution {
 		return result;
 	}
 
-	static Distribution findLargerDist(List facets) {
-		Distribution result = (Distribution) cachedDistributions.get(facets);
+	static Distribution findLargerDist(List<ItemPredicate> facets) {
+		Distribution result = cachedDistributions.get(facets);
 		if (result == null) {
-			SortedSet additions = (SortedSet) cacheDAG.get(facets);
+			SortedSet<ItemPredicate> additions = (SortedSet<ItemPredicate>) cacheDAG
+					.get(facets);
 			if (additions != null) {
-				List larger = new LinkedList(facets);
+				List<ItemPredicate> larger = new LinkedList<ItemPredicate>(
+						facets);
 				larger.add(additions.first());
 				Collections.sort(larger);
 				result = findLargerDist(larger);
@@ -128,8 +200,8 @@ public class Distribution {
 		return result;
 	}
 
-	static Distribution ensureDist(List facets) {
-		Distribution result = (Distribution) cachedDistributions.get(facets);
+	static Distribution ensureDist(List<ItemPredicate> facets) {
+		Distribution result = cachedDistributions.get(facets);
 		if (result == null) {
 			Distribution largerDist = findLargerDist(facets);
 			if (largerDist != null)
@@ -140,24 +212,32 @@ public class Distribution {
 		return result;
 	}
 
-	public Distribution getMarginalDistribution(List subFacets) {
-		return ensureDist(subFacets, getMarginalCounts(subFacets));
+	public Distribution getMarginalDistribution(List<ItemPredicate> subFacets) {
+		int[] marginalCounts = getMarginalCounts(subFacets);
+		if (cachedDistributions.get(facets) == this) {
+			return ensureDist(subFacets, marginalCounts);
+		} else
+			return new Distribution(subFacets, marginalCounts);
+
 	}
 
-	static Distribution cacheCandidateDistributions(List facets,
-			List likelyCandidates) {
-		Collection candidates = new HashSet();
+	static Distribution cacheCandidateDistributions(List<ItemPredicate> facets,
+			List<ItemPredicate> likelyCandidates) {
+		// Util.print("cacheCandidateDistributions " + facets + " "
+		// + likelyCandidates);
+		Collection<ItemPredicate> candidates = new HashSet<ItemPredicate>();
 		if (likelyCandidates != null)
 			candidates.addAll(likelyCandidates);
 		candidates.removeAll(facets);
 		int[] fCounts = null;
 
-		SortedSet additions = (SortedSet) cacheDAG.get(facets);
+		SortedSet<ItemPredicate> additions = (SortedSet<ItemPredicate>) cacheDAG
+				.get(facets);
 		if (additions != null) {
 			candidates.removeAll(additions);
 			fCounts = ensureDist(facets).getCounts();
 		} else {
-			Distribution d = (Distribution) cachedDistributions.get(facets);
+			Distribution d = cachedDistributions.get(facets);
 			if (d != null)
 				fCounts = d.getCounts();
 		}
@@ -188,65 +268,69 @@ public class Distribution {
 				int nonZeroStateCount = 0;
 				int[] counts = null;
 				int prevFacet = -1;
-				List allFacets = null;
+				List<ItemPredicate> allFacets = null;
 				int[] facetsIndexes = null;
 				int candidateIndex = -1;
 				int nFacets = facets.size() + 1;
-				for (int i = 1; i < rss.length; i++) {
-					ResultSet rs = rss[i];
-					while (rs.next()) {
-						int facet = rs.getInt(1);
-						assert facet > 0 : MyResultSet.valueOfDeep(rs,
-								MyResultSet.SNMINT_INT_INT, 300);
-						if (facet != prevFacet) {
-							if (prevFacet > 0) {
-								computeNcache(fCounts, query,
-										nonZeroStateCount, counts, prevFacet,
-										allFacets, candidateIndex);
-							}
-							prevFacet = facet;
-							nonZeroStateCount = 0;
-							counts = new int[1 << nFacets];
-							allFacets = new ArrayList(nFacets);
-							allFacets.addAll(facets);
-							Perspective p = query.findPerspective(facet);
-							assert !allFacets.contains(p) : allFacets + " " + p;
-							allFacets.add(p);
-							Collections.sort(allFacets);
-							facetsIndexes = getMarginIndexes(allFacets, facets);
-							candidateIndex = allFacets.indexOf(p);
-							for (int substate = 0; substate < fCounts.length; substate++) {
-								int state = setSubstate(0, substate,
-										facetsIndexes);
-								counts[state] = fCounts[substate];
-							}
+				ResultSet rs = rss[1];
+
+				// Util.print(MyResultSet.valueOfDeep(rs,
+				// MyResultSet.SNMINT_INT_INT, 500));
+				// Util.print(Util.valueOfDeep(fCounts));
+
+				while (rs.next()) {
+					int facet = rs.getInt(1);
+					assert facet > 0 : MyResultSet.valueOfDeep(rs,
+							MyResultSet.SNMINT_INT_INT, 300);
+					if (facet != prevFacet) {
+						if (prevFacet > 0) {
+							computeNcache(fCounts, query, nonZeroStateCount,
+									counts, prevFacet, allFacets,
+									candidateIndex);
 						}
-						int substate = rs.getInt(2);
-						assert substate > 0;
-						int state = setSubstate(0, substate, facetsIndexes);
-						int count = rs.getInt(3);
-						// Util.print(state + " " + Util.setBit(state,
-						// candidateIndex, true)+" "+count + " "
-						// + query.findPerspective(facet));
-						assert count <= fCounts[substate] : facets + " "
-								+ query.findPerspective(facet) + " "
-								+ Util.valueOfDeep(fCounts) + " " + substate
-								+ " " + count;
-						nonZeroStateCount += count;
-						counts[state] = fCounts[substate] - count;
-						counts[Util.setBit(state, candidateIndex, true)] = count;
-						// Util.print("zz " + facet + " " + state + " " +
-						// count);
+						prevFacet = facet;
+						nonZeroStateCount = 0;
+						counts = new int[1 << nFacets];
+						allFacets = new ArrayList<ItemPredicate>(nFacets);
+						allFacets.addAll(facets);
+						Perspective p = query.findPerspective(facet);
+						assert !allFacets.contains(p) : allFacets + " " + p;
+						allFacets.add(p);
+						Collections.sort(allFacets);
+						facetsIndexes = getMarginIndexes(allFacets, facets);
+						candidateIndex = allFacets.indexOf(p);
+						for (int substate = 0; substate < fCounts.length; substate++) {
+							int state = setSubstate(0, substate, facetsIndexes);
+							counts[state] = fCounts[substate];
+						}
 					}
-					rs.close();
+					int substate = rs.getInt(2);
+					assert substate > 0;
+					int state = setSubstate(0, substate, facetsIndexes);
+					int count = rs.getInt(3);
+					// Util.print(state + " " + Util.setBit(state,
+					// candidateIndex, true)+" "+count + " "
+					// + query.findPerspective(facet));
+					assert count <= fCounts[substate] : facets + " "
+							+ query.findPerspective(facet) + " "
+							+ Util.valueOfDeep(fCounts) + " " + substate + " "
+							+ count;
+					nonZeroStateCount += count;
+					counts[state] = fCounts[substate] - count;
+					counts[Util.setBit(state, candidateIndex, true)] = count;
+					// Util.print("zz " + facet + " " + state + " " +
+					// count);
 				}
+				rs.close();
+
 				// Util.print(facets + " " + allFacets + " "
 				// + Util.valueOfDeep(fCounts) + " "
 				// + Util.valueOfDeep(counts));
 				// createAndCache(allFacets, counts);
 
-				computeNcache(fCounts, query, nonZeroStateCount, counts,
-						prevFacet, allFacets, candidateIndex);
+				if (prevFacet > 0)
+					computeNcache(fCounts, query, nonZeroStateCount, counts,
+							prevFacet, allFacets, candidateIndex);
 			} catch (SQLException e) {
 				e.printStackTrace();
 			}
@@ -255,25 +339,37 @@ public class Distribution {
 	}
 
 	private static void computeNcache(int[] fCounts, Query query,
-			int nonZeroStateCount, int[] counts, int prevFacet, List allFacets,
-			int candidateIndex) {
-		Perspective p = query.findPerspective(prevFacet);
-		int zeroCount = p.getTotalCount() - nonZeroStateCount;
-		counts[0] = fCounts[0] - zeroCount;
-		counts[Util.setBit(0, candidateIndex, true)] = zeroCount;
-		// Util.print("cd " + fCounts[0] + " "
-		// + nonZeroStateCount + " "
-		// + p.getTotalCount() + " " + p);
+			int nonZeroStateCount, int[] counts, int prevFacet,
+			List<ItemPredicate> allFacets, int candidateIndex) {
+		Perspective p = query.findPerspectiveIfPossible(prevFacet);
+		int totalCount2 = p == null ? -1 : p.getTotalCount();
+		if (totalCount2 < 0)
+			// In case isRestrictedData and p is deeply nested
+			getDistFromDB(allFacets, null);
+		else {
+			int zeroCount = totalCount2 - nonZeroStateCount;
+			assert zeroCount >= 0;
+			counts[0] = fCounts[0] - zeroCount;
+			assert counts[0] >= 0 : p + " " + totalCount2 + "-"
+					+ nonZeroStateCount + "=" + zeroCount + "\n"
+					+ Util.valueOfDeep(counts) + "\n"
+					+ Util.valueOfDeep(fCounts);
+			counts[Util.setBit(0, candidateIndex, true)] = zeroCount;
+			// Util.print("cd " + fCounts[0] + " "
+			// + nonZeroStateCount + " "
+			// + p.getTotalCount() + " " + p);
 
-		// Util.print(facets + " " + allFacets + " "
-		// + Util.valueOfDeep(fCounts) + " "
-		// + Util.valueOfDeep(counts));
+			// Util.print(facets + " " + allFacets + " "
+			// + Util.valueOfDeep(fCounts) + " "
+			// + Util.valueOfDeep(counts));
 
-		Distribution dist = createAndCache(allFacets, counts);
-		assert dist.totalCount == query.getTotalCount() : dist;
+			Distribution dist = createAndCache(allFacets, counts);
+			assert dist.totalCount == query.getTotalCount() : dist;
+		}
 	}
 
-	private static Distribution getDistFromDB(List facets, ResultSet rs) {
+	private static Distribution getDistFromDB(List<ItemPredicate> facets,
+			ResultSet rs) {
 		if (rs == null)
 			rs = query(facets).onCountMatrix(facets, null, true)[0];
 		int nFacets = facets.size();
@@ -330,9 +426,9 @@ public class Distribution {
 		return result;
 	}
 
-	private static List computeFacets(List facets) {
+	private static List<ItemPredicate> computeFacets(List<ItemPredicate> facets) {
 		assert !Util.hasDuplicates(facets.toArray()) : facets;
-		List result = new ArrayList(facets);
+		List<ItemPredicate> result = new ArrayList<ItemPredicate>(facets);
 		Collections.sort(result);
 		assert result.equals(facets) : facets;
 		return Collections.unmodifiableList(result);
@@ -357,7 +453,7 @@ public class Distribution {
 		return true;
 	}
 
-	protected List facets() {
+	protected List<ItemPredicate> facets() {
 		return facets;
 	}
 
@@ -388,7 +484,7 @@ public class Distribution {
 	// return result;
 	// }
 
-	protected double[] getMarginal(List marginals) {
+	protected double[] getMarginal(List<ItemPredicate> marginals) {
 		// Util.print("getMarginal " + marginals + " " + facets() + " "
 		// + Util.valueOfDeep(distribution));
 		assert marginals.size() <= nFacets : marginals + " " + facets;
@@ -421,7 +517,7 @@ public class Distribution {
 		return result;
 	}
 
-	public int[] getMarginalCounts(List marginals) {
+	public int[] getMarginalCounts(List<ItemPredicate> marginals) {
 		int[] counts1 = getCounts();
 		if (marginals.equals(facets))
 			return counts1;
@@ -473,14 +569,14 @@ public class Distribution {
 		return counts;
 	}
 
-	public Distribution getConditionalDistribution(List falseFacets,
-			List trueFacets) {
+	public Distribution getConditionalDistribution(
+			List<ItemPredicate> falseFacets, List<ItemPredicate> trueFacets) {
 		assert !Util.hasDuplicates(falseFacets);
 		assert !Util.hasDuplicates(trueFacets);
 		assert facets.containsAll(falseFacets);
 		assert facets.containsAll(trueFacets);
-		assert !(new HashSet(falseFacets)).removeAll(trueFacets);
-		List condFacets = new ArrayList(facets);
+		assert !(new HashSet<ItemPredicate>(falseFacets)).removeAll(trueFacets);
+		List<ItemPredicate> condFacets = new ArrayList<ItemPredicate>(facets);
 		condFacets.removeAll(falseFacets);
 		condFacets.removeAll(trueFacets);
 		int[] condCounts = new int[1 << condFacets.size()];
@@ -508,23 +604,24 @@ public class Distribution {
 		return result;
 	}
 
-	protected int[] getMarginIndexes(List marginals) {
+	protected int[] getMarginIndexes(List<ItemPredicate> marginals) {
 		return getMarginIndexes(facets, marginals);
 	}
 
-	private static int[] getMarginIndexes(List facets, List marginals) {
+	private static int[] getMarginIndexes(List<ItemPredicate> facets,
+			List<ItemPredicate> marginals) {
 		int[] result = new int[marginals.size()];
 		int index = 0;
-		for (Iterator it = marginals.iterator(); it.hasNext();) {
-			ItemPredicate facet = (ItemPredicate) it.next();
+		for (Iterator<ItemPredicate> it = marginals.iterator(); it.hasNext();) {
+			ItemPredicate facet = it.next();
 			assert facets.contains(facet) : facet + " " + facets;
 			result[index++] = facets.indexOf(facet);
 		}
 		return result;
 	}
 
-	List getCauses(ItemPredicate caused) {
-		List result = new LinkedList(facets());
+	List<ItemPredicate> getCauses(ItemPredicate caused) {
+		List<ItemPredicate> result = new LinkedList<ItemPredicate>(facets());
 		result.remove(caused);
 		return result;
 	}
@@ -694,18 +791,19 @@ public class Distribution {
 		}
 	}
 
-	private static Query query(Collection facets) {
+	private static Query query(Collection<ItemPredicate> facets) {
 		// We allow facets to be empty, as long as we're not primary
 		Query query = ((ItemPredicate) Util.some(facets)).query();
 		return query;
 	}
 
-	double mutualInformation(List facets1, List facets2) {
+	double mutualInformation(List<ItemPredicate> facets1,
+			List<ItemPredicate> facets2) {
 		assert facets.containsAll(facets1) : facets1 + " " + facets;
 		assert facets.containsAll(facets2) : facets2 + " " + facets;
-		List allFacets = new LinkedList(facets1);
+		List<ItemPredicate> allFacets = new LinkedList<ItemPredicate>(facets1);
 		allFacets.addAll(facets2);
-		assert allFacets.size() == new HashSet(allFacets).size();
+		assert allFacets.size() == new HashSet<ItemPredicate>(allFacets).size();
 		Distribution dist;
 		if (allFacets.size() == facets().size()) {
 			dist = this;
@@ -721,18 +819,49 @@ public class Distribution {
 		return dist1.entropy() + dist2.entropy() - dist.entropy();
 	}
 
-	double conditionalMutualInformation(List facets1, List facets2,
-			List condition) {
+	/**
+	 * @return the multivariate mutual information of all the facets
+	 */
+	double mutualInformation() {
+		assert nFacets() > 1;
+
+		List<ItemPredicate> first = new ArrayList<ItemPredicate>(1);
+		first.add(facets.get(0));
+		List<ItemPredicate> rest = new LinkedList<ItemPredicate>(facets);
+		rest.remove(0);
+		if (facets.size() == 2) {
+			return mutualInformation(first, rest);
+		} else {
+			Distribution cond = getMarginalDistribution(first);
+			Distribution restD = getMarginalDistribution(rest);
+			Distribution fals = getConditionalDistribution(first, emptyIPlist);
+			Distribution tru = getConditionalDistribution(emptyIPlist, first);
+			// Util.print("mutInf " + facets1 + ": " + dist1.entropy() + " " +
+			// facets2
+			// + ": " + dist2.entropy() + " both: " + dist.entropy());
+
+			// see http://en.wikipedia.org/wiki/Multivariate_mutual_information
+			return restD.mutualInformation() - cond.distribution[0]
+					* fals.mutualInformation() - cond.distribution[1]
+					* tru.mutualInformation();
+		}
+	}
+
+	static final List<ItemPredicate> emptyIPlist = new ArrayList<ItemPredicate>(
+			0);
+
+	double conditionalMutualInformation(List<ItemPredicate> facets1,
+			List<ItemPredicate> facets2, List<ItemPredicate> condition) {
 		// Util.print("cmi " + facets1 + " " + facets2 + " " + condition);
 		if (condition.isEmpty())
 			return mutualInformation(facets1, facets2);
 		assert facets.containsAll(facets1) : facets1 + " " + facets;
 		assert facets.containsAll(facets2) : facets2 + " " + facets;
 		assert facets.containsAll(condition) : condition + " " + facets;
-		List allFacets = new LinkedList(facets1);
+		List<ItemPredicate> allFacets = new LinkedList<ItemPredicate>(facets1);
 		allFacets.addAll(facets2);
 		allFacets.addAll(condition);
-		assert allFacets.size() == new HashSet(allFacets).size();
+		assert allFacets.size() == new HashSet<ItemPredicate>(allFacets).size();
 		Distribution all;
 		Collections.sort(allFacets);
 		if (allFacets.size() == facets().size()) {
@@ -741,15 +870,19 @@ public class Distribution {
 			all = getMarginalDistribution(allFacets);
 		}
 		Distribution cond = getMarginalDistribution(condition);
-		LinkedList temp1 = new LinkedList(allFacets);
+		LinkedList<ItemPredicate> temp1 = new LinkedList<ItemPredicate>(
+				allFacets);
 		temp1.removeAll(facets1);
 		Distribution no1 = getMarginalDistribution(temp1);
-		LinkedList temp2 = new LinkedList(allFacets);
+		LinkedList<ItemPredicate> temp2 = new LinkedList<ItemPredicate>(
+				allFacets);
 		temp2.removeAll(facets2);
 		Distribution no2 = getMarginalDistribution(temp2);
 		// Util.print("mutInf " + facets1 + ": " + dist1.entropy() + " " +
 		// facets2
 		// + ": " + dist2.entropy() + " both: " + dist.entropy());
+
+		// see http://en.wikipedia.org/wiki/Conditional_mutual_information
 		return no1.entropy() + no2.entropy() - all.entropy() - cond.entropy();
 	}
 
@@ -769,8 +902,30 @@ public class Distribution {
 	// return result / n;
 	// }
 
+	double correlationHacked(Explanation nullModel) {
+		List<ItemPredicate> prim = nullModel.facets();
+		List<ItemPredicate> nonPrim = new LinkedList<ItemPredicate>(facets());
+		nonPrim.removeAll(prim);
+		if (nonPrim.size() != 1)
+			return Double.NaN;
+		ItemPredicate candidate = nonPrim.get(0);
+
+		double sum = 0;
+		double sumSq = 0;
+		int n = 0;
+		for (Iterator<ItemPredicate> it = prim.iterator(); it.hasNext();) {
+			ItemPredicate p = it.next();
+			double corr = Math.abs(getChiSq(p, candidate).correlation());
+			sum += corr;
+			sumSq += corr * corr;
+			n++;
+		}
+		double result = sum * sum - sumSq;
+		return result;
+	}
+
 	ChiSq2x2 getChiSq(ItemPredicate marginal1, ItemPredicate marginal2) {
-		List marginals = new ArrayList(2);
+		List<ItemPredicate> marginals = new ArrayList<ItemPredicate>(2);
 		marginals.add(marginal1);
 		marginals.add(marginal2);
 		int[] marginal = getMarginalCounts(marginals);
@@ -795,7 +950,7 @@ public class Distribution {
 	 * @return standard deviation of binary variable p, over the whole database
 	 */
 	protected static double stdDev(ItemPredicate p) {
-		List facets1 = new ArrayList(1);
+		List<ItemPredicate> facets1 = new ArrayList<ItemPredicate>(1);
 		facets1.add(p);
 		Distribution dist = Distribution.ensureDist(facets1, null);
 		double n = dist.totalCount;
@@ -931,14 +1086,15 @@ public class Distribution {
 		return 1 << nFacets;
 	}
 
-	public List getFacets() {
+	public List<ItemPredicate> getFacets() {
 		return facets;
 	}
 
 	protected ItemPredicate getFacet(int i) {
-		return (ItemPredicate) facets.get(i);
+		return facets.get(i);
 	}
 
+	@Override
 	public String toString() {
 		return "<" + Util.shortClassName(this) + " " + facets + " "
 				+ Util.valueOfDeep(getCounts()) + ">";

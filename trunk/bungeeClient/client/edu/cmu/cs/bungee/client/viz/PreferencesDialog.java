@@ -250,7 +250,7 @@ class PreferencesDialog extends JPanel implements ActionListener {
 	}
 
 	SpinnerListModel nColumnsSpinnerModel(int maxCols) {
-		List items = new LinkedList();
+		List<Object> items = new LinkedList<Object>();
 		items.add("Bungee's choice");
 		for (int i = 1; i < maxCols; i++)
 			items.add(new Integer(i));
@@ -493,10 +493,12 @@ class Preferences {
 		return buf.toString();
 	}
 
+	@Override
 	public String toString() {
 		return "<Preferences " + features2string() + ">";
 	}
 
+	@Override
 	public boolean equals(Object o) {
 		if (!(o instanceof Preferences))
 			return false;
@@ -515,6 +517,7 @@ class Preferences {
 				&& options.debugGraph == debugGraph;
 	}
 
+	@Override
 	public int hashCode() {
 		int result = 17;
 		result = 37 * result + fontSize;

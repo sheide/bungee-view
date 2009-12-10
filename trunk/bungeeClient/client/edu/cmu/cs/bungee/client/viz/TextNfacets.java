@@ -234,6 +234,7 @@ class TextNfacets extends LazyPNode implements PerspectiveObserver {
 	// return content.toText();
 	// }
 
+	@Override
 	public String toString() {
 		return "<TextNfacets " + content + ">";
 	}
@@ -260,7 +261,7 @@ class TextNfacets extends LazyPNode implements PerspectiveObserver {
 			boolean underline = false;
 			Paint color = defaultTextPaint;
 			int style = Font.BOLD;
-			for (Iterator it = content.iterator(); it.hasNext() && !incomplete;) {
+			for (Iterator<Object> it = content.iterator(); it.hasNext() && !incomplete;) {
 				Object o = it.next();
 				if (o == Markup.PLURAL_TAG) {
 					assert !plural;
@@ -527,9 +528,10 @@ class TextNfacets extends LazyPNode implements PerspectiveObserver {
 		}
 	}
 
-	void updateSelections(Set facets) {
-		for (Iterator it = getChildrenIterator(); it.hasNext();) {
-			PNode node = (PNode) it.next();
+	@SuppressWarnings("unchecked")
+	<V extends ItemPredicate>void updateSelections(Set<V> facets) {
+		for (Iterator<PNode> it = getChildrenIterator(); it.hasNext();) {
+			PNode node = it.next();
 			if (node instanceof FacetText) {
 				FacetText child = (FacetText) node;
 				Perspective childFacet = child.getFacet();

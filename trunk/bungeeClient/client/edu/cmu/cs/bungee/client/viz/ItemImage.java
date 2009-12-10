@@ -7,6 +7,7 @@ import java.util.Hashtable;
 import java.util.Map;
 import java.util.Set;
 
+import edu.cmu.cs.bungee.client.query.Perspective;
 import edu.cmu.cs.bungee.client.query.Query.Item;
 
 final class ItemImage {
@@ -33,7 +34,9 @@ final class ItemImage {
 	 */
 	Image rawImage;
 
-	Set facets = new HashSet();
+	Set<Perspective> facets = new HashSet<Perspective>();
+
+	private String description;
 
 	// static BufferedImage compatibleImage = Util.createCompatibleImage(1, 1);
 	//
@@ -47,8 +50,8 @@ final class ItemImage {
 	// }
 
 	ItemImage(Bungee art1, Item item1, int rawW1, int rawH1, int quality1,
-			Image bi) {
-		init(art1, item1, rawW1, rawH1, quality1, bi);
+			Image bi, String description) {
+		init(art1, item1, rawW1, rawH1, quality1, bi, description);
 	}
 
 	// GridImage(Art _art, int _item, int w, int h, boolean imageLoaded,
@@ -63,7 +66,7 @@ final class ItemImage {
 	// }
 
 	private void init(Bungee _art, Item _item, int w, int h, int _quality,
-			Image bi) {
+			Image bi, String desc) {
 		// Util.print("init itemImage " + _item + " " + w + "x" + h);
 		// if (im != null)
 		// Util.print(im.getWidth() + "x" + im.getHeight());
@@ -71,15 +74,16 @@ final class ItemImage {
 		item = _item;
 		rawW = w;
 		rawH = h;
+		description = desc;
 		if (bi != null)
 			setRawImage(bi, _quality);
 		assert art.lookupItemImage(item) == null;
 
-		Map table = art.getItemImagesTable();
+		Map<Item, ItemImage> table = art.getItemImagesTable();
 		if (table == null) {
-			table = new Hashtable();
+			table = new Hashtable<Item, ItemImage>();
 			// Util.print("new lookupItemImage");
-			art.itemImages = new SoftReference(table);
+			art.itemImages = new SoftReference<Map<Item, ItemImage>>(table);
 		}
 		// Util.print("lookupii table size " + table.size());
 		table.put(item, this);
@@ -166,8 +170,16 @@ final class ItemImage {
 			return rawImage;
 	}
 
+	String getName() {
+		if (description != null)
+			return description;
+		return item.toString();
+	}
+
+	@Override
 	public String toString() {
-		return "<ItemImage for " + item + ">";
+		return "<ItemImage for " + item
+				+ (description != null ? " " + description : "") + ">";
 	}
 
 }

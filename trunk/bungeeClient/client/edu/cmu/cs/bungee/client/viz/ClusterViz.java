@@ -1,6 +1,5 @@
 package edu.cmu.cs.bungee.client.viz;
 
-import java.util.Iterator;
 import java.util.ListIterator;
 import java.util.Set;
 import java.util.SortedSet;
@@ -40,7 +39,7 @@ final class ClusterViz extends LazyPNode implements MouseDoc,
 
 	final FacetTreeViz facetTreeViz;
 
-	SortedSet exclude;
+	SortedSet<Perspective> exclude;
 
 	// private DisplayTree excludeTree;
 
@@ -135,17 +134,17 @@ final class ClusterViz extends LazyPNode implements MouseDoc,
 		FacetTree ignoreTree = new FacetTree(displayTree, exclude,
 				"Tags to ignore");
 		displayTree.removeChild(ignoreTree);
-		ListIterator it = displayTree.childIterator();
+		ListIterator<DisplayTree> it = displayTree.childIterator();
 		it.add(ignoreTree);
 		while (it.hasNext()) {
-			DisplayTree subtree = (DisplayTree) it.next();
+			DisplayTree subtree = it.next();
 			// Util.print("delete? " + exclude + " " + subtree.isMember(exclude)
 			// + " " + subtree);
 			if (subtree.isMember(exclude)) {
 				it.remove();
 			}
 		}
-		if (isStayTunedTree((DisplayTree) it.previous()))
+		if (isStayTunedTree(it.previous()))
 			it.remove();
 		if (!ensureClusterer().isIdle()) {
 			String stayTunedLabel = (displayTree.nChildren() > 1) ? "finding more clusters..."
@@ -161,7 +160,7 @@ final class ClusterViz extends LazyPNode implements MouseDoc,
 				|| "finding clusters...".equals(displayTree.treeObject());
 	}
 
-	void highlightFacet(Set highlightFacets) {
+	<V extends ItemPredicate>void highlightFacet(Set<V> highlightFacets) {
 		if (facetTreeViz != null)
 			facetTreeViz.highlightFacet(highlightFacets);
 	}
@@ -278,14 +277,14 @@ final class ClusterViz extends LazyPNode implements MouseDoc,
 			super("Clusterer", 0);
 		}
 
+		@Override
 		public void process() {
 			String facetRestrictions = null;
 			// SortedSet exclude = exclude();
 			if (exclude.size() > 0) {
 				StringBuffer buf = new StringBuffer(
 						"LEFT JOIN ancestor a ON f.facet_id = a.facet_id AND a.ancestor_id IN (");
-				for (Iterator it = exclude.iterator(); it.hasNext();) {
-					Perspective p = (Perspective) it.next();
+				for (Perspective p: exclude) {
 					if (p != exclude.first())
 						buf.append(", ");
 					buf.append(p.getServerID());

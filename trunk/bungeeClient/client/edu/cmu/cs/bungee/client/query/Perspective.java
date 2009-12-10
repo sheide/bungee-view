@@ -32,11 +32,13 @@
 package edu.cmu.cs.bungee.client.query;
 
 import java.awt.Color;
+import java.awt.event.InputEvent;
 import java.io.DataInputStream;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.CollationKey;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -47,6 +49,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
+import java.util.Map.Entry;
 
 import JSci.maths.statistics.ChiSq2x2;
 import JSci.maths.statistics.OutOfRangeException;
@@ -154,7 +157,10 @@ public class Perspective implements ItemPredicate {
 	}
 
 	void setTotalCount(int count) {
-		// Util.print("setTotalCount "+this+" "+count);
+		// if ("Posters".equals(getNameIfPossible())) {
+		// Util.print("setTotalCount " + this + " " + totalCount + " => "
+		// + count);
+		// }
 		totalCount = count;
 	}
 
@@ -171,28 +177,33 @@ public class Perspective implements ItemPredicate {
 	 * @return Iterator over children c where: c.cumCount >= minCount &&
 	 *         c.cumCountExclusive <= maxCount
 	 */
-	public Iterator cumCountChildIterator(int minCount, int maxCount) {
+	public Iterator<Perspective> cumCountChildIterator(int minCount,
+			int maxCount) {
 		return instantiatedPerspective
 				.cumCountChildIterator(minCount, maxCount);
 	}
 
-	static class CumCountInclusiveComparator extends IntValueComparator {
+	static class CumCountInclusiveComparator extends
+			IntValueComparator<Perspective> {
 
-		public int value(Object data) {
+		@Override
+		public int value(Perspective data) {
 			// Util.print("value cum " + data + " "
 			// + ((Perspective) data).cumCount);
-			return -((Perspective) data).cumCount;
+			return -data.cumCount;
 		}
 	}
 
 	static final CumCountInclusiveComparator cumCountInclusiveComparator = new CumCountInclusiveComparator();
 
-	static class CumCountExclusiveComparator extends IntValueComparator {
+	static class CumCountExclusiveComparator extends
+			IntValueComparator<Perspective> {
 
-		public int value(Object data) {
+		@Override
+		public int value(Perspective data) {
 			// Util.print("value cumExc " + data + " " + ((Perspective)
 			// data).cumCountExclusive());
-			return -((Perspective) data).cumCountExclusive();
+			return -data.cumCountExclusive();
 		}
 	}
 
@@ -261,13 +272,13 @@ public class Perspective implements ItemPredicate {
 	/**
 	 * @return ancestors (not including this perspective)
 	 */
-	public Set ancestors() {
+	public Set<Perspective> ancestors() {
 		if (parent != null) {
-			Set result = parent.ancestors();
+			Set<Perspective> result = parent.ancestors();
 			result.add(parent);
 			return result;
 		} else {
-			return new HashSet();
+			return new HashSet<Perspective>();
 		}
 	}
 
@@ -275,10 +286,10 @@ public class Perspective implements ItemPredicate {
 	 * @param leafs
 	 * @return leafs + their ancestors
 	 */
-	public static SortedSet ancestors(Set leafs) {
-		SortedSet result = new TreeSet(leafs);
-		for (Iterator it = leafs.iterator(); it.hasNext();) {
-			Perspective leaf = (Perspective) it.next();
+	public static SortedSet<Perspective> ancestors(Set<Perspective> leafs) {
+		SortedSet<Perspective> result = new TreeSet<Perspective>(leafs);
+		for (Iterator<Perspective> it = leafs.iterator(); it.hasNext();) {
+			Perspective leaf = it.next();
 			result.addAll(leaf.ancestors());
 		}
 		return result;
@@ -394,8 +405,9 @@ public class Perspective implements ItemPredicate {
 	boolean checkAlphabetic() {
 		boolean result = true;
 		String prev = "";
-		for (Iterator it = getChildIterator(); it.hasNext() && result;) {
-			Perspective child = (Perspective) it.next();
+		for (Iterator<Perspective> it = getChildIterator(); it.hasNext()
+				&& result;) {
+			Perspective child = it.next();
 			String name = child.getNameIfPossible();
 			if (name != null) {
 				if (name.compareToIgnoreCase(prev) < 0) {
@@ -456,8 +468,8 @@ public class Perspective implements ItemPredicate {
 		// + facet.isAlphabetic());
 	}
 
-	static List prefetchColumnTypes(int fetchType) {
-		List types = null;
+	static List<Object> prefetchColumnTypes(int fetchType) {
+		List<Object> types = null;
 		switch (fetchType) {
 		case 1:
 			types = MyResultSet.INT_INT_STRING;
@@ -652,22 +664,12 @@ public class Perspective implements ItemPredicate {
 	 * @see query.ItemPredicate#getOnCount()
 	 */
 	public int getOnCount() {
-		assert query().isQueryValid();
-		int result;
-		// ensurePrefetched();
-		if (query().isRestricted()) {
-			// if (parent != null) {
-			// assert getQuery().usesPerspective(parent) || onCount == -1 :
-			// this;
-			result = onCount;
-			// } else {
-			// return getTotalChildOnCount();
-			// }
-		} else
-			result = totalCount;
-		// if (parent == null)
-		// Util.print("getOnCount "+this + " " + result + " " + totalCount);
-		return result;
+		Query query = query();
+		assert query.isQueryValid();
+		int onCount2 = getOnCount(query.isRestricted());
+		// assert onCount2 <= getTotalCount() : onCount2 + " " + getTotalCount()
+		// + " " + this;
+		return onCount2;
 	}
 
 	/*
@@ -684,12 +686,14 @@ public class Perspective implements ItemPredicate {
 		// totalCount = getTotalChildTotalCount();
 		// }
 		Query q = query();
-		if (!q.isRestrictedData() || getParent() == null
+		if (!q.isRestrictedData() || parent == null
 				|| q.displaysPerspective(parent)) {
 			// Util.print("getTotalCount "+this+" "+totalCount);
 			return totalCount;
-		} else
+		} else {
+			// assert false : this;
 			return -1;
+		}
 	}
 
 	/**
@@ -757,7 +761,7 @@ public class Perspective implements ItemPredicate {
 	/**
 	 * @return an iteraor over our child facets
 	 */
-	public Iterator getChildIterator() {
+	public Iterator<Perspective> getChildIterator() {
 		return instantiatedPerspective.getChildIterator();
 	}
 
@@ -769,7 +773,8 @@ public class Perspective implements ItemPredicate {
 	 * @return an iteraor over some of our child facets (used to iterate over
 	 *         visible bars)
 	 */
-	public Iterator getChildIterator(Perspective min, Perspective max) {
+	public Iterator<Perspective> getChildIterator(Perspective min,
+			Perspective max) {
 		return instantiatedPerspective.getChildIterator(min, max);
 	}
 
@@ -943,7 +948,8 @@ public class Perspective implements ItemPredicate {
 	 * @param prefix
 	 * @return Iterator over getLetterOffsets(prefix)
 	 */
-	public Iterator letterOffsetsIterator(CollationKey prefix) {
+	public Iterator<Entry<CollationKey, Perspective[]>> letterOffsetsIterator(
+			CollationKey prefix) {
 		return getLetterOffsets(prefix).entrySet().iterator();
 	}
 
@@ -1024,13 +1030,12 @@ public class Perspective implements ItemPredicate {
 		// + " "
 		// + Util.valueOfDeep(getLetterOffsets(prefixButOne).get(
 		// desiredLetter)));
-		return (Perspective[]) getLetterOffsets(prefixButOne)
-				.get(desiredLetter);
+		return getLetterOffsets(prefixButOne).get(desiredLetter);
 	}
 
-	public Map getLetterOffsets(CollationKey prefix) {
+	public Map<CollationKey, Perspective[]> getLetterOffsets(CollationKey prefix) {
 		assert isAlphabetic();
-		Map letterOffsets = (Map) instantiatedPerspective.lettersOffsets
+		Map<CollationKey, Perspective[]> letterOffsets = instantiatedPerspective.lettersOffsets
 				.get(prefix);
 		if (letterOffsets == null) {
 			// assert prefix.equals(prefix.toUpperCase());
@@ -1043,10 +1048,25 @@ public class Perspective implements ItemPredicate {
 		return letterOffsets;
 	}
 
-	private Map createLetterOffsets(CollationKey prefix) {
+	public String letterOffsetsString(CollationKey prefix) {
+		StringBuffer buf = new StringBuffer();
+		for (Iterator<Entry<CollationKey, Perspective[]>> it = letterOffsetsIterator(prefix); it
+				.hasNext();) {
+			Entry<CollationKey, Perspective[]> entry = it.next();
+			CollationKey letter = entry.getKey();
+			Perspective[] firstLast = entry.getValue();
+			buf.append(letter.getSourceString()).append("\t=> ").append(
+					firstLast[0]).append(" - ").append(firstLast[1]).append(
+					"\n");
+		}
+		return buf.toString();
+	}
+
+	private Map<CollationKey, Perspective[]> createLetterOffsets(
+			CollationKey prefix) {
 		// Util.print("createLetterOffsets " + this + " '"
 		// + prefix.getSourceString() + "'");
-		Map letterOffsets = null;
+		Map<CollationKey, Perspective[]> letterOffsets = null;
 		try {
 			ResultSet rs = query().getLetterOffsets(this, prefix);
 			Perspective first = firstWithPrefix(prefix);
@@ -1056,7 +1076,8 @@ public class Perspective implements ItemPredicate {
 					+ MyResultSet.valueOfDeep(rs, MyResultSet.STRING_SINT, 200);
 			// Util.print("CLO "+MyResultSet.valueOfDeep(rs,
 			// MyResultSet.STRING_SINT, 200));
-			letterOffsets = new LinkedHashMap(MyResultSet.nRows(rs));
+			letterOffsets = new LinkedHashMap<CollationKey, Perspective[]>(
+					MyResultSet.nRows(rs));
 			while (rs.next()) {
 				// assert first.couldStartWith(prefix.getSourceString());
 				assert rs.getString(1).length() > 0 : this + ": '"
@@ -1117,6 +1138,7 @@ public class Perspective implements ItemPredicate {
 				: instantiatedPerspective.descriptionCategory;
 	}
 
+	@Override
 	public String toString() {
 		StringBuffer buf = new StringBuffer();
 		buf.append(getNameIfPossible()).append(" (").append(getServerID())
@@ -1264,7 +1286,7 @@ public class Perspective implements ItemPredicate {
 		decacheDescriptions();
 	}
 
-	void addRestriction(ItemPredicate facet, boolean require) {
+	void addRestriction(Perspective facet, boolean require) {
 		restrictions().add(facet, require);
 		decacheDescriptions();
 	}
@@ -1315,11 +1337,11 @@ public class Perspective implements ItemPredicate {
 	 * 
 	 * @see query.ItemPredicate#allRestrictions()
 	 */
-	public SortedSet allRestrictions() {
+	public SortedSet<Perspective> allRestrictions() {
 		return restrictions().allRestrictions();
 	}
 
-	SortedSet restrictions(boolean require) {
+	SortedSet<Perspective> restrictions(boolean require) {
 		return restrictions().restrictions(require);
 	}
 
@@ -1349,7 +1371,9 @@ public class Perspective implements ItemPredicate {
 		// assert !isRestricted() || getQuery().usesPerspective(this) : this;
 		// return (isRestricted() && (facet == this || perspective.restrictions
 		// .isRestriction(facet, required)));
-		return restrictions().isRestriction(facet, required);
+		boolean result = restrictions().isRestriction(facet, required);
+		// Util.print("p.isRestriction "+facet+" "+required+" => "+result);
+		return result;
 	}
 
 	/*
@@ -1413,7 +1437,8 @@ public class Perspective implements ItemPredicate {
 		boolean[] reqtTypes = { true, false };
 		for (int type = 0; type < 2; type++) {
 			boolean reqtType = reqtTypes[type];
-			SortedSet info = getRestrictionFacetInfos(false, reqtType);
+			SortedSet<Perspective> info = getRestrictionFacetInfos(false,
+					reqtType);
 			if (!info.isEmpty()) {
 				descriptions[type] = Query.emptyMarkup();
 				MarkupImplementation
@@ -1436,7 +1461,7 @@ public class Perspective implements ItemPredicate {
 	 *            {positive pattern, negative pattern}
 	 * @return description of the restrictions
 	 */
-	public Markup tagDescription(List[] restrictions, boolean doTag,
+	public Markup tagDescription(Markup[] restrictions, boolean doTag,
 			String[] patterns) {
 		if (patterns == null)
 			patterns = getDescriptionPreposition();
@@ -1515,7 +1540,9 @@ public class Perspective implements ItemPredicate {
 		// isControlDown(modifiers));
 		assert modifiers >= 0;
 		Markup result = null;
-		if (!isRestricted()) {
+		if (isDisplayOnlyAction(modifiers))
+			result = displayFacetDoc(facet);
+		else if (!isRestricted()) {
 			if (facet.guessOnCount() != (Perspective.isExcludeAction(modifiers) ? query().onCount
 					: 0)
 					|| !query().isQueryValid()
@@ -1548,6 +1575,12 @@ public class Perspective implements ItemPredicate {
 	 */
 	public static boolean isExcludeAction(int modifiers) {
 		return (modifiers & EXCLUDE_ACTION) != 0;
+	}
+
+	public static boolean isDisplayOnlyAction(int modifiers) {
+		// Util.print("idoa " + (modifiers & Util.modifierMask) + " "
+		// + InputEvent.ALT_DOWN_MASK + " " + InputEvent.ALT_MASK);
+		return (modifiers & Util.modifierMask) == InputEvent.ALT_DOWN_MASK;
 	}
 
 	Markup deselectFacetDoc(Perspective facet, boolean require) {
@@ -1622,8 +1655,9 @@ public class Perspective implements ItemPredicate {
 
 	int nUsedChildren() {
 		int result = 0;
-		for (Iterator it = query().perspectivesIterator(); it.hasNext();) {
-			Perspective child = (Perspective) it.next();
+		for (Iterator<Perspective> it = query().displayedPerspectives()
+				.iterator(); it.hasNext();) {
+			Perspective child = it.next();
 			if (child.getParent() == this) {
 				result++;
 			}
@@ -1637,7 +1671,7 @@ public class Perspective implements ItemPredicate {
 		Markup v = describeFilter();
 		Perspective low;
 		Perspective hi;
-		Perspective prev = ((Perspective) restrictions(require).first());
+		Perspective prev = restrictions(require).first();
 		if (facet.getID() < prev.getID()) {
 			low = facet;
 			// Should set hi to facet alphabetically preceding prev.
@@ -1702,7 +1736,16 @@ public class Perspective implements ItemPredicate {
 		return result;
 	}
 
-	void displayAncestors() {
+	Markup displayFacetDoc(Perspective facet) {
+		// Util.print("replaceFacetDoc " + facetName);
+		Markup result = new MarkupImplementation();
+		result.add("Ensure that ");
+		result.add(facet);
+		result.add(" is displayed on the Tag Wall");
+		return result;
+	}
+
+	public void displayAncestors() {
 		if (!isDisplayed()) {
 			parent.displayAncestors();
 			query().insertPerspective(this);
@@ -1719,9 +1762,11 @@ public class Perspective implements ItemPredicate {
 		// + isRestriction(facet, false) + " "
 		// + isRestriction(facet, true) + " " + isRestricted() + " "
 		// + allRestrictions());
+
+		if (isDisplayOnlyAction(modifiers))
+			return true;
 		boolean result = true;
-		boolean require = !(isExcludeAction(modifiers) || (!Util
-				.isAnyShiftKeyDown(modifiers) && isRestriction(facet, false)));
+		boolean require = isRequireAction(facet, modifiers);
 		if (isRestriction(facet, require)) {
 			if (Util.isControlDown(modifiers) || isExcludeAction(modifiers)) {
 				deselectFacet(facet, require);
@@ -1742,6 +1787,12 @@ public class Perspective implements ItemPredicate {
 		return result;
 	}
 
+	public boolean isRequireAction(Perspective facet, int modifiers) {
+		boolean require = !(isExcludeAction(modifiers) || (!Util
+				.isAnyShiftKeyDown(modifiers) && isRestriction(facet, false)));
+		return require;
+	}
+
 	/**
 	 * @return Returns true if it changed the query.
 	 */
@@ -1749,7 +1800,7 @@ public class Perspective implements ItemPredicate {
 		assert !isRestriction(facet, require) : "selectInterveningFacets problem";
 		if (isRestricted(require)) {
 			int index = facet.getID();
-			int index2 = ((Perspective) restrictions(require).first()).getID();
+			int index2 = restrictions(require).first().getID();
 			int lowIndex = Math.min(index, index2);
 			int highIndex = Math.max(index, index2);
 			// Util.print("p.selectInterveningFacets " + lowIndex + " "
@@ -1781,8 +1832,8 @@ public class Perspective implements ItemPredicate {
 	 * @return Returns true if it changed the query.
 	 */
 	boolean selectFacet(Perspective facet, boolean require) {
-		// Util.print("p.selectFacet " + this + "." + facet + " " + require + "
-		// "
+		// Util.print("p.selectFacet " + this + "." + facet + " " + require +
+		// " "
 		// + ancestorRestriction(facet));
 		assert !isRestriction(facet, require) : facet + " " + this + " "
 				+ require + " " + allRestrictions();
@@ -1812,8 +1863,8 @@ public class Perspective implements ItemPredicate {
 		int childCumCount = 0;
 		int maxCount = -1;
 		// sortDataIndexByIndex();
-		for (Iterator it = getChildIterator(); it.hasNext();) {
-			Perspective child = (Perspective) it.next();
+		for (Iterator<Perspective> it = getChildIterator(); it.hasNext();) {
+			Perspective child = it.next();
 			int count = child.onCount;
 			assert count >= 0 : child + " " + query() + " "
 					+ query().displayedPerspectives();
@@ -1882,23 +1933,24 @@ public class Perspective implements ItemPredicate {
 	 *            restriction polarity
 	 * @return the restricting facets
 	 */
-	public SortedSet getRestrictionFacetInfos(boolean isLocalOnly,
+	public SortedSet<Perspective> getRestrictionFacetInfos(boolean isLocalOnly,
 			boolean require) {
 		// Util.print("getRestrictionFacetInfos " + this + " " + require + " "
 		// + isLocalOnly + " " + nRestrictions(require));
 		// assert isLocalOnly || require : "Excludes don't propagate up, so you
 		// can't search for them non-locally!";
-		SortedSet result = new TreeSet();
+		SortedSet<Perspective> result = new TreeSet<Perspective>();
 		// int n = nRestrictions(require);
-		for (Iterator it = restrictions(require).iterator(); it.hasNext();) {
-			Perspective child = (Perspective) it.next();
+		for (Iterator<Perspective> it = restrictions(require).iterator(); it
+				.hasNext();) {
+			Perspective child = it.next();
 			boolean found = false;
 			if (require && query().displaysPerspective(child)) {
 				if (isLocalOnly)
 					found = true;
 				else {
-					SortedSet childResult = child.getRestrictionFacetInfos(
-							isLocalOnly, require);
+					SortedSet<Perspective> childResult = child
+							.getRestrictionFacetInfos(isLocalOnly, require);
 					if (childResult.size() > 0) {
 						found = true;
 						result.addAll(childResult);
@@ -1911,8 +1963,9 @@ public class Perspective implements ItemPredicate {
 			}
 		}
 		if (!isLocalOnly && !require) {
-			for (Iterator it = query().perspectivesIterator(); it.hasNext();) {
-				Perspective child = (Perspective) it.next();
+			for (Iterator<Perspective> it = query().displayedPerspectives()
+					.iterator(); it.hasNext();) {
+				Perspective child = it.next();
 				if (child.getParent() == this) {
 					result.addAll(child.getRestrictionFacetInfos(isLocalOnly,
 							require));
@@ -2184,7 +2237,7 @@ public class Perspective implements ItemPredicate {
 		return query().isOrdered(this);
 	}
 
-	public int compareTo(Object arg0) {
+	public int compareTo(ItemPredicate arg0) {
 		// return indexComparator.compare(this, arg0);
 		if (arg0 instanceof Perspective)
 			return getID() - ((Perspective) arg0).getID();
@@ -2192,10 +2245,17 @@ public class Perspective implements ItemPredicate {
 			return 1;
 	}
 
+	// public int compareTo(ItemPredicate caused) {
+	// return (caused instanceof Perspective) ? compareTo((Object) caused) : 1;
+	// }
+
+	@Override
 	public boolean equals(Object arg0) {
-		return arg0 instanceof Perspective && compareTo(arg0) == 0;
+		return arg0 instanceof Perspective
+				&& compareTo((ItemPredicate) arg0) == 0;
 	}
 
+	@Override
 	public int hashCode() {
 		return getID();
 	}
@@ -2208,11 +2268,12 @@ public class Perspective implements ItemPredicate {
 	}
 
 	void updateTopTags(TopTags top, int parentTotalCount, int parentOnCount) {
+		assert query().isQueryValid();
 		updateTopTags(top, parentTotalCount, parentOnCount, onCount);
 		if (onCount < getTotalCount() && nChildren() > 0 && isPrefetched()
 				&& onCount > 0 && isDisplayed()) {
-			for (Iterator it = getChildIterator(); it.hasNext();) {
-				Perspective child = (Perspective) it.next();
+			for (Iterator<Perspective> it = getChildIterator(); it.hasNext();) {
+				Perspective child = it.next();
 				assert child != Perspective.this;
 				child.updateTopTags(top, getTotalCount(), onCount);
 			}
@@ -2232,9 +2293,8 @@ public class Perspective implements ItemPredicate {
 						// _onCount);
 						// Util.print(instantiatedPerspective.checkTableMsg(
 						// parentTotalCount, parentOnCount, total, onCount));
-						ChiSq2x2 chiSq = ChiSq2x2.getInstance(this,
-								parentTotalCount, parentOnCount, total,
-								_onCount, query());
+						ChiSq2x2 chiSq = getChiSq(parentTotalCount,
+								parentOnCount, total, _onCount);
 						boolean siblingSelected = parent != null
 								&& parent.isRestricted();
 						if (chiSq.sign() > 0 || !siblingSelected) {
@@ -2254,6 +2314,17 @@ public class Perspective implements ItemPredicate {
 		}
 	}
 
+	ChiSq2x2 getChiSq(int parentTotalCount, int parentOnCount, int total,
+			int _onCount) {
+		assert query().isQueryValid();
+		assert _onCount <= total : _onCount + " " + total;
+		assert parentOnCount <= parentTotalCount : parentOnCount + " "
+				+ parentTotalCount;
+		ChiSq2x2 chiSq = ChiSq2x2.getInstance(this, parentTotalCount,
+				parentOnCount, total, _onCount, query());
+		return chiSq;
+	}
+
 	public static class TopTags {
 		final int n;
 		private double topThreshold = Double.POSITIVE_INFINITY;
@@ -2268,33 +2339,43 @@ public class Perspective implements ItemPredicate {
 			public final ChiSq2x2 tag;
 			public final double relevance;
 
-			TagRelevance(ChiSq2x2 o, double _relevance) {
+			public TagRelevance(ChiSq2x2 o, double _relevance) {
 				tag = o;
 				relevance = _relevance;
 				// assert tag instanceof ChiSq2x2;
 			}
 
+			public double relevanceScore() {
+				return Util.sgn(relevance) * 100 * Math.pow(Math.abs(relevance
+				/* / maxRelevance(facet) */), 0.25);
+			}
+
+			@Override
 			public String toString() {
 				return "<TagRelevance " + relevance + " " + tag.object + ">";
 			}
 		}
 
-		private static final Comparator entryComparator = new EntryComparator();
-		public final SortedSet top = new TreeSet(entryComparator);
-		public final SortedSet bottom = new TreeSet(entryComparator);
+		private static final Comparator<TagRelevance> entryComparator = new EntryComparator();
+		public final SortedSet<TagRelevance> top = new TreeSet<TagRelevance>(
+				entryComparator);
+		public final SortedSet<TagRelevance> bottom = new TreeSet<TagRelevance>(
+				entryComparator);
 
 		public TopTags(int _n) {
 			assert _n > 0;
 			n = _n;
 		}
 
-		final static class EntryComparator extends DoubleValueComparator {
-			public double value(Object data) {
-				return ((TagRelevance) data).relevance;
+		final static class EntryComparator extends
+				DoubleValueComparator<TagRelevance> {
+			@Override
+			public double value(TagRelevance data) {
+				return data.relevance;
 			}
 		}
 
-		public Iterator topIterator() {
+		public Iterator<TagRelevance> topIterator() {
 			return top.iterator();
 		}
 
@@ -2314,7 +2395,7 @@ public class Perspective implements ItemPredicate {
 						assert top.size() < n : topThreshold + " " + top;
 					}
 					top.add(new TagRelevance(o, score));
-					topThreshold = ((TagRelevance) top.last()).relevance;
+					topThreshold = top.last().relevance;
 					// updateTopThreshold();
 					// assert top.size() < n || topThresholdFacet != null :
 					// top.size()
@@ -2331,7 +2412,7 @@ public class Perspective implements ItemPredicate {
 								+ bottom;
 					}
 					bottom.add(new TagRelevance(o, score));
-					bottomThreshold = ((TagRelevance) bottom.first()).relevance;
+					bottomThreshold = bottom.first().relevance;
 				}
 			}
 		}
@@ -2341,6 +2422,7 @@ public class Perspective implements ItemPredicate {
 		 * 
 		 * @see java.lang.Object#toString()
 		 */
+		@Override
 		public String toString() {
 			StringBuffer buf = new StringBuffer();
 			String heading = ChiSq2x2.statisticsHeading();
@@ -2350,12 +2432,13 @@ public class Perspective implements ItemPredicate {
 			return buf.toString();
 		}
 
-		private void topTagsStringInternal(String which, Set whichSet,
-				StringBuffer buf) {
+		private void topTagsStringInternal(String which,
+				Set<TagRelevance> whichSet, StringBuffer buf) {
 			if (whichSet.size() > 0) {
 				buf.append(which).append(whichSet.size()).append(" tags:\n");
-				for (Iterator it = whichSet.iterator(); it.hasNext();) {
-					TagRelevance tagRelevance = (TagRelevance) it.next();
+				for (Iterator<TagRelevance> it = whichSet.iterator(); it
+						.hasNext();) {
+					TagRelevance tagRelevance = it.next();
 					ChiSq2x2 pvalue = tagRelevance.tag;
 					pvalue.statisticsLine(buf).append("\n");
 				}
@@ -2399,7 +2482,7 @@ public class Perspective implements ItemPredicate {
 		 * Maps from a prefix string to a map from the next letter to the last
 		 * child with that letter.
 		 */
-		Map lettersOffsets = new HashMap();
+		Map<CollationKey, Map<CollationKey, Perspective[]>> lettersOffsets = new HashMap<CollationKey, Map<CollationKey, Perspective[]>>();
 
 		Perspective[] dataIndex;
 
@@ -2500,7 +2583,7 @@ public class Perspective implements ItemPredicate {
 		 * @return Iterator over children c where: c.cumCount >= minCount &&
 		 *         c.cumCountExclusive <= maxCount
 		 */
-		Iterator cumCountChildIterator(int minCount, int maxCount) {
+		Iterator<Perspective> cumCountChildIterator(int minCount, int maxCount) {
 			if (minCount < 0)
 				minCount = 0;
 			if (maxCount > totalChildTotalCount)
@@ -2695,10 +2778,9 @@ public class Perspective implements ItemPredicate {
 				greaterThanMedianChildTotalCount += medianChild.getTotalCount()
 						* (1 - (median - medianIndex));
 
-				medianPvalue = ChiSq2x2.getInstance(Perspective.this,
-						totalChildTotalCount, totalChildOnCount,
-						greaterThanMedianChildTotalCount,
-						greaterThanMedianChildOnCount, query());
+				medianPvalue = getChiSq(totalChildTotalCount,
+						totalChildOnCount, greaterThanMedianChildTotalCount,
+						greaterThanMedianChildOnCount);
 				// int[][] table = {
 				// { totalChildOnCount - greaterThanMedianChildOnCount,
 				// greaterThanMedianChildOnCount },
@@ -2744,15 +2826,13 @@ public class Perspective implements ItemPredicate {
 					if (parentTotalCount > parentOnCount
 							&& parentTotalCount > myTotalCount
 							&& parentOnCount > 0 && myTotalCount > 0
-							&& onCount >= 0) {
+							&& getOnCount() >= 0) {
 						// Deeply nested facets have on=-1;
 						// assert checkTable(parentTotalCount, parentOnCount,
 						// myTotalCount, onCount);
 						try {
-							pValueCounts = ChiSq2x2.getInstance(
-									Perspective.this, parentTotalCount,
-									parentOnCount, myTotalCount, onCount,
-									query());
+							pValueCounts = getChiSq(parentTotalCount,
+									parentOnCount, myTotalCount, getOnCount());
 							// if ("no date recorded on caption card"
 							// .equals(getNameIfPossible()))
 							// Util.print(this + " pvalue = "
@@ -2887,13 +2967,13 @@ public class Perspective implements ItemPredicate {
 			return result;
 		}
 
-		Iterator getChildIterator() {
+		Iterator<Perspective> getChildIterator() {
 			assert children_offset > 0 : this + " has no children! "
 					+ nChildren();
 			return q.getFacetIterator(children_offset + 1, nChildren);
 		}
 
-		Iterator getChildIterator(Perspective min, Perspective max) {
+		Iterator<Perspective> getChildIterator(Perspective min, Perspective max) {
 			return q.getFacetIterator(min.facet_id, max.facet_id - min.facet_id
 					+ 1);
 		}
@@ -2903,8 +2983,8 @@ public class Perspective implements ItemPredicate {
 			assert count <= 0;
 			assert isPrefetched : this;
 			// if (isPrefetched())
-			for (Iterator it = getChildIterator(); it.hasNext();) {
-				Perspective child = (Perspective) it.next();
+			for (Iterator<Perspective> it = getChildIterator(); it.hasNext();) {
+				Perspective child = it.next();
 				child.onCount = count;
 			}
 
@@ -3008,21 +3088,72 @@ public class Perspective implements ItemPredicate {
 			restrictions = null;
 		}
 
+		@Override
 		public String toString() {
 			return "<InstantiatedPerspective " + name + ">";
 		}
 
 	}
 
-	public int compareTo(ItemPredicate caused) {
-		return (caused instanceof Perspective) ? compareTo((Object) caused) : 1;
+	/**
+	 * Combine sequential Perspectives into MexPerspectives. If all children
+	 * included, substitute parent.
+	 * 
+	 * @param sortedFacetCollection
+	 *            a SortedSet or sorted List of Perspectives
+	 * @param onlyComparable
+	 *            only coalesce sibling, ordered Perspectives
+	 * @return SortedSet of Perspectives and MexPerspectives
+	 */
+	public static SortedSet<ItemPredicate> coalesce(
+			Collection<? extends ItemPredicate> sortedFacetCollection,
+			boolean onlyComparable) {
+		SortedSet<ItemPredicate> combos = new TreeSet<ItemPredicate>();
+		Perspective end = null;
+		Perspective start = null;
+		for (Iterator<? extends ItemPredicate> iterator = sortedFacetCollection
+				.iterator(); iterator.hasNext();) {
+			ItemPredicate ip = iterator.next();
+			Perspective startP = (Perspective) ((ip instanceof Perspective) ? ip
+					: ((MexPerspectives) ip).facets.first());
+			Perspective endP = (Perspective) ((ip instanceof Perspective) ? ip
+					: ((MexPerspectives) ip).facets.last());
+			if (end == null || startP.getID() != end.getID() + 1
+					|| startP.getParent() != end.getParent()) {
+				coalesceInternal(combos, start, end, onlyComparable);
+				start = startP;
+			}
+			end = endP;
+		}
+		coalesceInternal(combos, start, end, onlyComparable);
+		return combos;
+	}
+
+	private static void coalesceInternal(SortedSet<ItemPredicate> combos,
+			Perspective start, Perspective end, boolean onlyComparable) {
+		// Util.print("rfi " + start + " " + end);
+		if (start == end) {
+			if (start != null)
+				combos.add(end);
+		} else if (end.getID() - start.getID() + 1 == start.getParent()
+				.nChildren()) {
+			combos.add(start.getParent());
+		} else if (onlyComparable && !start.getParent().isOrdered()) {
+			for (Iterator<Perspective> it = start.getParent().getChildIterator(
+					start, end); it.hasNext();) {
+				Perspective p = it.next();
+				combos.add(p);
+			}
+		} else {
+			combos.add(new MexPerspectives(start, end));
+		}
 	}
 }
 
 final class Restrictions {
-	SortedSet require = new TreeSet();
+	SortedSet<Perspective> require = new TreeSet<Perspective>();
 
-	SortedSet exclude = new TreeSet();
+	SortedSet<Perspective> exclude = new TreeSet<Perspective>();
 
 	void delete(ItemPredicate facet, boolean required) {
 		// Util.print("Perspective.delete " + this + "." + facet + " " +
@@ -3034,7 +3165,7 @@ final class Restrictions {
 			exclude.remove(facet);
 	}
 
-	void add(ItemPredicate facet, boolean required) {
+	void add(Perspective facet, boolean required) {
 		// Util.print("add " + facet);
 		assert facet != null;
 		assert !isRestriction(facet, required);
@@ -3071,7 +3202,7 @@ final class Restrictions {
 	// return restrictions(required).[n];
 	// }
 
-	SortedSet restrictions(boolean required) {
+	SortedSet<Perspective> restrictions(boolean required) {
 		return required ? require : exclude;
 	}
 
@@ -3079,8 +3210,8 @@ final class Restrictions {
 		return restrictions(required).contains(facet);
 	}
 
-	SortedSet allRestrictions() {
-		SortedSet result = new TreeSet(require);
+	SortedSet<Perspective> allRestrictions() {
+		SortedSet<Perspective> result = new TreeSet<Perspective>(require);
 		result.addAll(exclude);
 		return result;
 	}

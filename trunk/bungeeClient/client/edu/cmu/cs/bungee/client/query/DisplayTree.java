@@ -18,7 +18,7 @@ public class DisplayTree {
 
 	private final Object treeObject;
 
-	private final List children = new Vector();
+	private final List<DisplayTree> children = new Vector<DisplayTree>();
 
 	private final String itemDesc;
 
@@ -56,7 +56,7 @@ public class DisplayTree {
 	/**
 	 * @return the subtrees under this node
 	 */
-	public List getChildren() {
+	public List<DisplayTree> getChildren() {
 		return Collections.unmodifiableList(children);
 	}
 
@@ -82,8 +82,8 @@ public class DisplayTree {
 	 */
 	public boolean isMember(Object treeObject1) {
 		boolean result = treeObject() == treeObject1;
-		for (Iterator it = children.iterator(); it.hasNext() && !result;) {
-			DisplayTree child = (DisplayTree) it.next();
+		for (Iterator<DisplayTree> it = children.iterator(); it.hasNext() && !result;) {
+			DisplayTree child = it.next();
 			result = child.isMember(treeObject1);
 		}
 		return result;
@@ -95,11 +95,11 @@ public class DisplayTree {
 	 * @return Is one of treeObjects the treeObject() of this or one of its
 	 *         descendents.
 	 */
-	public boolean isMember(Set treeObjects) {
+	public boolean isMember(Set<Object> treeObjects) {
 		// we know treeObjects are Perspectives, and contains barfs on non-comparable Objects
 		boolean result = treeObject() instanceof Perspective && treeObjects.contains(treeObject());
-		for (Iterator it = children.iterator(); it.hasNext() && !result;) {
-			DisplayTree child = (DisplayTree) it.next();
+		for (Iterator<DisplayTree> it = children.iterator(); it.hasNext() && !result;) {
+			DisplayTree child = it.next();
 			result = child.isMember(treeObjects);
 		}
 		return result;
@@ -134,6 +134,7 @@ public class DisplayTree {
 		return children.add(child);
 	}
 
+	@Override
 	public String toString() {
 		StringBuffer buf = new StringBuffer();
 		toStringInternal(buf, "\n");
@@ -145,14 +146,14 @@ public class DisplayTree {
 			buf.append(indent).append(treeObject());
 		else
 			buf.append(indent).append("[Facet Tree Root]");
-		for (Iterator it = children.iterator(); it.hasNext();)
-			((DisplayTree) it.next()).toStringInternal(buf, indent + " ");
+		for (Iterator<DisplayTree> it = children.iterator(); it.hasNext();)
+			it.next().toStringInternal(buf, indent + " ");
 	}
 
 	/**
 	 * @return a ListIterator over children
 	 */
-	public ListIterator childIterator() {
+	public ListIterator<DisplayTree> childIterator() {
 		return children.listIterator();
 	}
 

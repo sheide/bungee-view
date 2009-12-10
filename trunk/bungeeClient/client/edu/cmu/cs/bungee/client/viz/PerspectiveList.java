@@ -59,9 +59,7 @@ import edu.umd.cs.piccolo.PNode;
 
 final class PerspectiveList extends LazyPNode implements MouseDoc,
 		PerspectiveObserver, SortButtons {
-	/**
-	 * 
-	 */
+
 	private static final long serialVersionUID = 1L;
 
 	/**
@@ -197,6 +195,7 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 		}
 	}
 
+	@Override
 	public double maxWidth() {
 		return 2 * art.summary.queryW;
 	}
@@ -318,66 +317,75 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 		assert _selectedParent != null : _selected;
 		// Perspective selectedParent = selected != null ? selected.getParent()
 		// : null;
+		ensureCounts(_selectedParent);
 		selected = _selected;
-		// if (_selectedParent != selectedParent) {
-		// art.summary.addChild(this);
-		// art.selectedItem.setChildrenPickable(false);
-		moveToFront();
-		// sortField = SortButton.SORT_BY_NATURAL_ORDER;
-		// sortDirection = 1;
+		// }
+		// Util.print(" PL.init return ");
+	}
 
-		longestNamedFacet = null;
-		maxCount = 0;
-		counts = new int[_selectedParent.nChildren()];
-		countSortedFacets = null;
-		boolean isRestricted = _selectedParent.isRestricted();
-		ResultSet rs = isRestricted ? query().getCountsIgnoringFacet(
-				_selectedParent) : null;
-		if (rs == null) {
-			for (Iterator it = _selectedParent.getChildIterator(); it.hasNext();) {
-				Perspective v = (Perspective) it.next();
-				int i = v.whichChild();
+	private void ensureCounts(Perspective _selectedParent) {
+		if (selected == null || selected.getParent() != _selectedParent) {
+			// if (_selectedParent != selectedParent) {
+			// art.summary.addChild(this);
+			// art.selectedItem.setChildrenPickable(false);
+			moveToFront();
+			// sortField = SortButton.SORT_BY_NATURAL_ORDER;
+			// sortDirection = 1;
 
-				// If query is invalid, we'll recount soon. In the mean time,
-				// make all counts non-zero so arrows will still function.
-				// If isRestricted but rs == null, must have no other
-				// restrictions, and need to use totalCount.
-				counts[i] = isRestricted ? v.getTotalCount() : v.guessOnCount();
-
-				// Util.print("no rs "+v+" "+counts[i]+" "+isRestricted+" "+query().isQueryValid());
-
-				if (counts[i] > maxCount)
-					maxCount = counts[i];
-				updateLongestNamedFacet(v);
-			}
-		} else {
-			try {
-				while (rs.next()) {
-					Perspective v = query().findPerspective(rs.getInt(1));
-					assert v.getParent() == _selectedParent;
+			longestNamedFacet = null;
+			maxCount = 0;
+			counts = new int[_selectedParent.nChildren()];
+			countSortedFacets = null;
+			boolean isRestricted = _selectedParent.isRestricted();
+			ResultSet rs = isRestricted ? query().getCountsIgnoringFacet(
+					_selectedParent) : null;
+			if (rs == null) {
+				for (Iterator<Perspective> it = _selectedParent.getChildIterator(); it
+						.hasNext();) {
+					Perspective v = it.next();
 					int i = v.whichChild();
-					int count = rs.getInt(2);
-					assert count <= v.getTotalCount() : count + " " + v;
-					counts[i] = count;
 
-//					Util.print("rs " + v + " " + count);
+					// If query is invalid, we'll recount soon. In the mean
+					// time,
+					// make all counts non-zero so arrows will still function.
+					// If isRestricted but rs == null, must have no other
+					// restrictions, and need to use totalCount.
+					counts[i] = isRestricted ? v.getTotalCount() : v
+							.guessOnCount();
+
+					// Util.print("no rs "+v+" "+counts[i]+" "+isRestricted+" "+query().isQueryValid());
 
 					if (counts[i] > maxCount)
 						maxCount = counts[i];
 					updateLongestNamedFacet(v);
 				}
-			} catch (Throwable se) {
-				Util.err("SQL Exception in PerspectiveList.init: "
-						+ se.getMessage());
-				se.printStackTrace();
-			} finally {
-				query().close(rs);
+			} else {
+				try {
+					while (rs.next()) {
+						Perspective v = query().findPerspective(rs.getInt(1));
+						assert v.getParent() == _selectedParent;
+						int i = v.whichChild();
+						int count = rs.getInt(2);
+						assert count <= v.getTotalCount() : count + " " + v;
+						counts[i] = count;
+
+						// Util.print("rs " + v + " " + count);
+
+						if (counts[i] > maxCount)
+							maxCount = counts[i];
+						updateLongestNamedFacet(v);
+					}
+				} catch (Throwable se) {
+					Util.err("SQL Exception in PerspectiveList.init: "
+							+ se.getMessage());
+					se.printStackTrace();
+				} finally {
+					query().close(rs);
+				}
 			}
+			label.setText(Util.addCommas(size()) + " "
+					+ _selectedParent.getName() + " tags");
 		}
-		label.setText(Util.addCommas(size()) + " " + _selectedParent.getName()
-				+ " tags");
-		// }
-		// Util.print(" PL.init return ");
 	}
 
 	double longestNameLength() {
@@ -412,6 +420,130 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 		}
 	}
 
+	Perspective handleArrowForAllPVs(int key, int modifiers) {
+		boolean isControlA = key == java.awt.event.KeyEvent.VK_A
+				&& Util.isControlDown(modifiers);
+		if (isControlA) {
+			key = java.awt.event.KeyEvent.VK_END;
+			modifiers = InputEvent.SHIFT_DOWN_MASK;
+		}
+		boolean selectInitialFacet = isControlA;
+		boolean continueToEnd = continueToEnd(key);
+		int di = delta(key);
+
+		PerspectiveViz selectedPV = art.summary.lookupPV(selected.getParent());
+		PerspectiveViz[] ps = selectedPV.rank.perspectives;
+		PerspectiveViz pv = isControlA ? ps[0] : selectedPV;
+		Perspective finalSelection = null;
+		Util.print("PerspectiveList.handleArrowForAllPVs " + key + " "
+				+ selected + " " + selectInitialFacet + " " + continueToEnd
+				+ " " + di);
+		Util.print(Util.member(ps, pv) + " " + ps.length + " " + ps[0] + " "
+				+ pv);
+		int whichChild = getSortIndex(selected);
+		for (int i = Util.member(ps, pv); i >= 0 && i < ps.length
+				&& (finalSelection == null || continueToEnd); i += di) {
+			pv = ps[i];
+			Perspective p = pv.p;
+			ensureCounts(p);
+			selected = p.getNthChild(0);// Make sure pvp() works.
+
+			if (selectInitialFacet) {
+				whichChild = firstChangedFacet(finalSelection, p, di, modifiers);
+				finalSelection = getFacet(whichChild);
+			}
+			if (continueToEnd && size() > 1) {
+				whichChild = firstChangedFacet(finalSelection, p, -di,
+						modifiers);
+				finalSelection = getFacet(whichChild);
+			} else {
+				for (int index = whichChild + di; index >= 0 && index < size()
+						&& finalSelection == null; index += di) {
+					finalSelection = handleArrow1(finalSelection, index, false,
+							modifiers);
+				}
+			}
+			selectInitialFacet = true;
+		}
+		if (finalSelection != null) {
+			art.toggleFacet(finalSelection, modifiers);
+			art.printUserAction(Bungee.FACET_ARROW, selected.getServerID(),
+					modifiers);
+			if (!isHidden())
+				showList(selected);
+			art.setClickDesc((Markup) null);
+		} else {
+			art
+					.setTip("No "
+							+ pvp().getName()
+							+ " tags with non-zero count found in response to navigation keypress.");
+		}
+
+		return finalSelection;
+	}
+
+	private int firstChangedFacet(Perspective finalSelection,
+			Perspective parent, int direction, int modifiers) {
+		int whichChild = direction > 0 ? 0 : size() - 1;
+		Util.print("firstChangedFacet " + direction + " " + modifiers + " "
+				+ whichChild);
+		// Need to update query before computing whichChild if isShiftDown.
+		if (Util.isShiftDown(modifiers) && parent.isRestricted()) {
+			if (finalSelection != null)
+				art.toggleFacet(finalSelection, modifiers);
+			Perspective facet;
+			while (parent.isRestriction(facet = getFacet(whichChild), parent
+					.isRequireAction(facet, modifiers))
+					&& (direction < 0 ? whichChild > 0
+							: whichChild < size() - 1)) {
+				whichChild += direction;
+			}
+		}
+		Util.print("   " + whichChild);
+		return whichChild;
+	}
+
+	private Perspective handleArrow1(Perspective finalSelection,
+			int whichChild, boolean zeroCountOK, int modifiers) {
+		Util.print("handleArrow1 " + whichChild + " " + zeroCountOK + " "
+				+ modifiers + " " + counts[whichChild] + " " + finalSelection);
+		if (zeroCountOK || counts[whichChild] > 0) {
+			if (finalSelection != null) {
+				query().toggleFacet(finalSelection, modifiers);
+			}
+			finalSelection = getFacet(whichChild);
+		}
+		return finalSelection;
+	}
+
+	private static boolean continueToEnd(int key) {
+		int[] keys = { java.awt.event.KeyEvent.VK_HOME,
+				java.awt.event.KeyEvent.VK_END };
+		return Util.isMember(keys, key);
+	}
+
+	private static int delta(int key) {
+		int delta = 0;
+		switch (key) {
+		case java.awt.event.KeyEvent.VK_KP_LEFT:
+		case java.awt.event.KeyEvent.VK_LEFT:
+		case java.awt.event.KeyEvent.VK_KP_UP:
+		case java.awt.event.KeyEvent.VK_UP:
+		case java.awt.event.KeyEvent.VK_HOME:
+			delta = -1;
+			break;
+
+		case java.awt.event.KeyEvent.VK_KP_RIGHT:
+		case java.awt.event.KeyEvent.VK_RIGHT:
+		case java.awt.event.KeyEvent.VK_KP_DOWN:
+		case java.awt.event.KeyEvent.VK_DOWN:
+		case java.awt.event.KeyEvent.VK_END:
+			delta = 1;
+			break;
+		}
+		return delta;
+	}
+
 	/**
 	 * @param key
 	 *            an arrow key, HOME, END, or c-A
@@ -420,8 +552,9 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 	 * @return the newly-selected Perspective, or null if there is no change.
 	 *         (Non-null leads to the input event being marked as handled.)
 	 */
-	Perspective handleArrow(int key, int modifiers) {
-		// Util.print("PerspectiveList.handleArrow " + key);
+	Perspective handleArrowOLD(int key, int modifiers) {
+		Util.print("PerspectiveList.handleArrow " + key + " " + modifiers + " "
+				+ selected);
 		Perspective parent = selected.getParent();
 		if (!(parent.isRestriction() || parent.getParent() == null)) {
 			assert false;
@@ -477,6 +610,7 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 		}
 		if (delta != 0) {
 			boolean nowhereToGo = true;
+			// Iterate until you find the first non-zero count perspective
 			for (int index = sortIndex + delta; index >= 0 && index < size(); index += delta) {
 				Perspective p = getFacet(index);
 				// Util.print("handleArrow " + selected + " " + sortIndex + " "
@@ -484,7 +618,7 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 				// + counts[p.whichChild()]);
 				if (counts[p.whichChild()] > 0 || zeroCountOK) {
 					selected = p;
-					art.toggleFacet(selected, modifiers);
+					// art.toggleFacet(selected, modifiers);
 					art.setClickDesc((Markup) null);
 					nowhereToGo = false;
 					break;
@@ -501,6 +635,38 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 				if (!isHidden())
 					showList(selected);
 				return selected;
+			}
+		}
+		return null;
+	}
+
+	Perspective handleArrow(int delta, boolean continuetoEnd, int modifiers) {
+		Util.print("PerspectiveList.handleArrow " + delta + " " + modifiers
+				+ " " + selected);
+		if (!(selected.getParent().isRestriction() || selected.getParent()
+				.getParent() == null)) {
+			assert false;
+			// if parent has only negative filters, its grandparent might be
+			// unrestricted. If we add positive filters on parent, onItemsQuery
+			// won't notice. Need to think about proper behavior for arrows in
+			// this case. Should they change to a new negated filter?
+			// For now, just disallow.
+			return null;
+		}
+		assert delta != 0;
+		int sortIndex = getSortIndex(selected);
+		if (continuetoEnd)
+			sortIndex = delta < 0 ? -sortIndex : size() - 1 - sortIndex;
+		// Iterate until you find the first non-zero count perspective
+		for (int index = sortIndex + delta; index >= 0 && index < size(); index += delta) {
+			Perspective p = getFacet(index);
+			// Util.print("handleArrow " + selected + " " + sortIndex + " "
+			// + delta + " " + index + " " + p + " "
+			// + counts[p.whichChild()]);
+			if (counts[p.whichChild()] > 0 || continuetoEnd) {
+				selected = p;
+				// art.toggleFacet(selected, modifiers);
+				return p;
 			}
 		}
 		return null;
@@ -597,11 +763,12 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 		// Util.print(" PL.showList return");
 	}
 
+	@SuppressWarnings("unchecked")
 	void highlightFacet() {
 		if (!isHidden()) {
 			// Util.print("PL.showFacet " + art.highlightedFacets);
-			for (Iterator it = getChildrenIterator(); it.hasNext();) {
-				PNode n = (PNode) it.next();
+			for (Iterator<PNode> it = getChildrenIterator(); it.hasNext();) {
+				PNode n = it.next();
 				if (n instanceof FacetText) {
 					FacetText f = (FacetText) n;
 					f.setColor();
@@ -725,9 +892,8 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 		case SORT_BY_SELECTION:
 			result = facet.whichChild();
 			int indexOffset = 0;
-			SortedSet restrictions = pvp().allRestrictions();
-			for (Iterator it = restrictions.iterator(); it.hasNext();) {
-				Perspective child = (Perspective) it.next();
+			SortedSet<Perspective> restrictions = pvp().allRestrictions();
+			for (Perspective child: restrictions) {
 				if (child.whichChild() > result)
 					indexOffset++;
 			}
@@ -745,6 +911,7 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 	}
 
 	Perspective getFacet(int sortIndex) {
+		assert sortIndex < counts.length : selected;
 		Perspective result = null;
 		Perspective parent = pvp();
 		if ((sortDirection == -1) == (sortField == SORT_BY_NATURAL_ORDER))
@@ -759,7 +926,7 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 		case SORT_BY_TOTAL_COUNT:
 			assert false;
 		case SORT_BY_SELECTION:
-			List restrictions = new ArrayList(parent.allRestrictions());
+			List<Perspective> restrictions = new ArrayList<Perspective>(parent.allRestrictions());
 			int nRestrictions = restrictions.size();
 			if (nRestrictions > 0) {
 				// if (nRestrictions > 1) {
@@ -769,11 +936,11 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 				// Arrays.sort(restrictions);
 				// }
 				if (sortIndex < nRestrictions) {
-					result = (Perspective) restrictions.get(nRestrictions
+					result = restrictions.get(nRestrictions
 							- sortIndex - 1);
 				} else {
 					for (int i = 0; i < nRestrictions && result == null; i++) {
-						Perspective child = (Perspective) restrictions
+						Perspective child = restrictions
 								.get(nRestrictions - i - 1);
 						int nSkipped = child.whichChild() - i;
 						if (nSkipped > sortIndex - nRestrictions)
@@ -803,10 +970,11 @@ final class PerspectiveList extends LazyPNode implements MouseDoc,
 		return countSortedFacets;
 	}
 
-	final class OnCountComparator extends IntValueComparator {
+	final class OnCountComparator extends IntValueComparator<Perspective> {
 
-		public int value(Object data) {
-			return counts[((Perspective) data).whichChild()];
+		@Override
+		public int value(Perspective data) {
+			return counts[data.whichChild()];
 		}
 	}
 

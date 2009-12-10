@@ -43,14 +43,9 @@ import edu.umd.cs.piccolo.PNode;
 final class Rank extends LazyContainer implements PickFacetTextNotifier {
 
 	/**
-	 * 
-	 */
-	private static final long serialVersionUID = 1L;
-
-	/**
 	 * Margin between multiple PVs in a rank
 	 */
-	private static final double PV_MARGIN = 5.0;
+	private static final double MAX_PV_MARGIN = 5.0;
 
 	// private double queryW;
 
@@ -109,9 +104,9 @@ final class Rank extends LazyContainer implements PickFacetTextNotifier {
 			// perspectives.length + " " + totalChildTotalCount());
 
 			double availableW = w - summary.queryW;
-			// Don't let margins take up more than half the width
-			int margin = (int) Math.min(availableW / 2 / (nPerspectives - 1),
-					PV_MARGIN);
+			// Don't let margins take up more than one fifth the width
+			int margin = (int) Math.min(availableW / 5.0 / (nPerspectives - 1),
+					MAX_PV_MARGIN);
 			double barW = availableW - margin * (nPerspectives - 1);
 			assert barW > 0;
 			double ratio = barW / totalChildTotalCount();
@@ -121,8 +116,8 @@ final class Rank extends LazyContainer implements PickFacetTextNotifier {
 				if (pv.p.isDisplayed()) {
 					int childW = (int) Math.round(ratio * pv.p.getTotalCount());
 					// assert childW > 0 : pv.p + " " + pv.p.getTotalCount();
-					if (childW <= 0)
-						Util.print("WARNING: zero width for " + pv);
+//					if (childW <= 0)
+//						Util.print("WARNING: zero width for " + pv);
 					pv.setHeight(getHeight());
 					pv.setOffset(xOffset, 0.0);
 					pv.validate(Math.max(1, childW), i == 0);
@@ -229,12 +224,12 @@ final class Rank extends LazyContainer implements PickFacetTextNotifier {
 		}
 	}
 
-	void setBarTransparencies(float zeroToOne) {
-		for (int i = 0; i < perspectives.length; i++) {
-			PerspectiveViz p = perspectives[i];
-			p.setBarTransparencies(zeroToOne);
-		}
-	}
+//	void setBarTransparencies(float zeroToOne) {
+//		for (int i = 0; i < perspectives.length; i++) {
+//			PerspectiveViz p = perspectives[i];
+//			p.setBarTransparencies(zeroToOne);
+//		}
+//	}
 
 	// void componentHeightsChanged() {
 	// computeHeights();
@@ -725,8 +720,8 @@ final class Rank extends LazyContainer implements PickFacetTextNotifier {
 		return cachedName;
 	}
 
-	SortedSet getRestrictions(boolean require) {
-		SortedSet restrictions = new TreeSet();
+	SortedSet<Perspective> getRestrictions(boolean require) {
+		SortedSet<Perspective> restrictions = new TreeSet<Perspective>();
 		for (int i = 0; i < perspectives.length; i++) {
 			restrictions.addAll(perspectives[i].p.getRestrictionFacetInfos(
 					true, require));
@@ -736,8 +731,8 @@ final class Rank extends LazyContainer implements PickFacetTextNotifier {
 		return restrictions;
 	}
 
-	SortedSet getPerspectives() {
-		SortedSet restrictions = new TreeSet();
+	SortedSet<Perspective> getPerspectives() {
+		SortedSet<Perspective> restrictions = new TreeSet<Perspective>();
 		for (int i = 0; i < perspectives.length; i++) {
 			restrictions.add(perspectives[i].p);
 		}
@@ -745,7 +740,7 @@ final class Rank extends LazyContainer implements PickFacetTextNotifier {
 	}
 
 	// Update name and restrictionName labels
-	void updatePerspectiveSelections(Set facets) {
+	void updatePerspectiveSelections(Set<Perspective> facets) {
 		// Util.print("Rank.updatePerspectiveSelections " + parentRank + " "
 		// + perspectives[0].p);
 		perspectives[0].rankLabel.updateSelections(facets);
@@ -925,6 +920,7 @@ final class Rank extends LazyContainer implements PickFacetTextNotifier {
 		}
 	}
 
+	@Override
 	public String toString() {
 		return "<Rank " + Arrays.asList(perspectives) + ">";
 	}

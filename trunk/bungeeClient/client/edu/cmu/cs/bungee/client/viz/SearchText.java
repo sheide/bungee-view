@@ -18,6 +18,7 @@ public class SearchText extends FacetText implements PickFacetTextNotifier {
 		addInputEventListener(facetTextHandler);
 	}
 
+	@Override
 	void setObject(Object treeObject, Object oldTreeObject) {
 		if (!treeObject.equals(treeObject())) {
 			decache(oldTreeObject);
@@ -50,6 +51,7 @@ public class SearchText extends FacetText implements PickFacetTextNotifier {
 		return result;
 	}
 
+	@Override
 	public String toString() {
 		return (String) treeObject();
 	}

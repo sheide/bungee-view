@@ -11,12 +11,13 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.ListIterator;
+import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
@@ -26,6 +27,8 @@ import java.util.regex.Pattern;
 import javax.swing.SwingUtilities;
 
 import edu.cmu.cs.bungee.client.query.Perspective.TopTags;
+import edu.cmu.cs.bungee.client.query.tetrad.Distribution;
+import edu.cmu.cs.bungee.client.query.tetrad.NonAlchemyModel;
 import edu.cmu.cs.bungee.javaExtensions.IntHashtable;
 import edu.cmu.cs.bungee.javaExtensions.MyResultSet;
 import edu.cmu.cs.bungee.javaExtensions.PerspectiveObserver;
@@ -75,7 +78,11 @@ public final class Query implements ItemPredicate {
 	 */
 	private final String genericObjectLabel;
 
-	private final List displayedPerspectives = new ArrayList();
+	/**
+	 * Conceptually a SortedSet, but you can't reverse iterate over these
+	 * efficiently
+	 */
+	private final List<Perspective> displayedPerspectives = new ArrayList<Perspective>();
 
 	/**
 	 * Number of top-level facets
@@ -92,11 +99,11 @@ public final class Query implements ItemPredicate {
 	 */
 	int totalCount;
 
-	private final Set searches = new LinkedHashSet();
+	private final Set<String> searches = new LinkedHashSet<String>();
 
-	private final Set clusters = new LinkedHashSet();
+	private final Set<Cluster> clusters = new LinkedHashSet<Cluster>();
 
-	private final Set itemLists = new LinkedHashSet();
+	private final Set<ItemList> itemLists = new LinkedHashSet<ItemList>();
 
 	private Perspective[] allPerspectives;
 
@@ -110,6 +117,7 @@ public final class Query implements ItemPredicate {
 	 *            the database to connect to, e.g. movie
 	 */
 	public Query(String server, String dbName) {
+		decacheDistributions();
 		db = new ServletInterface(server, dbName);
 
 		if (getSession() != null) {
@@ -141,6 +149,11 @@ public final class Query implements ItemPredicate {
 			genericObjectLabel = null;
 
 		}
+	}
+
+	private void decacheDistributions() {
+		Distribution.decacheDistributions();
+		NonAlchemyModel.decacheExplanations();
 	}
 
 	public String[] itemDescriptionFields() {
@@ -185,15 +198,15 @@ public final class Query implements ItemPredicate {
 	/**
 	 * @return the clusters being filtered on
 	 */
-	public Set clusters() {
-		return new HashSet(clusters);
+	public Set<Cluster> clusters() {
+		return new HashSet<Cluster>(clusters);
 	}
 
 	/**
 	 * @return the Informedia queries being filtered on
 	 */
-	public Set itemLists() {
-		return new HashSet(itemLists);
+	public Set<ItemList> itemLists() {
+		return new HashSet<ItemList>(itemLists);
 	}
 
 	/**
@@ -239,11 +252,11 @@ public final class Query implements ItemPredicate {
 		// them get an error.
 	}
 
-	private List perspectivesToAdd = new LinkedList();
+	private List<ItemPredicate> perspectivesToAdd = new LinkedList<ItemPredicate>();
 
-	private List perspectivesToRemove = new LinkedList();
+	private List<ItemPredicate> perspectivesToRemove = new LinkedList<ItemPredicate>();
 
-	private Set orderedFacetTypes = new HashSet();
+	private Set<Perspective> orderedFacetTypes = new HashSet<Perspective>();
 
 	// private Set causableFacetTypes = new HashSet();
 
@@ -262,7 +275,8 @@ public final class Query implements ItemPredicate {
 
 	public Markup parentDescription() {
 		Markup result = Query.emptyMarkup();
-		MarkupImplementation.descriptionNounPhrase(new LinkedList(), result);
+		MarkupImplementation.descriptionNounPhrase(new LinkedList<Markup>(),
+				result);
 		// return result.compile(getQuery().genericObjectLabel);
 		return result;
 	}
@@ -274,12 +288,12 @@ public final class Query implements ItemPredicate {
 	 * @param descriptions
 	 *            append f1, f2, ..., fn-1 connector fn to description
 	 */
-	public static void toEnglish(SortedSet facets, String connector,
+	public static void toEnglish(SortedSet<?> facets, String connector,
 			Markup descriptions) {
 		MarkupImplementation.toEnglish(facets, connector, descriptions);
 	}
 
-	private void descriptionClauses(List phrases, Markup result) {
+	private void descriptionClauses(List<Markup> phrases, Markup result) {
 		MarkupImplementation.descriptionClauses(phrases, result, searches,
 				clusters, itemLists);
 	}
@@ -310,6 +324,7 @@ public final class Query implements ItemPredicate {
 		return summary;
 	}
 
+	@Override
 	public String toString() {
 		return toString(null);
 	}
@@ -327,7 +342,7 @@ public final class Query implements ItemPredicate {
 		Markup summary;
 		// if (isRestricted()) {
 		// Util.print("query.description");
-		List phrases = getPhrases();
+		List<Markup> phrases = getPhrases();
 		summary = emptyMarkup();
 		MarkupImplementation.descriptionNounPhrase(phrases, summary);
 		descriptionClauses(phrases, summary);
@@ -338,11 +353,11 @@ public final class Query implements ItemPredicate {
 		return summary;
 	}
 
-	public List getPhrases() {
-		List phrases = new LinkedList();
-		for (Iterator iterator = displayedPerspectives.iterator(); iterator
+	public List<Markup> getPhrases() {
+		List<Markup> phrases = new LinkedList<Markup>();
+		for (Iterator<Perspective> iterator = displayedPerspectives.iterator(); iterator
 				.hasNext();) {
-			Perspective p = (Perspective) iterator.next();
+			Perspective p = iterator.next();
 			if (p.getParent() == null) {
 				Markup description = p.getDescription(true, null);
 				if (!description.isEmpty())
@@ -369,9 +384,9 @@ public final class Query implements ItemPredicate {
 		if (cluster)
 			result += nClusters();
 		if (facet) {
-			for (Iterator iterator = displayedPerspectives.iterator(); iterator
-					.hasNext();) {
-				Perspective p = (Perspective) iterator.next();
+			for (Iterator<Perspective> iterator = displayedPerspectives
+					.iterator(); iterator.hasNext();) {
+				Perspective p = iterator.next();
 				if (p.getParent() == null && p.isAnyRestrictions()) {
 					result++;
 					// Util.print("filter on " + p);
@@ -418,7 +433,7 @@ public final class Query implements ItemPredicate {
 	 *            the restrictions on a facet, like {2006, 2007}
 	 * @return a rank label, like ' ->21st century\n ->2006 and 2007'
 	 */
-	public static Markup facetSetDescription(SortedSet facets) {
+	public static Markup facetSetDescription(SortedSet<Perspective> facets) {
 		return MarkupImplementation.facetSetDescription(facets);
 	}
 
@@ -434,9 +449,9 @@ public final class Query implements ItemPredicate {
 	 * @return the facet with this name Called only when replaying or editing
 	 */
 	public Perspective findUsedPerspective(String name1, boolean isTopLevelOnly) {
-		int nPerspectives = displayedPerspectives.size();
-		for (int i = nPerspectives - 1; i >= 0; i--) {
-			Perspective p = (Perspective) displayedPerspectives.get(i);
+		for (Iterator<Perspective> it = displayedPerspectives.iterator(); it
+				.hasNext();) {
+			Perspective p = it.next();
 			if (name1.equals(p.getNameIfPossible())
 					&& (!isTopLevelOnly || p.depth() == 0))
 				return p;
@@ -459,8 +474,9 @@ public final class Query implements ItemPredicate {
 				// Ensure that offset is set
 				parent.prefetchData();
 
-				for (Iterator it = parent.getChildIterator(); it.hasNext();) {
-					Perspective p = (Perspective) it.next();
+				for (Iterator<Perspective> it = parent.getChildIterator(); it
+						.hasNext();) {
+					Perspective p = it.next();
 					String name2 = p.getNameIfPossible();
 					if (name2 == null) {
 						// It would be super inefficient to get each name with a
@@ -480,12 +496,12 @@ public final class Query implements ItemPredicate {
 		return null;
 	}
 
-	/**
-	 * @return a ListIterator over the displayed perspectives
-	 */
-	public ListIterator perspectivesIterator() {
-		return displayedPerspectives.listIterator();
-	}
+	// /**
+	// * @return a ListIterator over the displayed perspectives
+	// */
+	// public ListIterator perspectivesIterator() {
+	// return displayedPerspectives.listIterator();
+	// }
 
 	/**
 	 * @return Ensure there's a [displayed] Perspective for all facet's
@@ -500,14 +516,16 @@ public final class Query implements ItemPredicate {
 		parent.displayAncestors();
 		boolean result = parent.toggleFacet(facet, modifiers);
 		isRestricted = computeIsRestricted();
+//		Util.print("Query.toggleFacet " + parent + "." + facet + " "
+//				+ modifiers + " => " + result);
 		return result;
 	}
 
-	public SortedSet allRestrictions() {
-		SortedSet result = new TreeSet();
-		for (Iterator iterator = displayedPerspectives.iterator(); iterator
+	public SortedSet<Perspective> allRestrictions() {
+		SortedSet<Perspective> result = new TreeSet<Perspective>();
+		for (Iterator<Perspective> iterator = displayedPerspectives.iterator(); iterator
 				.hasNext();) {
-			Perspective p = (Perspective) iterator.next();
+			Perspective p = iterator.next();
 			result.addAll(p.allRestrictions());
 		}
 		return result;
@@ -518,11 +536,11 @@ public final class Query implements ItemPredicate {
 	 *            polarity of filters we're interested in
 	 * @return all facets filtered on with required polarity
 	 */
-	public SortedSet allRestrictions(boolean required) {
-		SortedSet result = new TreeSet();
-		for (Iterator iterator = displayedPerspectives.iterator(); iterator
+	public SortedSet<Perspective> allRestrictions(boolean required) {
+		SortedSet<Perspective> result = new TreeSet<Perspective>();
+		for (Iterator<Perspective> iterator = displayedPerspectives.iterator(); iterator
 				.hasNext();) {
-			Perspective p = (Perspective) iterator.next();
+			Perspective p = iterator.next();
 			result.addAll(p.restrictions(required));
 		}
 		return result;
@@ -530,9 +548,9 @@ public final class Query implements ItemPredicate {
 
 	public boolean isRestriction(ItemPredicate facet, boolean required) {
 		boolean result = false;
-		for (Iterator iterator = displayedPerspectives.iterator(); iterator
-				.hasNext();) {
-			Perspective p = (Perspective) iterator.next();
+		for (Iterator<Perspective> iterator = displayedPerspectives.iterator(); !result
+				&& iterator.hasNext();) {
+			Perspective p = iterator.next();
 			result = p.isRestriction(facet, required);
 		}
 		return result;
@@ -565,15 +583,17 @@ public final class Query implements ItemPredicate {
 		// return onCount < totalCount;
 		boolean result = searches.size() > 0 || nClusters() > 0
 				|| nItemLists() > 0;
-		for (Iterator it = displayedPerspectives.iterator(); it.hasNext()
+		for (Iterator<Perspective> it = displayedPerspectives.iterator(); it
+				.hasNext()
 				&& !result;) {
-			Perspective p = (Perspective) it.next();
+			Perspective p = it.next();
 			result = p.isRestricted();
 		}
 		return result;
 	}
 
 	void addPerspective(ItemPredicate p) {
+		// Util.print("addPerspective "+p);
 		if (perspectivesToRemove.contains(p))
 			perspectivesToRemove.remove(p);
 		else
@@ -720,16 +740,17 @@ public final class Query implements ItemPredicate {
 	 */
 	String onItemsQuery(ItemPredicate[] toIgnore) {
 		boolean needDistinct = false;
-		List include = new LinkedList();
-		for (Iterator it = perspectivesIterator(); it.hasNext();) {
-			Perspective p = (Perspective) it.next();
+		List<SortedSet<Perspective>> include = new LinkedList<SortedSet<Perspective>>();
+		for (Iterator<Perspective> it = displayedPerspectives.iterator(); it
+				.hasNext();) {
+			Perspective p = it.next();
 			if (p.getParent() == null) {
-				SortedSet restrictions = p
+				SortedSet<Perspective> restrictions = p
 						.getRestrictionFacetInfos(false, true);
 				if (toIgnore != null) {
-					Set toRemove = new HashSet();
-					for (Iterator rit = restrictions.iterator(); rit.hasNext();) {
-						Perspective r = (Perspective) rit.next();
+					Set<Perspective> toRemove = new HashSet<Perspective>();
+					for (Iterator<Perspective> rit = restrictions.iterator(); rit.hasNext();) {
+						Perspective r = rit.next();
 						for (int i = 0; i < toIgnore.length; i++) {
 							if (r.hasAncestor(toIgnore[i])) {
 								toRemove.add(r);
@@ -742,37 +763,38 @@ public final class Query implements ItemPredicate {
 				if (!restrictions.isEmpty()) {
 					if (restrictions.size() > 1)
 						needDistinct = true;
-					include.add(getIDs(restrictions));
+					include.add(restrictions);
 					// adjoin(qJOIN, restrictions, true, joinIndex++);
 				}
 			}
 		}
-		SortedSet exclude = allRestrictions(false);
-		return QuerySQL.onItemsQuery(searches, include, getIDs(exclude),
-				clusterIDs(), matchFieldsPrefix, needDistinct, itemLists,
-				(String) baseTable);
+		SortedSet<Perspective> exclude = allRestrictions(false);
+		return QuerySQL.onItemsQuery(searches, include, exclude, clusters,
+				matchFieldsPrefix, needDistinct, itemLists, (String) baseTable);
 	}
 
-	int[] getIDs(Set facets) {
+	int[] getIDs(Set<Perspective> facets) {
 		int[] result = new int[facets.size()];
 		int i = 0;
-		for (Iterator it = facets.iterator(); it.hasNext();) {
-			Perspective p = (Perspective) it.next();
+		for (Iterator<Perspective> it = facets.iterator(); it.hasNext();) {
+			Perspective p = it.next();
 			result[i++] = p.getID();
 		}
 		return result;
 	}
 
-	Set clusterIDs() {
-		Set result = new HashSet();
-		for (Iterator it = clusters.iterator(); it.hasNext();) {
-			Cluster c = (Cluster) it.next();
+	Set<int[]> clusterIDs() {
+		Set<int[]> result = new HashSet<int[]>();
+		for (Iterator<Cluster> it = clusters.iterator(); it.hasNext();) {
+			Cluster c = it.next();
 			result.add(getIDs(c.allRestrictions()));
 		}
 		return result;
 	}
 
 	private ResultSet getFilteredCounts() {
+		// Util.print("getFilteredCounts "+perspectivesToAdd+" "+perspectivesToRemove);
+		assert !Util.intersects(perspectivesToAdd, perspectivesToRemove);
 		ResultSet rs = db.getFilteredCounts(
 				getFilteredCountsInternal(perspectivesToAdd),
 				getFilteredCountsInternal(perspectivesToRemove));
@@ -783,7 +805,7 @@ public final class Query implements ItemPredicate {
 		return db.getFilteredCountTypes();
 	}
 
-	String getFilteredCountsInternal(List persps) {
+	String getFilteredCountsInternal(List<ItemPredicate> persps) {
 		if (persps.size() == 0)
 			return null;
 		String result = getItemPredicateIDs(persps);
@@ -825,9 +847,10 @@ public final class Query implements ItemPredicate {
 	 * remove all filters
 	 */
 	public void clear() {
-		int nPerspectives = displayedPerspectives.size();
-		for (int i = nPerspectives - 1; i >= 0; i--) {
-			Perspective p = (Perspective) displayedPerspectives.get(i);
+		for (int i = displayedPerspectives.size() - 1; i >= 0; i--) {
+			// restictData will remove unused and non-top-level perspectives
+			// at worst, going backwards will call restrictData twice
+			Perspective p = displayedPerspectives.get(i);
 			if (p.getParent() == null)
 				clearPerspective(p);
 		}
@@ -839,8 +862,9 @@ public final class Query implements ItemPredicate {
 
 	void clearPerspective(Perspective p) {
 		// Util.print("clearPerspective " + p);
-		for (int i = displayedPerspectives.size() - 1; i >= 0; i--) {
-			Perspective child = (Perspective) displayedPerspectives.get(i);
+		for (Iterator<Perspective> it = displayedPerspectives.iterator(); it
+				.hasNext();) {
+			Perspective child = it.next();
 			if (child.getParent() == p) {
 				removeRestriction(child);
 				clearPerspective(p);
@@ -886,13 +910,14 @@ public final class Query implements ItemPredicate {
 
 	public void removeRestrictionInternal(Perspective p) {
 		if (displaysPerspective(p)) {
-			// Util.print("removeRestrictionInternal " + p);
 			assert SwingUtilities.isEventDispatchThread() : Util
 					.printStackTrace();
 			displayedPerspectives.remove(p);
 			assert !displayedPerspectives.isEmpty() : this;
 			removePerspective(p);
 			clearPerspective(p);
+			// Util.print("removeRestrictionInternal " + p + " "
+			// + displayedPerspectives);
 		}
 	}
 
@@ -920,7 +945,7 @@ public final class Query implements ItemPredicate {
 	/**
 	 * @return the set of Strings being filtered on
 	 */
-	public Set getSearches() {
+	public Set<String> getSearches() {
 		return searches;
 	}
 
@@ -931,15 +956,15 @@ public final class Query implements ItemPredicate {
 		return searches.size();
 	}
 
-	void initFacetTypes(List facetTypes) {
+	void initFacetTypes(Collection<Perspective> facetTypes) {
 		ResultSet rs = null;
 		try {
 			rs = db.init();
 			// Util.print("Query.updateData " + isTotal + " " +
 			// (newPerspective != null ? newPerspective.facet_type_name : "")
 			// + " " + isHighlight);
-			for (Iterator it = facetTypes.iterator(); it.hasNext();) {
-				Perspective facetType = (Perspective) it.next();
+			for (Iterator<Perspective> it = facetTypes.iterator(); it.hasNext();) {
+				Perspective facetType = it.next();
 				int fetchType = 0;
 				facetType.initPerspective(rs, fetchType);
 			}
@@ -948,7 +973,7 @@ public final class Query implements ItemPredicate {
 		} finally {
 			close(rs);
 		}
-		perspectivesToAdd = new LinkedList(facetTypes);
+		perspectivesToAdd = new LinkedList<ItemPredicate>(facetTypes);
 	}
 
 	/**
@@ -1019,8 +1044,9 @@ public final class Query implements ItemPredicate {
 				// Don't use Iterator here. If query is being modified it will
 				// barf, and we know we'll be called again, so it doesn't matter
 				// if we skip anything.
-				for (int i = 0; i < displayedPerspectives.size(); i++) {
-					Perspective p = (Perspective) displayedPerspectives.get(i);
+				for (Iterator<Perspective> it = displayedPerspectives
+						.iterator(); it.hasNext();) {
+					Perspective p = it.next();
 					// Util.print(" " + p + " " + p.isPrefetched());
 					if (!p.isPrefetched())
 						waitForPrefetch(p);
@@ -1077,8 +1103,10 @@ public final class Query implements ItemPredicate {
 					assert 0 <= count && count <= v.getTotalCount() : count
 							+ " " + v;
 					v.onCount = count;
-					// if ("1993".equals(v.getNameIfPossible()))
+
+					// if ("Negatives".equals(v.getNameIfPossible()))
 					// Util.print("Setting " + v + ".onCount=" + count);
+
 					// cumCount += count;
 				}
 				// if (prevPerspective != null)
@@ -1140,33 +1168,36 @@ public final class Query implements ItemPredicate {
 	// }
 
 	void insertPerspective(Perspective p) {
-		// Util.print("insertPerspective " + p);
-		assert SwingUtilities.isEventDispatchThread() : Util.printStackTrace();
-		// boolean added = false;
-		// assert !displayedPerspectives.contains(p) : displayedPerspectives;
-		// for (ListIterator it = displayedPerspectives.listIterator(); it
-		// .hasNext();) {
-		// Perspective inList = (Perspective) it.next();
-		// if (inList.childrenOffset() > p.childrenOffset()) {
-		// it.previous();
-		// it.add(p);
-		// added = true;
-		// break;
-		// }
-		// }
-		// if (!added)
-		displayedPerspectives.add(p);
-		Collections.sort(displayedPerspectives);
+		// Might be displayed even if not part of query
+		if (!displayedPerspectives.contains(p)) {
+			// Util.print("insertPerspective " + p);
+			assert SwingUtilities.isEventDispatchThread() : Util
+					.printStackTrace();
+			// boolean added = false;
+			// for (ListIterator it = displayedPerspectives.listIterator(); it
+			// .hasNext();) {
+			// Perspective inList = (Perspective) it.next();
+			// if (inList.childrenOffset() > p.childrenOffset()) {
+			// it.previous();
+			// it.add(p);
+			// added = true;
+			// break;
+			// }
+			// }
+			// if (!added)
+			displayedPerspectives.add(p);
+			Collections.sort(displayedPerspectives);
 
-		addPerspective(p);
-		if (!p.isPrefetched()) {
-			p.ensureInstantiatedPerspective();
-			queuePrefetch(p);
-			// prefetchData(p);
+			addPerspective(p);
+			if (!p.isPrefetched()) {
+				p.ensureInstantiatedPerspective();
+				queuePrefetch(p);
+				// prefetchData(p);
+			}
 		}
 	}
 
-	public Collection displayedPerspectives() {
+	public Collection<Perspective> displayedPerspectives() {
 		return displayedPerspectives;
 	}
 
@@ -1194,7 +1225,7 @@ public final class Query implements ItemPredicate {
 		db.reorderItems(facet_id);
 	}
 
-	public ResultSet[] getThumbs(SortedSet items, int imageW, int imageH,
+	public ResultSet[] getThumbs(SortedSet<Item> items, int imageW, int imageH,
 			int quality) {
 		return db.getThumbs(getItemIDs(items), imageW, imageH, quality);
 	}
@@ -1210,10 +1241,11 @@ public final class Query implements ItemPredicate {
 
 	public Perspective importFacet(int facetID) {
 		// assert findPerspectiveIfPossible(facetID) == null;
-		ResultSet rs = db.getFacetInfo(facetID);
+		ResultSet rs = db.getFacetInfo(facetID, isRestrictedData());
 		Perspective result = null;
 		try {
-			assert MyResultSet.nRows(rs) == 1;
+			assert MyResultSet.nRows(rs) == 1 : MyResultSet.nRows(rs) + " "
+					+ facetID;
 			rs.next();
 			assert rs.getInt(2) == facetID;
 			int parentID = rs.getInt(1);
@@ -1256,8 +1288,8 @@ public final class Query implements ItemPredicate {
 	}
 
 	public boolean isShortSearch() {
-		for (Iterator iter = searches.iterator(); iter.hasNext();) {
-			String searchText = (String) iter.next();
+		for (Iterator<String> iter = searches.iterator(); iter.hasNext();) {
+			String searchText = iter.next();
 			if (isShortSearch(searchText) != null)
 				return true;
 		}
@@ -1377,15 +1409,16 @@ public final class Query implements ItemPredicate {
 		notifyAll();
 	}
 
-	private Set badOnCounts = new HashSet();
+	private Set<PerspectiveObserver> badOnCounts = new HashSet<PerspectiveObserver>();
 
 	void addBadOnCount(PerspectiveObserver redraw) {
 		badOnCounts.add(redraw);
 	}
 
 	private void redraw() {
-		for (Iterator it = badOnCounts.iterator(); it.hasNext();) {
-			PerspectiveObserver redraw = (PerspectiveObserver) it.next();
+		for (Iterator<PerspectiveObserver> it = badOnCounts.iterator(); it
+				.hasNext();) {
+			PerspectiveObserver redraw = it.next();
 			redraw.redraw();
 		}
 		badOnCounts.clear();
@@ -1427,7 +1460,7 @@ public final class Query implements ItemPredicate {
 		// Util.print("....waitForValidQuery return");
 	}
 
-	public Iterator getFacetIterator(int facet_id, int nFacets) {
+	public Iterator<Perspective> getFacetIterator(int facet_id, int nFacets) {
 		// Util.print("Query.getFacetIterator " + facet_id + " " + nFacets);
 		assert facet_id > 0;
 		return Util.arrayIterator(allPerspectives, facet_id, nFacets);
@@ -1480,12 +1513,13 @@ public final class Query implements ItemPredicate {
 		for (int i = displayedPerspectives.size() - 1; i >= 0; i--) {
 			// restictData will remove unused and non-top-level perspectives
 			// at worst, going backwards will call restrictData twice
-			((ItemPredicate) displayedPerspectives.get(i)).restrictData();
+			displayedPerspectives.get(i).restrictData();
 		}
 		db.restrict();
 		baseTable = RESTRICTED;
 		totalCount = onCount;
 		clear();
+		decacheDistributions();
 		return totalCount > 0;
 	}
 
@@ -1538,22 +1572,23 @@ public final class Query implements ItemPredicate {
 		}
 	}
 
-	public Collection addItemFacet(Perspective facet, Item item) {
+	public Collection<Perspective> addItemFacet(Perspective facet, Item item) {
 		return updateIDnCount(db.addItemFacet(facet.getID(), item.getId()),
 				null, null);
 	}
 
-	public Collection addItemsFacet(Perspective facet) {
+	public Collection<Perspective> addItemsFacet(Perspective facet) {
 		return updateIDnCount(db.addItemsFacet(facet.getID(), onItemsTable()),
 				null, null);
 	}
 
-	public Collection removeItemsFacet(Perspective facet) {
+	public Collection<Perspective> removeItemsFacet(Perspective facet) {
 		return updateIDnCount(db
 				.removeItemsFacet(facet.getID(), onItemsTable()), null, null);
 	}
 
-	public Collection addChildFacet(Perspective parent, String facetName) {
+	public Collection<Perspective> addChildFacet(Perspective parent,
+			String facetName) {
 		if (findPerspective(facetName, parent) != null)
 			throw new IllegalArgumentException(facetName
 					+ " is already a child of " + parent);
@@ -1565,12 +1600,13 @@ public final class Query implements ItemPredicate {
 				facetName, parent);
 	}
 
-	public Collection removeItemFacet(Perspective facet, Item item) {
+	public Collection<Perspective> removeItemFacet(Perspective facet, Item item) {
 		return updateIDnCount(db.removeItemFacet(facet.getID(), item.getId()),
 				null, null);
 	}
 
-	public Collection reparent(Perspective parent, Perspective child) {
+	public Collection<Perspective> reparent(Perspective parent,
+			Perspective child) {
 		if (findPerspective(child.getName(), parent) != null)
 			throw new IllegalArgumentException(parent
 					+ " already has a child named like " + child);
@@ -1604,10 +1640,10 @@ public final class Query implements ItemPredicate {
 	 *            children of this parent (or if new parent_id == 0)
 	 * @return displayed perspectives to redisplay
 	 */
-	Collection updateIDnCount(ResultSet rs, String nameOfCreatedFacet,
-			ItemPredicate parentOfCreatedFacet) {
+	Collection<Perspective> updateIDnCount(ResultSet rs,
+			String nameOfCreatedFacet, ItemPredicate parentOfCreatedFacet) {
 		assert isEditable();
-		Collection result = new ArrayList();
+		Collection<Perspective> result = new ArrayList<Perspective>();
 		boolean debug = false;
 		if (debug) {
 			StringBuffer buf = new StringBuffer();
@@ -1716,9 +1752,9 @@ public final class Query implements ItemPredicate {
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
-		for (Iterator it = result.iterator(); it.hasNext();)
+		for (Iterator<Perspective> it = result.iterator(); it.hasNext();)
 			// Do this after all the renames
-			refetch((Perspective) it.next());
+			refetch(it.next());
 		return result;
 	}
 
@@ -1773,7 +1809,7 @@ public final class Query implements ItemPredicate {
 		return db.getNames(string);
 	}
 
-	public static final class Item implements Comparable {
+	public static final class Item implements Comparable<Item> {
 		private static final IntHashtable items = new IntHashtable();
 
 		private final int id;
@@ -1799,13 +1835,13 @@ public final class Query implements ItemPredicate {
 			return id;
 		}
 
+		@Override
 		public String toString() {
 			return "<Item " + id + ">";
 		}
 
-		public int compareTo(Object arg0) {
-			assert arg0 instanceof Item : arg0;
-			return getId() - ((Item) arg0).getId();
+		public int compareTo(Item arg0) {
+			return getId() - arg0.getId();
 		}
 	}
 
@@ -1831,6 +1867,7 @@ public final class Query implements ItemPredicate {
 			return name;
 		}
 
+		@Override
 		public String toString() {
 			return name;
 		}
@@ -1936,12 +1973,13 @@ public final class Query implements ItemPredicate {
 	}
 
 	private boolean insertFacets(StringBuffer buf, boolean firstTime,
-			SortedSet restrictions, boolean required) {
+			SortedSet<Perspective> restrictions, boolean required) {
 		if (restrictions.size() > 0) {
 			String[] descs = new String[restrictions.size()];
 			int i = 0;
-			for (Iterator rit = restrictions.iterator(); rit.hasNext();) {
-				Perspective r = (Perspective) rit.next();
+			for (Iterator<Perspective> rit = restrictions.iterator(); rit
+					.hasNext();) {
+				Perspective r = rit.next();
 				descs[i++] = r.fullName();
 			}
 			// descs[0] = p.getName()
@@ -1962,18 +2000,19 @@ public final class Query implements ItemPredicate {
 	public String bookmark() {
 		boolean emptyQuery = true;
 		StringBuffer buf = new StringBuffer();
-		for (Iterator it = searches.iterator(); it.hasNext();) {
-			String search = (String) it.next();
+		for (Iterator<String> it = searches.iterator(); it.hasNext();) {
+			String search = it.next();
 			emptyQuery = maybeInsertSemicolon(buf, emptyQuery);
 			buf.append("TextSearch:").append(search);
 		}
-		for (Iterator it = perspectivesIterator(); it.hasNext();) {
-			Perspective p = (Perspective) it.next();
+		for (Iterator<Perspective> it = displayedPerspectives.iterator(); it
+				.hasNext();) {
+			Perspective p = it.next();
 			if (p.getParent() == null) {
 				boolean[] reqtTypes = { true, false };
 				for (int type = 0; type < 2; type++) {
-					SortedSet restrictions = p.getRestrictionFacetInfos(false,
-							reqtTypes[type]);
+					SortedSet<Perspective> restrictions = p
+							.getRestrictionFacetInfos(false, reqtTypes[type]);
 					emptyQuery = insertFacets(buf, emptyQuery, restrictions,
 							reqtTypes[type]);
 				}
@@ -1981,8 +2020,8 @@ public final class Query implements ItemPredicate {
 		}
 		// Do clusters last, so cluster.query will reflect other filters in
 		// setInitialState
-		for (Iterator it = clusters.iterator(); it.hasNext();) {
-			Cluster cluster = (Cluster) it.next();
+		for (Iterator<Cluster> it = clusters.iterator(); it.hasNext();) {
+			Cluster cluster = it.next();
 			emptyQuery = maybeInsertSemicolon(buf, emptyQuery);
 			buf.append("Cluster:").append(emptyQuery);
 			emptyQuery = insertFacets(buf, emptyQuery, cluster
@@ -2055,10 +2094,10 @@ public final class Query implements ItemPredicate {
 		return db.caremediaGetItems(segments);
 	}
 
-	public static String getItemIDs(Collection items) {
+	public static String getItemIDs(Collection<Item> items) {
 		StringBuffer buf = new StringBuffer();
-		for (Iterator it = items.iterator(); it.hasNext();) {
-			Item item = (Item) it.next();
+		for (Iterator<Item> it = items.iterator(); it.hasNext();) {
+			Item item = it.next();
 			if (buf.length() > 0)
 				buf.append(",");
 			buf.append(item.getId());
@@ -2066,11 +2105,12 @@ public final class Query implements ItemPredicate {
 		return buf.toString();
 	}
 
-	static String getItemPredicateIDs(Collection facets) {
+	public static <V extends ItemPredicate> String getItemPredicateIDs(
+			Collection<V> facets) {
 		StringBuffer buf = new StringBuffer();
 		if (facets != null) {
-			for (Iterator it = facets.iterator(); it.hasNext();) {
-				ItemPredicate p = (ItemPredicate) it.next();
+			for (Iterator<V> it = facets.iterator(); it.hasNext();) {
+				ItemPredicate p = it.next();
 				if (buf.length() > 0)
 					buf.append(",");
 				buf.append(p.getServerID());
@@ -2079,20 +2119,22 @@ public final class Query implements ItemPredicate {
 		return buf.toString();
 	}
 
-	public ResultSet[] onCountMatrix(Collection facetsOfInterest,
-			Collection candidates, boolean needBaseCounts) {
+	public ResultSet[] onCountMatrix(
+			Collection<ItemPredicate> facetsOfInterest,
+			Collection<ItemPredicate> candidates, boolean needBaseCounts) {
 		// Util.print("ocm " + facetsOfInterest + " " + candidates);
 		// assert candidates != null && candidates.size() > 0;
-		ResultSet[] result = db
-						.onCountMatrix(getItemPredicateIDs(facetsOfInterest),
-								getItemPredicateIDs(candidates), onItemsTable(),
-								needBaseCounts);
-		
-//		Util.print("onCountMatrix "+facetsOfInterest);
-//		for (int i = 0; i < result.length; i++) {
-//			Util.print(MyResultSet.valueOfDeep(result[i], MyResultSet.SNMINT_INT_INT, 100));
-//		}
-		
+		ResultSet[] result = db.onCountMatrix(
+				getItemPredicateIDs(facetsOfInterest),
+				getItemPredicateIDs(candidates), isRestrictedData(),
+				needBaseCounts);
+
+		// Util.print("onCountMatrix "+facetsOfInterest);
+		// for (int i = 0; i < result.length; i++) {
+		// Util.print(MyResultSet.valueOfDeep(result[i],
+		// MyResultSet.SNMINT_INT_INT, 100));
+		// }
+
 		return result;
 	}
 
@@ -2105,34 +2147,40 @@ public final class Query implements ItemPredicate {
 	 */
 	public static final int ERROR = 24;
 
-	public List topMutInf(Collection primaryFacets, int maxCandidates) {
+	private final Map<String, List<Perspective>> topMutInfCache = new HashMap<String, List<Perspective>>();
+
+	public List<Perspective> topMutInf(String itemPredsExpr, int maxCandidates) {
 		// Util.print("tmi " + primaryFacets);
-		Collection unrolledFacets = new LinkedList();
-		for (Iterator it = primaryFacets.iterator(); it.hasNext();) {
-			ItemPredicate p = (ItemPredicate) it.next();
-			if (p instanceof MexPerspectives) {
-				MexPerspectives mp = (MexPerspectives) p;
-				unrolledFacets.addAll(mp.facets);
-			} else {
-				unrolledFacets.add(p);
+		// Collection unrolledFacets = new LinkedList();
+		// for (Iterator it = itemPredsExpr.iterator(); it.hasNext();) {
+		// ItemPredicate p = (ItemPredicate) it.next();
+		// if (p instanceof MexPerspectives) {
+		// MexPerspectives mp = (MexPerspectives) p;
+		// unrolledFacets.addAll(mp.facets);
+		// } else {
+		// unrolledFacets.add(p);
+		// }
+		// }
+		String key = onItemsTable() + maxCandidates + itemPredsExpr;
+		List<Perspective> result = topMutInfCache.get(key);
+		if (result == null) {
+			ResultSet rs = db.topMutInf(itemPredsExpr, // getItemPredicateIDs(unrolledFacets),
+					onItemsTable(), maxCandidates);
+			try {
+				result = new ArrayList<Perspective>(MyResultSet.nRows(rs));
+				while (rs.next()) {
+					int ID = rs.getInt(1);
+					result.add(findPerspectiveNow(ID));
+				}
+				topMutInfCache.put(key, result);
+			} catch (SQLException e) {
+				e.printStackTrace();
 			}
 		}
-		ResultSet rs = db.topMutInf(getItemPredicateIDs(unrolledFacets),
-				onItemsTable(), maxCandidates);
-		try {
-			ArrayList result = new ArrayList(MyResultSet.nRows(rs));
-			while (rs.next()) {
-				int ID = rs.getInt(1);
-				result.add(findPerspectiveNow(ID));
-			}
-			return result;
-		} catch (SQLException e) {
-			e.printStackTrace();
-			return null;
-		}
+		return result;
 	}
 
-	public int compareTo(Object caused) {
+	public int compareTo(ItemPredicate caused) {
 		assert false : caused;
 		return 0;
 	}
@@ -2143,14 +2191,14 @@ public final class Query implements ItemPredicate {
 	}
 }
 
-final class FirstDoubleComparator implements Comparator {
+final class FirstDoubleComparator<V extends List<Double>> implements Comparator<V> {
 
-	public int compare(Object data1, Object data2) {
+	public int compare(V data1, V data2) {
 		return Util.sgn(value(data1) - value(data2));
 	}
 
-	private double value(Object data) {
-		return ((Double) ((Object[]) data)[0]).doubleValue();
+	private double value(V data) {
+		return data.get(0).doubleValue();
 	}
 }
 
@@ -2163,6 +2211,7 @@ final class Prefetcher extends QueueThread {
 		q = _q;
 	}
 
+	@Override
 	public void process(Object info) {
 		if (q != null) {
 			if (info instanceof Perspective) {
@@ -2182,12 +2231,13 @@ final class NameGetter extends AccumulatingQueueThread {
 		q = _q;
 	}
 
+	@Override
 	public void process(Object perspectives) {
 		// Util.print("GetPerspectiveNames.process " + perspectives);
 		// q.waitForValidQuery(); // This can cause deadlock, because updateData
 		// waits for prefetching.
 		Object[] objects = (Object[]) perspectives;
-		SortedSet facets = new TreeSet();
+		SortedSet<Perspective> facets = new TreeSet<Perspective>();
 		StringBuffer buf = new StringBuffer();
 		// int[] facets = new int[objects.length];
 		// int facetIndex = 0;
@@ -2211,9 +2261,9 @@ final class NameGetter extends AccumulatingQueueThread {
 			ResultSet rs = q.getNames(buf.toString());
 			// rs is sorted by facetID
 			try {
-				for (Iterator it = facets.iterator(); it.hasNext();) {
+				for (Iterator<Perspective> it = facets.iterator(); it.hasNext();) {
 					rs.next();
-					Perspective p = (Perspective) it.next();
+					Perspective p = it.next();
 					p.setName(rs.getString(1));
 					// Util.print("nameGetter " + p);
 				}
@@ -2251,6 +2301,7 @@ final class NameGetter extends AccumulatingQueueThread {
 	 * edu.cmu.cs.bungee.javaExtensions.QueueThread#reportError(java.lang.Throwable
 	 * )
 	 */
+	@Override
 	public void reportError(Throwable e) {
 		super.reportError(e);
 		q.printUserAction(Query.ERROR, Util.printStackTrace(e), 0);

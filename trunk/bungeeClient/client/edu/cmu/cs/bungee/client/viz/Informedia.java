@@ -14,7 +14,6 @@ import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Hashtable;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -28,13 +27,13 @@ import edu.cmu.cs.bungee.javaExtensions.Util;
 // If IDVL says "video file not available" need to map network drive \\inf\dfs
 
 // To seal jar (password is 8 digit insecure)
-// cd C:\Program Files\Apache Software Foundation\Tomcat 6.0.16\webapps\bungee
+// cd C:\Program Files\Apache Software Foundation\Tomcat 6.0\webapps\bungee
 // "C:\Program Files\Java\jdk1.5.0_06\bin\jarsigner" -keystore myKeys bungeeClient.jar BungeeView
 // mv bungeeClientSigned.jar bungeeClientSignedOLD.jar
 // mv bungeeClient.jar bungeeClientSigned.jar
 
 // To renew certificate
-// cd C:\Program Files\Apache Software Foundation\Tomcat 6.0.16\webapps\bungee
+// cd C:\Program Files\Apache Software Foundation\Tomcat 6.0\webapps\bungee
 // "C:\Program Files\Java\jdk1.5.0_06\bin\keytool" -keystore myKeys -delete -alias bungeeview
 // "C:\Program Files\Java\jdk1.5.0_06\bin\keytool" -keystore myKeys -genkey -alias bungeeview
 
@@ -58,6 +57,7 @@ public class Informedia extends Thread {
 		Util.print("Starting Informedia thread for port " + port);
 	}
 
+	@Override
 	public void run() {
 		boolean listening = true;
 		ServerSocket serverSocket = null;
@@ -169,15 +169,14 @@ public class Informedia extends Thread {
 			// Assume cm, because its name now incorporates a password
 			try {
 				ResultSet rs = caremediaPlayArgs(items);
-				Set segments = new HashSet(MyResultSet.nRows(rs));
+				Set<Integer> segments = new HashSet<Integer>(MyResultSet.nRows(rs));
 				while (rs.next()) {
 					segments.add(new Integer(rs.getInt(1)));
 				}
 				rs.close();
 				result = new int[segments.size()];
 				int i = 0;
-				for (Iterator it = segments.iterator(); it.hasNext();) {
-					Integer segment = (Integer) it.next();
+				for (Integer segment: segments) {
 					result[i++] = segment.intValue();
 				}
 			} catch (SQLException e) {
@@ -243,7 +242,7 @@ public class Informedia extends Thread {
 	void newVideoSet() {
 		Util.print("newVideoSet ");
 
-		Map args = new TreeMap(); // Use TreeMap so "command" comes first
+		Map<String,String> args = new TreeMap<String,String>(); // Use TreeMap so "command" comes first
 		args.put("command", "newVideoSet");
 		args.put("name", art.query.getName());
 		args.put("segments", Util.join(getSegments(art.getItems(0, art.query
@@ -280,15 +279,14 @@ public class Informedia extends Thread {
 		return new Socket("localhost", port + 1);
 	}
 
-	static String argify(Map map) {
+	static String argify(Map<String, String> map) {
 		StringBuffer buf = new StringBuffer();
-		for (Iterator it = map.entrySet().iterator(); it.hasNext();) {
-			Map.Entry entry = (Map.Entry) it.next();
+		for (Map.Entry<String,String> entry: map.entrySet()) {
 			if (buf.length() > 0)
 				buf.append("&");
 			try {
 				buf.append(entry.getKey()).append("=").append(
-						URLEncoder.encode((String) entry.getValue(), "UTF-8"));
+						URLEncoder.encode(entry.getValue(), "UTF-8"));
 			} catch (UnsupportedEncodingException e) {
 				e.printStackTrace();
 			}
@@ -306,6 +304,7 @@ public class Informedia extends Thread {
 			clientSocket = _socket;
 		}
 
+		@Override
 		public void run() {
 			try {
 				clientOut = new PrintWriter(clientSocket.getOutputStream(),
@@ -316,7 +315,7 @@ public class Informedia extends Thread {
 				String inputLine;
 				while ((inputLine = in.readLine()) != null) {
 					Util.print("From IDVL Client: " + inputLine);
-					Map output = processInput(inputLine);
+					Map<String, String> output = processInput(inputLine);
 					if (output != null) {
 						String outputLine = argify(output);
 						Util.print("To IDVL Client: " + outputLine);
@@ -339,7 +338,7 @@ public class Informedia extends Thread {
 		 *            command initiated by IDVL
 		 * @return response message for IDVL
 		 */
-		private Map processInput(String commandString) {
+		private Map<String, String> processInput(String commandString) {
 			URLQuery args = new URLQuery(commandString);
 			String command = args.getArgument("command");
 			if ("import".equals(command)) {
@@ -368,7 +367,7 @@ public class Informedia extends Thread {
 		 *            specification of segments to send to IDVL
 		 * @return args encoded for IDVL
 		 */
-		Map mport(URLQuery args) {
+		Map<String, String> mport(URLQuery args) {
 			int startIndex = 0;
 			int endIndex = art.query.getOnCount();
 			String start = args.getArgument("startIndex");
@@ -380,7 +379,7 @@ public class Informedia extends Thread {
 			Item selectedItem = art.selectedItemItem();
 			Util.print("import " + startIndex + "-" + endIndex + " "
 					+ selectedItem);
-			Map result = new Hashtable();
+			Map<String, String> result = new Hashtable<String, String>();
 			result.put("name", art.query.getName());
 			result.put("segments", Util.join(getSegments(art.getItems(
 					startIndex, endIndex)), ","));
@@ -395,7 +394,7 @@ public class Informedia extends Thread {
 		 *            specification of segments to read from IDVL
 		 * @return null
 		 */
-		Map xport(URLQuery args) {
+		Map<String, String> xport(URLQuery args) {
 			String nameArg = args.getArgument("name");
 			final String name = nameArg.length() > 0 ? nameArg
 					: "Informedia query";

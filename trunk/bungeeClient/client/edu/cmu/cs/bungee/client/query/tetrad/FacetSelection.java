@@ -8,45 +8,38 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import edu.cmu.cs.bungee.client.query.ItemPredicate;
 import edu.cmu.cs.bungee.javaExtensions.Util;
 
-public class FacetSelection extends GreedySubset {
-	private final Map explanations = new HashMap();
+public class FacetSelection extends GreedySubset<ItemPredicate> {
+	private final Map<List<ItemPredicate>,Explanation> explanations = new HashMap<List<ItemPredicate>,Explanation>();
 	private final Explanation nullModel;
 	private final double edgeThreshold;
-	private final List candidates;
+	private final List<ItemPredicate> candidates;
 
 	protected static Explanation selectFacets(Explanation nullModel,
-			List candidates, double threshold) {
+			List<ItemPredicate> candidates, double threshold) {
 		FacetSelection search = new FacetSelection(nullModel, candidates,
 				threshold);
 
-		return selectFacetsInternal(nullModel, search);
+		return search.selectFacetsInternal();
 	}
 
-	// protected static Explanation selectFacets(Explanation nullModel,
-	// List candidates, int nFacets) {
-	// FacetSelection search = new FacetSelection(nullModel, candidates,
-	// -nFacets - 1);
-	// // Util.print("sf " + nFacets);
-	// return selectFacetsInternal(nullModel, search);
-	// }
-
-	private static Explanation selectFacetsInternal(Explanation nullModel,
-			FacetSelection search) {
-		search.cacheCandidates();
-		Set addedFacets = search.selectVariables();
-		Explanation result = search.lookupExplanation(addedFacets, nullModel);
+	private Explanation selectFacetsInternal() {
+		cacheCandidates();
+		Set<ItemPredicate> addedFacets = selectVariables();
+		Explanation result = lookupExplanation(addedFacets, nullModel);
 		// Util.print("gggg");
 		// result.printGraph(false);
 
 		return result;
 	}
 
-	private FacetSelection(Explanation nullModel, List candidates,
+	private FacetSelection(Explanation nullModel, List<ItemPredicate> candidates,
 			double edgeThreshold) {
 		super(edgeThreshold * 2 /* nullModel.nFacets() */, candidates,
 				GreedySubset.ADD);
+//		Util.print("FacetSelection " + nullModel);
 		this.candidates = Collections.unmodifiableList(candidates);
 		this.nullModel = nullModel;
 		this.edgeThreshold = edgeThreshold;
@@ -61,7 +54,8 @@ public class FacetSelection extends GreedySubset {
 			return Double.POSITIVE_INFINITY;
 	}
 
-	double improvement(Object toggledFacet, double threshold1) {
+	@Override
+	double improvement(ItemPredicate toggledFacet, double threshold1) {
 		Explanation previous = lookupExplanation(previousGuess(toggledFacet),
 				nullModel);
 		Explanation current = lookupExplanation(currentGuess, previous);
@@ -77,24 +71,24 @@ public class FacetSelection extends GreedySubset {
 		double result = (isAdding ? 1 : -1)
 				* larger.improvement(smaller, threshold1, nullModel.facets());
 
-		// Util.print("FS.improv "+toggledFacet);larger.printTable((Perspective)
-		// toggledFacet);
+		// Util.print("FS.improv "+toggledFacet+" KL="+current.klDivergence());
+		// larger.printTable((ItemPredicate) toggledFacet);
 
 		if (Explanation.PRINT_CANDIDATES_TO_FILE)
 			current.printToFile(nullModel);
 		return result;
 	}
 
-	private List facetList(Collection addedFacets) {
-		List result = new LinkedList(nullModel.facets());
+	private List<ItemPredicate> facetList(Collection<ItemPredicate> addedFacets) {
+		List<ItemPredicate> result = new LinkedList<ItemPredicate>(nullModel.facets());
 		result.addAll(addedFacets);
 		Collections.sort(result);
 		return result;
 	}
 
-	private Explanation lookupExplanation(Set addedFacets, Explanation base) {
-		List allFacetList = facetList(addedFacets);
-		Explanation result = (Explanation) explanations.get(allFacetList);
+	Explanation lookupExplanation(Set<ItemPredicate> addedFacets, Explanation base) {
+		List<ItemPredicate> allFacetList = facetList(addedFacets);
+		Explanation result = explanations.get(allFacetList);
 		if (result == null) {
 			if (base == null)
 				base = nullModel;
@@ -130,17 +124,19 @@ public class FacetSelection extends GreedySubset {
 
 	}
 
-	protected void newBest(Object candidate) {
+	@Override
+	protected void newBest(ItemPredicate candidate) {
 		super.newBest(candidate);
-		if (Explanation.PRINT_LEVEL > 0)
+		if (Explanation.PRINT_LEVEL >= Explanation.IMPROVEMENT)
 			Util
 					.print("Best candidate rank = "
 							+ candidates.indexOf(candidate));
 		cacheCandidates();
-		if (Explanation.PRINT_LEVEL > 1) {
-			Explanation best = lookupExplanation(currentGuess, null);
-			best.printGraph();
+		Explanation best = lookupExplanation(currentGuess, null);
+		if (Explanation.PRINT_CANDIDATES_TO_FILE)
 			best.printToFile(nullModel);
+		if (Explanation.PRINT_LEVEL >= Explanation.GRAPH) {
+			best.printGraph();
 		}
 	}
 }

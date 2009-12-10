@@ -152,6 +152,7 @@ public class TextSearch extends LazyContainer {
 			 * inconsistent. Also, Swing doesn't work correctly with fractional
 			 * metrics.
 			 */
+			@Override
 			public void paint(Graphics g) {
 				Graphics2D g2 = (Graphics2D) g;
 

@@ -185,10 +185,10 @@ class FacetText extends APText implements FacetNode, PerspectiveObserver {
 			}
 		}
 		FacetText result = null;
-		List texts = a.lookupFacetText(treeObject);
+		List<FacetText> texts = a.lookupFacetText(treeObject);
 		if (texts != null) {
-			for (Iterator it = texts.iterator(); it.hasNext() && result == null;) {
-				FacetText facetLabel = (FacetText) it.next();
+			for (Iterator<FacetText> it = texts.iterator(); it.hasNext() && result == null;) {
+				FacetText facetLabel = it.next();
 				if (facetLabel.getParent() == null
 						&& a == facetLabel.art
 						&& facetLabel.numW == _numW
@@ -209,7 +209,7 @@ class FacetText extends APText implements FacetNode, PerspectiveObserver {
 				}
 			}
 		} else {
-			texts = new ArrayList();
+			texts = new ArrayList<FacetText>();
 			a.putFacetText(treeObject, texts);
 		}
 		if (result == null) {
@@ -260,7 +260,7 @@ class FacetText extends APText implements FacetNode, PerspectiveObserver {
 	void decache(Object treeObject) {
 		// Object treeObject = treeObject();
 		// Util.print("decache " + treeObject + " " + "'" + getText() + "'");
-		List texts = treeObject == null ? null : art
+		List<FacetText> texts = treeObject == null ? null : art
 				.lookupFacetText(treeObject);
 		assert treeObject != null;
 		if (texts != null) {
@@ -595,6 +595,7 @@ class FacetText extends APText implements FacetNode, PerspectiveObserver {
 		art.printUserAction(Bungee.FACET_TREE, facet, modifiers);
 	}
 
+	@Override
 	public String toString() {
 		return "<FacetText " + treeObject() + " (" + treeObject().getClass()
 				+ ")>";
@@ -607,6 +608,7 @@ class FacetText extends APText implements FacetNode, PerspectiveObserver {
 
 class FacetTextHandler extends FacetClickHandler {
 
+	@Override
 	protected boolean moved(PNode node, int modifiers, PInputEvent e) {
 		return ((FacetText) node).mouseMoved(modifiers, e);
 	}

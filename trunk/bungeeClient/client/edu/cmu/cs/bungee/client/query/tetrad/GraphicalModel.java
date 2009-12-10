@@ -28,7 +28,7 @@ public class GraphicalModel extends Distribution {
 	 * If weights get too big, predicted probabilities go to zero, and KL and z
 	 * go to infinity.
 	 */
-	protected static final double MAX_WEIGHT = 30;
+	protected static final double MAX_WEIGHT = 15;
 
 	private boolean edgesFixed = false;
 
@@ -60,7 +60,8 @@ public class GraphicalModel extends Distribution {
 	private final int nEdges;
 	private final int nEdgesPlusBiases;
 
-	GraphicalModel(List facets, Set edges, boolean isSymmetric, int count) {
+	GraphicalModel(List<ItemPredicate> facets, Set<SimpleEdge> edges,
+			boolean isSymmetric, int count) {
 		super(facets, count);
 		assert isSymmetric;
 		// this.isSymmetric = isSymmetric;
@@ -97,9 +98,9 @@ public class GraphicalModel extends Distribution {
 		return logDistribution;
 	}
 
-	private boolean isEdgesCanonical(Set edges) {
-		for (Iterator it = edges.iterator(); it.hasNext();) {
-			SimpleEdge edge = (SimpleEdge) it.next();
+	private boolean isEdgesCanonical(Set<SimpleEdge> edges) {
+		for (Iterator<SimpleEdge> it = edges.iterator(); it.hasNext();) {
+			SimpleEdge edge = it.next();
 			assert edge.p1.compareTo(edge.p2) < 0 : edges + " " + edge;
 		}
 		return true;
@@ -107,8 +108,8 @@ public class GraphicalModel extends Distribution {
 
 	int nUsedFacets() {
 		int result = 0;
-		for (Iterator it = facets.iterator(); it.hasNext();) {
-			ItemPredicate p = (ItemPredicate) it.next();
+		for (Iterator<ItemPredicate> it = facets.iterator(); it.hasNext();) {
+			ItemPredicate p = it.next();
 			if (nEdges(p) > 0)
 				result++;
 		}
@@ -116,10 +117,10 @@ public class GraphicalModel extends Distribution {
 		return result;
 	}
 
-	List unusedFacets() {
-		List result = new LinkedList();
-		for (Iterator it = facets.iterator(); it.hasNext();) {
-			ItemPredicate p = (ItemPredicate) it.next();
+	List<ItemPredicate> unusedFacets() {
+		List<ItemPredicate> result = new LinkedList<ItemPredicate>();
+		for (Iterator<ItemPredicate> it = facets.iterator(); it.hasNext();) {
+			ItemPredicate p = it.next();
 			if (nEdges(p) == 0)
 				result.add(p);
 		}
@@ -129,8 +130,8 @@ public class GraphicalModel extends Distribution {
 
 	int nEdges(ItemPredicate p) {
 		int result = 0;
-		for (Iterator it = getEdges(false).iterator(); it.hasNext();) {
-			SimpleEdge edge = (SimpleEdge) it.next();
+		for (Iterator<SimpleEdge> it = getEdges(false).iterator(); it.hasNext();) {
+			SimpleEdge edge = it.next();
 			if (edge.p1 == p || edge.p2 == p) {
 				result++;
 			}
@@ -351,7 +352,7 @@ public class GraphicalModel extends Distribution {
 		return new EdgeIterator();
 	}
 
-	class EdgeIterator implements Iterator {
+	class EdgeIterator implements Iterator<int[]> {
 
 		// current edge
 		int cause = 0;
@@ -381,7 +382,7 @@ public class GraphicalModel extends Distribution {
 			return nextCause < nFacets;
 		}
 
-		public Object next() {
+		public int[] next() {
 			if (hasNext()) {
 				cause = nextCause;
 				caused = nextCaused;
@@ -777,15 +778,16 @@ public class GraphicalModel extends Distribution {
 	// getMarginalCounts(subFacets), subedges);
 	// }
 
-	public Distribution getMarginalDistribution(List subFacets) {
+	@Override
+	public Distribution getMarginalDistribution(List<ItemPredicate> subFacets) {
 		// Override to avoid cacheing
 		return new Distribution(subFacets, getMarginalCounts(subFacets));
 	}
 
-	private void setEdges(Set edges) {
+	private void setEdges(Set<SimpleEdge> edges) {
 		// Util.print("setEdges " + edges);
-		for (Iterator it = edges.iterator(); it.hasNext();) {
-			SimpleEdge edge = (SimpleEdge) it.next();
+		for (Iterator<SimpleEdge> it = edges.iterator(); it.hasNext();) {
+			SimpleEdge edge = it.next();
 			ItemPredicate cause = edge.p1;
 			ItemPredicate caused = edge.p2;
 			assert cause != caused : "Biases are implicit";
@@ -822,17 +824,18 @@ public class GraphicalModel extends Distribution {
 	 *            this is just to label the "before" weights.
 	 * @param debug
 	 */
-	protected Graph buildGraph(double[] Rs, double[][] RnormalizedWeights,
-			double KL, Explanation nullModel, PerspectiveObserver redrawer,
-			boolean debug) {
-		Graph graph = new Graph((GraphWeigher) null);
-		Map nodeMap = new HashMap();
-		for (Iterator it = facets.iterator(); it.hasNext();) {
-			ItemPredicate p = (ItemPredicate) it.next();
-			ensureNode(Rs, graph, nodeMap, p, redrawer, debug);
+	protected Graph<ItemPredicate> buildGraph(double[] Rs,
+			double[][] RnormalizedWeights, double KL, Explanation nullModel,
+			PerspectiveObserver redrawer, boolean debug) {
+		Graph<ItemPredicate> graph = new Graph<ItemPredicate>(
+				(GraphWeigher<ItemPredicate>) null);
+		Map<ItemPredicate, Node<ItemPredicate>> nodeMap = new HashMap<ItemPredicate, Node<ItemPredicate>>();
+		for (Iterator<ItemPredicate> it = facets.iterator(); it.hasNext();) {
+			ItemPredicate p = it.next();
+			ensureNode(Rs, graph, nodeMap, p, redrawer);
 		}
-		for (Iterator it = getEdgeIterator(); it.hasNext();) {
-			int[] edge = (int[]) it.next();
+		for (Iterator<int[]> it = getEdgeIterator(); it.hasNext();) {
+			int[] edge = it.next();
 			ItemPredicate cause = getFacet(edge[0]);
 			// ensureNode(observedDistForNormalization, graph, nodeMap, cause);
 			ItemPredicate caused = getFacet(edge[1]);
@@ -860,14 +863,14 @@ public class GraphicalModel extends Distribution {
 		// Util.print(" obs=");
 		// observedDistForNormalization.printCounts();
 
-		for (Iterator it = facets().iterator(); it.hasNext();) {
-			ItemPredicate caused = (ItemPredicate) it.next();
+		for (Iterator<ItemPredicate> it = facets().iterator(); it.hasNext();) {
+			ItemPredicate caused = it.next();
 			// if (facetsOfInterest == null)
 			Util.print(getWeight(caused, caused) + " ("
 					+ Rs[facetIndex(caused)] + ") " + caused);
 		}
-		for (Iterator it = getEdgeIterator(); it.hasNext();) {
-			int[] edge = (int[]) it.next();
+		for (Iterator<int[]> it = getEdgeIterator(); it.hasNext();) {
+			int[] edge = it.next();
 			ItemPredicate cause = getFacet(edge[0]);
 			ItemPredicate caused = getFacet(edge[1]);
 			double weight = effectiveWeight(cause, caused);
@@ -885,17 +888,20 @@ public class GraphicalModel extends Distribution {
 		return ""; // suitable for assert messages
 	}
 
-	private Node ensureNode(double[] Rs, Graph graph, Map nodeMap,
-			ItemPredicate facet, PerspectiveObserver redrawer, boolean debug) {
+	private Node<ItemPredicate> ensureNode(double[] Rs,
+			Graph<ItemPredicate> graph,
+			Map<ItemPredicate, Node<ItemPredicate>> nodeMap,
+			ItemPredicate facet, PerspectiveObserver redrawer) {
 		assert graph != null;
 		assert facet != null;
-		Node result = (Node) nodeMap.get(facet);
+		Node<ItemPredicate> result = nodeMap.get(facet);
 		if (result == null) {
 			String label = redrawer == null ? facet.toString() : facet
 					.toString(redrawer);
 			// if (observedDistForNormalization != null)
-			if (debug)
-				label = formatWeight(Rs[facetIndex(facet)]) + " " + label;
+			label = formatWeight(Rs[facetIndex(facet)]) + " " + label;
+			// label = formatWeight(getWeight(facet, facet)) + " " + label;
+
 			// Prefix with space so edge line doesn't merge with any minus sign
 			result = graph.addNode(facet, " " + label);
 			nodeMap.put(facet, result);
@@ -906,15 +912,18 @@ public class GraphicalModel extends Distribution {
 
 	// This is called twice; once for each direction.
 	private void addEdge(double[] Rs, double[][] RnormalizedWeights,
-			Graph graph, Map nodeMap, ItemPredicate cause,
-			ItemPredicate caused, Explanation nullModel,
+			Graph<ItemPredicate> graph,
+			Map<ItemPredicate, Node<ItemPredicate>> nodeMap,
+			ItemPredicate cause, ItemPredicate caused, Explanation nullModel,
 			PerspectiveObserver redrawer, boolean debug) {
 		// Util.print("addRule " + negLiteral + " " + posLiteral);
-		Node posNode = ensureNode(Rs, graph, nodeMap, caused, redrawer, debug);
+		Node<ItemPredicate> posNode = ensureNode(Rs, graph, nodeMap, caused,
+				redrawer);
 		// if (cause != null) {
-		Node negNode = ensureNode(Rs, graph, nodeMap, cause, redrawer, debug);
+		Node<ItemPredicate> negNode = ensureNode(Rs, graph, nodeMap, cause,
+				redrawer);
 		// Util.print("addEdge " + posNode + " " + negNode);
-		Edge edge = graph.getEdge(posNode, negNode);
+		Edge<ItemPredicate> edge = graph.getEdge(posNode, negNode);
 		if (edge == null)
 			edge = graph.addEdge((String) null, posNode, negNode);
 		int causeIndex = facetIndex(cause);
@@ -943,13 +952,14 @@ public class GraphicalModel extends Distribution {
 	 * @param causeds
 	 * @return [[cause1, caused1], ... Does not return biases
 	 */
-	protected static Set allEdges(Collection causes, Collection causeds) {
+	protected static Set<SimpleEdge> allEdges(Collection<ItemPredicate> causes,
+			Collection<ItemPredicate> causeds) {
 		// Util.print("addEdges " + causes+" "+causeds);
-		HashSet result = new HashSet();
-		for (Iterator it1 = causeds.iterator(); it1.hasNext();) {
-			ItemPredicate caused = (ItemPredicate) it1.next();
-			for (Iterator it2 = causes.iterator(); it2.hasNext();) {
-				ItemPredicate cause = (ItemPredicate) it2.next();
+		HashSet<SimpleEdge> result = new HashSet<SimpleEdge>();
+		for (Iterator<ItemPredicate> it1 = causeds.iterator(); it1.hasNext();) {
+			ItemPredicate caused = it1.next();
+			for (Iterator<ItemPredicate> it2 = causes.iterator(); it2.hasNext();) {
+				ItemPredicate cause = it2.next();
 				if (caused != cause) {
 					// assume symmetric and canonicalize so cache lookup will
 					// always work
@@ -967,23 +977,23 @@ public class GraphicalModel extends Distribution {
 		return result;
 	}
 
-	protected int[][] edgesToIndexes(Set edges) {
-		List intEdges = new ArrayList(edges.size());
-		for (Iterator it = edges.iterator(); it.hasNext();) {
-			SimpleEdge edge = (SimpleEdge) it.next();
+	protected int[][] edgesToIndexes(Set<SimpleEdge> edges) {
+		List<int[]> intEdges = new ArrayList<int[]>(edges.size());
+		for (Iterator<SimpleEdge> it = edges.iterator(); it.hasNext();) {
+			SimpleEdge edge = it.next();
 			int[] intEdge = new int[2];
 			intEdge[0] = facetIndex(edge.p1);
 			intEdge[1] = facetIndex(edge.p2);
 			intEdges.add(intEdge);
 		}
-		return (int[][]) intEdges.toArray(new int[0][]);
+		return intEdges.toArray(new int[0][]);
 	}
 
-	protected Set getEdges(boolean includeBiases) {
-		Set result = getEdgesAmong(facets);
+	protected Set<SimpleEdge> getEdges(boolean includeBiases) {
+		Set<SimpleEdge> result = getEdgesAmong(facets);
 		if (includeBiases) {
-			for (Iterator it = facets.iterator(); it.hasNext();) {
-				ItemPredicate p = (ItemPredicate) it.next();
+			for (Iterator<ItemPredicate> it = facets.iterator(); it.hasNext();) {
+				ItemPredicate p = it.next();
 				// result.add(getEdge(p, p));
 				result.add(SimpleEdge.getInstance(p, p));
 			}
@@ -991,11 +1001,11 @@ public class GraphicalModel extends Distribution {
 		return result;
 	}
 
-	private Set getEdgesAmong(List prevfacets) {
+	private Set<SimpleEdge> getEdgesAmong(List<ItemPredicate> prevfacets) {
 		// Util.print("addEdges " + causes+" "+causeds);
-		HashSet result = new HashSet();
-		for (Iterator it = getEdgeIterator(); it.hasNext();) {
-			int[] edge = (int[]) it.next();
+		HashSet<SimpleEdge> result = new HashSet<SimpleEdge>();
+		for (Iterator<int[]> it = getEdgeIterator(); it.hasNext();) {
+			int[] edge = it.next();
 			ItemPredicate cause = getFacet(edge[0]);
 			ItemPredicate caused = getFacet(edge[1]);
 			assert caused != cause;
@@ -1009,6 +1019,7 @@ public class GraphicalModel extends Distribution {
 	}
 
 	static class SimpleEdge {
+		@Override
 		public int hashCode() {
 			final int prime = 31;
 			int result = 1;
@@ -1017,6 +1028,7 @@ public class GraphicalModel extends Distribution {
 			return result;
 		}
 
+		@Override
 		public boolean equals(Object obj) {
 			if (this == obj)
 				return true;
@@ -1060,6 +1072,7 @@ public class GraphicalModel extends Distribution {
 			this.p2 = caused;
 		}
 
+		@Override
 		public String toString() {
 			return "<SimpleEdge " + p1 + ", " + p2 + ">";
 		}
@@ -1080,16 +1093,18 @@ public class GraphicalModel extends Distribution {
 		// return result;
 	}
 
-	protected static Collection getEdgesTo(Collection x, ItemPredicate caused) {
-		Collection result = new ArrayList(x.size());
-		for (Iterator it = x.iterator(); it.hasNext();) {
-			ItemPredicate p = (ItemPredicate) it.next();
+	protected static Collection<SimpleEdge> getEdgesTo(
+			Collection<ItemPredicate> x, ItemPredicate caused) {
+		Collection<SimpleEdge> result = new ArrayList<SimpleEdge>(x.size());
+		for (Iterator<ItemPredicate> it = x.iterator(); it.hasNext();) {
+			ItemPredicate p = it.next();
 			// result.add(getEdge(p, caused));
 			result.add(SimpleEdge.getInstance(p, caused));
 		}
 		return result;
 	}
 
+	@Override
 	public String toString() {
 		StringBuffer buf = new StringBuffer();
 		buf.append("<").append(Util.shortClassName(this)).append(" ").append(

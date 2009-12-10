@@ -36,6 +36,7 @@ import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.util.Set;
 
+import edu.cmu.cs.bungee.client.query.ItemPredicate;
 import edu.cmu.cs.bungee.javaExtensions.Util;
 import edu.cmu.cs.bungee.piccoloUtils.gui.APText;
 import edu.cmu.cs.bungee.piccoloUtils.gui.AbstractMenuItem;
@@ -341,6 +342,7 @@ final class Header extends LazyPNode implements MouseDoc {
 		addChild(colorKey);
 	}
 
+	@Override
 	public void updateBoundary(Boundary boundary1) {
 		// System.out.println("Header.updateBoundary " + (art.fontLineH() /
 		// art.textH * boundary.center()
@@ -355,6 +357,7 @@ final class Header extends LazyPNode implements MouseDoc {
 		}
 	}
 
+	@Override
 	public void enterBoundary(Boundary boundary1) {
 		if (!art.getShowBoundaries()) {
 			boundary1.exit();
@@ -366,11 +369,13 @@ final class Header extends LazyPNode implements MouseDoc {
 				* BUTTON_MARGIN;
 	}
 
+	@Override
 	public double minHeight() {
 		// assert ignore == boundary;
 		return 2 * art.lineH;
 	}
 
+	@Override
 	public double maxHeight() {
 		// assert ignore == boundary;
 		double contentW = 2 * label.getGlobalBounds().getWidth();
@@ -416,6 +421,7 @@ final class Header extends LazyPNode implements MouseDoc {
 			this.url = url;
 		}
 
+		@Override
 		public String doCommand() {
 			String where = url;
 			if (where == "<about collection>")
@@ -431,6 +437,7 @@ final class Header extends LazyPNode implements MouseDoc {
 			super("Beginner Mode", "Disable advanced features");
 		}
 
+		@Override
 		public String doCommand() {
 			art.beginnerMode();
 			return "Beginner Mode";
@@ -443,6 +450,7 @@ final class Header extends LazyPNode implements MouseDoc {
 			super("Expert Mode", "Enable advanced features");
 		}
 
+		@Override
 		public String doCommand() {
 			art.expertMode();
 			return "Expert Mode";
@@ -455,6 +463,7 @@ final class Header extends LazyPNode implements MouseDoc {
 			super("Custom", "Choose features");
 		}
 
+		@Override
 		public String doCommand() {
 			PreferencesDialog.createAndShowGUI(art);
 			return "Custom";
@@ -470,6 +479,7 @@ final class Header extends LazyPNode implements MouseDoc {
 			this.dbName = dbName;
 		}
 
+		@Override
 		public String doCommand() {
 			art.setDatabase(dbName);
 			return getLabel();
@@ -494,7 +504,7 @@ final class Header extends LazyPNode implements MouseDoc {
 		art.setMouseDoc(doc);
 	}
 
-	public void updateSelections(Set facets) {
+	public <V extends ItemPredicate>void updateSelections(Set<V> facets) {
 		// Util.print("Header.updateSelections");
 		summaryText.updateSelections(facets);
 	}
@@ -572,6 +582,7 @@ final class Header extends LazyPNode implements MouseDoc {
 			// setScale(scale);
 		}
 
+		@Override
 		public void doPick() {
 			if (getText().equals(label1))
 				clearQuery();
@@ -613,10 +624,12 @@ final class Header extends LazyPNode implements MouseDoc {
 			}
 		}
 
+		@Override
 		public boolean isEnabled() {
 			return art.query.getOnCount() > 0;
 		}
 
+		@Override
 		public void doPick() {
 			if (art.informedia != null)
 				art.saveVideoSet();
@@ -624,6 +637,7 @@ final class Header extends LazyPNode implements MouseDoc {
 				art.copyBookmark();
 		}
 
+		@Override
 		public void mayHideTransients(PNode node) {
 			art.mayHideTransients();
 		}
@@ -648,14 +662,17 @@ final class Header extends LazyPNode implements MouseDoc {
 			setDisabledMessage("There are no matches to restrict to");
 		}
 
+		@Override
 		public boolean isEnabled() {
 			return art.query.getOnCount() > 0;
 		}
 
+		@Override
 		public void doPick() {
 			art.restrict();
 		}
 
+		@Override
 		public void mayHideTransients(PNode node) {
 			art.mayHideTransients();
 		}

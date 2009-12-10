@@ -74,17 +74,18 @@ public class Editing {
 			this.editMenuPerspective = editMenuPerspective;
 		}
 
+		@Override
 		public String doCommand() {
 			Util.print("doCommand " + editMenuPerspective + " " + this);
 			Perspective connected = summary().connectedPerspective();
 
 			try {
-				Collection updated = doEditCommand(editMenuPerspective);
+				Collection<Perspective> updated = doEditCommand(editMenuPerspective);
 
 				if (updated != null && updated.size() > 0) {
 					// Util.print("Reverting PerspectiveViz's for "
 					// + Util.valueOfDeep(updated));
-					Collection unchanged = new ArrayList(query()
+					Collection<Perspective> unchanged = new ArrayList<Perspective>(query()
 							.displayedPerspectives());
 					unchanged.removeAll(updated);
 
@@ -104,7 +105,7 @@ public class Editing {
 			return null;
 		}
 
-		abstract Collection doEditCommand(Perspective facet);
+		abstract Collection<Perspective> doEditCommand(Perspective facet);
 	}
 
 	private class RotateCommand extends AbstractMenuItem {
@@ -116,6 +117,7 @@ public class Editing {
 			this.args = args1;
 		}
 
+		@Override
 		public String doCommand() {
 			Item item = (Item) args[0];
 			String degrees = (String) args[1];
@@ -131,7 +133,8 @@ public class Editing {
 					+ " (right mouse button)");
 		}
 
-		Collection doEditCommand(Perspective facet) {
+		@Override
+		Collection<Perspective> doEditCommand(Perspective facet) {
 			setSelectedForEdit(facet, 0);
 			return null;
 		}
@@ -168,8 +171,9 @@ public class Editing {
 			this.item = item;
 		}
 
-		Collection doEditCommand(Perspective facet) {
-			Collection updated = query().addItemFacet(facet, item);
+		@Override
+		Collection<Perspective> doEditCommand(Perspective facet) {
+			Collection<Perspective> updated = query().addItemFacet(facet, item);
 			if (item == selectedItemItem()) {
 				art().decacheCurrentItem();
 			}
@@ -182,8 +186,9 @@ public class Editing {
 			super(facet, "Remove " + facet + " from Selected Result");
 		}
 
-		Collection doEditCommand(Perspective facet) {
-			Collection updated = query().removeItemFacet(facet,
+		@Override
+		Collection<Perspective> doEditCommand(Perspective facet) {
+			Collection<Perspective> updated = query().removeItemFacet(facet,
 					selectedItemItem());
 			art().decacheCurrentItem();
 			return updated;
@@ -195,8 +200,9 @@ public class Editing {
 			super(facet, "Add " + facet + " to entire Result Set");
 		}
 
-		Collection doEditCommand(Perspective facet) {
-			Collection updated = query().addItemsFacet(facet);
+		@Override
+		Collection<Perspective> doEditCommand(Perspective facet) {
+			Collection<Perspective> updated = query().addItemsFacet(facet);
 			art().decacheItems();
 			return updated;
 		}
@@ -207,8 +213,9 @@ public class Editing {
 			super(facet, "Remove " + facet + " from entire Result Set");
 		}
 
-		Collection doEditCommand(Perspective facet) {
-			Collection updated = query().removeItemsFacet(facet);
+		@Override
+		Collection<Perspective> doEditCommand(Perspective facet) {
+			Collection<Perspective> updated = query().removeItemsFacet(facet);
 			art().decacheItems();
 			return updated;
 		}
@@ -222,7 +229,8 @@ public class Editing {
 			this.name = name;
 		}
 
-		Collection doEditCommand(Perspective facet) {
+		@Override
+		Collection<Perspective> doEditCommand(Perspective facet) {
 			return query().addChildFacet(facet, name);
 		}
 	}
@@ -232,7 +240,8 @@ public class Editing {
 			super(facet, "Reparent " + selectedForEdit + " to " + facet);
 		}
 
-		Collection doEditCommand(Perspective facet) {
+		@Override
+		Collection<Perspective> doEditCommand(Perspective facet) {
 			return query().reparent(facet, selectedForEdit);
 		}
 	}
@@ -245,7 +254,8 @@ public class Editing {
 			this.name = name;
 		}
 
-		Collection doEditCommand(Perspective facet) {
+		@Override
+		Collection<Perspective> doEditCommand(Perspective facet) {
 			String newName = name;
 			query().rename(facet, newName);
 			facet.setName(newName);
@@ -262,7 +272,8 @@ public class Editing {
 			this.name = name;
 		}
 
-		Collection doEditCommand(Perspective facet) {
+		@Override
+		Collection<Perspective> doEditCommand(Perspective facet) {
 			return query().addChildFacet(null, name);
 		}
 	}
@@ -272,6 +283,7 @@ public class Editing {
 			super("Save changes and exit");
 		}
 
+		@Override
 		public String doCommand() {
 			art().printUserAction(Bungee.WRITEBACK, 0, 0);
 			query().writeback();
@@ -301,6 +313,7 @@ public class Editing {
 			this.date = date;
 		}
 
+		@Override
 		public String doCommand() {
 			try {
 				DateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");

@@ -110,6 +110,7 @@ final class ServletInterface {
 			return _maxIndex;
 		}
 
+		@Override
 		public String toString() {
 			StringBuffer buf = new StringBuffer();
 			buf.append("<ItemInfo");
@@ -323,7 +324,7 @@ final class ServletInterface {
 	// return result;
 	// }
 
-	ResultSet getResultSet(String command, String[] args, List columnTypes) {
+	ResultSet getResultSet(String command, String[] args, List<Object> columnTypes) {
 		DataInputStream in = getStream(command, args);
 		ResultSet result = new MyResultSet(in, columnTypes);
 		closeNcatch(in, command, args);
@@ -380,14 +381,14 @@ final class ServletInterface {
 	// }
 
 	// INT, BOOLEAN
-	ResultSet getResultSet(String command, List columnTypes, int arg1,
+	ResultSet getResultSet(String command, List<Object> columnTypes, int arg1,
 			boolean arg2) {
 		String[] args = { Integer.toString(arg1), Boolean.toString(arg2) };
 		return getResultSet(command, args, columnTypes);
 	}
 
 	// INT, BOOLEAN, BOOLEAN
-	ResultSet getResultSet(String command, List columnTypes, int arg1,
+	ResultSet getResultSet(String command, List<Object> columnTypes, int arg1,
 			boolean arg2, boolean arg3) {
 		String[] args = { Integer.toString(arg1), Boolean.toString(arg2),
 				Boolean.toString(arg3) };
@@ -395,19 +396,19 @@ final class ServletInterface {
 	}
 
 	// INT
-	ResultSet getResultSet(String command, List columnTypes, int arg1) {
+	ResultSet getResultSet(String command, List<Object> columnTypes, int arg1) {
 		String[] args = { Integer.toString(arg1) };
 		return getResultSet(command, args, columnTypes);
 	}
 
 	// INT, INT
-	ResultSet getResultSet(String command, List columnTypes, int arg1, int arg2) {
+	ResultSet getResultSet(String command, List<Object> columnTypes, int arg1, int arg2) {
 		String[] args = { Integer.toString(arg1), Integer.toString(arg2) };
 		return getResultSet(command, args, columnTypes);
 	}
 
 	// INT, INT, INT
-	ResultSet getResultSet(String command, List columnTypes, int arg1,
+	ResultSet getResultSet(String command, List<Object> columnTypes, int arg1,
 			int arg2, int arg3) {
 		String[] args = { Integer.toString(arg1), Integer.toString(arg2),
 				Integer.toString(arg3) };
@@ -422,14 +423,14 @@ final class ServletInterface {
 	// }
 
 	// STRING, INT
-	ResultSet getResultSet(String command, List columnTypes, String arg1,
+	ResultSet getResultSet(String command, List<Object> columnTypes, String arg1,
 			int arg2) {
 		String[] args = { arg1, Integer.toString(arg2) };
 		return getResultSet(command, args, columnTypes);
 	}
 
 	// STRING, INT, INT, INT
-	ResultSet getResultSet(String command, List columnTypes, String arg1,
+	ResultSet getResultSet(String command, List<Object> columnTypes, String arg1,
 			int arg2, int arg3, int arg4) {
 		String[] args = { arg1, Integer.toString(arg2), Integer.toString(arg3),
 				Integer.toString(arg4) };
@@ -437,7 +438,7 @@ final class ServletInterface {
 	}
 
 	// STRING, STRING
-	ResultSet getResultSet(String command, List columnTypes, String arg1,
+	ResultSet getResultSet(String command, List<Object> columnTypes, String arg1,
 			String arg2) {
 		String[] args = { arg1, arg2 };
 		return getResultSet(command, args, columnTypes);
@@ -544,7 +545,7 @@ final class ServletInterface {
 				Integer.toString(imageH), Integer.toString(quality) };
 		DataInputStream in = getStream("getThumbs", args);
 		ResultSet[] result = new ResultSet[2];
-		result[0] = new MyResultSet(in, MyResultSet.SINT_IMAGE_INT_INT);
+		result[0] = new MyResultSet(in, MyResultSet.SINT_STRING_IMAGE_INT_INT);
 		result[1] = new MyResultSet(in, MyResultSet.SNMINT_PINT);
 		closeNcatch(in, "getThumbs", args);
 		return result;
@@ -567,8 +568,8 @@ final class ServletInterface {
 		return result;
 	}
 
-	ResultSet getFacetInfo(int facet) {
-		String[] args = { Integer.toString(facet) };
+	ResultSet getFacetInfo(int facet, boolean isRestrictedData) {
+		String[] args = { Integer.toString(facet), asBoolean(isRestrictedData) };
 		DataInputStream in = getStream("getFacetInfo", args);
 		ResultSet result = new MyResultSet(in,
 				MyResultSet.PINT_SINT_STRING_INT_INT_INT);
@@ -806,9 +807,10 @@ final class ServletInterface {
 	}
 
 	public ResultSet[] onCountMatrix(String facetsOfInterest,
-			String candidates, int table, boolean needBaseCounts) {
+			String candidates, boolean isRestrictedData, boolean needBaseCounts) {
+//		Util.print("onCountMatrix " + isRestrictedData);
 		String[] args = { facetsOfInterest, candidates,
-				Integer.toString(table), needBaseCounts ? "1" : "0" };
+				asBoolean(isRestrictedData), asBoolean(needBaseCounts) };
 
 		DataInputStream in = getStream("onCountMatrix", args);
 		boolean needCandidateCounts = candidates.length() > 0;
@@ -823,6 +825,10 @@ final class ServletInterface {
 						};
 		closeNcatch(in, "onCountMatrix", args);
 		return result;
+	}
+
+	private String asBoolean(boolean value) {
+		return value ? "1" : "0";
 	}
 
 	ResultSet topMutInf(String facetIDs, int baseTable, int maxCandidates) {
